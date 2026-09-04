@@ -178,6 +178,115 @@ function malwatch_action_summary($wb, $row)
 	return implode(', ', $parts);
 }
 
+/**
+ * Splits a file path into the part worth reading and the part that is only
+ * noise.
+ *
+ * Every path on the server starts with the same twenty characters of
+ * /var/www/clients/clientN/webN/. Printing that in front of each of forty
+ * findings hides the one thing the reader is looking for, which is the file
+ * name. The base is cut off, the directory is kept for orientation and the
+ * file name is returned on its own so the template can lift it out.
+ *
+ * Returns an array with 'dir', 'file' and 'full'.
+ */
+function malwatch_split_path($full, $base = '')
+{
+	$full = (string) $full;
+	$rest = $full;
+
+	$base = rtrim((string) $base, '/');
+	if ($base !== '' && strpos($full, $base . '/') === 0) {
+		$rest = substr($full, strlen($base) + 1);
+	}
+
+	$slash = strrpos($rest, '/');
+	if ($slash === false) {
+		return array('dir' => '', 'file' => $rest, 'full' => $full);
+	}
+
+	return array(
+		'dir' => substr($rest, 0, $slash + 1),
+		'file' => substr($rest, $slash + 1),
+		'full' => $full,
+	);
+}
+
+/**
+ * Groups findings by file.
+ *
+ * One infected file often trips several rules. Listed one row per rule the
+ * same path appears four times and the number of affected files is no longer
+ * readable at all - which is the first thing anyone wants to know.
+ */
+function malwatch_group_findings($app, $rows, $wb, $base = '')
+{
+	$groups = array();
+
+	foreach ($rows as $row) {
+		$key = (string) $row['file_path'];
+		if (!isset($groups[$key])) {
+			$parts = malwatch_split_path($key, $base);
+			$groups[$key] = array(
+				'dir' => $app->functions->htmlentities($parts['dir']),
+				'file' => $app->functions->htmlentities($parts['file']),
+				'full_path' => $app->functions->htmlentities($parts['full']),
+				'has_dir' => $parts['dir'] !== '' ? 1 : 0,
+				'severity' => '',
+				'severity_label' => '',
+				'severity_class' => '',
+				'first_seen' => $app->functions->htmlentities(malwatch_datetime($row['first_seen'])),
+				'is_ignored' => 1,
+				'hits' => array(),
+				'hit_count' => 0,
+			);
+		}
+
+		// The block carries the worst severity of its file, so sorting and
+		// colouring follow the file rather than whichever rule came first.
+		if (malwatch_severity_rank($row['severity']) > malwatch_severity_rank($groups[$key]['severity'])) {
+			$groups[$key]['severity'] = (string) $row['severity'];
+			$groups[$key]['severity_label'] = $app->functions->htmlentities(malwatch_severity_label($wb, $row['severity']));
+			$groups[$key]['severity_class'] = malwatch_severity_class($row['severity']);
+		}
+		// A file counts as released only when every one of its findings is.
+		if ($row['finding_state'] !== 'ignored') {
+			$groups[$key]['is_ignored'] = 0;
+		}
+
+		$groups[$key]['hits'][] = array(
+			'finding_id' => $app->functions->intval($row['finding_id']),
+			'rule_id' => $app->functions->htmlentities($row['rule_id']),
+			'engine' => $app->functions->htmlentities($row['engine']),
+			'line_number' => $app->functions->intval($row['line_number']),
+			'has_line' => $app->functions->intval($row['line_number']) > 0 ? 1 : 0,
+			'excerpt' => $app->functions->htmlentities($row['excerpt']),
+			'severity_label' => $app->functions->htmlentities(malwatch_severity_label($wb, $row['severity'])),
+			'severity_class' => malwatch_severity_class($row['severity']),
+			'is_ignored' => $row['finding_state'] === 'ignored' ? 1 : 0,
+		);
+		$groups[$key]['hit_count'] = count($groups[$key]['hits']);
+	}
+
+	// Worst first, then by path, so the same scan always reads the same way.
+	uasort($groups, function ($a, $b) {
+		$diff = malwatch_severity_rank($b['severity']) - malwatch_severity_rank($a['severity']);
+		if ($diff !== 0) {
+			return $diff;
+		}
+		return strcmp($a['full_path'], $b['full_path']);
+	});
+
+	return array_values($groups);
+}
+
+/** Numeric weight of a severity, 0 for an unknown value. */
+function malwatch_severity_rank($severity)
+{
+	$rank = array_search((string) $severity, malwatch_severities(), true);
+	return $rank === false ? 0 : $rank + 1;
+}
+
 /** Formats a database timestamp, or a dash when there is none. */
 function malwatch_datetime($value)
 {

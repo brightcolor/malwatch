@@ -37,11 +37,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 			$error = $result;
 		}
 	} elseif ($action === 'ignore' || $action === 'reopen') {
-		$finding_id = $app->functions->intval($_POST['finding_id']);
+		// The button releases a whole file, not a single rule hit. One file
+		// usually trips several rules, and releasing them one at a time would
+		// leave the same path in the list looking half handled.
+		$path = isset($_POST['finding_path']) ? (string) $_POST['finding_path'] : '';
 		$state = $action === 'ignore' ? 'ignored' : 'open';
-		$app->db->query('UPDATE malwatch_finding SET finding_state = ? WHERE finding_id = ? AND parent_domain_id = ?',
-			$state, $finding_id, $domain_id);
-		$message = $action === 'ignore' ? 'Der Fund wurde freigegeben.' : 'Der Fund wurde wieder geöffnet.';
+		if ($path === '') {
+			$error = 'Es wurde keine Datei ausgewählt.';
+		} else {
+			$app->db->query(
+				'UPDATE malwatch_finding SET finding_state = ? WHERE parent_domain_id = ? AND file_path = ? '
+				. "AND finding_state IN ('open','ignored')",
+				$state, $domain_id, $path);
+			$message = $action === 'ignore'
+				? 'Die Datei wurde freigegeben.'
+				: 'Die Datei wird wieder gemeldet.';
+		}
 	} elseif ($action === 'enable_site') {
 		if ($web['active'] === 'n') {
 			// Re-enabling goes through the datalog, so the web server config
@@ -101,27 +112,24 @@ $findings = $app->db->queryAllRecords(
 	. 'ORDER BY FIELD(finding_state, ?, ?), FIELD(severity, ?, ?, ?, ?) DESC, file_path ASC LIMIT 500',
 	$domain_id, 'open', 'ignored', 'low', 'medium', 'high', 'critical');
 
-$finding_rows = array();
-if (is_array($findings)) {
-	foreach ($findings as $row) {
-		$finding_rows[] = array(
-			'finding_id' => $app->functions->intval($row['finding_id']),
-			'file_path' => $app->functions->htmlentities($row['file_path']),
-			'line_number' => $app->functions->intval($row['line_number']),
-			'has_line' => $app->functions->intval($row['line_number']) > 0 ? 1 : 0,
-			'rule_id' => $app->functions->htmlentities($row['rule_id']),
-			'severity' => $app->functions->htmlentities($row['severity']),
-			'severity_label' => $app->functions->htmlentities(malwatch_severity_label($wb, $row['severity'])),
-			'severity_class' => malwatch_severity_class($row['severity']),
-			'engine' => $app->functions->htmlentities($row['engine']),
-			'excerpt' => $app->functions->htmlentities($row['excerpt']),
-			'first_seen' => $app->functions->htmlentities(malwatch_datetime($row['first_seen'])),
-			'is_ignored' => $row['finding_state'] === 'ignored' ? 1 : 0,
-		);
+// Paths are shown relative to the scanned directory. The absolute path is on
+// the row as a tooltip for anyone who needs to copy it.
+$base = malwatch_scan_path($web);
+$finding_rows = is_array($findings) ? malwatch_group_findings($app, $findings, $wb, $base) : array();
+
+$open_files = 0;
+foreach ($finding_rows as $group) {
+	if (!$group['is_ignored']) {
+		$open_files++;
 	}
 }
+
 $app->tpl->setLoop('findings', $finding_rows);
 $app->tpl->setVar('has_findings', count($finding_rows) > 0);
+$app->tpl->setVar('finding_files', count($finding_rows));
+$app->tpl->setVar('finding_open_files', $open_files);
+$app->tpl->setVar('finding_count', is_array($findings) ? count($findings) : 0);
+$app->tpl->setVar('scan_base', $app->functions->htmlentities($base));
 
 // --- Software --------------------------------------------------------------
 $software = $app->db->queryAllRecords(

@@ -96,3 +96,7 @@ $wb['trigger_txt'] = 'Trigger';
 $wb['detail_txt'] = 'Note';
 
 $wb['btn_back_txt'] = 'Back';
+$wb['affected_files_txt'] = 'affected file(s)';
+$wb['hits_total_txt'] = 'hits in total';
+$wb['relative_to_txt'] = 'paths relative to';
+$wb['line_txt'] = 'line';

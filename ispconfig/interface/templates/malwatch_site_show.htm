@@ -42,7 +42,7 @@
 	<input type="hidden" name="_csrf_id" value="{tmpl_var name='csrf_id'}" />
 	<input type="hidden" name="_csrf_key" value="{tmpl_var name='csrf_key'}" />
 	<input type="hidden" name="id" value="{tmpl_var name='domain_id'}" />
-	<input type="hidden" name="finding_id" id="malwatch_finding_id" value="" />
+	<input type="hidden" name="finding_path" id="malwatch_finding_id" value="" />
 
 	<div class="marginTop15 marginBottom15">
 		<button class="btn btn-default formbutton-default" type="submit" name="malwatch_action" value="scan">{tmpl_var name='scan_now_txt'}</button>
@@ -54,43 +54,61 @@
 	</div>
 
 	<p class="fieldset-legend">{tmpl_var name='findings_txt'}</p>
+	<tmpl_if name="has_findings">
+	<p>
+		<strong>{tmpl_var name='finding_open_files'}</strong> {tmpl_var name='affected_files_txt'},
+		{tmpl_var name='finding_count'} {tmpl_var name='hits_total_txt'}.
+		<small>{tmpl_var name='relative_to_txt'} <code>{tmpl_var name='scan_base'}</code></small>
+	</p>
+	</tmpl_if>
+
 	<div class="table-wrapper marginTop15">
 	<table class="table">
 		<thead class="dark">
 			<tr>
-				<th>{tmpl_var name='severity_txt'}</th>
-				<th>{tmpl_var name='rule_txt'}</th>
+				<th style="width:9em">{tmpl_var name='severity_txt'}</th>
 				<th>{tmpl_var name='file_txt'}</th>
-				<th>{tmpl_var name='first_seen_txt'}</th>
-				<th class="text-right">&nbsp;</th>
+				<th style="width:11em">{tmpl_var name='first_seen_txt'}</th>
+				<th class="text-right" style="width:9em">&nbsp;</th>
 			</tr>
 		</thead>
 		<tbody>
 			<tmpl_loop name="findings">
 			<tr>
-				<td><span class="label {tmpl_var name='severity_class'}">{tmpl_var name='severity_label'}</span></td>
 				<td>
-					{tmpl_var name='rule_id'}<br /><small>{tmpl_var name='engine'}</small>
-				</td>
-				<td>
-					<code>{tmpl_var name='file_path'}</code><tmpl_if name="has_line"> : {tmpl_var name='line_number'}</tmpl_if>
-					<tmpl_if name="excerpt"><br /><small><code>{tmpl_var name='excerpt'}</code></small></tmpl_if>
+					<span class="label {tmpl_var name='severity_class'}">{tmpl_var name='severity_label'}</span>
 					<tmpl_if name="is_ignored"><br /><span class="label label-default">{tmpl_var name='state_ignored_txt'}</span></tmpl_if>
+				</td>
+				<td style="word-break:break-all">
+					<span title="{tmpl_var name='full_path'}">
+						<tmpl_if name="has_dir"><small class="text-muted">{tmpl_var name='dir'}</small></tmpl_if><strong>{tmpl_var name='file'}</strong>
+					</span>
+					<div class="marginTop15">
+						<tmpl_loop name="hits">
+						<div style="margin-bottom:6px">
+							<span class="label {tmpl_var name='severity_class'}">{tmpl_var name='severity_label'}</span>
+							<code>{tmpl_var name='rule_id'}</code>
+							<tmpl_if name="has_line"><small>{tmpl_var name='line_txt'} {tmpl_var name='line_number'}</small></tmpl_if>
+							<small class="text-muted">{tmpl_var name='engine'}</small>
+							<tmpl_if name="excerpt"><br /><small><code>{tmpl_var name='excerpt'}</code></small></tmpl_if>
+						</div>
+						</tmpl_loop>
+					</div>
 				</td>
 				<td>{tmpl_var name='first_seen'}</td>
 				<td class="text-right">
 					<tmpl_if name="is_ignored">
 					<button class="btn btn-default formbutton-default formbutton-narrow" type="submit" name="malwatch_action" value="reopen"
-						onclick="document.getElementById('malwatch_finding_id').value='{tmpl_var name='finding_id'}';">{tmpl_var name='reopen_txt'}</button>
+						onclick="document.getElementById('malwatch_finding_id').value='{tmpl_var name='full_path'}';">{tmpl_var name='reopen_txt'}</button>
 					<tmpl_else>
 					<button class="btn btn-default formbutton-default formbutton-narrow" type="submit" name="malwatch_action" value="ignore"
-						onclick="document.getElementById('malwatch_finding_id').value='{tmpl_var name='finding_id'}';">{tmpl_var name='ignore_txt'}</button>
+						onclick="document.getElementById('malwatch_finding_id').value='{tmpl_var name='full_path'}';">{tmpl_var name='ignore_txt'}</button>
 					</tmpl_if>
 				</td>
 			</tr>
 			</tmpl_loop>
 			<tmpl_unless name="has_findings">
-			<tr><td colspan="5">{tmpl_var name='no_findings_txt'}</td></tr>
+			<tr><td colspan="4">{tmpl_var name='no_findings_txt'}</td></tr>
 			</tmpl_unless>
 		</tbody>
 	</table>

@@ -11,3 +11,4 @@ $wb['file_path_txt'] = 'Datei';
 $wb['last_seen_txt'] = 'Zuletzt gesehen';
 $wb['open_txt'] = 'Öffnen';
 $wb['filter_txt'] = 'Filtern';
+$wb['line_number_txt'] = 'Zeile';

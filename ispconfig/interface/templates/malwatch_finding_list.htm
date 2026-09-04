@@ -34,10 +34,12 @@
 		<tmpl_loop name="records">
 		<tr>
 			<td>{tmpl_var name="finding_state"}</td>
-			<td>{tmpl_var name="severity"}</td>
+			<td><span class="label {tmpl_var name='severity_class'}">{tmpl_var name="severity"}</span></td>
 			<td><a href="#" data-load-content="sites/malwatch_site_show.php?id={tmpl_var name='parent_domain_id'}">{tmpl_var name="domain"}</a></td>
-			<td>{tmpl_var name="rule_id"}</td>
-			<td><small><code>{tmpl_var name="file_path"}</code></small></td>
+			<td><code>{tmpl_var name="rule_id"}</code></td>
+			<td style="word-break:break-all" title="{tmpl_var name='full_path'}">
+				<tmpl_if name="has_dir"><small class="text-muted">{tmpl_var name="dir"}</small></tmpl_if><strong>{tmpl_var name="file"}</strong><tmpl_if name="has_line"><small class="text-muted"> : {tmpl_var name="line_number"}</small></tmpl_if>
+			</td>
 			<td>{tmpl_var name="last_seen"}</td>
 			<td class="text-right">
 				<div class="buttons icons16">

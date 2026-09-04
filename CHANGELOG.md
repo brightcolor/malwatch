@@ -2,6 +2,19 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.2.0] – 2026-09-04
+
+### Geändert
+
+- Funde werden je Datei gruppiert statt je Regel. Eine befallene Datei löst
+  oft mehrere Regeln aus und stand bisher mehrfach in der Liste.
+- Pfade werden relativ zum geprüften Verzeichnis gezeigt, der Dateiname
+  hervorgehoben, der Ordner gedämpft. Der vollständige Pfad steht als
+  Tooltip an der Zeile. Lange Pfade brechen um statt aus der Spalte zu
+  laufen.
+- Über der Fundliste steht, wie viele Dateien betroffen sind.
+- Freigeben und Wiederöffnen gelten für die ganze Datei.
+
 ## [0.1.3] – 2026-09-04
 
 ### Behoben
