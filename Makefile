@@ -25,7 +25,7 @@ dist:
 	done
 
 pkg:
-	cd ispconfig && ./build_package.sh
+	cd ispconfig && sh ./build_package.sh
 
 checksums: dist pkg
 	cp ispconfig/malwatch.pkg dist/ 2>/dev/null || true
