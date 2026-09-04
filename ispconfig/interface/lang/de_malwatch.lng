@@ -96,3 +96,7 @@ $wb['trigger_txt'] = 'Auslöser';
 $wb['detail_txt'] = 'Hinweis';
 
 $wb['btn_back_txt'] = 'Zurück';
+$wb['affected_files_txt'] = 'betroffene Datei(en)';
+$wb['hits_total_txt'] = 'Treffer insgesamt';
+$wb['relative_to_txt'] = 'Pfade relativ zu';
+$wb['line_txt'] = 'Zeile';
