@@ -105,7 +105,15 @@ func TestUnsafeSlugAndVersionAreRejected(t *testing.T) {
 	if _, err := f.WordPressPlugin("akismet", "../1.0"); err == nil {
 		t.Error("a version with a path traversal was accepted")
 	}
-	if _, err := f.WordPressCore("1.0/../../x"); err == nil {
+	if _, err := f.WordPressCore("1.0/../../x", "en_US"); err == nil {
 		t.Error("a core version with a path traversal was accepted")
+	}
+	// A locale is sanitised rather than refused: it falls back to en_US, so a
+	// nonsense value costs the comparison nothing and never reaches the URL.
+	if safeSlug("../../etc") {
+		t.Error("a locale with a path traversal passed the check")
+	}
+	if !safeSlug("de_DE") {
+		t.Error("an ordinary locale was refused")
 	}
 }

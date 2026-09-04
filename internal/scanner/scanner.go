@@ -459,8 +459,12 @@ func loadChecksums(known *knownfiles.Index, fetcher *knownfiles.Fetcher, inst cm
 	}
 	switch inst.Kind {
 	case "core":
-		if files, err := fetcher.WordPressCore(inst.Version); err == nil {
-			known.AddInstall(inst.Path, "WordPress "+inst.Version, files)
+		if files, err := fetcher.WordPressCore(inst.Version, inst.Locale); err == nil {
+			label := "WordPress " + inst.Version
+			if inst.Locale != "" {
+				label += " " + inst.Locale
+			}
+			known.AddInstall(inst.Path, label, files)
 		}
 	case "plugin":
 		if files, err := fetcher.WordPressPlugin(inst.Slug, inst.Version); err == nil {

@@ -18,6 +18,10 @@ type Install struct {
 	Kind    string // core, plugin, theme
 	Slug    string // for plugins and themes
 	Version string
+	// Locale is the localised build a WordPress install came from, empty for
+	// the international one. A German build ships different files, and
+	// comparing it against the en_US checksums reports them as modified.
+	Locale string
 }
 
 // marker describes how to recognise a product: a file that must exist below
@@ -176,7 +180,11 @@ func detectDir(dir string) (Install, bool) {
 		if v == "" {
 			continue
 		}
-		return Install{Path: dir, Product: m.product, Kind: "core", Version: v}, true
+		inst := Install{Path: dir, Product: m.product, Kind: "core", Version: v}
+		if m.product == "wordpress" {
+			inst.Locale = wordpressLocale(content)
+		}
+		return inst, true
 	}
 	if inst, ok := detectComposer(dir); ok {
 		return inst, true
