@@ -39,3 +39,22 @@ func TestCoreOnlyKeepsAPathThatOnlyLooksLikeContent(t *testing.T) {
 		t.Fatal("a path that merely resembles wp-content was dropped")
 	}
 }
+
+func TestCoreOnlyDropsTheSampleConfig(t *testing.T) {
+	// wordpress.org publishes the English checksum of wp-config-sample.php for
+	// every locale, while the localised archives ship a translated file. The
+	// entry can therefore never match on a German install and would report a
+	// file that WordPress does not load at all.
+	in := map[string]string{
+		"wp-config-sample.php": "a",
+		"wp-login.php":         "b",
+	}
+	out := coreOnly(in)
+
+	if _, ok := out["wp-config-sample.php"]; ok {
+		t.Error("wp-config-sample.php was kept; its checksum is not published per locale")
+	}
+	if _, ok := out["wp-login.php"]; !ok {
+		t.Error("wp-login.php was dropped but belongs to the core")
+	}
+}

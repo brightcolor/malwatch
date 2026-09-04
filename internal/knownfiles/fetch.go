@@ -78,17 +78,24 @@ func (f *Fetcher) WordPressCore(version, locale string) (map[string]string, erro
 	return coreOnly(lowerValues(payload.Checksums)), nil
 }
 
-// coreOnly drops everything below wp-content.
+// coreOnly drops the entries that cannot be compared in a meaningful way.
 //
-// The core checksum list covers the bundled themes, which WordPress updates
-// on their own schedule. A site whose Twenty Twenty theme is newer than its
-// core then reports every one of that theme's files as a modified core file -
-// fifty findings on one site, none of them real. What remains is wp-admin,
-// wp-includes and the root files, which is what wp-cli verifies too.
+// Everything below wp-content, because the core checksum list covers the
+// bundled themes, which WordPress updates on their own schedule. A site whose
+// Twenty Twenty theme is newer than its core then reports every one of that
+// theme's files as a modified core file - fifty findings on one site, none of
+// them real. What remains is wp-admin, wp-includes and the root files, which
+// is what wp-cli verifies too.
+//
+// And wp-config-sample.php, because the API answers with the English checksum
+// of that file for every locale, while the localised archives ship a
+// translated one. On a German install the entry can never match. WordPress
+// never loads the file - the installer reads it as a text template - so
+// nothing is given up. Signatures and rules still read it like any other file.
 func coreOnly(files map[string]string) map[string]string {
 	out := make(map[string]string, len(files))
 	for path, sum := range files {
-		if strings.HasPrefix(path, "wp-content/") {
+		if strings.HasPrefix(path, "wp-content/") || path == "wp-config-sample.php" {
 			continue
 		}
 		out[path] = sum

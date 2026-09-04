@@ -23,7 +23,13 @@ nur Uploads liegen dürfen. ClamAV zusätzlich, wenn es installiert ist.
 
 **Veränderte Herstellerdateien.** Für WordPress werden Kern und Plugins gegen
 die offiziellen Prüfsummen verglichen. Eine unveränderte Originaldatei erzeugt
-keinen Fehlalarm, eine veränderte einen eigenen Befund.
+keinen Fehlalarm, eine veränderte einen eigenen Befund. Verglichen wird, was
+die Herstellerliste tragfähig abdeckt: `wp-admin`, `wp-includes` und die
+Dateien in der Wurzel. Ausgenommen bleiben die mitgelieferten Themes unter
+`wp-content`, die eigenen Aktualisierungen folgen, und `wp-config-sample.php`,
+für die wordpress.org in jeder Sprache nur die englische Prüfsumme
+veröffentlicht. Beide Ausnahmen gelten nur für diesen Vergleich; Signaturen
+und Heuristik lesen die Dateien weiter.
 
 **Veraltete Installationen** von WordPress samt Plugins und Themes, Joomla,
 Drupal, TYPO3, Contao, Nextcloud, phpMyAdmin, Matomo, MediaWiki, Shopware und

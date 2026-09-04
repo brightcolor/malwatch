@@ -215,8 +215,8 @@ $app->tpl->setVar('message', $app->functions->htmlentities($message));
 $app->tpl->setVar('error', $app->functions->htmlentities($error));
 
 $csrf = $app->auth->csrf_token_get('malwatch_site_show');
-$app->tpl->setVar('csrf_id', $csrf['csrf_id']);
-$app->tpl->setVar('csrf_key', $csrf['csrf_key']);
+$app->tpl->setVar('_csrf_id', $csrf['csrf_id']);
+$app->tpl->setVar('_csrf_key', $csrf['csrf_key']);
 
 $app->tpl_defaults();
 $app->tpl->pparse();

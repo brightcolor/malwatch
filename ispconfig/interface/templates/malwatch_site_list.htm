@@ -29,67 +29,69 @@
 	nothing at all inside the panel, which is why the first scan click
 	produced no request. The action travels in a hidden field, because the
 	serialised form does not carry the clicked button's own value.
+
+	No form of our own either: the panel wraps the whole content area in one
+	called pageForm. A second form of that name inside it owns these fields,
+	while the panel serialises the outer one and posts an empty request -
+	answered with "CSRF attempt blocked". The token is appended after this
+	template by form.tpl.htm, from the variables the page sets.
 -->
-<form action="sites/malwatch_site_list.php" method="post" id="pageForm">
-	<input type="hidden" name="_csrf_id" value="{tmpl_var name='csrf_id'}" />
-	<input type="hidden" name="_csrf_key" value="{tmpl_var name='csrf_key'}" />
-	<input type="hidden" name="domain_id" id="malwatch_domain_id" value="" />
-	<input type="hidden" name="malwatch_action" id="malwatch_action" value="" />
+<input type="hidden" name="domain_id" id="malwatch_domain_id" value="" />
+<input type="hidden" name="malwatch_action" id="malwatch_action" value="" />
 
-	<p class="fieldset-legend">{tmpl_var name='toolsarea_head_txt'}</p>
-	<button class="btn btn-default formbutton-default" type="button"
-		onclick="if(!confirm('{tmpl_var name='confirm_scan_all_txt'}')){event.stopPropagation();return false;} document.getElementById('malwatch_action').value='scan_all';"
-		data-submit-form="pageForm" data-form-action="sites/malwatch_site_list.php">{tmpl_var name='scan_all_txt'}</button>
+<p class="fieldset-legend">{tmpl_var name='toolsarea_head_txt'}</p>
+<button class="btn btn-default formbutton-default" type="button"
+	onclick="if(!confirm('{tmpl_var name='confirm_scan_all_txt'}')){event.stopPropagation();return false;} document.getElementById('malwatch_action').value='scan_all';"
+	data-submit-form="pageForm" data-form-action="sites/malwatch_site_list.php">{tmpl_var name='scan_all_txt'}</button>
 
-	<p class="fieldset-legend marginTop15">{tmpl_var name='list_head_txt'}</p>
-	<div class="table-wrapper marginTop15">
-	<table class="table">
-		<thead class="dark form-group-sm">
-			<tr>
-				<th data-column="domain">{tmpl_var name='domain_txt'}</th>
-				<th data-column="state">{tmpl_var name='state_txt'}</th>
-				<th data-column="open_findings">{tmpl_var name='open_findings_txt'}</th>
-				<th data-column="schedule">{tmpl_var name='schedule_txt'}</th>
-				<th data-column="last_run">{tmpl_var name='last_run_txt'}</th>
-				<th data-column="next_run">{tmpl_var name='next_run_txt'}</th>
-				<th data-column="actions">{tmpl_var name='actions_txt'}</th>
-				<th class="text-right">&nbsp;</th>
-			</tr>
-		</thead>
-		<tbody>
-			<tmpl_loop name="records">
-			<tr>
-				<td>
-					<a href="#" data-load-content="sites/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name="domain"}</a>
-					<tmpl_unless name="site_active"><span class="label label-default">{tmpl_var name='site_inactive_txt'}</span></tmpl_unless>
-				</td>
-				<td>
-					<span class="label {tmpl_var name='state_class'}">{tmpl_var name="state_label"}</span>
-					<tmpl_if name="busy"><span class="label label-info">{tmpl_var name='busy_txt'}</span></tmpl_if>
-				</td>
-				<td>
-					{tmpl_var name="open_findings"}
-					<tmpl_if name="worst_severity"><small>({tmpl_var name="worst_label"})</small></tmpl_if>
-				</td>
-				<td>{tmpl_var name="schedule"}</td>
-				<td>{tmpl_var name="last_run"}</td>
-				<td>{tmpl_var name="next_run"}</td>
-				<td><small>{tmpl_var name="actions"}</small></td>
-				<td class="text-right">
-					<div class="buttons icons16">
-						<button class="btn btn-default formbutton-default formbutton-narrow" type="button"
-							onclick="document.getElementById('malwatch_action').value='scan_one';document.getElementById('malwatch_domain_id').value='{tmpl_var name='domain_id'}';"
-							data-submit-form="pageForm" data-form-action="sites/malwatch_site_list.php">{tmpl_var name='scan_now_txt'}</button>
-						<a class="btn btn-default formbutton-default formbutton-narrow" href="#"
-							data-load-content="sites/malwatch_site_edit.php?domain_id={tmpl_var name='domain_id'}">{tmpl_var name='settings_txt'}</a>
-					</div>
-				</td>
-			</tr>
-			</tmpl_loop>
-			<tmpl_unless name="has_records">
-			<tr><td colspan="8">{tmpl_var name='no_records_txt'}</td></tr>
-			</tmpl_unless>
-		</tbody>
-	</table>
-	</div>
-</form>
+<p class="fieldset-legend marginTop15">{tmpl_var name='list_head_txt'}</p>
+<div class="table-wrapper marginTop15">
+<table class="table">
+	<thead class="dark form-group-sm">
+		<tr>
+			<th data-column="domain">{tmpl_var name='domain_txt'}</th>
+			<th data-column="state">{tmpl_var name='state_txt'}</th>
+			<th data-column="open_findings">{tmpl_var name='open_findings_txt'}</th>
+			<th data-column="schedule">{tmpl_var name='schedule_txt'}</th>
+			<th data-column="last_run">{tmpl_var name='last_run_txt'}</th>
+			<th data-column="next_run">{tmpl_var name='next_run_txt'}</th>
+			<th data-column="actions">{tmpl_var name='actions_txt'}</th>
+			<th class="text-right">&nbsp;</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tmpl_loop name="records">
+		<tr>
+			<td>
+				<a href="#" data-load-content="sites/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name="domain"}</a>
+				<tmpl_unless name="site_active"><span class="label label-default">{tmpl_var name='site_inactive_txt'}</span></tmpl_unless>
+			</td>
+			<td>
+				<span class="label {tmpl_var name='state_class'}">{tmpl_var name="state_label"}</span>
+				<tmpl_if name="busy"><span class="label label-info">{tmpl_var name='busy_txt'}</span></tmpl_if>
+			</td>
+			<td>
+				{tmpl_var name="open_findings"}
+				<tmpl_if name="worst_severity"><small>({tmpl_var name="worst_label"})</small></tmpl_if>
+			</td>
+			<td>{tmpl_var name="schedule"}</td>
+			<td>{tmpl_var name="last_run"}</td>
+			<td>{tmpl_var name="next_run"}</td>
+			<td><small>{tmpl_var name="actions"}</small></td>
+			<td class="text-right">
+				<div class="buttons icons16">
+					<button class="btn btn-default formbutton-default formbutton-narrow" type="button"
+						onclick="document.getElementById('malwatch_action').value='scan_one';document.getElementById('malwatch_domain_id').value='{tmpl_var name='domain_id'}';"
+						data-submit-form="pageForm" data-form-action="sites/malwatch_site_list.php">{tmpl_var name='scan_now_txt'}</button>
+					<a class="btn btn-default formbutton-default formbutton-narrow" href="#"
+						data-load-content="sites/malwatch_site_edit.php?domain_id={tmpl_var name='domain_id'}">{tmpl_var name='settings_txt'}</a>
+				</div>
+			</td>
+		</tr>
+		</tmpl_loop>
+		<tmpl_unless name="has_records">
+		<tr><td colspan="8">{tmpl_var name='no_records_txt'}</td></tr>
+		</tmpl_unless>
+	</tbody>
+</table>
+</div>
