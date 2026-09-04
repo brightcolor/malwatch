@@ -23,7 +23,11 @@ if (php_sapi_name() != 'cli') {
 }
 
 $domain_id = isset($argv[1]) ? (int) $argv[1] : 0;
-$page = isset($argv[2]) ? $argv[2] : '';
+
+// Prefixed, because the included page assigns to $page itself. Without the
+// prefix the loop variable becomes the page object and the report line turns
+// into a fatal about converting an object to a string.
+$mw_page = isset($argv[2]) ? $argv[2] : '';
 
 $pages = array(
 	'malwatch_site_list.php',
@@ -35,7 +39,7 @@ $pages = array(
 );
 
 // Parent process: pick a website, then run each page as a child.
-if ($page === '') {
+if ($mw_page === '') {
 	$status = 0;
 	foreach ($pages as $candidate) {
 		$cmd = escapeshellcmd(PHP_BINARY) . ' ' . escapeshellarg(__FILE__)
@@ -74,19 +78,19 @@ $_SESSION['s']['language'] = 'de';
 $_SESSION['s']['theme'] = 'default';
 
 $_SERVER['REQUEST_METHOD'] = 'GET';
-$_SERVER['SCRIPT_FILENAME'] = '/usr/local/ispconfig/interface/web/sites/' . $page;
-$_SERVER['SCRIPT_NAME'] = '/sites/' . $page;
-$_SERVER['REQUEST_URI'] = '/sites/' . $page;
+$_SERVER['SCRIPT_FILENAME'] = '/usr/local/ispconfig/interface/web/sites/' . $mw_page;
+$_SERVER['SCRIPT_NAME'] = '/sites/' . $mw_page;
+$_SERVER['REQUEST_URI'] = '/sites/' . $mw_page;
 $_GET = $_REQUEST = array('id' => $domain_id, 'domain_id' => $domain_id);
 $_POST = array();
 
 ob_start();
 try {
-	include $page;
+	include $mw_page;
 	$out = ob_get_clean();
 } catch (\Throwable $e) {
 	ob_end_clean();
-	printf("%-28s FATAL %s @ %s:%d\n", $page, $e->getMessage(), basename($e->getFile()), $e->getLine());
+	printf("%-28s FATAL %s @ %s:%d\n", $mw_page, $e->getMessage(), basename($e->getFile()), $e->getLine());
 	exit(1);
 }
 
@@ -103,10 +107,10 @@ $tabs = substr_count($out, 'content-tab-wrapper');
 
 if ($broken || $denied || $length < 400 || $tabs > 1) {
 	$why = $broken ? 'fatal in the output' : ($denied ? 'permission error box' : ($tabs > 1 ? 'rendered ' . $tabs . ' times' : 'too little content'));
-	printf("%-28s FAIL  %6d bytes  (%s)\n", $page, $length, $why);
+	printf("%-28s FAIL  %6d bytes  (%s)\n", $mw_page, $length, $why);
 	echo '   ', substr(preg_replace('/\s+/', ' ', strip_tags($out)), 0, 300), "\n";
 	exit(1);
 }
 
-printf("%-28s ok    %6d bytes\n", $page, $length);
+printf("%-28s ok    %6d bytes\n", $mw_page, $length);
 exit(0);
