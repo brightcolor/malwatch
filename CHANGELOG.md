@@ -2,6 +2,16 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.2.9] – 2026-09-05
+
+### Behoben
+
+- Die Umbenennung aus 0.2.8 wirkte nur bei Neuinstallationen. Ein Update
+  entpackt das Paket über das vorhandene Verzeichnis, und `unzip` entfernt
+  nichts: die alte `install/install.sql` blieb daneben liegen, und der Kern
+  fand sie weiter. `manual_install.php` löscht sie jetzt, nachdem das Schema
+  aus `schema.sql` gelesen wurde.
+
 ## [0.2.8] – 2026-09-05
 
 ### Behoben
