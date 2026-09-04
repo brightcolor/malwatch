@@ -2,6 +2,24 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.2.1] – 2026-09-04
+
+### Behoben
+
+- Die Einstellungsseite einer Website ohne gespeicherte Einstellungen zeigte
+  ein leeres Formular und rendete es doppelt.
+- Beim ersten Speichern blieben Website-Bezug, Server und Gruppe leer, weil
+  das Formular nur seine eigenen Felder schreibt. Damit fand der Zeitplan die
+  Website nie, und die zweite Website liess sich gar nicht speichern.
+- Eine fremde Kennung in der Adresse führte auf der Einstellungsseite zu
+  einer Rechtemeldung.
+
+### Neu
+
+- `tests/render_pages.php` rendert alle Seiten gegen eine laufende
+  ISPConfig-Installation. Alle drei Fehler oben waren syntaktisch fehlerfrei
+  und nur beim Rendern zu sehen.
+
 ## [0.2.0] – 2026-09-04
 
 ### Geändert
