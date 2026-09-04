@@ -156,10 +156,18 @@ E-Mail-Bericht über `sendmail` oder SMTP, deutsch, mit Kopfzeile je Fundart.
 
 Paket nach der Extension-Struktur von ISPConfig 3.3: ein Verzeichnis
 `/usr/local/ispconfig/extensions/malwatch` mit `version`, `install/file.list`,
-`install/installer.php` und `install/install.sql`. Der Kern übernimmt
+`install/installer.php` und `install/schema.sql`. Der Kern übernimmt
 Installieren, Aktualisieren, Ein- und Ausschalten und Entfernen über
 `extension_plugin` und `extension_installer`; die Klasse
 `malwatch_installer extends extension_installer_base` liefert die Haken dazu.
+
+Nachtrag vom 05.09.2026: Das Schema heißt `schema.sql` und nicht `install.sql`.
+Den Namen `install.sql` greift der Kern selbst auf und lädt die Datei über
+`load_install_sql()` ein zweites Mal — mit Zugangsdaten aus `$conf['mysql']`,
+die es nur während der ISPConfig-Einrichtung gibt. Auf einem laufenden System
+läuft der Aufruf ohne Passwort, `mysql` fragt danach, liest die Antwort aus der
+umgeleiteten SQL-Datei und scheitert am Rest. `manual_install.php` lädt das
+Schema selbst, mit dem Verwaltungskonto.
 
 Kein Eingriff in Kerndateien. Die Oberfläche hängt sich über
 `interface/web/sites/lib/menu.d/malwatch.menu.php` in das vorhandene Modul

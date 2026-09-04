@@ -133,6 +133,20 @@ for page in "$root"/interface/*.php; do
 	done
 done
 
+# 12. The schema must not be called install.sql. The framework picks that name
+#     up on its own and loads it through load_install_sql(), which reads its
+#     credentials from $conf['mysql'][...] - keys that exist only during the
+#     ISPConfig setup. On a running system mysql is called without a password,
+#     asks for one, reads it from the redirected SQL file and fails on the
+#     remains. The install then prints a database error while reporting success.
+if [ -f "$root/install/install.sql" ]; then
+	fail "install/install.sql exists; the framework would load it and fail - the schema belongs in install/schema.sql"
+fi
+if [ ! -f "$root/install/schema.sql" ]; then
+	fail "install/schema.sql is missing"
+fi
+grep -q 'install/schema.sql' "$root/install/manual_install.php" 	|| fail "manual_install.php does not load install/schema.sql"
+
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'
 fi

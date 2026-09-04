@@ -51,7 +51,13 @@ class malwatch_installer extends extension_installer_base
 		$app->uses('extension_installer');
 		$app->extension_installer->disable_files($name);
 		$app->extension_installer->enable_files($name);
-		$app->extension_installer->load_install_sql($name);
+
+		// The schema is not touched here. load_install_sql() cannot work on a
+		// running system - it reads credentials from $conf['mysql'][...],
+		// which only exists while ISPConfig itself is being set up - and the
+		// ISPConfig account may not create tables anyway. install/schema.sql
+		// is loaded by manual_install.php, which is the documented way to
+		// install and to update this extension.
 
 		$this->prepare_state_dir();
 		$this->install_binary();

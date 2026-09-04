@@ -2,6 +2,28 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.2.8] – 2026-09-05
+
+### Behoben
+
+- Die Installation druckte mitten im Lauf einen SQL-Syntaxfehler und meldete
+  danach trotzdem Erfolg. Der Fehler kam aus dem Kern:
+  `extension_installer::load_install_sql()` baut seinen Aufruf aus
+  `$conf['mysql'][…]`, und diese Schlüssel gibt es nur, solange ISPConfig
+  selbst eingerichtet wird. Auf einem laufenden System bleiben sie leer, der
+  Aufruf trägt kein Passwort, `mysql` fragt danach, liest die Antwort aus der
+  umgeleiteten SQL-Datei und scheitert am Rest. Das Schema heißt deshalb jetzt
+  `install/schema.sql`; unter einem Namen, den der Kern nicht sucht, bleibt der
+  Aufruf still. Geladen wird es weiterhin von `manual_install.php`, mit dem
+  Verwaltungskonto über eine 0600-Datei, damit das Passwort nicht in `ps`
+  auftaucht. Eine Prüfung im Bauablauf verhindert die Rückkehr des Namens.
+
+### Entfernt
+
+- Der Aufruf von `load_install_sql()` im `update()`-Haken. Er konnte nie etwas
+  laden: das ISPConfig-Konto darf auf `dbispconfig` nur lesen und schreiben,
+  keine Tabellen anlegen.
+
 ## [0.2.7] – 2026-09-05
 
 ### Behoben
