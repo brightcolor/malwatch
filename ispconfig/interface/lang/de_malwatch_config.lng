@@ -1,0 +1,49 @@
+<?php
+$wb['config_head_txt'] = 'malwatch – Einstellungen';
+$wb['config_desc_txt'] = 'Gilt für alle Websites auf diesem Server.';
+$wb['binary_missing_txt'] = 'Der Scanner wurde unter dem angegebenen Pfad nicht gefunden. Ohne ihn läuft keine Prüfung.';
+
+$wb['paths_head_txt'] = 'Pfade';
+$wb['binary_path_txt'] = 'Scanner';
+$wb['state_dir_txt'] = 'Arbeitsverzeichnis';
+$wb['state_dir_hint_txt'] = 'Hier liegen Signaturen, Zwischenspeicher und die Berichte laufender Prüfungen.';
+
+$wb['mail_head_txt'] = 'E-Mail';
+$wb['admin_email_txt'] = 'Empfänger für Meldungen';
+$wb['admin_email_hint_txt'] = 'Leer lassen, um die Administrator-Adresse aus den ISPConfig-Systemeinstellungen zu verwenden.';
+$wb['sender_email_txt'] = 'Absender';
+
+$wb['defaults_head_txt'] = 'Vorgaben';
+$wb['default_schedule_txt'] = 'Vorgabe für neue Websites';
+$wb['default_excludes_txt'] = 'Global auszulassende Pfade';
+$wb['default_excludes_hint_txt'] = 'Ein Muster je Zeile. Gilt zusätzlich zu den Mustern der einzelnen Website.';
+$wb['scan_max_age_txt'] = 'Nur Dateien der letzten Tage';
+$wb['scan_max_age_hint_txt'] = '0 prüft alle Dateien. Gilt nur für Websites ohne eigenen Wert.';
+
+$wb['limits_head_txt'] = 'Grenzen';
+$wb['max_parallel_txt'] = 'Gleichzeitige Prüfungen';
+$wb['max_parallel_hint_txt'] = 'Mehrere Prüfungen gleichzeitig belasten die Platte spürbar. Auf einem Server mit vielen Websites lieber bei 1 bis 2 bleiben.';
+$wb['job_timeout_hours_txt'] = 'Abbruch nach Stunden';
+$wb['keep_scans_txt'] = 'Aufbewahrte Prüfläufe je Website';
+$wb['use_clamav_txt'] = 'ClamAV mitverwenden';
+$wb['use_clamav_hint_txt'] = 'Nur wirksam, wenn clamdscan oder clamscan installiert ist.';
+$wb['auto_update_signatures_txt'] = 'Signaturen täglich aktualisieren';
+
+$wb['count_sites_txt'] = 'Eingerichtete Websites';
+$wb['count_scans_txt'] = 'Prüfläufe';
+$wb['count_findings_txt'] = 'Offene Funde';
+$wb['last_signature_update_txt'] = 'Signaturen';
+
+$wb['binary_path_error_empty'] = 'Der Pfad zum Scanner darf nicht leer sein.';
+$wb['binary_path_error_regex'] = 'Der Pfad zum Scanner muss ein absoluter Pfad sein.';
+$wb['state_dir_error_empty'] = 'Das Arbeitsverzeichnis darf nicht leer sein.';
+$wb['state_dir_error_regex'] = 'Das Arbeitsverzeichnis muss ein absoluter Pfad sein.';
+$wb['admin_email_error_isemail'] = 'Die Empfängeradresse ist keine gültige E-Mail-Adresse.';
+$wb['sender_email_error_isemail'] = 'Die Absenderadresse ist keine gültige E-Mail-Adresse.';
+$wb['scan_max_age_error_range'] = 'Die Zahl der Tage muss zwischen 0 und 3650 liegen.';
+$wb['max_parallel_error_range'] = 'Die Zahl gleichzeitiger Prüfungen muss zwischen 1 und 16 liegen.';
+$wb['job_timeout_error_range'] = 'Die Abbruchzeit muss zwischen 1 und 168 Stunden liegen.';
+$wb['keep_scans_error_range'] = 'Die Zahl aufbewahrter Prüfläufe muss zwischen 1 und 1000 liegen.';
+
+$wb['btn_save_txt'] = 'Speichern';
+$wb['btn_cancel_txt'] = 'Abbrechen';

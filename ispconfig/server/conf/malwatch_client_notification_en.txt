@@ -1,0 +1,23 @@
+MIME-Version: 1.0
+Content-type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Subject: Security notice for your website {domain}
+
+Hello,
+
+a security scan of your website {domain} on {scan_time} found files that look
+like malicious code. {count} file(s) are affected.
+
+What this means: someone most likely used a security hole to place foreign code
+in your web space. Code like this is commonly used to send spam or to redirect
+your visitors.
+
+What you should do:
+
+1. Change the credentials of your website and of your content management
+   system.
+2. Update the content management system and all of its extensions.
+3. Restore a backup from before the infection, or have the affected files
+   removed.
+
+Please get in touch if you have any questions.

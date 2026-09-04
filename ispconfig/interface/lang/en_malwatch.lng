@@ -1,0 +1,98 @@
+<?php
+$wb['list_head_txt'] = 'malwatch overview';
+$wb['list_desc_txt'] = 'The state of every website on this server. Scan a site, set its schedule and read the findings.';
+$wb['toolsarea_head_txt'] = 'Actions';
+$wb['no_records_txt'] = 'There are no websites.';
+
+$wb['domain_txt'] = 'Website';
+$wb['state_txt'] = 'State';
+$wb['open_findings_txt'] = 'Open findings';
+$wb['schedule_txt'] = 'Schedule';
+$wb['last_run_txt'] = 'Last scan';
+$wb['next_run_txt'] = 'Next scan';
+$wb['actions_txt'] = 'Actions';
+$wb['scan_now_txt'] = 'Scan now';
+$wb['scan_all_txt'] = 'Scan every website';
+$wb['settings_txt'] = 'Settings';
+$wb['site_inactive_txt'] = 'disabled';
+$wb['busy_txt'] = 'running';
+$wb['confirm_scan_all_txt'] = 'Queue a scan for every active website?';
+$wb['binary_missing_txt'] = 'The scanner was not found. Expected at:';
+
+$wb['summary_total_txt'] = 'Websites';
+$wb['summary_findings_txt'] = 'with findings';
+$wb['summary_outdated_txt'] = 'outdated software';
+$wb['summary_clean_txt'] = 'clean';
+$wb['summary_unknown_txt'] = 'not scanned';
+
+$wb['state_unknown_txt'] = 'not scanned';
+$wb['state_clean_txt'] = 'clean';
+$wb['state_findings_txt'] = 'findings';
+$wb['state_outdated_txt'] = 'outdated';
+$wb['state_error_txt'] = 'error';
+$wb['state_ignored_txt'] = 'released';
+
+$wb['severity_low_txt'] = 'low';
+$wb['severity_medium_txt'] = 'medium';
+$wb['severity_high_txt'] = 'high';
+$wb['severity_critical_txt'] = 'critical';
+
+$wb['schedule_off_txt'] = 'no schedule';
+$wb['schedule_daily_txt'] = 'daily';
+$wb['schedule_weekly_txt'] = 'weekly';
+$wb['schedule_monthly_txt'] = 'monthly';
+
+$wb['action_admin_txt'] = 'Operator';
+$wb['action_client_txt'] = 'Client';
+$wb['action_disable_txt'] = 'Disable';
+$wb['action_none_txt'] = '-';
+$wb['action_notify_admin_txt'] = 'Operator notified';
+$wb['action_notify_client_txt'] = 'Client notified';
+$wb['action_disable_site_txt'] = 'Website disabled';
+$wb['action_error_txt'] = 'Error';
+
+$wb['last_scan_txt'] = 'Last scan';
+$wb['scan_path_txt'] = 'Scanned path';
+$wb['duration_txt'] = 'Duration';
+$wb['files_scanned_txt'] = 'Files scanned';
+$wb['engines_txt'] = 'Stages';
+$wb['notes_txt'] = 'Notes';
+$wb['no_scan_yet_txt'] = 'This website has not been scanned yet.';
+$wb['busy_hint_txt'] = 'A scan is running for this website. The result appears here when it finishes.';
+$wb['site_disabled_hint_txt'] = 'This website is disabled. If a finding caused it, the reason is in the action log below.';
+$wb['enable_site_txt'] = 'Enable the website again';
+$wb['confirm_enable_txt'] = 'Enable the website again? Make sure the malicious code has been removed first.';
+
+$wb['findings_txt'] = 'Findings';
+$wb['no_findings_txt'] = 'No open findings.';
+$wb['severity_txt'] = 'Severity';
+$wb['rule_txt'] = 'Rule';
+$wb['file_txt'] = 'File';
+$wb['first_seen_txt'] = 'First seen';
+$wb['ignore_txt'] = 'Release';
+$wb['reopen_txt'] = 'Reopen';
+
+$wb['software_txt'] = 'Detected web software';
+$wb['no_software_txt'] = 'No web software detected.';
+$wb['product_txt'] = 'Product';
+$wb['installed_version_txt'] = 'Installed';
+$wb['latest_version_txt'] = 'Current';
+$wb['path_txt'] = 'Path';
+$wb['outdated_txt'] = 'outdated';
+$wb['version_unknown_txt'] = 'not determined';
+
+$wb['history_txt'] = 'History';
+$wb['no_scans_txt'] = 'No scans yet.';
+$wb['finished_txt'] = 'Finished';
+$wb['counts_txt'] = 'critical / high / medium / low, outdated';
+$wb['new_findings_txt'] = 'New';
+
+$wb['actionlog_txt'] = 'Actions taken';
+$wb['no_actionlog_txt'] = 'No actions have been taken yet.';
+$wb['time_txt'] = 'Time';
+$wb['action_txt'] = 'Action';
+$wb['recipient_txt'] = 'Recipient';
+$wb['trigger_txt'] = 'Trigger';
+$wb['detail_txt'] = 'Note';
+
+$wb['btn_back_txt'] = 'Back';

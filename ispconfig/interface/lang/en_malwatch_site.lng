@@ -1,0 +1,24 @@
+<?php
+$wb['edit_desc_txt'] = 'Schedule and actions for this website. Actions only fire on findings that are new since the last run.';
+$wb['scan_path_txt'] = 'Scanned path';
+$wb['schedule_txt'] = 'Schedule';
+$wb['max_age_txt'] = 'Only files from the last days';
+$wb['max_age_hint_txt'] = '0 scans every file. A value like 2 only looks at what changed in the last two days: fast, but modification times can be faked. Run a full scan at least once a month.';
+$wb['version_scan_txt'] = 'Look for outdated software';
+$wb['excludes_txt'] = 'Paths to skip';
+$wb['excludes_hint_txt'] = 'One pattern per line. * stays inside one level, ** crosses levels, for example **/cache/**';
+$wb['global_excludes_txt'] = 'Also skipped globally';
+
+$wb['actions_head_txt'] = 'Actions on a finding';
+$wb['actions_desc_txt'] = 'Each action has its own threshold. Outdated software never triggers an action.';
+$wb['notify_admin_txt'] = 'Notify the operator';
+$wb['notify_admin_severity_txt'] = 'from severity';
+$wb['notify_client_txt'] = 'Notify the client';
+$wb['notify_client_severity_txt'] = 'from severity';
+$wb['disable_site_txt'] = 'Disable the website';
+$wb['disable_site_hint_txt'] = 'The website is disabled the same way a traffic block does it. Enabling it again is always a manual step: a clean run does not lift the block.';
+$wb['disable_severity_txt'] = 'from severity';
+
+$wb['max_age_error_range'] = 'The number of days must be between 0 and 3650.';
+$wb['btn_save_txt'] = 'Save';
+$wb['btn_cancel_txt'] = 'Cancel';

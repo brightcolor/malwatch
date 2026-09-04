@@ -1,0 +1,194 @@
+<div class='page-header'>
+	<h1>malwatch: {tmpl_var name='domain'}</h1>
+</div>
+
+<tmpl_if name="message">
+	<div class="alert alert-success">{tmpl_var name='message'}</div>
+</tmpl_if>
+<tmpl_if name="error">
+	<div class="alert alert-danger">{tmpl_var name='error'}</div>
+</tmpl_if>
+<tmpl_unless name="site_active">
+	<div class="alert alert-warning">
+		{tmpl_var name='site_disabled_hint_txt'}
+	</div>
+</tmpl_unless>
+<tmpl_if name="busy">
+	<div class="alert alert-info">{tmpl_var name='busy_hint_txt'}</div>
+</tmpl_if>
+
+<p class="fieldset-legend">{tmpl_var name='last_scan_txt'}</p>
+<div class="table-wrapper marginTop15">
+<table class="table">
+	<tbody>
+		<tr><td>{tmpl_var name='scan_path_txt'}</td><td><code>{tmpl_var name='scan_path'}</code></td></tr>
+		<tmpl_if name="has_scan">
+		<tr><td>{tmpl_var name='state_txt'}</td><td><span class="label {tmpl_var name='state_class'}">{tmpl_var name='state_label'}</span></td></tr>
+		<tr><td>{tmpl_var name='last_run_txt'}</td><td>{tmpl_var name='last_run'}</td></tr>
+		<tr><td>{tmpl_var name='duration_txt'}</td><td>{tmpl_var name='duration'}</td></tr>
+		<tr><td>{tmpl_var name='files_scanned_txt'}</td><td>{tmpl_var name='files_scanned'}</td></tr>
+		<tr><td>{tmpl_var name='engines_txt'}</td><td><small>{tmpl_var name='engines'}</small></td></tr>
+		<tmpl_if name="scan_notes">
+		<tr><td>{tmpl_var name='notes_txt'}</td><td><small>{tmpl_var name='scan_notes'}</small></td></tr>
+		</tmpl_if>
+		<tmpl_else>
+		<tr><td colspan="2">{tmpl_var name='no_scan_yet_txt'}</td></tr>
+		</tmpl_if>
+	</tbody>
+</table>
+</div>
+
+<form action="sites/malwatch_site_show.php?id={tmpl_var name='domain_id'}" method="post" id="pageForm">
+	<input type="hidden" name="_csrf_id" value="{tmpl_var name='csrf_id'}" />
+	<input type="hidden" name="_csrf_key" value="{tmpl_var name='csrf_key'}" />
+	<input type="hidden" name="id" value="{tmpl_var name='domain_id'}" />
+	<input type="hidden" name="finding_id" id="malwatch_finding_id" value="" />
+
+	<div class="marginTop15 marginBottom15">
+		<button class="btn btn-default formbutton-default" type="submit" name="malwatch_action" value="scan">{tmpl_var name='scan_now_txt'}</button>
+		<a class="btn btn-default formbutton-default" href="#" data-load-content="sites/malwatch_site_edit.php?domain_id={tmpl_var name='domain_id'}">{tmpl_var name='settings_txt'}</a>
+		<tmpl_unless name="site_active">
+			<button class="btn btn-default formbutton-success" type="submit" name="malwatch_action" value="enable_site"
+				onclick="return confirm('{tmpl_var name='confirm_enable_txt'}');">{tmpl_var name='enable_site_txt'}</button>
+		</tmpl_unless>
+	</div>
+
+	<p class="fieldset-legend">{tmpl_var name='findings_txt'}</p>
+	<div class="table-wrapper marginTop15">
+	<table class="table">
+		<thead class="dark">
+			<tr>
+				<th>{tmpl_var name='severity_txt'}</th>
+				<th>{tmpl_var name='rule_txt'}</th>
+				<th>{tmpl_var name='file_txt'}</th>
+				<th>{tmpl_var name='first_seen_txt'}</th>
+				<th class="text-right">&nbsp;</th>
+			</tr>
+		</thead>
+		<tbody>
+			<tmpl_loop name="findings">
+			<tr>
+				<td><span class="label {tmpl_var name='severity_class'}">{tmpl_var name='severity_label'}</span></td>
+				<td>
+					{tmpl_var name='rule_id'}<br /><small>{tmpl_var name='engine'}</small>
+				</td>
+				<td>
+					<code>{tmpl_var name='file_path'}</code><tmpl_if name="has_line"> : {tmpl_var name='line_number'}</tmpl_if>
+					<tmpl_if name="excerpt"><br /><small><code>{tmpl_var name='excerpt'}</code></small></tmpl_if>
+					<tmpl_if name="is_ignored"><br /><span class="label label-default">{tmpl_var name='state_ignored_txt'}</span></tmpl_if>
+				</td>
+				<td>{tmpl_var name='first_seen'}</td>
+				<td class="text-right">
+					<tmpl_if name="is_ignored">
+					<button class="btn btn-default formbutton-default formbutton-narrow" type="submit" name="malwatch_action" value="reopen"
+						onclick="document.getElementById('malwatch_finding_id').value='{tmpl_var name='finding_id'}';">{tmpl_var name='reopen_txt'}</button>
+					<tmpl_else>
+					<button class="btn btn-default formbutton-default formbutton-narrow" type="submit" name="malwatch_action" value="ignore"
+						onclick="document.getElementById('malwatch_finding_id').value='{tmpl_var name='finding_id'}';">{tmpl_var name='ignore_txt'}</button>
+					</tmpl_if>
+				</td>
+			</tr>
+			</tmpl_loop>
+			<tmpl_unless name="has_findings">
+			<tr><td colspan="5">{tmpl_var name='no_findings_txt'}</td></tr>
+			</tmpl_unless>
+		</tbody>
+	</table>
+	</div>
+</form>
+
+<p class="fieldset-legend">{tmpl_var name='software_txt'}</p>
+<div class="table-wrapper marginTop15">
+<table class="table">
+	<thead class="dark">
+		<tr>
+			<th>{tmpl_var name='product_txt'}</th>
+			<th>{tmpl_var name='installed_version_txt'}</th>
+			<th>{tmpl_var name='latest_version_txt'}</th>
+			<th>{tmpl_var name='path_txt'}</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tmpl_loop name="software">
+		<tr>
+			<td>{tmpl_var name='name'} <small>({tmpl_var name='kind'})</small></td>
+			<td>
+				{tmpl_var name='installed_version'}
+				<tmpl_if name="is_outdated"><span class="label label-warning">{tmpl_var name='outdated_txt'}</span></tmpl_if>
+			</td>
+			<td>
+				<tmpl_if name="is_unknown">{tmpl_var name='version_unknown_txt'}<tmpl_else>{tmpl_var name='latest_version'}</tmpl_if>
+			</td>
+			<td><code>{tmpl_var name='install_path'}</code></td>
+		</tr>
+		</tmpl_loop>
+		<tmpl_unless name="has_software">
+		<tr><td colspan="4">{tmpl_var name='no_software_txt'}</td></tr>
+		</tmpl_unless>
+	</tbody>
+</table>
+</div>
+
+<p class="fieldset-legend">{tmpl_var name='history_txt'}</p>
+<div class="table-wrapper marginTop15">
+<table class="table">
+	<thead class="dark">
+		<tr>
+			<th>{tmpl_var name='finished_txt'}</th>
+			<th>{tmpl_var name='state_txt'}</th>
+			<th>{tmpl_var name='files_scanned_txt'}</th>
+			<th>{tmpl_var name='duration_txt'}</th>
+			<th>{tmpl_var name='counts_txt'}</th>
+			<th>{tmpl_var name='new_findings_txt'}</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tmpl_loop name="scans">
+		<tr>
+			<td>{tmpl_var name='finished_at'}</td>
+			<td><span class="label {tmpl_var name='state_class'}">{tmpl_var name='state_label'}</span></td>
+			<td>{tmpl_var name='files_scanned'}</td>
+			<td>{tmpl_var name='duration'}</td>
+			<td><small>{tmpl_var name='count_critical'} / {tmpl_var name='count_high'} / {tmpl_var name='count_medium'} / {tmpl_var name='count_low'} &middot; {tmpl_var name='count_outdated'}</small></td>
+			<td>{tmpl_var name='new_findings'}</td>
+		</tr>
+		</tmpl_loop>
+		<tmpl_unless name="has_scans">
+		<tr><td colspan="6">{tmpl_var name='no_scans_txt'}</td></tr>
+		</tmpl_unless>
+	</tbody>
+</table>
+</div>
+
+<p class="fieldset-legend">{tmpl_var name='actionlog_txt'}</p>
+<div class="table-wrapper marginTop15">
+<table class="table">
+	<thead class="dark">
+		<tr>
+			<th>{tmpl_var name='time_txt'}</th>
+			<th>{tmpl_var name='action_txt'}</th>
+			<th>{tmpl_var name='recipient_txt'}</th>
+			<th>{tmpl_var name='trigger_txt'}</th>
+			<th>{tmpl_var name='detail_txt'}</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tmpl_loop name="actionlog">
+		<tr>
+			<td>{tmpl_var name='created_at'}</td>
+			<td>{tmpl_var name='action_label'}</td>
+			<td>{tmpl_var name='recipient'}</td>
+			<td>{tmpl_var name='trigger_findings'} ({tmpl_var name='trigger_severity'})</td>
+			<td><small>{tmpl_var name='detail'}</small></td>
+		</tr>
+		</tmpl_loop>
+		<tmpl_unless name="has_actionlog">
+		<tr><td colspan="5">{tmpl_var name='no_actionlog_txt'}</td></tr>
+		</tmpl_unless>
+	</tbody>
+</table>
+</div>
+
+<div class="clear"><div class="right">
+	<button class="btn btn-default formbutton-default" type="button" data-load-content="sites/malwatch_site_list.php">{tmpl_var name='btn_back_txt'}</button>
+</div></div>

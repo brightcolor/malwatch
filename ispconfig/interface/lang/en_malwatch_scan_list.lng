@@ -1,0 +1,13 @@
+<?php
+$wb['list_head_txt'] = 'malwatch scans';
+$wb['list_desc_txt'] = 'History of the finished scans.';
+$wb['no_records_txt'] = 'No scans yet.';
+
+$wb['domain_txt'] = 'Website';
+$wb['scan_state_txt'] = 'Result';
+$wb['finished_at_txt'] = 'Finished';
+$wb['files_scanned_txt'] = 'Files';
+$wb['counts_txt'] = 'critical / high / medium / low';
+$wb['new_findings_txt'] = 'New';
+$wb['open_txt'] = 'Open';
+$wb['filter_txt'] = 'Filter';

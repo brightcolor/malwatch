@@ -1,0 +1,79 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+          cache: true
+      - name: Format
+        run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+      - name: Vet
+        run: go vet ./...
+      - name: Test
+        run: go test ./...
+      - name: Build
+        run: go build ./...
+
+  php-syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+      - name: Lint the extension
+        run: find ispconfig -name '*.php' -print0 | xargs -0 -n1 php -l
+
+  clean-cms:
+    # The counter-check that matters: a freshly downloaded WordPress and
+    # Joomla must produce no findings at all. A rule set that flags honest
+    # code is worse than no rule set, because nobody reads the report after
+    # the third false alarm.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+          cache: true
+      - name: Build
+        run: go build -o malwatch ./cmd/malwatch
+      - name: Fetch signatures
+        run: ./malwatch update --sig-dir=sigs --quiet
+      - name: Fetch a clean WordPress and Joomla
+        run: |
+          mkdir -p www && cd www
+          curl -fsSL https://wordpress.org/latest.tar.gz | tar xz
+          mkdir -p joomla && cd joomla
+          curl -fsSL https://github.com/joomla/joomla-cms/releases/download/5.1.4/Joomla_5.1.4-Stable-Full_Package.tar.gz | tar xz
+      - name: Scan and require a clean result
+        run: |
+          set +e
+          ./malwatch scan --path=www --sig-dir=sigs --state-dir=state --offline --quiet --json > report.json
+          code=$?
+          set -e
+          found=$(grep -c '"rule":' report.json || true)
+          echo "exit code $code, $found finding(s)"
+          if [ "$found" != "0" ]; then
+            echo "False positives on untouched vendor code:"
+            grep -A4 '"rule":' report.json | head -60
+            exit 1
+          fi
+      - name: A planted shell must still be found
+        run: |
+          printf '<?php @eval($_POST["cmd"]);' > www/wordpress/planted.php
+          set +e
+          ./malwatch scan --path=www --sig-dir=sigs --state-dir=state --offline --quiet --json > planted.json
+          code=$?
+          set -e
+          grep -q 'php.eval.request' planted.json || { echo "the planted shell was not found"; exit 1; }
+          [ "$code" = "1" ] || { echo "exit code $code, expected 1"; exit 1; }

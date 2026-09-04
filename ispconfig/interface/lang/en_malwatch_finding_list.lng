@@ -1,0 +1,13 @@
+<?php
+$wb['list_head_txt'] = 'malwatch findings';
+$wb['list_desc_txt'] = 'Every finding across all websites. Open ones come first; released and fixed ones are available through the filter.';
+$wb['no_records_txt'] = 'No findings.';
+
+$wb['finding_state_txt'] = 'State';
+$wb['severity_txt'] = 'Severity';
+$wb['domain_txt'] = 'Website';
+$wb['rule_id_txt'] = 'Rule';
+$wb['file_path_txt'] = 'File';
+$wb['last_seen_txt'] = 'Last seen';
+$wb['open_txt'] = 'Open';
+$wb['filter_txt'] = 'Filter';
