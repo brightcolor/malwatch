@@ -2,6 +2,13 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.2.3] – 2026-09-04
+
+### Behoben
+
+- Das Rendertestwerkzeug meldete zwei Seiten fälschlich als fehlerhaft: die
+  Seite selbst überschrieb die Schleifenvariable.
+
 ## [0.2.2] – 2026-09-04
 
 ### Behoben
