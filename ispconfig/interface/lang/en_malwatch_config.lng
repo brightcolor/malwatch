@@ -1,0 +1,49 @@
+<?php
+$wb['config_head_txt'] = 'malwatch settings';
+$wb['config_desc_txt'] = 'These apply to every website on this server.';
+$wb['binary_missing_txt'] = 'The scanner was not found at the given path. Without it no scan can run.';
+
+$wb['paths_head_txt'] = 'Paths';
+$wb['binary_path_txt'] = 'Scanner';
+$wb['state_dir_txt'] = 'Working directory';
+$wb['state_dir_hint_txt'] = 'Holds the signatures, the caches and the reports of running scans.';
+
+$wb['mail_head_txt'] = 'Email';
+$wb['admin_email_txt'] = 'Recipient for notices';
+$wb['admin_email_hint_txt'] = 'Leave empty to use the administrator address from the ISPConfig system settings.';
+$wb['sender_email_txt'] = 'Sender';
+
+$wb['defaults_head_txt'] = 'Defaults';
+$wb['default_schedule_txt'] = 'Default for new websites';
+$wb['default_excludes_txt'] = 'Paths skipped everywhere';
+$wb['default_excludes_hint_txt'] = 'One pattern per line, applied on top of the patterns of each website.';
+$wb['scan_max_age_txt'] = 'Only files from the last days';
+$wb['scan_max_age_hint_txt'] = '0 scans every file. Only applies to websites without their own value.';
+
+$wb['limits_head_txt'] = 'Limits';
+$wb['max_parallel_txt'] = 'Concurrent scans';
+$wb['max_parallel_hint_txt'] = 'Several scans at once put a noticeable load on the disk. On a server with many websites, stay at 1 or 2.';
+$wb['job_timeout_hours_txt'] = 'Abort after hours';
+$wb['keep_scans_txt'] = 'Scans kept per website';
+$wb['use_clamav_txt'] = 'Use ClamAV as well';
+$wb['use_clamav_hint_txt'] = 'Only takes effect when clamdscan or clamscan is installed.';
+$wb['auto_update_signatures_txt'] = 'Update signatures daily';
+
+$wb['count_sites_txt'] = 'Configured websites';
+$wb['count_scans_txt'] = 'Scans';
+$wb['count_findings_txt'] = 'Open findings';
+$wb['last_signature_update_txt'] = 'Signatures';
+
+$wb['binary_path_error_empty'] = 'The path to the scanner may not be empty.';
+$wb['binary_path_error_regex'] = 'The path to the scanner must be an absolute path.';
+$wb['state_dir_error_empty'] = 'The working directory may not be empty.';
+$wb['state_dir_error_regex'] = 'The working directory must be an absolute path.';
+$wb['admin_email_error_isemail'] = 'The recipient is not a valid email address.';
+$wb['sender_email_error_isemail'] = 'The sender is not a valid email address.';
+$wb['scan_max_age_error_range'] = 'The number of days must be between 0 and 3650.';
+$wb['max_parallel_error_range'] = 'The number of concurrent scans must be between 1 and 16.';
+$wb['job_timeout_error_range'] = 'The abort time must be between 1 and 168 hours.';
+$wb['keep_scans_error_range'] = 'The number of kept scans must be between 1 and 1000.';
+
+$wb['btn_save_txt'] = 'Save';
+$wb['btn_cancel_txt'] = 'Cancel';

@@ -1,0 +1,17 @@
+MIME-Version: 1.0
+Content-type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Subject: malwatch: {count} neue Fund(e) auf {domain}
+
+Auf der Website {domain} wurden bei der Prüfung am {scan_time} {count} neue
+Fund(e) entdeckt. Der schwerste Fund hat die Stufe {worst}.
+
+Geprüfter Pfad: {scan_path}
+Geprüfte Dateien: {files_scanned}
+Veraltete Installationen: {outdated}
+
+Neue Funde:
+
+{findings}
+
+Die vollständige Liste steht im ISPConfig-Panel unter Websites > malwatch.

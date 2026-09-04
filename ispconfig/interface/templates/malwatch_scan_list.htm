@@ -1,0 +1,58 @@
+<div class='page-header'>
+	<h1><tmpl_var name="list_head_txt"></h1>
+</div>
+<p><tmpl_var name="list_desc_txt"></p>
+
+<p class="fieldset-legend"><tmpl_var name="list_head_txt"></p>
+<div class="table-wrapper marginTop15">
+<table class="table">
+	<thead class="dark form-group-sm">
+		<tr>
+			<th data-column="domain"><tmpl_var name="domain_txt"></th>
+			<th data-column="scan_state"><tmpl_var name="scan_state_txt"></th>
+			<th data-column="finished_at"><tmpl_var name="finished_at_txt"></th>
+			<th data-column="files_scanned"><tmpl_var name="files_scanned_txt"></th>
+			<th data-column="count_critical"><tmpl_var name="counts_txt"></th>
+			<th data-column="new_findings"><tmpl_var name="new_findings_txt"></th>
+			<th class="small-col text-right">{tmpl_var name='search_limit'}</th>
+		</tr>
+		<tr>
+			<td><input class="form-control" type="text" name="search_domain" value="{tmpl_var name='search_domain'}" /></td>
+			<td><select class="form-control" name="search_scan_state">{tmpl_var name='search_scan_state'}</select></td>
+			<td>&nbsp;</td>
+			<td>&nbsp;</td>
+			<td>&nbsp;</td>
+			<td>&nbsp;</td>
+			<td class="text-right">
+				<button type="button" class="btn btn-default formbutton-default formbutton-narrow" name="Filter" id="Filter"
+					value="{tmpl_var name='filter_txt'}" data-submit-form="pageForm"
+					data-form-action="sites/malwatch_scan_list.php"><span class="icon icon-filter"></span></button>
+			</td>
+		</tr>
+	</thead>
+	<tbody>
+		<tmpl_loop name="records">
+		<tr>
+			<td><a href="#" data-load-content="sites/malwatch_site_show.php?id={tmpl_var name='parent_domain_id'}">{tmpl_var name="domain"}</a></td>
+			<td>{tmpl_var name="scan_state"}</td>
+			<td>{tmpl_var name="finished_at"}</td>
+			<td>{tmpl_var name="files_scanned"}</td>
+			<td><small>{tmpl_var name="count_critical"} / {tmpl_var name="count_high"} / {tmpl_var name="count_medium"} / {tmpl_var name="count_low"}</small></td>
+			<td>{tmpl_var name="new_findings"}</td>
+			<td class="text-right">
+				<div class="buttons icons16">
+					<a class="btn btn-default formbutton-default formbutton-narrow" href="#"
+						data-load-content="sites/malwatch_site_show.php?id={tmpl_var name='parent_domain_id'}">{tmpl_var name="open_txt"}</a>
+				</div>
+			</td>
+		</tr>
+		</tmpl_loop>
+		<tmpl_unless name="records">
+		<tr><td colspan="7"><tmpl_var name="no_records_txt"></td></tr>
+		</tmpl_unless>
+	</tbody>
+	<tfoot>
+		<tr><td colspan="7"><tmpl_var name="paging"></td></tr>
+	</tfoot>
+</table>
+</div>

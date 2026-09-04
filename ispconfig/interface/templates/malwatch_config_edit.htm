@@ -1,0 +1,104 @@
+<div class='page-header'>
+	<h1>{tmpl_var name='config_head_txt'}</h1>
+</div>
+<p>{tmpl_var name='config_desc_txt'}</p>
+
+<tmpl_if name="binary_missing">
+	<div class="alert alert-warning">{tmpl_var name='binary_missing_txt'}</div>
+</tmpl_if>
+
+<div class="marginBottom15">
+	<span class="label label-default">{tmpl_var name='count_sites_txt'}: {tmpl_var name='count_sites'}</span>
+	<span class="label label-default">{tmpl_var name='count_scans_txt'}: {tmpl_var name='count_scans'}</span>
+	<span class="label label-default">{tmpl_var name='count_findings_txt'}: {tmpl_var name='count_findings'}</span>
+	<span class="label label-default">{tmpl_var name='last_signature_update_txt'}: {tmpl_var name='last_signature_update'}</span>
+</div>
+
+<p class="fieldset-legend">{tmpl_var name='paths_head_txt'}</p>
+
+<div class="form-group">
+	<label for="binary_path" class="col-sm-3 control-label">{tmpl_var name='binary_path_txt'}</label>
+	<div class="col-sm-9"><input type="text" name="binary_path" id="binary_path" value="{tmpl_var name='binary_path'}" class="form-control" /></div>
+</div>
+<div class="form-group">
+	<label for="state_dir" class="col-sm-3 control-label">{tmpl_var name='state_dir_txt'}</label>
+	<div class="col-sm-9">
+		<input type="text" name="state_dir" id="state_dir" value="{tmpl_var name='state_dir'}" class="form-control" />
+		<span class="help-block">{tmpl_var name='state_dir_hint_txt'}</span>
+	</div>
+</div>
+
+<p class="fieldset-legend">{tmpl_var name='mail_head_txt'}</p>
+
+<div class="form-group">
+	<label for="admin_email" class="col-sm-3 control-label">{tmpl_var name='admin_email_txt'}</label>
+	<div class="col-sm-9">
+		<input type="text" name="admin_email" id="admin_email" value="{tmpl_var name='admin_email'}" class="form-control" />
+		<span class="help-block">{tmpl_var name='admin_email_hint_txt'}</span>
+	</div>
+</div>
+<div class="form-group">
+	<label for="sender_email" class="col-sm-3 control-label">{tmpl_var name='sender_email_txt'}</label>
+	<div class="col-sm-9"><input type="text" name="sender_email" id="sender_email" value="{tmpl_var name='sender_email'}" class="form-control" /></div>
+</div>
+
+<p class="fieldset-legend">{tmpl_var name='defaults_head_txt'}</p>
+
+<div class="form-group">
+	<label for="default_schedule" class="col-sm-3 control-label">{tmpl_var name='default_schedule_txt'}</label>
+	<div class="col-sm-9"><select name="default_schedule" id="default_schedule" class="form-control">
+		{tmpl_var name='default_schedule'}
+	</select></div>
+</div>
+<div class="form-group">
+	<label for="default_excludes" class="col-sm-3 control-label">{tmpl_var name='default_excludes_txt'}</label>
+	<div class="col-sm-9">
+		<textarea name="default_excludes" id="default_excludes" rows="6" cols="30" class="form-control">{tmpl_var name='default_excludes'}</textarea>
+		<span class="help-block">{tmpl_var name='default_excludes_hint_txt'}</span>
+	</div>
+</div>
+<div class="form-group">
+	<label for="scan_max_age" class="col-sm-3 control-label">{tmpl_var name='scan_max_age_txt'}</label>
+	<div class="col-sm-9">
+		<input type="text" name="scan_max_age" id="scan_max_age" value="{tmpl_var name='scan_max_age'}" class="form-control" />
+		<span class="help-block">{tmpl_var name='scan_max_age_hint_txt'}</span>
+	</div>
+</div>
+
+<p class="fieldset-legend">{tmpl_var name='limits_head_txt'}</p>
+
+<div class="form-group">
+	<label for="max_parallel" class="col-sm-3 control-label">{tmpl_var name='max_parallel_txt'}</label>
+	<div class="col-sm-9">
+		<input type="text" name="max_parallel" id="max_parallel" value="{tmpl_var name='max_parallel'}" class="form-control" />
+		<span class="help-block">{tmpl_var name='max_parallel_hint_txt'}</span>
+	</div>
+</div>
+<div class="form-group">
+	<label for="job_timeout_hours" class="col-sm-3 control-label">{tmpl_var name='job_timeout_hours_txt'}</label>
+	<div class="col-sm-9"><input type="text" name="job_timeout_hours" id="job_timeout_hours" value="{tmpl_var name='job_timeout_hours'}" class="form-control" /></div>
+</div>
+<div class="form-group">
+	<label for="keep_scans" class="col-sm-3 control-label">{tmpl_var name='keep_scans_txt'}</label>
+	<div class="col-sm-9"><input type="text" name="keep_scans" id="keep_scans" value="{tmpl_var name='keep_scans'}" class="form-control" /></div>
+</div>
+<div class="form-group">
+	<label class="col-sm-3 control-label">{tmpl_var name='use_clamav_txt'}</label>
+	<div class="col-sm-9">
+		{tmpl_var name='use_clamav'}
+		<span class="help-block">{tmpl_var name='use_clamav_hint_txt'}</span>
+	</div>
+</div>
+<div class="form-group">
+	<label class="col-sm-3 control-label">{tmpl_var name='auto_update_signatures_txt'}</label>
+	<div class="col-sm-9">{tmpl_var name='auto_update_signatures'}</div>
+</div>
+
+<input type="hidden" name="id" value="{tmpl_var name='id'}">
+
+<div class="clear"><div class="right">
+	<button class="btn btn-default formbutton-success" type="button" value="{tmpl_var name='btn_save_txt'}"
+		data-submit-form="pageForm" data-form-action="sites/malwatch_config_edit.php">{tmpl_var name='btn_save_txt'}</button>
+	<button class="btn btn-default formbutton-default" type="button" value="{tmpl_var name='btn_cancel_txt'}"
+		data-load-content="sites/malwatch_site_list.php">{tmpl_var name='btn_cancel_txt'}</button>
+</div></div>

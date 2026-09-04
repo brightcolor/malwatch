@@ -1,0 +1,82 @@
+<div class='page-header'>
+	<h1>malwatch: {tmpl_var name='domain'}</h1>
+</div>
+<p>{tmpl_var name='edit_desc_txt'}</p>
+
+<div class="alert alert-info">
+	{tmpl_var name='scan_path_txt'}: <code>{tmpl_var name='scan_path'}</code>
+</div>
+
+<input type="hidden" name="domain_id" value="{tmpl_var name='domain_id'}" />
+
+<div class="form-group">
+	<label for="schedule" class="col-sm-3 control-label">{tmpl_var name='schedule_txt'}</label>
+	<div class="col-sm-9"><select name="schedule" id="schedule" class="form-control">
+		{tmpl_var name='schedule'}
+	</select></div>
+</div>
+<div class="form-group">
+	<label for="max_age" class="col-sm-3 control-label">{tmpl_var name='max_age_txt'}</label>
+	<div class="col-sm-9">
+		<input type="text" name="max_age" id="max_age" value="{tmpl_var name='max_age'}" class="form-control" />
+		<span class="help-block">{tmpl_var name='max_age_hint_txt'}</span>
+	</div>
+</div>
+<div class="form-group">
+	<label class="col-sm-3 control-label">{tmpl_var name='version_scan_txt'}</label>
+	<div class="col-sm-9">{tmpl_var name='version_scan'}</div>
+</div>
+<div class="form-group">
+	<label for="excludes" class="col-sm-3 control-label">{tmpl_var name='excludes_txt'}</label>
+	<div class="col-sm-9">
+		<textarea name="excludes" id="excludes" rows="6" cols="30" class="form-control">{tmpl_var name='excludes'}</textarea>
+		<span class="help-block">{tmpl_var name='excludes_hint_txt'}</span>
+		<span class="help-block"><small>{tmpl_var name='global_excludes_txt'}: <code>{tmpl_var name='global_excludes'}</code></small></span>
+	</div>
+</div>
+
+<p class="fieldset-legend">{tmpl_var name='actions_head_txt'}</p>
+<p>{tmpl_var name='actions_desc_txt'}</p>
+
+<div class="form-group">
+	<label class="col-sm-3 control-label">{tmpl_var name='notify_admin_txt'}</label>
+	<div class="col-sm-9">{tmpl_var name='notify_admin'}</div>
+</div>
+<div class="form-group">
+	<label for="notify_admin_severity" class="col-sm-3 control-label">{tmpl_var name='notify_admin_severity_txt'}</label>
+	<div class="col-sm-9"><select name="notify_admin_severity" id="notify_admin_severity" class="form-control">
+		{tmpl_var name='notify_admin_severity'}
+	</select></div>
+</div>
+<div class="form-group">
+	<label class="col-sm-3 control-label">{tmpl_var name='notify_client_txt'}</label>
+	<div class="col-sm-9">{tmpl_var name='notify_client'}</div>
+</div>
+<div class="form-group">
+	<label for="notify_client_severity" class="col-sm-3 control-label">{tmpl_var name='notify_client_severity_txt'}</label>
+	<div class="col-sm-9"><select name="notify_client_severity" id="notify_client_severity" class="form-control">
+		{tmpl_var name='notify_client_severity'}
+	</select></div>
+</div>
+<div class="form-group">
+	<label class="col-sm-3 control-label">{tmpl_var name='disable_site_txt'}</label>
+	<div class="col-sm-9">
+		{tmpl_var name='disable_site'}
+		<span class="help-block">{tmpl_var name='disable_site_hint_txt'}</span>
+	</div>
+</div>
+<div class="form-group">
+	<label for="disable_severity" class="col-sm-3 control-label">{tmpl_var name='disable_severity_txt'}</label>
+	<div class="col-sm-9"><select name="disable_severity" id="disable_severity" class="form-control">
+		{tmpl_var name='disable_severity'}
+	</select></div>
+</div>
+
+<input type="hidden" name="id" value="{tmpl_var name='id'}">
+
+<div class="clear"><div class="right">
+	<button class="btn btn-default formbutton-success" type="button" value="{tmpl_var name='btn_save_txt'}"
+		data-submit-form="pageForm" data-form-action="sites/malwatch_site_edit.php">{tmpl_var name='btn_save_txt'}</button>
+	<button class="btn btn-default formbutton-default" type="button" value="{tmpl_var name='btn_cancel_txt'}"
+		data-load-content="sites/malwatch_site_list.php">{tmpl_var name='btn_cancel_txt'}</button>
+</div></div>

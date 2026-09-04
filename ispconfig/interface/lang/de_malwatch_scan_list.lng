@@ -1,0 +1,13 @@
+<?php
+$wb['list_head_txt'] = 'malwatch – Prüfläufe';
+$wb['list_desc_txt'] = 'Verlauf der abgeschlossenen Prüfungen.';
+$wb['no_records_txt'] = 'Noch keine Prüfläufe.';
+
+$wb['domain_txt'] = 'Website';
+$wb['scan_state_txt'] = 'Ergebnis';
+$wb['finished_at_txt'] = 'Abgeschlossen';
+$wb['files_scanned_txt'] = 'Dateien';
+$wb['counts_txt'] = 'kritisch / hoch / mittel / gering';
+$wb['new_findings_txt'] = 'Neu';
+$wb['open_txt'] = 'Öffnen';
+$wb['filter_txt'] = 'Filtern';

@@ -1,0 +1,13 @@
+<?php
+$wb['list_head_txt'] = 'malwatch – Funde';
+$wb['list_desc_txt'] = 'Alle Funde über sämtliche Websites. Offene Funde stehen oben, freigegebene und behobene lassen sich über den Filter holen.';
+$wb['no_records_txt'] = 'Keine Funde.';
+
+$wb['finding_state_txt'] = 'Zustand';
+$wb['severity_txt'] = 'Stufe';
+$wb['domain_txt'] = 'Website';
+$wb['rule_id_txt'] = 'Regel';
+$wb['file_path_txt'] = 'Datei';
+$wb['last_seen_txt'] = 'Zuletzt gesehen';
+$wb['open_txt'] = 'Öffnen';
+$wb['filter_txt'] = 'Filtern';

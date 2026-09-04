@@ -1,0 +1,24 @@
+<?php
+$wb['edit_desc_txt'] = 'Zeitplan und Aktionen für diese Website. Aktionen greifen nur bei Funden, die seit dem letzten Lauf neu dazugekommen sind.';
+$wb['scan_path_txt'] = 'Geprüfter Pfad';
+$wb['schedule_txt'] = 'Zeitplan';
+$wb['max_age_txt'] = 'Nur Dateien der letzten Tage';
+$wb['max_age_hint_txt'] = '0 prüft alle Dateien. Ein Wert wie 2 prüft nur, was in den letzten zwei Tagen geändert wurde – schnell, aber Änderungszeiten lassen sich fälschen. Mindestens einmal im Monat vollständig prüfen.';
+$wb['version_scan_txt'] = 'Veraltete Software suchen';
+$wb['excludes_txt'] = 'Auszulassende Pfade';
+$wb['excludes_hint_txt'] = 'Ein Muster je Zeile. * bleibt in einer Ebene, ** geht über Ebenen hinweg, zum Beispiel **/cache/**';
+$wb['global_excludes_txt'] = 'Zusätzlich global ausgelassen';
+
+$wb['actions_head_txt'] = 'Aktionen bei einem Fund';
+$wb['actions_desc_txt'] = 'Jede Aktion hat eine eigene Mindeststufe. Veraltete Software löst nie eine Aktion aus.';
+$wb['notify_admin_txt'] = 'Betreiber benachrichtigen';
+$wb['notify_admin_severity_txt'] = 'ab Stufe';
+$wb['notify_client_txt'] = 'Kunde benachrichtigen';
+$wb['notify_client_severity_txt'] = 'ab Stufe';
+$wb['disable_site_txt'] = 'Website abschalten';
+$wb['disable_site_hint_txt'] = 'Die Website wird abgeschaltet wie bei einer Traffic-Sperre. Das Wiedereinschalten geschieht immer von Hand – ein sauberer Lauf hebt die Sperre nicht auf.';
+$wb['disable_severity_txt'] = 'ab Stufe';
+
+$wb['max_age_error_range'] = 'Die Zahl der Tage muss zwischen 0 und 3650 liegen.';
+$wb['btn_save_txt'] = 'Speichern';
+$wb['btn_cancel_txt'] = 'Abbrechen';

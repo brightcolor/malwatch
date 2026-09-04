@@ -1,0 +1,24 @@
+MIME-Version: 1.0
+Content-type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Subject: Sicherheitshinweis zu Ihrer Website {domain}
+
+Guten Tag,
+
+bei einer Sicherheitsprüfung Ihrer Website {domain} wurden am {scan_time}
+Dateien gefunden, die auf Schadcode hindeuten. Betroffen sind {count}
+Datei(en).
+
+Was das bedeutet: Über eine Sicherheitslücke wurde vermutlich fremder Code auf
+Ihren Webspace gelegt. So etwas wird häufig genutzt, um Werbemails zu
+verschicken oder Besucher Ihrer Seite umzuleiten.
+
+Was Sie tun sollten:
+
+1. Ändern Sie die Zugangsdaten Ihrer Website und Ihres Redaktionssystems.
+2. Bringen Sie das Redaktionssystem und alle Erweiterungen auf den neuesten
+   Stand.
+3. Spielen Sie eine Sicherung von einem Zeitpunkt vor dem Befall zurück oder
+   lassen Sie die betroffenen Dateien entfernen.
+
+Bei Fragen wenden Sie sich bitte an uns.

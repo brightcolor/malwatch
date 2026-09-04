@@ -1,0 +1,98 @@
+<?php
+$wb['list_head_txt'] = 'malwatch – Übersicht';
+$wb['list_desc_txt'] = 'Zustand aller Websites auf diesem Server. Eine Website prüfen, den Zeitplan setzen und Funde nachlesen.';
+$wb['toolsarea_head_txt'] = 'Aktionen';
+$wb['no_records_txt'] = 'Keine Websites vorhanden.';
+
+$wb['domain_txt'] = 'Website';
+$wb['state_txt'] = 'Zustand';
+$wb['open_findings_txt'] = 'Offene Funde';
+$wb['schedule_txt'] = 'Zeitplan';
+$wb['last_run_txt'] = 'Letzte Prüfung';
+$wb['next_run_txt'] = 'Nächste Prüfung';
+$wb['actions_txt'] = 'Aktionen';
+$wb['scan_now_txt'] = 'Jetzt prüfen';
+$wb['scan_all_txt'] = 'Alle Websites prüfen';
+$wb['settings_txt'] = 'Einstellungen';
+$wb['site_inactive_txt'] = 'abgeschaltet';
+$wb['busy_txt'] = 'läuft';
+$wb['confirm_scan_all_txt'] = 'Für alle aktiven Websites eine Prüfung einplanen?';
+$wb['binary_missing_txt'] = 'Der Scanner wurde nicht gefunden. Erwartet unter:';
+
+$wb['summary_total_txt'] = 'Websites';
+$wb['summary_findings_txt'] = 'mit Funden';
+$wb['summary_outdated_txt'] = 'veraltete Software';
+$wb['summary_clean_txt'] = 'sauber';
+$wb['summary_unknown_txt'] = 'ungeprüft';
+
+$wb['state_unknown_txt'] = 'ungeprüft';
+$wb['state_clean_txt'] = 'sauber';
+$wb['state_findings_txt'] = 'Funde';
+$wb['state_outdated_txt'] = 'veraltet';
+$wb['state_error_txt'] = 'Fehler';
+$wb['state_ignored_txt'] = 'freigegeben';
+
+$wb['severity_low_txt'] = 'gering';
+$wb['severity_medium_txt'] = 'mittel';
+$wb['severity_high_txt'] = 'hoch';
+$wb['severity_critical_txt'] = 'kritisch';
+
+$wb['schedule_off_txt'] = 'kein Zeitplan';
+$wb['schedule_daily_txt'] = 'täglich';
+$wb['schedule_weekly_txt'] = 'wöchentlich';
+$wb['schedule_monthly_txt'] = 'monatlich';
+
+$wb['action_admin_txt'] = 'Betreiber';
+$wb['action_client_txt'] = 'Kunde';
+$wb['action_disable_txt'] = 'Abschalten';
+$wb['action_none_txt'] = '–';
+$wb['action_notify_admin_txt'] = 'Betreiber benachrichtigt';
+$wb['action_notify_client_txt'] = 'Kunde benachrichtigt';
+$wb['action_disable_site_txt'] = 'Website abgeschaltet';
+$wb['action_error_txt'] = 'Fehler';
+
+$wb['last_scan_txt'] = 'Letzte Prüfung';
+$wb['scan_path_txt'] = 'Geprüfter Pfad';
+$wb['duration_txt'] = 'Dauer';
+$wb['files_scanned_txt'] = 'Geprüfte Dateien';
+$wb['engines_txt'] = 'Prüfstufen';
+$wb['notes_txt'] = 'Hinweise';
+$wb['no_scan_yet_txt'] = 'Diese Website wurde noch nicht geprüft.';
+$wb['busy_hint_txt'] = 'Für diese Website läuft gerade eine Prüfung. Das Ergebnis erscheint hier, sobald sie fertig ist.';
+$wb['site_disabled_hint_txt'] = 'Diese Website ist abgeschaltet. Wurde sie wegen eines Fundes abgeschaltet, steht der Grund unten im Protokoll.';
+$wb['enable_site_txt'] = 'Website wieder einschalten';
+$wb['confirm_enable_txt'] = 'Website wieder einschalten? Prüfe vorher, ob der Schadcode entfernt wurde.';
+
+$wb['findings_txt'] = 'Funde';
+$wb['no_findings_txt'] = 'Keine offenen Funde.';
+$wb['severity_txt'] = 'Stufe';
+$wb['rule_txt'] = 'Regel';
+$wb['file_txt'] = 'Datei';
+$wb['first_seen_txt'] = 'Zuerst gesehen';
+$wb['ignore_txt'] = 'Freigeben';
+$wb['reopen_txt'] = 'Wieder öffnen';
+
+$wb['software_txt'] = 'Erkannte Web-Software';
+$wb['no_software_txt'] = 'Keine Web-Software erkannt.';
+$wb['product_txt'] = 'Produkt';
+$wb['installed_version_txt'] = 'Installiert';
+$wb['latest_version_txt'] = 'Aktuell';
+$wb['path_txt'] = 'Pfad';
+$wb['outdated_txt'] = 'veraltet';
+$wb['version_unknown_txt'] = 'nicht ermittelbar';
+
+$wb['history_txt'] = 'Verlauf';
+$wb['no_scans_txt'] = 'Noch keine Prüfläufe.';
+$wb['finished_txt'] = 'Abgeschlossen';
+$wb['counts_txt'] = 'kritisch / hoch / mittel / gering · veraltet';
+$wb['new_findings_txt'] = 'Neu';
+
+$wb['actionlog_txt'] = 'Ausgeführte Aktionen';
+$wb['no_actionlog_txt'] = 'Es wurden noch keine Aktionen ausgeführt.';
+$wb['time_txt'] = 'Zeitpunkt';
+$wb['action_txt'] = 'Aktion';
+$wb['recipient_txt'] = 'Empfänger';
+$wb['trigger_txt'] = 'Auslöser';
+$wb['detail_txt'] = 'Hinweis';
+
+$wb['btn_back_txt'] = 'Zurück';

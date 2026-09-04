@@ -1,0 +1,71 @@
+# ISPConfig extension: malwatch
+# Format: action:source:target
+#   c = copy, s = symlink, d = create directory
+#   source is relative to the extension directory,
+#   target relative to /usr/local/ispconfig.
+
+# --- Interface -------------------------------------------------------------
+# The extension does not add a module of its own. A module name would have to
+# be written into sys_user.modules for every operator, which means touching
+# core data. Instead the pages join the existing "sites" module through its
+# menu.d directory, which is the hook the 3.3 extension mechanism provides.
+#
+# Interface files are COPIED, not symlinked: the pages use ISPConfig's own
+# convention of relative includes (require_once '../../lib/config.inc.php'),
+# and behind a symlink PHP resolves those against the extension directory,
+# where interface/lib does not exist.
+c:interface/malwatch.menu.php:interface/web/sites/lib/menu.d/malwatch.menu.php
+
+c:interface/malwatch_site_list.php:interface/web/sites/malwatch_site_list.php
+c:interface/malwatch_site_show.php:interface/web/sites/malwatch_site_show.php
+c:interface/malwatch_site_edit.php:interface/web/sites/malwatch_site_edit.php
+c:interface/malwatch_finding_list.php:interface/web/sites/malwatch_finding_list.php
+c:interface/malwatch_scan_list.php:interface/web/sites/malwatch_scan_list.php
+c:interface/malwatch_config_edit.php:interface/web/sites/malwatch_config_edit.php
+
+c:interface/list/malwatch_finding.list.php:interface/web/sites/list/malwatch_finding.list.php
+c:interface/list/malwatch_scan.list.php:interface/web/sites/list/malwatch_scan.list.php
+c:interface/form/malwatch_site.tform.php:interface/web/sites/form/malwatch_site.tform.php
+c:interface/form/malwatch_config.tform.php:interface/web/sites/form/malwatch_config.tform.php
+
+c:interface/templates/malwatch_site_list.htm:interface/web/sites/templates/malwatch_site_list.htm
+c:interface/templates/malwatch_site_show.htm:interface/web/sites/templates/malwatch_site_show.htm
+c:interface/templates/malwatch_site_edit.htm:interface/web/sites/templates/malwatch_site_edit.htm
+c:interface/templates/malwatch_config_edit.htm:interface/web/sites/templates/malwatch_config_edit.htm
+c:interface/templates/malwatch_finding_list.htm:interface/web/sites/templates/malwatch_finding_list.htm
+c:interface/templates/malwatch_scan_list.htm:interface/web/sites/templates/malwatch_scan_list.htm
+
+c:interface/lang/de_malwatch.lng:interface/web/sites/lib/lang/de_malwatch.lng
+c:interface/lang/en_malwatch.lng:interface/web/sites/lib/lang/en_malwatch.lng
+c:interface/lang/de_malwatch_site.lng:interface/web/sites/lib/lang/de_malwatch_site.lng
+c:interface/lang/en_malwatch_site.lng:interface/web/sites/lib/lang/en_malwatch_site.lng
+c:interface/lang/de_malwatch_config.lng:interface/web/sites/lib/lang/de_malwatch_config.lng
+c:interface/lang/en_malwatch_config.lng:interface/web/sites/lib/lang/en_malwatch_config.lng
+c:interface/lang/de_malwatch_finding_list.lng:interface/web/sites/lib/lang/de_malwatch_finding_list.lng
+c:interface/lang/en_malwatch_finding_list.lng:interface/web/sites/lib/lang/en_malwatch_finding_list.lng
+c:interface/lang/de_malwatch_scan_list.lng:interface/web/sites/lib/lang/de_malwatch_scan_list.lng
+c:interface/lang/en_malwatch_scan_list.lng:interface/web/sites/lib/lang/en_malwatch_scan_list.lng
+
+# --- Server ----------------------------------------------------------------
+# Module and plugin are symlinked so an update replaces them atomically.
+s:server/mods/malwatch_module.inc.php:server/mods-available/malwatch_module.inc.php
+s:server/mods/malwatch_module.inc.php:server/mods-enabled/malwatch_module.inc.php
+s:server/plugins/malwatch_plugin.inc.php:server/plugins-available/malwatch_plugin.inc.php
+s:server/plugins/malwatch_plugin.inc.php:server/plugins-enabled/malwatch_plugin.inc.php
+
+# Service classes are COPIED. app::uses() and app::load() skip a symlink
+# unless DEVSYSTEM is on, and on a production install it is not: the class
+# would silently never load and every call on it would be a fatal.
+c:server/lib/classes/malwatch_helper.inc.php:server/lib/classes/malwatch_helper.inc.php
+c:server/lib/classes/malwatch_runner.inc.php:server/lib/classes/malwatch_runner.inc.php
+c:server/lib/classes/malwatch_ingest.inc.php:server/lib/classes/malwatch_ingest.inc.php
+c:server/lib/classes/malwatch_actions.inc.php:server/lib/classes/malwatch_actions.inc.php
+c:server/lib/classes/cron.d/560-malwatch.inc.php:server/lib/classes/cron.d/560-malwatch.inc.php
+
+c:server/conf/malwatch_notification_de.txt:server/conf/malwatch_notification_de.txt
+c:server/conf/malwatch_notification_en.txt:server/conf/malwatch_notification_en.txt
+c:server/conf/malwatch_client_notification_de.txt:server/conf/malwatch_client_notification_de.txt
+c:server/conf/malwatch_client_notification_en.txt:server/conf/malwatch_client_notification_en.txt
+
+# Shared helper for the interface pages.
+c:interface/lib/malwatch_lib.inc.php:interface/web/sites/lib/malwatch_lib.inc.php
