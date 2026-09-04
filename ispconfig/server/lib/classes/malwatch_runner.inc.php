@@ -40,7 +40,9 @@ class malwatch_runner
 		}
 		$result_file = $runs_dir . '/job-' . intval($job['job_id']) . '.json';
 		$log_file = $runs_dir . '/job-' . intval($job['job_id']) . '.log';
+		$done_file = $this->done_file($result_file);
 		@unlink($result_file);
+		@unlink($done_file);
 
 		$args = $this->build_arguments($job, $config, $path, $result_file);
 		$command = escapeshellarg($binary);
@@ -52,9 +54,18 @@ class malwatch_runner
 		// running after server.php exits. Without it the scan would be killed
 		// halfway through and the job would hang in "running" until the
 		// timeout sweep.
-		$wrapper = 'setsid nice -n 15 ionice -c 3 ' . $command
-			. ' > ' . escapeshellarg($log_file) . ' 2>&1 &'
-			. ' echo $!';
+		//
+		// The inner shell writes the exit code to a marker file when the
+		// scanner is done. The job is finished when that file appears, not
+		// when the recorded pid disappears: setsid only forks when it is not
+		// already a process group leader, so the pid may belong to a process
+		// that exits immediately, and the collector would then read a report
+		// that has not been written yet.
+		$inner = 'nice -n 15 ionice -c 3 ' . $command
+			. ' > ' . escapeshellarg($log_file) . ' 2>&1; '
+			. 'echo $? > ' . escapeshellarg($done_file);
+
+		$wrapper = 'setsid sh -c ' . escapeshellarg($inner) . ' > /dev/null 2>&1 & echo $!';
 
 		$output = array();
 		$status = 0;
@@ -136,6 +147,39 @@ class malwatch_runner
 			}
 		}
 		return array_keys($patterns);
+	}
+
+	/** Path of the marker the wrapper writes when the scanner has finished. */
+	public function done_file($result_file)
+	{
+		return preg_replace('/\.json$/', '.done', (string) $result_file);
+	}
+
+	/**
+	 * Returns the exit code of a finished scan, or null while it still runs.
+	 */
+	public function finished_code($job)
+	{
+		$done = $this->done_file((string) $job['result_file']);
+		if ($done === '' || !is_file($done)) {
+			return null;
+		}
+		$raw = trim((string) @file_get_contents($done));
+		if ($raw === '' || !preg_match('/^\d{1,3}$/', $raw)) {
+			// The marker exists but holds nothing usable. The scan is over
+			// either way; ingest() decides what to make of the report.
+			return -1;
+		}
+		return intval($raw);
+	}
+
+	/** Removes the marker once a job has been collected. */
+	public function clear_marker($job)
+	{
+		$done = $this->done_file((string) $job['result_file']);
+		if ($done !== '' && is_file($done)) {
+			@unlink($done);
+		}
 	}
 
 	/** True when a process with this id is still alive. */

@@ -2,6 +2,18 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.1.3] – 2026-09-04
+
+### Behoben
+
+- Statistikseiten von AWStats, Webalizer und GoAccess werden nicht mehr
+  geprüft. Ihre 404-Auswertung listet die Pfade auf, nach denen Angreifer
+  suchen, darunter die Namen bekannter Webshells. Auf einer einzigen Website
+  erzeugte das 15 Fehlalarme.
+- Ein Prüflauf gilt erst als beendet, wenn der Scanner seinen Rückgabecode
+  hinterlegt hat. Vorher entschied das Verschwinden der Prozesskennung, was
+  davon abhängt, ob sich setsid abspaltet.
+
 ## [0.1.2] – 2026-09-04
 
 ### Behoben
