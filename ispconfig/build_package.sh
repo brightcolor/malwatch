@@ -13,6 +13,7 @@ zip -q -r "$OUT" \
 	install \
 	interface \
 	server \
+	tests \
 	-x "*.pkg" -x "build_package.sh" -x "*.git*"
 
 cp "$OUT" "${NAME}.pkg"

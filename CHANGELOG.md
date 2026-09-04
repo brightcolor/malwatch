@@ -2,6 +2,13 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.2.2] – 2026-09-04
+
+### Behoben
+
+- Das Prüfwerkzeug tests/render_pages.php lag nicht im Erweiterungspaket und
+  war auf dem Server damit nicht vorhanden.
+
 ## [0.2.1] – 2026-09-04
 
 ### Behoben
