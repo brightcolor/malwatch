@@ -147,6 +147,22 @@ if [ ! -f "$root/install/schema.sql" ]; then
 fi
 grep -q 'install/schema.sql' "$root/install/manual_install.php" 	|| fail "manual_install.php does not load install/schema.sql"
 
+# 13. The same for the uninstall schema, and the loader both sides share. The
+#     framework's run_uninstall_sql() has the identical defect and runs while
+#     an extension is being removed, where nobody watches the output.
+if [ -f "$root/install/uninstall.sql" ]; then
+	fail "install/uninstall.sql exists; run_uninstall_sql() would load it and fail - use install/uninstall-schema.sql"
+fi
+if [ ! -f "$root/install/uninstall-schema.sql" ]; then
+	fail "install/uninstall-schema.sql is missing"
+fi
+if [ ! -f "$root/install/sql_loader.php" ]; then
+	fail "install/sql_loader.php is missing"
+fi
+if ! grep -q 'uninstall-schema.sql' "$root/install/installer.php"; then
+	fail "installer.php does not drop the tables from install/uninstall-schema.sql"
+fi
+
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'
 fi

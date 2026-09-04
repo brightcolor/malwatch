@@ -2,6 +2,33 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.2.10] – 2026-09-05
+
+### Behoben
+
+- Beim Entfernen der Erweiterung blieben alle sieben Tabellen in der Datenbank
+  zurück. `run_uninstall_sql()` im Kern trägt denselben Fehler wie sein
+  Gegenstück beim Installieren, und `uninstall_extension()` löscht das
+  Erweiterungsverzeichnis unmittelbar nach dem Haken — mitsamt der SQL-Datei,
+  mit der man hinterher hätte aufräumen können. Der Haken löscht die Tabellen
+  jetzt selbst, im letzten Moment, in dem die Datei noch existiert. Scheitert
+  das, druckt er die `DROP`-Anweisungen aus, statt sie mit dem Verzeichnis
+  verschwinden zu lassen.
+
+### Geändert
+
+- Das Entfernen über die Kommandozeile braucht **root**: das Verwaltungskonto
+  steht in `mysql_clientdb.conf`, die nur root lesen darf. Über **System >
+  Extensions** im Panel bleiben die Tabellen stehen — dort ist weder das Konto
+  noch das Arbeitsverzeichnis erreichbar. Die README sagt das jetzt.
+- Der Ladeweg für SQL-Dateien liegt in `install/sql_loader.php`, den sich
+  Installation und Entfernen teilen: Verwaltungskonto über eine
+  0600-Defaults-Datei, damit das Passwort nie in `ps` auftaucht.
+- Das Entfernungs-Schema heißt `install/uninstall-schema.sql`, aus demselben
+  Grund wie `schema.sql` in 0.2.8. `manual_install.php` räumt eine
+  liegengebliebene `uninstall.sql` mit ab, zwei Prüfungen im Bauablauf halten
+  beide alten Namen fern.
+
 ## [0.2.9] – 2026-09-05
 
 ### Behoben

@@ -48,65 +48,28 @@ if (!is_dir($extension_dir)) {
 echo "Installing extension '$extension_name' ...\n";
 
 // --- Schema ----------------------------------------------------------------
+require_once $extension_dir . '/install/sql_loader.php';
+
 $sql_file = $extension_dir . '/install/schema.sql';
 if (is_file($sql_file)) {
-	$clientdb_conf = '/usr/local/ispconfig/server/lib/mysql_clientdb.conf';
-	$admin_user = '';
-	$admin_pass = '';
-	if (is_file($clientdb_conf)) {
-		$raw = file_get_contents($clientdb_conf);
-		if (preg_match('/clientdb_user\s*=\s*\'([^\']*)\'/', $raw, $m)) {
-			$admin_user = $m[1];
-		}
-		if (preg_match('/clientdb_password\s*=\s*\'([^\']*)\'/', $raw, $m)) {
-			$admin_pass = $m[1];
-		}
-	}
-
-	if ($admin_user === '' || $admin_pass === '') {
-		echo "Could not read the database administration account from $clientdb_conf.\n";
-		echo "Load the schema by hand, then re-run this script:\n";
+	$result = malwatch_run_sql_file($sql_file, $conf['db_host'], $conf['db_database']);
+	if (!$result['ok']) {
+		echo "Loading schema.sql failed: " . $result['error'] . "\n";
+		echo "Load it by hand, then run this script again:\n";
 		echo '  mysql -u root -p ' . $conf['db_database'] . " < $sql_file\n";
-		exit(1);
-	}
-
-	$defaults = tempnam(sys_get_temp_dir(), 'mw');
-	if ($defaults === false) {
-		echo "Could not create a temporary file.\n";
-		exit(1);
-	}
-	chmod($defaults, 0600);
-	file_put_contents($defaults,
-		"[client]\nuser=" . $admin_user . "\npassword=\"" . str_replace('"', '\\"', $admin_pass) . "\"\n");
-
-	$cmd = 'mysql --defaults-extra-file=' . escapeshellarg($defaults)
-		. ' -h ' . escapeshellarg($conf['db_host'])
-		. ' ' . escapeshellarg($conf['db_database'])
-		. ' < ' . escapeshellarg($sql_file) . ' 2>&1';
-
-	$sql_output = array();
-	$sql_status = 0;
-	exec($cmd, $sql_output, $sql_status);
-	unlink($defaults);
-
-	if ($sql_status !== 0) {
-		echo "Loading schema.sql failed:\n";
-		foreach ($sql_output as $line) {
-			if (stripos($line, 'ERROR') !== false) {
-				echo " - $line\n";
-			}
-		}
 		exit(1);
 	}
 	echo "Database schema loaded.\n";
 
 	// An update unpacks the package over the old directory, and unzip removes
-	// nothing. A schema.sql from this version next to an install.sql from the
-	// previous one would leave the framework a file to trip over again, so the
-	// old name goes once the new one has been read.
-	$stale = $extension_dir . '/install/install.sql';
-	if (is_file($stale) && !unlink($stale)) {
-		echo "Warning: the obsolete $stale could not be removed.\n";
+	// nothing. The names from before 0.2.8 would stay behind next to the new
+	// ones, and the framework would find them and trip over them again, so
+	// they go once the new schema has been read.
+	foreach (array('install.sql', 'uninstall.sql') as $old) {
+		$stale = $extension_dir . '/install/' . $old;
+		if (is_file($stale) && !unlink($stale)) {
+			echo "Warning: the obsolete $stale could not be removed.\n";
+		}
 	}
 }
 
