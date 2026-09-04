@@ -95,7 +95,12 @@ if (is_array($last_scan)) {
 	$app->tpl->setVar('has_scan', 1);
 	$app->tpl->setVar('last_run', $app->functions->htmlentities(malwatch_datetime($last_scan['finished_at'])));
 	$app->tpl->setVar('duration', $app->functions->htmlentities(malwatch_duration($last_scan['duration_seconds'])));
+	// Both numbers, always. With the cache on, a repeat scan looks at almost
+	// nothing and "0 files" reads as if the scan never happened.
 	$app->tpl->setVar('files_scanned', $app->functions->intval($last_scan['files_scanned']));
+	$app->tpl->setVar('files_skipped', $app->functions->intval($last_scan['files_skipped']));
+	$app->tpl->setVar('files_total',
+		$app->functions->intval($last_scan['files_scanned']) + $app->functions->intval($last_scan['files_skipped']));
 	$app->tpl->setVar('engines', $app->functions->htmlentities($last_scan['engines']));
 	$app->tpl->setVar('scan_notes', nl2br($app->functions->htmlentities((string) $last_scan['notes'])));
 	$app->tpl->setVar('state_label',
@@ -168,6 +173,8 @@ if (is_array($scans)) {
 			'finished_at' => $app->functions->htmlentities(malwatch_datetime($row['finished_at'])),
 			'duration' => $app->functions->htmlentities(malwatch_duration($row['duration_seconds'])),
 			'files_scanned' => $app->functions->intval($row['files_scanned']),
+			'files_skipped' => $app->functions->intval($row['files_skipped']),
+			'files_total' => $app->functions->intval($row['files_scanned']) + $app->functions->intval($row['files_skipped']),
 			'count_critical' => $app->functions->intval($row['count_critical']),
 			'count_high' => $app->functions->intval($row['count_high']),
 			'count_medium' => $app->functions->intval($row['count_medium']),

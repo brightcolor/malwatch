@@ -26,7 +26,7 @@
 		<tr><td>{tmpl_var name='state_txt'}</td><td><span class="label {tmpl_var name='state_class'}">{tmpl_var name='state_label'}</span></td></tr>
 		<tr><td>{tmpl_var name='last_run_txt'}</td><td>{tmpl_var name='last_run'}</td></tr>
 		<tr><td>{tmpl_var name='duration_txt'}</td><td>{tmpl_var name='duration'}</td></tr>
-		<tr><td>{tmpl_var name='files_scanned_txt'}</td><td>{tmpl_var name='files_scanned'}</td></tr>
+		<tr><td>{tmpl_var name='files_scanned_txt'}</td><td>{tmpl_var name='files_total'} <small class="text-muted">({tmpl_var name='files_scanned'} {tmpl_var name='files_new_txt'}, {tmpl_var name='files_skipped'} {tmpl_var name='files_unchanged_txt'})</small></td></tr>
 		<tr><td>{tmpl_var name='engines_txt'}</td><td><small>{tmpl_var name='engines'}</small></td></tr>
 		<tmpl_if name="scan_notes">
 		<tr><td>{tmpl_var name='notes_txt'}</td><td><small>{tmpl_var name='scan_notes'}</small></td></tr>
@@ -165,7 +165,7 @@
 		<tr>
 			<td>{tmpl_var name='finished_at'}</td>
 			<td><span class="label {tmpl_var name='state_class'}">{tmpl_var name='state_label'}</span></td>
-			<td>{tmpl_var name='files_scanned'}</td>
+			<td>{tmpl_var name='files_total'} <small class="text-muted">(+{tmpl_var name='files_scanned'})</small></td>
 			<td>{tmpl_var name='duration'}</td>
 			<td><small>{tmpl_var name='count_critical'} / {tmpl_var name='count_high'} / {tmpl_var name='count_medium'} / {tmpl_var name='count_low'} &middot; {tmpl_var name='count_outdated'}</small></td>
 			<td>{tmpl_var name='new_findings'}</td>

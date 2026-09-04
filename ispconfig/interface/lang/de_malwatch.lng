@@ -100,3 +100,5 @@ $wb['affected_files_txt'] = 'betroffene Datei(en)';
 $wb['hits_total_txt'] = 'Treffer insgesamt';
 $wb['relative_to_txt'] = 'Pfade relativ zu';
 $wb['line_txt'] = 'Zeile';
+$wb['files_new_txt'] = 'neu geprüft';
+$wb['files_unchanged_txt'] = 'unverändert';

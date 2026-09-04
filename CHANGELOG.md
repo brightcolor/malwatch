@@ -2,6 +2,14 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.2.4] – 2026-09-04
+
+### Geändert
+
+- Ein Wiederholungslauf meldete „0 Dateien", weil unveränderte Dateien aus
+  dem Zwischenspeicher kommen. Jetzt steht die Gesamtzahl da, dahinter wie
+  viele davon neu geprüft und wie viele unverändert waren.
+
 ## [0.2.3] – 2026-09-04
 
 ### Behoben
