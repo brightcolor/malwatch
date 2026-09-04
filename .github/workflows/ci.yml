@@ -32,6 +32,13 @@ jobs:
           php-version: "8.3"
       - name: Lint the extension
         run: find ispconfig -name '*.php' -print0 | xargs -0 -n1 php -l
+      # php -l only sees syntax. These two catch what breaks at run time:
+      # a constant ISPConfig does not define, and a page whose form, template
+      # or language file is missing or unregistered.
+      - name: Check constants
+        run: sh ispconfig/tests/check_constants.sh
+      - name: Check wiring
+        run: sh ispconfig/tests/check_wiring.sh
 
   clean-cms:
     # The counter-check that matters: a freshly downloaded WordPress and

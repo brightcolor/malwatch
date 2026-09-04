@@ -173,7 +173,7 @@ class malwatch_installer extends extension_installer_base
 		@chown(self::BINARY_PATH, 'root');
 		@chgrp(self::BINARY_PATH, 'root');
 
-		$app->log('malwatch: scanner ' . $version . ' installed at ' . self::BINARY_PATH, LOGLEVEL_INFO);
+		$app->log('malwatch: scanner ' . $version . ' installed at ' . self::BINARY_PATH, LOGLEVEL_DEBUG);
 		return true;
 	}
 
@@ -192,7 +192,7 @@ class malwatch_installer extends extension_installer_base
 			$app->log('malwatch: the signatures could not be loaded (' . implode(' ', $output) . ').', LOGLEVEL_WARN);
 			return false;
 		}
-		$app->log('malwatch: signatures loaded.', LOGLEVEL_INFO);
+		$app->log('malwatch: signatures loaded.', LOGLEVEL_DEBUG);
 		return true;
 	}
 
