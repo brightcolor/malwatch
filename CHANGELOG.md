@@ -2,6 +2,13 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.1.1] – 2026-09-04
+
+### Behoben
+
+- Das Extension-Paket wurde beim Release nicht gebaut, weil das Bauskript nicht
+  ausführbar eingecheckt war.
+
 ## [0.1.0] – 2026-09-04
 
 Erste Fassung.
