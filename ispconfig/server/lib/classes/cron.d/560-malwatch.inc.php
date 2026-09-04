@@ -62,12 +62,19 @@ class cronjob_malwatch extends cronjob
 		}
 
 		foreach ($jobs as $job) {
-			if ($app->malwatch_runner->is_running($job['pid'])) {
+			$code = $app->malwatch_runner->finished_code($job);
+			if ($code === null) {
 				continue;
 			}
-			// The process is gone. Either it finished and left a report, or it
-			// died; ingest() tells the two apart and records what happened.
+			// The scanner has ended and left its exit code behind. Either it
+			// wrote a report or it died; ingest() tells the two apart.
+			$app->dbmaster->query('UPDATE malwatch_job SET exit_code = ? WHERE job_id = ?',
+				$code, intval($job['job_id']));
+			$job['exit_code'] = $code;
+
 			$scan_id = $app->malwatch_ingest->ingest($job);
+			$app->malwatch_runner->clear_marker($job);
+
 			if ($scan_id > 0) {
 				$app->malwatch_actions->run($scan_id);
 			}
@@ -180,20 +187,21 @@ class cronjob_malwatch extends cronjob
 
 		$timeout = max(1, intval($config['job_timeout_hours']));
 
-		// A job whose process vanished without leaving a report is caught by
-		// collect_finished. This one catches the opposite case: a scanner that
-		// hangs for hours. Without it a stuck job would block the slot for ever.
+		// A finished scan is collected by collect_finished. This catches the
+		// opposite case: a scanner that hangs. Without it a stuck job would
+		// hold its slot for ever and no further scan would ever start.
 		$stale = $app->dbmaster->queryAllRecords(
-			"SELECT job_id, pid, domain FROM malwatch_job WHERE server_id = ? AND job_status = 'running' "
+			"SELECT job_id, pid, domain, result_file FROM malwatch_job WHERE server_id = ? AND job_status = 'running' "
 			. 'AND started_at < DATE_SUB(NOW(), INTERVAL ? HOUR)',
 			$conf['server_id'], $timeout);
 
 		if (is_array($stale)) {
 			foreach ($stale as $job) {
 				$pid = intval($job['pid']);
-				if ($pid > 0 && is_dir('/proc/' . $pid)) {
+				if ($pid > 0 && is_dir('/proc/' . $pid) && function_exists('posix_kill')) {
 					posix_kill($pid, 15);
 				}
+				$app->malwatch_runner->clear_marker($job);
 				$app->dbmaster->query(
 					"UPDATE malwatch_job SET job_status = 'error', finished_at = NOW(), job_log = ? WHERE job_id = ?",
 					'Abgebrochen: der Lauf dauerte länger als ' . $timeout . ' Stunden.', intval($job['job_id']));
