@@ -8,6 +8,10 @@ if (!$app->auth->is_admin()) {
 	die('Nur für Administratoren.');
 }
 
+// tform_actions::onLoad() reads this from the global scope. Without it the
+// form has no definition and the page dies before it renders anything.
+$tform_def_file = 'form/malwatch_site.tform.php';
+
 $app->uses('tpl,tform,tform_actions,functions');
 require_once 'lib/malwatch_lib.inc.php';
 

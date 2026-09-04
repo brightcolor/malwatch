@@ -69,7 +69,7 @@ class malwatch_runner
 			'UPDATE malwatch_job SET result_file = ?, pid = ? WHERE job_id = ?',
 			$result_file, $pid, $job['job_id']);
 
-		$helper->log('scan started for ' . $job['domain'] . ' (job ' . $job['job_id'] . ', pid ' . $pid . ')', LOGLEVEL_INFO);
+		$helper->log('scan started for ' . $job['domain'] . ' (job ' . $job['job_id'] . ', pid ' . $pid . ')', LOGLEVEL_DEBUG);
 		return true;
 	}
 

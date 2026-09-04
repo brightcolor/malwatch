@@ -2,6 +2,21 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.1.2] – 2026-09-04
+
+### Behoben
+
+- Die Installation brach mit einem Fatal ab: die Erweiterung benutzte die
+  Konstante LOGLEVEL_INFO, die ISPConfig nicht kennt.
+- Die beiden Formularseiten hinterlegten die Formulardefinition nicht, so dass
+  sie beim Öffnen abgebrochen wären.
+
+### Neu
+
+- Zwei Prüfskripte im Bauablauf: eines gegen unbekannte Konstanten, eines
+  gegen fehlende Formular-, Vorlagen- und Sprachdateien. Beide finden Fehler,
+  die eine Syntaxprüfung nicht sehen kann.
+
 ## [0.1.1] – 2026-09-04
 
 ### Behoben

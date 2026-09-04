@@ -8,6 +8,9 @@ if (!$app->auth->is_admin()) {
 	die('Nur für Administratoren.');
 }
 
+// tform_actions::onLoad() reads this from the global scope.
+$tform_def_file = 'form/malwatch_config.tform.php';
+
 $app->uses('tpl,tform,tform_actions,functions');
 require_once 'lib/malwatch_lib.inc.php';
 
