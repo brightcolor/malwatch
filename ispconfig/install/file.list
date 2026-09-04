@@ -67,5 +67,9 @@ c:server/conf/malwatch_notification_en.txt:server/conf/malwatch_notification_en.
 c:server/conf/malwatch_client_notification_de.txt:server/conf/malwatch_client_notification_de.txt
 c:server/conf/malwatch_client_notification_en.txt:server/conf/malwatch_client_notification_en.txt
 
+# Diagnostic tools. Not linked into the ISPConfig tree; they are run from
+# the extension directory when something needs checking.
+#   php tests/render_pages.php
+
 # Shared helper for the interface pages.
 c:interface/lib/malwatch_lib.inc.php:interface/web/sites/lib/malwatch_lib.inc.php

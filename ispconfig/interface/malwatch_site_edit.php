@@ -52,22 +52,26 @@ class page_action extends tform_actions
 
 		// If a settings row exists, edit it; otherwise the form runs in insert
 		// mode and onBeforeInsert fills in the website reference.
+		//
+		// The id is set in both cases, deliberately. Leaving whatever the
+		// query string carried would make tform load a settings row that
+		// belongs to a different website, or complain about a record that
+		// does not exist - which is exactly what happened when the page was
+		// opened as ?domain_id=204&id=204.
 		$existing = $app->db->queryOneRecord('SELECT site_id FROM malwatch_site WHERE parent_domain_id = ?',
 			$this->domain_id);
-		if (is_array($existing)) {
-			$this->id = $app->functions->intval($existing['site_id']);
-			$_REQUEST['id'] = $this->id;
-		}
+
+		$this->id = is_array($existing) ? $app->functions->intval($existing['site_id']) : 0;
+		$_REQUEST['id'] = $this->id;
+		$_POST['id'] = $this->id;
 
 		parent::onLoad();
 	}
 
-	public function onShowNew()
-	{
-		// Reached when no settings row exists yet. tform_actions would
-		// otherwise refuse because there is no record to show.
-		$this->onShowEnd();
-	}
+	// onShowNew() is deliberately not overridden. The base class already
+	// renders an empty form from the defaults in the form definition; an
+	// override that jumps straight to onShowEnd() skips the field generation
+	// and renders the page twice, once empty from here and once from onShow().
 
 	public function onShowEnd()
 	{
@@ -84,39 +88,37 @@ class page_action extends tform_actions
 		parent::onShowEnd();
 	}
 
-	public function onBeforeInsert()
+	/**
+	 * Writes the fields that are not part of the form.
+	 *
+	 * tform builds its SQL from the form definition and writes nothing else,
+	 * so assigning to dataRecord in onBeforeInsert has no effect at all: the
+	 * row lands with parent_domain_id 0 and no server, the scheduler never
+	 * finds it, and the unique key makes the second website fail to save.
+	 * They are set here with a plain update, from the website the page was
+	 * opened for and never from the request.
+	 */
+	public function onAfterInsert()
 	{
 		global $app;
 
-		$this->dataRecord['parent_domain_id'] = $this->domain_id;
-		$this->dataRecord['domain'] = (string) $this->web['domain'];
-		$this->dataRecord['server_id'] = $app->functions->intval($this->web['server_id']);
-		$this->dataRecord['sys_groupid'] = $app->functions->intval($this->web['sys_groupid']);
+		$app->db->query(
+			'UPDATE malwatch_site SET parent_domain_id = ?, domain = ?, server_id = ?, sys_groupid = ? WHERE site_id = ?',
+			$this->domain_id,
+			(string) $this->web['domain'],
+			$app->functions->intval($this->web['server_id']),
+			$app->functions->intval($this->web['sys_groupid']),
+			$app->functions->intval($this->id)
+		);
 
-		parent::onBeforeInsert();
-	}
-
-	public function onAfterInsert()
-	{
 		$this->scheduleNextRun();
 		parent::onAfterInsert();
 	}
 
-	public function onBeforeUpdate()
-	{
-		global $app;
-
-		// The website reference is not part of the form and must not be
-		// changed by a crafted request.
-		$this->dataRecord['parent_domain_id'] = $this->domain_id;
-		$this->dataRecord['domain'] = (string) $this->web['domain'];
-		$this->dataRecord['server_id'] = $app->functions->intval($this->web['server_id']);
-
-		parent::onBeforeUpdate();
-	}
-
 	public function onAfterUpdate()
 	{
+		// The website reference is not in the form, so no request can change
+		// it. Nothing to restore here.
 		$this->scheduleNextRun();
 		parent::onAfterUpdate();
 	}
