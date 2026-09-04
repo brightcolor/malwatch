@@ -86,10 +86,31 @@ class malwatch_installer extends extension_installer_base
 
 	public function uninstall($name = 'malwatch')
 	{
-		global $app;
+		global $app, $conf;
 
 		$app->log('malwatch: uninstall step started.', LOGLEVEL_DEBUG);
 		$this->disable($name);
+
+		// The tables are dropped here rather than through the framework.
+		// run_uninstall_sql() carries the same defect as its install
+		// counterpart, and uninstall_extension() deletes the extension
+		// directory the moment this hook returns - this is the last point at
+		// which the file still exists.
+		require_once __DIR__ . '/sql_loader.php';
+		$sql_file = __DIR__ . '/uninstall-schema.sql';
+		$result = malwatch_run_sql_file($sql_file, $conf['db_host'], $conf['db_database']);
+		if ($result['ok']) {
+			$app->log('malwatch: tables dropped.', LOGLEVEL_DEBUG);
+		} else {
+			// The directory disappears with this hook, so the statements have
+			// to leave in the message itself. Printing them is the only form
+			// that also helps on the panel route, where neither the
+			// administration account nor the state directory is reachable.
+			$app->log('malwatch: the tables could not be dropped (' . $result['error'] . ').', LOGLEVEL_WARN);
+			echo "\nThe malwatch tables could not be dropped: " . $result['error'] . "\n";
+			echo "Run these statements against " . $conf['db_database'] . " by hand:\n\n";
+			echo (string) @file_get_contents($sql_file) . "\n";
+		}
 
 		if (is_file(self::BINARY_PATH)) {
 			@unlink(self::BINARY_PATH);

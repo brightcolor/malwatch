@@ -89,6 +89,12 @@ php -r '
 '
 ```
 
+Der Weg über die Kommandozeile muss **als root** laufen: die Erweiterung
+löscht ihre sieben Tabellen selbst, und das Verwaltungskonto dafür steht in
+`mysql_clientdb.conf`, die nur root lesen darf. Über **System > Extensions**
+im Panel bleiben die Tabellen deshalb stehen; die Erweiterung druckt in dem
+Fall die nötigen `DROP`-Anweisungen aus.
+
 Das Arbeitsverzeichnis `/var/lib/malwatch` bleibt stehen. Es enthält die
 Signaturen und die Berichte vergangener Läufe; wer die nicht mehr braucht,
 löscht es von Hand.
