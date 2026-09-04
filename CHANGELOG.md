@@ -2,6 +2,17 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.2.6] – 2026-09-04
+
+### Behoben
+
+- 49 Fehlalarme „weicht von der Auslieferung ab" auf einer einzigen Website.
+  Die Prüfsummenliste von WordPress enthält die mitgelieferten Themes, die
+  eigenständig aktualisiert werden. Unterhalb von wp-content wird nicht mehr
+  verglichen, genau wie es auch wp-cli hält.
+- Eine deutsche WordPress-Installation wurde gegen die englischen Prüfsummen
+  gehalten. Die Sprachausgabe wird jetzt aus der Installation gelesen.
+
 ## [0.2.5] – 2026-09-04
 
 ### Behoben

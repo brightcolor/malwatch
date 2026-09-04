@@ -38,32 +38,62 @@ func NewFetcher(cacheDir string, timeout time.Duration) *Fetcher {
 func (f *Fetcher) Failures() []string { return f.failures }
 
 // WordPressCore returns path to MD5 for one WordPress release.
-func (f *Fetcher) WordPressCore(version string) (map[string]string, error) {
+//
+// locale selects the localised build; empty means the international one. A
+// German install compared against the en_US list reports the files that carry
+// translated comments as modified.
+func (f *Fetcher) WordPressCore(version, locale string) (map[string]string, error) {
 	if !safeVersion(version) {
 		return nil, fmt.Errorf("unplausible Version %q", version)
 	}
-	key := "wordpress-core-" + version + ".json"
+	if locale == "" {
+		locale = "en_US"
+	}
+	if !safeSlug(locale) {
+		locale = "en_US"
+	}
+
+	key := "wordpress-core-" + version + "-" + locale + ".json"
 	u := "https://api.wordpress.org/core/checksums/1.0/?version=" +
-		url.QueryEscape(version) + "&locale=en_US"
+		url.QueryEscape(version) + "&locale=" + url.QueryEscape(locale)
 
 	raw, err := f.load(key, u)
 	if err != nil {
-		f.note("WordPress %s: Prüfsummen nicht ladbar (%v)", version, err)
+		f.note("WordPress %s (%s): Prüfsummen nicht ladbar (%v)", version, locale, err)
 		return nil, err
 	}
 	var payload struct {
 		Checksums map[string]string `json:"checksums"`
 	}
 	if err := json.Unmarshal(raw, &payload); err != nil {
-		f.note("WordPress %s: Prüfsummen nicht lesbar", version)
+		f.note("WordPress %s (%s): Prüfsummen nicht lesbar", version, locale)
 		return nil, err
 	}
 	if len(payload.Checksums) == 0 {
 		// The API answers 200 with an empty body for an unknown version.
-		f.note("WordPress %s: keine Prüfsummen veröffentlicht", version)
+		f.note("WordPress %s (%s): keine Prüfsummen veröffentlicht", version, locale)
 		return nil, fmt.Errorf("leere Prüfsummenliste")
 	}
-	return lowerValues(payload.Checksums), nil
+
+	return coreOnly(lowerValues(payload.Checksums)), nil
+}
+
+// coreOnly drops everything below wp-content.
+//
+// The core checksum list covers the bundled themes, which WordPress updates
+// on their own schedule. A site whose Twenty Twenty theme is newer than its
+// core then reports every one of that theme's files as a modified core file -
+// fifty findings on one site, none of them real. What remains is wp-admin,
+// wp-includes and the root files, which is what wp-cli verifies too.
+func coreOnly(files map[string]string) map[string]string {
+	out := make(map[string]string, len(files))
+	for path, sum := range files {
+		if strings.HasPrefix(path, "wp-content/") {
+			continue
+		}
+		out[path] = sum
+	}
+	return out
 }
 
 // WordPressPlugin returns path to MD5 for one plugin release.

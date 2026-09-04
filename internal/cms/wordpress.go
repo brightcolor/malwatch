@@ -17,6 +17,20 @@ var (
 	versionRe    = regexp.MustCompile(`(?im)^[ \t/*#@]*Version\s*:\s*(.+)$`)
 )
 
+// localPackageRe reads the localised build a WordPress install came from.
+// A German download sets $wp_local_package = 'de_DE'; the international one
+// leaves the variable out.
+var localPackageRe = regexp.MustCompile(`(?m)^\s*\$wp_local_package\s*=\s*['"]([A-Za-z_]{2,10})['"]`)
+
+// wordpressLocale returns the locale of version.php, or an empty string.
+func wordpressLocale(versionFile []byte) string {
+	m := localPackageRe.FindSubmatch(versionFile)
+	if m == nil {
+		return ""
+	}
+	return string(m[1])
+}
+
 // wordpressExtras lists the plugins and themes of an installation.
 func wordpressExtras(root string) []Install {
 	contentDir := wpContentDir(root)
