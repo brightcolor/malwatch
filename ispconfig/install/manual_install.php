@@ -99,6 +99,15 @@ if (is_file($sql_file)) {
 		exit(1);
 	}
 	echo "Database schema loaded.\n";
+
+	// An update unpacks the package over the old directory, and unzip removes
+	// nothing. A schema.sql from this version next to an install.sql from the
+	// previous one would leave the framework a file to trip over again, so the
+	// old name goes once the new one has been read.
+	$stale = $extension_dir . '/install/install.sql';
+	if (is_file($stale) && !unlink($stale)) {
+		echo "Warning: the obsolete $stale could not be removed.\n";
+	}
 }
 
 // --- Files and installer hooks --------------------------------------------
