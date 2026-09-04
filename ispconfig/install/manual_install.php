@@ -7,9 +7,17 @@
  *
  *   php /usr/local/ispconfig/extensions/malwatch/install/manual_install.php
  *
- * The schema is loaded with the database administration account rather than
- * the ISPConfig account: the framework's own load_install_sql() uses the
- * ISPConfig user, which on most installs may not create tables.
+ * The schema is loaded here, with the database administration account: the
+ * ISPConfig account may only read and write rows, not create tables.
+ *
+ * It is called schema.sql, not install.sql, on purpose. The framework looks
+ * for install.sql and loads it a second time through
+ * extension_installer::load_install_sql(), which builds its command from
+ * $conf['mysql'][...] - keys that exist only while ISPConfig itself is being
+ * set up. On a running system they are empty, so the command carries no
+ * password: mysql asks for one, reads the answer from the redirected SQL file
+ * and reports a syntax error on the remains. Under a name the framework does
+ * not look for, that call finds nothing and stays quiet.
  */
 
 if (php_sapi_name() != 'cli') {
@@ -40,7 +48,7 @@ if (!is_dir($extension_dir)) {
 echo "Installing extension '$extension_name' ...\n";
 
 // --- Schema ----------------------------------------------------------------
-$sql_file = $extension_dir . '/install/install.sql';
+$sql_file = $extension_dir . '/install/schema.sql';
 if (is_file($sql_file)) {
 	$clientdb_conf = '/usr/local/ispconfig/server/lib/mysql_clientdb.conf';
 	$admin_user = '';
@@ -82,7 +90,7 @@ if (is_file($sql_file)) {
 	unlink($defaults);
 
 	if ($sql_status !== 0) {
-		echo "Loading install.sql failed:\n";
+		echo "Loading schema.sql failed:\n";
 		foreach ($sql_output as $line) {
 			if (stripos($line, 'ERROR') !== false) {
 				echo " - $line\n";
@@ -100,20 +108,9 @@ $app->load('extension_installer_base');
 $ok = $app->extension_installer->install_extension($extension_name, null, false);
 
 $errors = $app->extension_installer->getErrors();
-$fatal = array();
-foreach ($errors as $error) {
-	if (strpos($error, 'install.sql') !== false) {
-		// Expected: the framework retries the schema with the ISPConfig
-		// account, which usually may not create tables. It was already
-		// loaded above with the administration account.
-		continue;
-	}
-	$fatal[] = $error;
-}
-
-if (count($fatal) > 0) {
+if (count($errors) > 0) {
 	echo "Errors during installation:\n";
-	foreach ($fatal as $error) {
+	foreach ($errors as $error) {
 		echo " - $error\n";
 	}
 	exit(1);
