@@ -43,13 +43,21 @@
 	<input type="hidden" name="_csrf_key" value="{tmpl_var name='csrf_key'}" />
 	<input type="hidden" name="id" value="{tmpl_var name='domain_id'}" />
 	<input type="hidden" name="finding_path" id="malwatch_finding_id" value="" />
+	<!--
+		The action goes into a hidden field: the panel serialises the form and
+		posts it by AJAX, so the clicked button never contributes its own value.
+	-->
+	<input type="hidden" name="malwatch_action" id="malwatch_action" value="" />
 
 	<div class="marginTop15 marginBottom15">
-		<button class="btn btn-default formbutton-default" type="submit" name="malwatch_action" value="scan">{tmpl_var name='scan_now_txt'}</button>
+		<button class="btn btn-default formbutton-default" type="button"
+			onclick="document.getElementById('malwatch_action').value='scan';"
+			data-submit-form="pageForm" data-form-action="sites/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='scan_now_txt'}</button>
 		<a class="btn btn-default formbutton-default" href="#" data-load-content="sites/malwatch_site_edit.php?domain_id={tmpl_var name='domain_id'}">{tmpl_var name='settings_txt'}</a>
 		<tmpl_unless name="site_active">
-			<button class="btn btn-default formbutton-success" type="submit" name="malwatch_action" value="enable_site"
-				onclick="return confirm('{tmpl_var name='confirm_enable_txt'}');">{tmpl_var name='enable_site_txt'}</button>
+			<button class="btn btn-default formbutton-success" type="button"
+				onclick="if(!confirm('{tmpl_var name='confirm_enable_txt'}')){event.stopPropagation();return false;} document.getElementById('malwatch_action').value='enable_site';"
+				data-submit-form="pageForm" data-form-action="sites/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='enable_site_txt'}</button>
 		</tmpl_unless>
 	</div>
 
@@ -98,11 +106,13 @@
 				<td>{tmpl_var name='first_seen'}</td>
 				<td class="text-right">
 					<tmpl_if name="is_ignored">
-					<button class="btn btn-default formbutton-default formbutton-narrow" type="submit" name="malwatch_action" value="reopen"
-						onclick="document.getElementById('malwatch_finding_id').value='{tmpl_var name='full_path'}';">{tmpl_var name='reopen_txt'}</button>
+					<button class="btn btn-default formbutton-default formbutton-narrow" type="button"
+						onclick="document.getElementById('malwatch_action').value='reopen';document.getElementById('malwatch_finding_id').value='{tmpl_var name='full_path'}';"
+						data-submit-form="pageForm" data-form-action="sites/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='reopen_txt'}</button>
 					<tmpl_else>
-					<button class="btn btn-default formbutton-default formbutton-narrow" type="submit" name="malwatch_action" value="ignore"
-						onclick="document.getElementById('malwatch_finding_id').value='{tmpl_var name='full_path'}';">{tmpl_var name='ignore_txt'}</button>
+					<button class="btn btn-default formbutton-default formbutton-narrow" type="button"
+						onclick="document.getElementById('malwatch_action').value='ignore';document.getElementById('malwatch_finding_id').value='{tmpl_var name='full_path'}';"
+						data-submit-form="pageForm" data-form-action="sites/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='ignore_txt'}</button>
 					</tmpl_if>
 				</td>
 			</tr>

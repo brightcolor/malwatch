@@ -228,6 +228,9 @@ function malwatch_group_findings($app, $rows, $wb, $base = '')
 		if (!isset($groups[$key])) {
 			$parts = malwatch_split_path($key, $base);
 			$groups[$key] = array(
+				// Carried on every row on purpose: a template loop must not
+				// depend on an outer variable being visible inside it.
+				'domain_id' => $app->functions->intval($row['parent_domain_id']),
 				'dir' => $app->functions->htmlentities($parts['dir']),
 				'file' => $app->functions->htmlentities($parts['file']),
 				'full_path' => $app->functions->htmlentities($parts['full']),

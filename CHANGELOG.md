@@ -2,6 +2,15 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.2.5] – 2026-09-04
+
+### Behoben
+
+- Die Knöpfe „Jetzt prüfen", „Alle prüfen", „Freigeben" und „Wieder
+  einschalten" lösten nichts aus. Das Panel schickt Formulare nur über seine
+  eigenen Datenattribute ab; ein gewöhnlicher Absendeknopf erzeugt darin gar
+  keine Anfrage. Der Bauablauf prüft das jetzt.
+
 ## [0.2.4] – 2026-09-04
 
 ### Geändert

@@ -78,7 +78,28 @@ for file in $(cd "$root" && find interface server -type f | sort); do
 	grep -q ":$file:" "$root/install/file.list" || fail "$file is not in install/file.list"
 done
 
-# 7. Templates must not reference a language key that neither language file
+# 7. No native submit buttons. The panel binds [data-submit-form] and posts
+#    by AJAX; a type="submit" button inside the panel produces no request at
+#    all, so the button looks fine and simply does nothing.
+for tpl in "$root"/interface/templates/*.htm; do
+	[ -f "$tpl" ] || continue
+	if grep -q 'type="submit"' "$tpl"; then
+		fail "$(basename "$tpl") uses type=\"submit\"; the panel needs type=\"button\" with data-submit-form"
+	fi
+done
+
+# 8. A button that submits must name the form and the action, otherwise the
+#    click is silently ignored.
+for tpl in "$root"/interface/templates/*.htm; do
+	[ -f "$tpl" ] || continue
+	subs=$(grep -c 'data-submit-form' "$tpl" || true)
+	acts=$(grep -c 'data-form-action' "$tpl" || true)
+	if [ "$subs" != "$acts" ]; then
+		fail "$(basename "$tpl") has $subs data-submit-form but $acts data-form-action"
+	fi
+done
+
+# 9. Templates must not reference a language key that neither language file
 #    defines - the page would then show an empty label.
 for tpl in "$root"/interface/templates/*.htm; do
 	[ -f "$tpl" ] || continue

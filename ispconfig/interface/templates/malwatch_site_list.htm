@@ -23,14 +23,23 @@
 	<span class="label label-default">{tmpl_var name='summary_unknown_txt'}: {tmpl_var name='count_unknown'}</span>
 </div>
 
+<!--
+	The panel never submits a form natively. Its JavaScript picks up the two
+	data attributes below and posts by AJAX; a native submit button does
+	nothing at all inside the panel, which is why the first scan click
+	produced no request. The action travels in a hidden field, because the
+	serialised form does not carry the clicked button's own value.
+-->
 <form action="sites/malwatch_site_list.php" method="post" id="pageForm">
 	<input type="hidden" name="_csrf_id" value="{tmpl_var name='csrf_id'}" />
 	<input type="hidden" name="_csrf_key" value="{tmpl_var name='csrf_key'}" />
 	<input type="hidden" name="domain_id" id="malwatch_domain_id" value="" />
+	<input type="hidden" name="malwatch_action" id="malwatch_action" value="" />
 
 	<p class="fieldset-legend">{tmpl_var name='toolsarea_head_txt'}</p>
-	<button class="btn btn-default formbutton-default" type="submit" name="malwatch_action" value="scan_all"
-		onclick="return confirm('{tmpl_var name='confirm_scan_all_txt'}');">{tmpl_var name='scan_all_txt'}</button>
+	<button class="btn btn-default formbutton-default" type="button"
+		onclick="if(!confirm('{tmpl_var name='confirm_scan_all_txt'}')){event.stopPropagation();return false;} document.getElementById('malwatch_action').value='scan_all';"
+		data-submit-form="pageForm" data-form-action="sites/malwatch_site_list.php">{tmpl_var name='scan_all_txt'}</button>
 
 	<p class="fieldset-legend marginTop15">{tmpl_var name='list_head_txt'}</p>
 	<div class="table-wrapper marginTop15">
@@ -68,9 +77,9 @@
 				<td><small>{tmpl_var name="actions"}</small></td>
 				<td class="text-right">
 					<div class="buttons icons16">
-						<button class="btn btn-default formbutton-default formbutton-narrow" type="submit"
-							name="malwatch_action" value="scan_one"
-							onclick="document.getElementById('malwatch_domain_id').value='{tmpl_var name='domain_id'}';">{tmpl_var name='scan_now_txt'}</button>
+						<button class="btn btn-default formbutton-default formbutton-narrow" type="button"
+							onclick="document.getElementById('malwatch_action').value='scan_one';document.getElementById('malwatch_domain_id').value='{tmpl_var name='domain_id'}';"
+							data-submit-form="pageForm" data-form-action="sites/malwatch_site_list.php">{tmpl_var name='scan_now_txt'}</button>
 						<a class="btn btn-default formbutton-default formbutton-narrow" href="#"
 							data-load-content="sites/malwatch_site_edit.php?domain_id={tmpl_var name='domain_id'}">{tmpl_var name='settings_txt'}</a>
 					</div>
