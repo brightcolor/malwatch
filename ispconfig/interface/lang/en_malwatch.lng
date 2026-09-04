@@ -100,3 +100,5 @@ $wb['affected_files_txt'] = 'affected file(s)';
 $wb['hits_total_txt'] = 'hits in total';
 $wb['relative_to_txt'] = 'paths relative to';
 $wb['line_txt'] = 'line';
+$wb['files_new_txt'] = 'newly scanned';
+$wb['files_unchanged_txt'] = 'unchanged';
