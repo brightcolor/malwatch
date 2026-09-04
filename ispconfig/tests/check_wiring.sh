@@ -110,6 +110,29 @@ for tpl in "$root"/interface/templates/*.htm; do
 	done
 done
 
+# 10. No template may open its own form. The panel wraps the whole content
+#     area in <form id="pageForm">, and a second form of that name inside it
+#     is a nested form: the browser hands the fields to the inner one, while
+#     $('#pageForm') finds the outer one first. serialize() then posts a form
+#     without any of the fields - no token, no action - and the panel answers
+#     with "CSRF attempt blocked".
+for tpl in "$root"/interface/templates/*.htm; do
+	[ -f "$tpl" ] || continue
+	if grep -qE '<form[ >]' "$tpl"; then
+		fail "$(basename "$tpl") opens its own <form>; the panel already provides pageForm"
+	fi
+done
+
+# 11. A page that checks the token must hand it to form.tpl.htm, which renders
+#     the two hidden fields. Under any other variable name they stay empty and
+#     every submit is rejected.
+for page in "$root"/interface/*.php; do
+	grep -q 'csrf_token_check' "$page" || continue
+	for var in _csrf_id _csrf_key; do
+		grep -q "setVar('$var'" "$page" || fail "$(basename "$page") checks the token but never sets $var"
+	done
+done
+
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'
 fi

@@ -38,92 +38,95 @@
 </table>
 </div>
 
-<form action="sites/malwatch_site_show.php?id={tmpl_var name='domain_id'}" method="post" id="pageForm">
-	<input type="hidden" name="_csrf_id" value="{tmpl_var name='csrf_id'}" />
-	<input type="hidden" name="_csrf_key" value="{tmpl_var name='csrf_key'}" />
-	<input type="hidden" name="id" value="{tmpl_var name='domain_id'}" />
-	<input type="hidden" name="finding_path" id="malwatch_finding_id" value="" />
-	<!--
-		The action goes into a hidden field: the panel serialises the form and
-		posts it by AJAX, so the clicked button never contributes its own value.
-	-->
-	<input type="hidden" name="malwatch_action" id="malwatch_action" value="" />
+<!--
+	No form of our own: the panel wraps the whole content area in one called
+	pageForm. A second form of that name inside it owns these fields, while
+	the panel serialises the outer one and posts an empty request - answered
+	with "CSRF attempt blocked". The token is appended after this template by
+	form.tpl.htm, from the variables the page sets.
+-->
+<input type="hidden" name="id" value="{tmpl_var name='domain_id'}" />
+<input type="hidden" name="finding_path" id="malwatch_finding_id" value="" />
+<!--
+	The action goes into a hidden field: the panel serialises the form and
+	posts it by AJAX, so the clicked button never contributes its own value.
+-->
+<input type="hidden" name="malwatch_action" id="malwatch_action" value="" />
 
-	<div class="marginTop15 marginBottom15">
-		<button class="btn btn-default formbutton-default" type="button"
-			onclick="document.getElementById('malwatch_action').value='scan';"
-			data-submit-form="pageForm" data-form-action="sites/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='scan_now_txt'}</button>
-		<a class="btn btn-default formbutton-default" href="#" data-load-content="sites/malwatch_site_edit.php?domain_id={tmpl_var name='domain_id'}">{tmpl_var name='settings_txt'}</a>
-		<tmpl_unless name="site_active">
-			<button class="btn btn-default formbutton-success" type="button"
-				onclick="if(!confirm('{tmpl_var name='confirm_enable_txt'}')){event.stopPropagation();return false;} document.getElementById('malwatch_action').value='enable_site';"
-				data-submit-form="pageForm" data-form-action="sites/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='enable_site_txt'}</button>
-		</tmpl_unless>
-	</div>
+<div class="marginTop15 marginBottom15">
+	<button class="btn btn-default formbutton-default" type="button"
+		onclick="document.getElementById('malwatch_action').value='scan';"
+		data-submit-form="pageForm" data-form-action="sites/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='scan_now_txt'}</button>
+	<a class="btn btn-default formbutton-default" href="#" data-load-content="sites/malwatch_site_edit.php?domain_id={tmpl_var name='domain_id'}">{tmpl_var name='settings_txt'}</a>
+	<tmpl_unless name="site_active">
+		<button class="btn btn-default formbutton-success" type="button"
+			onclick="if(!confirm('{tmpl_var name='confirm_enable_txt'}')){event.stopPropagation();return false;} document.getElementById('malwatch_action').value='enable_site';"
+			data-submit-form="pageForm" data-form-action="sites/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='enable_site_txt'}</button>
+	</tmpl_unless>
+</div>
 
-	<p class="fieldset-legend">{tmpl_var name='findings_txt'}</p>
-	<tmpl_if name="has_findings">
-	<p>
-		<strong>{tmpl_var name='finding_open_files'}</strong> {tmpl_var name='affected_files_txt'},
-		{tmpl_var name='finding_count'} {tmpl_var name='hits_total_txt'}.
-		<small>{tmpl_var name='relative_to_txt'} <code>{tmpl_var name='scan_base'}</code></small>
-	</p>
-	</tmpl_if>
+<p class="fieldset-legend">{tmpl_var name='findings_txt'}</p>
+<tmpl_if name="has_findings">
+<p>
+	<strong>{tmpl_var name='finding_open_files'}</strong> {tmpl_var name='affected_files_txt'},
+	{tmpl_var name='finding_count'} {tmpl_var name='hits_total_txt'}.
+	<small>{tmpl_var name='relative_to_txt'} <code>{tmpl_var name='scan_base'}</code></small>
+</p>
+</tmpl_if>
 
-	<div class="table-wrapper marginTop15">
-	<table class="table">
-		<thead class="dark">
-			<tr>
-				<th style="width:9em">{tmpl_var name='severity_txt'}</th>
-				<th>{tmpl_var name='file_txt'}</th>
-				<th style="width:11em">{tmpl_var name='first_seen_txt'}</th>
-				<th class="text-right" style="width:9em">&nbsp;</th>
-			</tr>
-		</thead>
-		<tbody>
-			<tmpl_loop name="findings">
-			<tr>
-				<td>
-					<span class="label {tmpl_var name='severity_class'}">{tmpl_var name='severity_label'}</span>
-					<tmpl_if name="is_ignored"><br /><span class="label label-default">{tmpl_var name='state_ignored_txt'}</span></tmpl_if>
-				</td>
-				<td style="word-break:break-all">
-					<span title="{tmpl_var name='full_path'}">
-						<tmpl_if name="has_dir"><small class="text-muted">{tmpl_var name='dir'}</small></tmpl_if><strong>{tmpl_var name='file'}</strong>
-					</span>
-					<div class="marginTop15">
-						<tmpl_loop name="hits">
-						<div style="margin-bottom:6px">
-							<span class="label {tmpl_var name='severity_class'}">{tmpl_var name='severity_label'}</span>
-							<code>{tmpl_var name='rule_id'}</code>
-							<tmpl_if name="has_line"><small>{tmpl_var name='line_txt'} {tmpl_var name='line_number'}</small></tmpl_if>
-							<small class="text-muted">{tmpl_var name='engine'}</small>
-							<tmpl_if name="excerpt"><br /><small><code>{tmpl_var name='excerpt'}</code></small></tmpl_if>
-						</div>
-						</tmpl_loop>
+<div class="table-wrapper marginTop15">
+<table class="table">
+	<thead class="dark">
+		<tr>
+			<th style="width:9em">{tmpl_var name='severity_txt'}</th>
+			<th>{tmpl_var name='file_txt'}</th>
+			<th style="width:11em">{tmpl_var name='first_seen_txt'}</th>
+			<th class="text-right" style="width:9em">&nbsp;</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tmpl_loop name="findings">
+		<tr>
+			<td>
+				<span class="label {tmpl_var name='severity_class'}">{tmpl_var name='severity_label'}</span>
+				<tmpl_if name="is_ignored"><br /><span class="label label-default">{tmpl_var name='state_ignored_txt'}</span></tmpl_if>
+			</td>
+			<td style="word-break:break-all">
+				<span title="{tmpl_var name='full_path'}">
+					<tmpl_if name="has_dir"><small class="text-muted">{tmpl_var name='dir'}</small></tmpl_if><strong>{tmpl_var name='file'}</strong>
+				</span>
+				<div class="marginTop15">
+					<tmpl_loop name="hits">
+					<div style="margin-bottom:6px">
+						<span class="label {tmpl_var name='severity_class'}">{tmpl_var name='severity_label'}</span>
+						<code>{tmpl_var name='rule_id'}</code>
+						<tmpl_if name="has_line"><small>{tmpl_var name='line_txt'} {tmpl_var name='line_number'}</small></tmpl_if>
+						<small class="text-muted">{tmpl_var name='engine'}</small>
+						<tmpl_if name="excerpt"><br /><small><code>{tmpl_var name='excerpt'}</code></small></tmpl_if>
 					</div>
-				</td>
-				<td>{tmpl_var name='first_seen'}</td>
-				<td class="text-right">
-					<tmpl_if name="is_ignored">
-					<button class="btn btn-default formbutton-default formbutton-narrow" type="button"
-						onclick="document.getElementById('malwatch_action').value='reopen';document.getElementById('malwatch_finding_id').value='{tmpl_var name='full_path'}';"
-						data-submit-form="pageForm" data-form-action="sites/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='reopen_txt'}</button>
-					<tmpl_else>
-					<button class="btn btn-default formbutton-default formbutton-narrow" type="button"
-						onclick="document.getElementById('malwatch_action').value='ignore';document.getElementById('malwatch_finding_id').value='{tmpl_var name='full_path'}';"
-						data-submit-form="pageForm" data-form-action="sites/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='ignore_txt'}</button>
-					</tmpl_if>
-				</td>
-			</tr>
-			</tmpl_loop>
-			<tmpl_unless name="has_findings">
-			<tr><td colspan="4">{tmpl_var name='no_findings_txt'}</td></tr>
-			</tmpl_unless>
-		</tbody>
-	</table>
-	</div>
-</form>
+					</tmpl_loop>
+				</div>
+			</td>
+			<td>{tmpl_var name='first_seen'}</td>
+			<td class="text-right">
+				<tmpl_if name="is_ignored">
+				<button class="btn btn-default formbutton-default formbutton-narrow" type="button"
+					onclick="document.getElementById('malwatch_action').value='reopen';document.getElementById('malwatch_finding_id').value='{tmpl_var name='full_path'}';"
+					data-submit-form="pageForm" data-form-action="sites/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='reopen_txt'}</button>
+				<tmpl_else>
+				<button class="btn btn-default formbutton-default formbutton-narrow" type="button"
+					onclick="document.getElementById('malwatch_action').value='ignore';document.getElementById('malwatch_finding_id').value='{tmpl_var name='full_path'}';"
+					data-submit-form="pageForm" data-form-action="sites/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='ignore_txt'}</button>
+				</tmpl_if>
+			</td>
+		</tr>
+		</tmpl_loop>
+		<tmpl_unless name="has_findings">
+		<tr><td colspan="4">{tmpl_var name='no_findings_txt'}</td></tr>
+		</tmpl_unless>
+	</tbody>
+</table>
+</div>
 
 <p class="fieldset-legend">{tmpl_var name='software_txt'}</p>
 <div class="table-wrapper marginTop15">

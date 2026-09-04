@@ -2,6 +2,27 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.2.7] – 2026-09-05
+
+### Behoben
+
+- „Jetzt prüfen“, „Alle prüfen“, „Freigeben“ und „Wieder einschalten“ endeten
+  in „CSRF-Versuch blockiert“. Das Panel umschließt den ganzen Inhaltsbereich
+  bereits mit einem Formular namens `pageForm`; die eigenen Vorlagen haben
+  darin ein zweites gleichen Namens geöffnet. Ein Eingabefeld gehört immer zum
+  nächstgelegenen Formular-Vorfahren, gesucht und abgeschickt wird aber das
+  erste im Dokument — also das äußere. Damit ging die Anfrage zwar raus, aber
+  ohne Token und ohne Aktion. Die Vorlagen öffnen jetzt kein eigenes Formular
+  mehr, so wie es der Kern in seinen Listenvorlagen auch hält, und das Token
+  reist unter den Namen, die `form.tpl.htm` rendert. Der Bauablauf prüft
+  beides.
+- Der Fehlalarm „weicht von der Auslieferung ab“ auf `wp-config-sample.php`.
+  wordpress.org veröffentlicht für diesen Pfad in jeder Sprache nur die
+  englische Prüfsumme, während die lokalisierten Archive eine übersetzte Datei
+  ausliefern. Auf einer deutschen Installation konnte der Eintrag deshalb nie
+  passen. Die Datei bleibt aus dem Kernvergleich heraus; WordPress lädt sie
+  ohnehin nicht, und Signaturen und Heuristik lesen sie weiter wie jede andere.
+
 ## [0.2.6] – 2026-09-04
 
 ### Behoben
