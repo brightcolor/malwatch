@@ -177,6 +177,28 @@ if grep -q 'job_kind' "$root/install/schema.sql"; then
 	grep -q 'information_schema' "$root/install/schema.sql" 		|| fail "schema.sql fügt Spalten hinzu, ohne sie über information_schema zu prüfen"
 fi
 
+# 16. Ohne --progress schreibt kein Lauf aus dem Panel eine Fortschrittsdatei,
+#     und die Ansicht bliebe für immer leer.
+grep -q -- '--progress=' "$root/server/lib/classes/malwatch_runner.inc.php" 	|| fail "der Runner übergibt --progress nicht; die Fortschrittsansicht bekäme nie Daten"
+for kind in repair quarantine; do
+	grep -q "'$kind'" "$root/server/lib/classes/malwatch_runner.inc.php" 		|| fail "der Runner kennt die Auftragsart $kind nicht"
+done
+
+# 17. Ein Pfad aus einem Formularfeld darf nie ungeprüft in einen Auftrag
+#     wandern. Die Prüfung gegen malwatch_finding ist die erste von zwei.
+if grep -q 'function malwatch_queue_quarantine' "$root/interface/lib/malwatch_lib.inc.php"; then
+	sed -n '/function malwatch_queue_quarantine/,/^}/p' "$root/interface/lib/malwatch_lib.inc.php" 		| grep -q 'malwatch_finding' 		|| fail "malwatch_queue_quarantine prüft die Pfade nicht gegen malwatch_finding"
+fi
+
+# 18. Eine Seite, die JSON liefert, darf keine Vorlage laden - sonst kommt
+#     HTML mit, und der Aufrufer bekommt kein gültiges JSON.
+if [ -f "$root/interface/malwatch_progress.php" ]; then
+	if grep -q 'newTemplate\|tpl_defaults' "$root/interface/malwatch_progress.php"; then
+		fail "malwatch_progress.php lädt eine Vorlage, liefert also kein reines JSON"
+	fi
+	grep -q 'is_admin' "$root/interface/malwatch_progress.php" 		|| fail "malwatch_progress.php prüft die Administratorrechte nicht"
+fi
+
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'
 fi
