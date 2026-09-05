@@ -24,12 +24,35 @@ Alle nennenswerten Änderungen an diesem Projekt.
     ist `_GET`. Und sie überspringt **Kommentare zwischen den Teilen** einer
     Verkettung: `"ra"/*-X8KKH~;-*/."nge"` ergibt `range`.
 
-### Geändert
+  - `php.webshell.hardcoded_gate` — eine Kennwortabfrage, deren Vergleichshash
+    im Quelltext derselben Datei steht. Eine Shell trägt ihren Schlüssel bei
+    sich, ein Plugin schlägt seinen nach.
 
-- `php.webshell.password_gate` verlangt nicht mehr `eval` oder `system` im
-  Klartext. Eine Shell, die ein Passwort gegen einen Hash im eigenen Quelltext
-  prüft und danach Dateien schreibt, Uploads annimmt oder über das Netz nachlädt,
-  ist dasselbe — eine solche kam ganz ohne `eval` aus.
+### Gemessen
+
+Anlass war ein zweiter, gründlicherer Blick auf denselben Befall — über den
+Zeitraum statt über die Namensform:
+
+| | vorher | nachher |
+|---|---|---|
+| 149 bekannte Schaddateien | 144 | 144 |
+| 217 Dateien aus dem Befallszeitraum | 184 | **200** |
+| frisches WordPress und Joomla | 0 | 0 |
+| vier Kundenseiten in Betrieb | 34 | 34 |
+| eine Website mit 193.885 PHP-Dateien | 516 | **516** |
+
+Drei Regeln sind während dieser Messung wieder verschwunden, und das ist der
+Zweck des Fehlalarm-Korpus:
+
+- `${$var}` als Aufruf ist gewöhnliches PHP; Doctrine, Mailster und BackupBuddy
+  benutzen es.
+- Eine Adresse in ein Archiv hinein ist für sich harmlos — Roundcube kopiert mit
+  `copy("zip://$path#$entry", …)` aus einem hochgeladenen Archiv. Die Regel
+  greift nur noch bei fest verdrahteter Adresse.
+- Die Türsteher-Regel aufzuweichen, statt eine zweite daneben zu stellen, meldete
+  **NinjaFirewall** als Webshell. Ein Sicherheits-Plugin fälschlich als Schadcode
+  auszuweisen ist der teuerste Fehlalarm überhaupt; die alte Regel ist deshalb
+  unverändert geblieben.
 
 ## [0.4.0] – 2026-09-05
 
