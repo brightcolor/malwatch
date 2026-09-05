@@ -170,6 +170,13 @@ if grep -q 'function update_site_state' "$root/server/lib/classes/malwatch_actio
 	sed -n '/function update_site_state/,/^	}/p' "$root/server/lib/classes/malwatch_actions.inc.php" 		| grep -q 'create_site_row' 		|| fail "update_site_state verwirft das Ergebnis, wenn die Website keine Einstellungszeile hat"
 fi
 
+# 15. Eine neue Spalte in einer bestehenden Tabelle erreicht keine vorhandene
+#     Installation: CREATE TABLE IF NOT EXISTS lässt sie unberührt. Jede
+#     Erweiterung braucht deshalb einen Zusatz, der sich selbst prüft.
+if grep -q 'job_kind' "$root/install/schema.sql"; then
+	grep -q 'information_schema' "$root/install/schema.sql" 		|| fail "schema.sql fügt Spalten hinzu, ohne sie über information_schema zu prüfen"
+fi
+
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'
 fi

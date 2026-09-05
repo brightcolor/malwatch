@@ -234,3 +234,65 @@ INSERT IGNORE INTO `malwatch_config`
   (`config_id`, `sys_userid`, `sys_groupid`, `sys_perm_user`, `sys_perm_group`, `sys_perm_other`, `default_excludes`)
 VALUES
   (1, 1, 1, 'riud', 'riud', '', '**/cache/**\n**/*.log\n**/node_modules/**');
+
+-- --------------------------------------------------------
+-- Änderungen an bestehenden Tabellen.
+--
+-- CREATE TABLE IF NOT EXISTS oben lässt eine vorhandene Tabelle unberührt, also
+-- erreicht eine neue Spalte damit keine Installation, die es schon gibt. Die
+-- folgenden Anweisungen prüfen sich selbst in information_schema und laufen bei
+-- jeder Installation und jedem Update mit; eine Versionszählung braucht es
+-- dafür nicht.
+-- --------------------------------------------------------
+
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_job` ADD COLUMN `job_kind` enum(''scan'',''repair'',''quarantine'') NOT NULL DEFAULT ''scan'' AFTER `job_source`',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_job' AND COLUMN_NAME = 'job_kind');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+CREATE TABLE IF NOT EXISTS `malwatch_repair` (
+  `repair_id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `sys_userid` int(11) unsigned NOT NULL DEFAULT '0',
+  `sys_groupid` int(11) unsigned NOT NULL DEFAULT '0',
+  `sys_perm_user` varchar(5) DEFAULT NULL,
+  `sys_perm_group` varchar(5) DEFAULT NULL,
+  `sys_perm_other` varchar(5) DEFAULT NULL,
+  `server_id` int(11) unsigned NOT NULL DEFAULT '0',
+  `job_id` int(11) unsigned NOT NULL DEFAULT '0',
+  `parent_domain_id` int(11) unsigned NOT NULL DEFAULT '0',
+  `domain` varchar(255) NOT NULL DEFAULT '',
+  `started_at` datetime DEFAULT NULL,
+  `finished_at` datetime DEFAULT NULL,
+  `dry_run` enum('n','y') NOT NULL DEFAULT 'n',
+  `backup_dir` varchar(255) NOT NULL DEFAULT '',
+  `count_replaced` int(11) unsigned NOT NULL DEFAULT '0',
+  `count_deleted` int(11) unsigned NOT NULL DEFAULT '0',
+  `count_failed` int(11) unsigned NOT NULL DEFAULT '0',
+  `exit_code` int(11) NOT NULL DEFAULT '0',
+  `raw_report` mediumtext,
+  PRIMARY KEY (`repair_id`),
+  KEY `parent_domain_id` (`parent_domain_id`)
+) DEFAULT CHARSET=utf8mb4 AUTO_INCREMENT=1 ;
+
+CREATE TABLE IF NOT EXISTS `malwatch_repair_element` (
+  `element_id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `sys_userid` int(11) unsigned NOT NULL DEFAULT '0',
+  `sys_groupid` int(11) unsigned NOT NULL DEFAULT '0',
+  `sys_perm_user` varchar(5) DEFAULT NULL,
+  `sys_perm_group` varchar(5) DEFAULT NULL,
+  `sys_perm_other` varchar(5) DEFAULT NULL,
+  `server_id` int(11) unsigned NOT NULL DEFAULT '0',
+  `repair_id` int(11) unsigned NOT NULL DEFAULT '0',
+  `parent_domain_id` int(11) unsigned NOT NULL DEFAULT '0',
+  `element_kind` varchar(16) NOT NULL DEFAULT '',
+  `slug` varchar(190) NOT NULL DEFAULT '',
+  `element_version` varchar(64) NOT NULL DEFAULT '',
+  `outcome` varchar(32) NOT NULL DEFAULT '',
+  `files` int(11) unsigned NOT NULL DEFAULT '0',
+  `backup` varchar(255) NOT NULL DEFAULT '',
+  `message` varchar(255) NOT NULL DEFAULT '',
+  PRIMARY KEY (`element_id`),
+  KEY `repair_id` (`repair_id`)
+) DEFAULT CHARSET=utf8mb4 AUTO_INCREMENT=1 ;
