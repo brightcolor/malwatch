@@ -92,9 +92,46 @@ class malwatch_runner
 		$app->uses('malwatch_helper');
 		$state_dir = rtrim((string) $config['state_dir'], '/');
 
+		$progress = $state_dir . '/runs/job-' . intval($job['job_id']) . '.progress';
+		$kind = isset($job['job_kind']) ? (string) $job['job_kind'] : 'scan';
+		$options = json_decode((string) $job['options'], true);
+		if (!is_array($options)) {
+			$options = array();
+		}
+
+		if ($kind === 'repair') {
+			$repair = array(
+				'repair',
+				'--path=' . $path,
+				'--backup-dir=' . $state_dir . '/backups/' . $job['domain'],
+				'--progress=' . $progress,
+				'--json',
+				'--out=' . $result_file,
+			);
+			if (!empty($options['dry_run'])) {
+				$repair[] = '--dry-run';
+			}
+			return $repair;
+		}
+
+		if ($kind === 'quarantine') {
+			$quarantine = array(
+				'quarantine',
+				'--path=' . $path,
+				'--backup-dir=' . $state_dir . '/backups/' . $job['domain'] . '/einzeln',
+			);
+			// The paths were checked against malwatch_finding before the job
+			// was queued; the binary checks the boundary a second time.
+			foreach ((array) (isset($options['files']) ? $options['files'] : array()) as $rel) {
+				$quarantine[] = '--file=' . $rel;
+			}
+			return $quarantine;
+		}
+
 		$args = array(
 			'scan',
 			'--path=' . $path,
+			'--progress=' . $progress,
 			'--json',
 			'--out=' . $result_file,
 			'--quiet',
@@ -103,11 +140,6 @@ class malwatch_runner
 			'--cache=' . $state_dir . '/state/clean-' . intval($job['parent_domain_id']) . '.json',
 			'--whitelist-path=' . $state_dir . '/whitelist',
 		);
-
-		$options = json_decode((string) $job['options'], true);
-		if (!is_array($options)) {
-			$options = array();
-		}
 
 		foreach ($this->exclude_patterns($options, $config) as $pattern) {
 			$args[] = '--exclude=' . $pattern;

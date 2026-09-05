@@ -87,6 +87,102 @@ function malwatch_queue_scan($app, $domain_id)
 	return true;
 }
 
+/**
+ * Queues a restore of the vendor files.
+ *
+ * The website is switched off for the duration by the caller, not here: an
+ * installation that is half exchanged has no business being served, and a
+ * backdoor that is still reachable would write again while it happens.
+ */
+function malwatch_queue_repair($app, $domain_id, $dry_run = false)
+{
+	return malwatch_queue_job($app, $domain_id, 'repair', array('dry_run' => $dry_run ? 1 : 0));
+}
+
+/**
+ * Queues the removal of single files.
+ *
+ * Only paths that stand as a finding of this very website are accepted. The
+ * value arrives from a form field, and a path is one unlink away from being
+ * anything on the disk; the binary checks the boundary a second time.
+ */
+function malwatch_queue_quarantine($app, $domain_id, array $paths)
+{
+	$domain_id = $app->functions->intval($domain_id);
+	$web = $app->db->queryOneRecord('SELECT * FROM web_domain WHERE domain_id = ?', $domain_id);
+	if (!is_array($web)) {
+		return 'Die Website wurde nicht gefunden.';
+	}
+	$base = malwatch_scan_path($web);
+	if ($base === '') {
+		return 'Für diese Website ist kein Verzeichnis hinterlegt.';
+	}
+
+	$accepted = array();
+	foreach ($paths as $path) {
+		$path = (string) $path;
+		$row = $app->db->queryOneRecord(
+			'SELECT file_path FROM malwatch_finding WHERE parent_domain_id = ? AND file_path = ? '
+			. "AND finding_state IN ('open','ignored') LIMIT 1",
+			$domain_id, $path);
+		if (!is_array($row)) {
+			continue;
+		}
+		if (strpos($path, $base . '/') !== 0) {
+			continue;
+		}
+		$accepted[] = substr($path, strlen($base) + 1);
+	}
+	if (count($accepted) === 0) {
+		return 'Keiner der Pfade steht als Fund dieser Website.';
+	}
+
+	$queued = malwatch_queue_job($app, $domain_id, 'quarantine', array('files' => $accepted));
+	return $queued === true ? count($accepted) : $queued;
+}
+
+/** Puts one job of any kind into the queue. */
+function malwatch_queue_job($app, $domain_id, $kind, array $options)
+{
+	$domain_id = $app->functions->intval($domain_id);
+	if ($domain_id < 1) {
+		return 'Ungültige Website.';
+	}
+	$web = $app->db->queryOneRecord('SELECT * FROM web_domain WHERE domain_id = ?', $domain_id);
+	if (!is_array($web)) {
+		return 'Die Website wurde nicht gefunden.';
+	}
+	$running = $app->db->queryOneRecord(
+		"SELECT job_id FROM malwatch_job WHERE parent_domain_id = ? AND job_status IN ('pending','running')",
+		$domain_id);
+	if (is_array($running)) {
+		return 'Für diese Website läuft bereits ein Auftrag.';
+	}
+	$path = malwatch_scan_path($web);
+	if ($path === '') {
+		return 'Für diese Website ist kein Verzeichnis hinterlegt.';
+	}
+
+	$app->db->datalogInsert('malwatch_job', array(
+		'sys_userid' => $_SESSION['s']['user']['userid'],
+		'sys_groupid' => $app->functions->intval($web['sys_groupid']),
+		'sys_perm_user' => 'riud',
+		'sys_perm_group' => 'r',
+		'sys_perm_other' => '',
+		'server_id' => $app->functions->intval($web['server_id']),
+		'parent_domain_id' => $domain_id,
+		'domain' => (string) $web['domain'],
+		'scan_path' => $path,
+		'job_source' => 'manual',
+		'job_kind' => $kind,
+		'job_status' => 'pending',
+		'options' => json_encode($options),
+		'created_at' => date('Y-m-d H:i:s'),
+	), 'job_id');
+
+	return true;
+}
+
 /** The directory of a website that actually holds the customer's files. */
 function malwatch_scan_path($web)
 {

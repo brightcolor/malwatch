@@ -17,6 +17,7 @@
 c:interface/malwatch.menu.php:interface/web/sites/lib/menu.d/malwatch.menu.php
 
 c:interface/malwatch_site_list.php:interface/web/sites/malwatch_site_list.php
+c:interface/malwatch_progress.php:interface/web/sites/malwatch_progress.php
 c:interface/malwatch_site_show.php:interface/web/sites/malwatch_site_show.php
 c:interface/malwatch_site_edit.php:interface/web/sites/malwatch_site_edit.php
 c:interface/malwatch_finding_list.php:interface/web/sites/malwatch_finding_list.php
