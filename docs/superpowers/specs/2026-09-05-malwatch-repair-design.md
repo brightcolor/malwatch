@@ -253,12 +253,22 @@ Befehl, das Zurückspielen bleibt Handarbeit.
 | 6 | Eine Leseschleife parallel zum Lauf sieht nie ungültiges JSON |
 | 7 | Die Fortschrittsdatei eines Scans trägt dieselbe Form wie die einer Wiederherstellung |
 
-Dazu der Abnahmetest in CI, der das Verfahren als Ganzes nachrechnet:
+Dazu der Abnahmetest in CI, der das Verfahren als Ganzes nachrechnet. Er hat
+zwei Hälften, und die erste Fassung dieses Abschnitts hatte sie verwechselt:
 
-> WordPress 6.6.2 frisch herunterladen, eine Webshell nach `wp-includes` und
-> eine in ein Plugin legen, `repair` gegen einen örtlichen Herstellerspiegel
-> laufen lassen, danach `scan`. Erwartung: **genau diese beiden Dateien sind
-> übrig, sonst nichts.**
+> WordPress 6.6.2 frisch herunterladen und vier Webshells ablegen — zwei
+> **innerhalb** von Herstellerverzeichnissen (`wp-includes`, ein Plugin), zwei
+> **außerhalb** (Webstamm, `uploads`). Dann `repair`, dann `scan`.
+>
+> Erwartung: Die beiden innerhalb sind **weg**, denn ihr Verzeichnis wurde
+> vollständig ersetzt. Die beiden außerhalb sind **da** und genau das, was der
+> Scan meldet — sonst nichts.
+
+Die erste Hälfte ist der Zweck der Funktion: eine abgelegte Datei verschwindet
+nur mit dem Verzeichnis, in dem sie sitzt. Die zweite ist ihre Grenze: was
+außerhalb liegt, gehört dem Kunden und bleibt liegen, damit der Scan es zeigen
+kann. Wer die erste falsch baut, lässt Schadcode stehen; wer die zweite falsch
+baut, löscht Kundendaten.
 
 Der CI-Lauf lädt für die Fehlalarmprüfung ohnehin schon echtes WordPress; die
 Maschinerie steht.
