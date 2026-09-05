@@ -41,34 +41,51 @@ func joinConcatenated(content []byte) ([]byte, []int) {
 	}
 
 	i := 0
+	atLineStart := true
 	for i < len(content) {
 		c := content[i]
-
-		// Comments are copied as they are. An apostrophe in a German comment
-		// would otherwise open a string that runs to the next one, and every
-		// join in between would be nonsense.
-		if c == '/' && i+1 < len(content) && content[i+1] == '/' {
-			i = copyUntilNewline(content, i, emit)
-			continue
+		wasLineStart := atLineStart
+		if c == '\n' {
+			atLineStart = true
+		} else if !isSpace(c) {
+			atLineStart = false
 		}
-		if c == '#' {
-			i = copyUntilNewline(content, i, emit)
+
+		// A comment collapses to a single space. It is whitespace to PHP, and
+		// leaving it in was what let one payload write
+		//
+		//	@require_once /*-x-*/ $T /*-y-*/ [9+1]
+		//
+		// past every rule that names require. The space keeps two tokens from
+		// growing together; the offset stays that of the comment, so a finding
+		// still points at the right line.
+		//
+		// They are recognised before strings on purpose: an apostrophe in a
+		// German comment would otherwise open a string that runs to the next
+		// one, and every join in between would be nonsense.
+		if c == '#' || (c == '/' && i+1 < len(content) && content[i+1] == '/') {
+			out = append(out, ' ')
+			index = append(index, i)
+			for i < len(content) && content[i] != '\n' {
+				i++
+			}
 			continue
 		}
 		if c == '/' && i+1 < len(content) && content[i+1] == '*' {
-			emit(i)
-			emit(i + 1)
+			out = append(out, ' ')
+			index = append(index, i)
+			// Only a comment wedged into an expression counts as a reason to
+			// look at the file twice. Licence headers and doc blocks start
+			// their line, and treating those as a transformation would double
+			// the work of every scan for nothing.
+			if !wasLineStart {
+				seams++
+			}
 			i += 2
-			for i < len(content) {
-				if content[i] == '*' && i+1 < len(content) && content[i+1] == '/' {
-					emit(i)
-					emit(i + 1)
-					i += 2
-					break
-				}
-				emit(i)
+			for i+1 < len(content) && !(content[i] == '*' && content[i+1] == '/') {
 				i++
 			}
+			i += 2
 			continue
 		}
 
@@ -180,18 +197,6 @@ func skipGap(content []byte, j int) int {
 		break
 	}
 	return j
-}
-
-func copyUntilNewline(content []byte, i int, emit func(int)) int {
-	for i < len(content) && content[i] != '\n' {
-		emit(i)
-		i++
-	}
-	if i < len(content) {
-		emit(i)
-		i++
-	}
-	return i
 }
 
 func isSpace(b byte) bool {
