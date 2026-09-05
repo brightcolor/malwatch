@@ -29,10 +29,8 @@ var samples = []sample{
 	},
 	{
 		rule: "php.obfuscation.split_open_tag", ext: "php", path: "/web/a.php",
-		hit: `<?php $need = '<' . '?' . 'php'; if (strpos($code, $need) === false) { die(); }`,
-		miss: `<?php $header = "<?php
-// generated
-"; file_put_contents($f, $header);`,
+		hit:  `<?php $code = curl_exec($ch); $need = '<' . '?' . 'php'; if (strpos($code, $need) === false) { die(); }`,
+		miss: `<?php $out = '<' . '?' . 'php'; file_put_contents($fontfile, $out);`,
 	},
 	{
 		rule: "php.upload.traversal", ext: "php", path: "/web/a.php",
@@ -72,7 +70,7 @@ var samples = []sample{
 	{
 		rule: "php.webshell.session_filehash_gate", ext: "php", path: "/web/a.php",
 		hit:  `<?php $c = md5(__FILE__); if ($_SESSION[$c] != $password) { exit; }`,
-		miss: `<?php $key = md5(__FILE__); $cache[$key] = $rendered;`,
+		miss: `<?php $t = array(md5(__FILE__), $u->password); if (isset($_SESSION['login_user_id'])) { $ok = 1; }`,
 	},
 	{
 		rule: "php.eval.encoded", ext: "php", path: "/web/a.php",

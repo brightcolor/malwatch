@@ -2,6 +2,53 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.6.0] – 2026-09-05
+
+### Neu
+
+- **Sieben weitere Verschleierungen.** Von allem, was während des Befalls auf der
+  betroffenen Website geschrieben wurde, findet der Scanner jetzt **215 von 217**
+  statt 184. Die zwei verbliebenen sind eine AWStats-Seite und eine
+  503-Wartungsseite, die die Bereinigung angefasst hat.
+
+  - `php.obfuscation.goto_spaghetti` — Sprung und Sprungmarke in derselben
+    Zeile. Nicht die Zahl der Sprünge: `goto` ist selten, aber nicht unbenutzt —
+    der HTML-Parser von WordPress springt damit, AWS-SDK und Guzzle ebenso.
+  - `php.obfuscation.split_open_tag` — `'<' . '?' . 'php'`, zusammen mit einem
+    Netzabruf. Allein genügt es nicht: TCPDF erzeugt PHP-Font-Dateien und
+    vermeidet den Tag im eigenen Quelltext aus demselben mechanischen Grund.
+  - `php.include.assembled_path` — `require_once $T[9+1].$T[43+2]`, ein
+    Dateiname zeichenweise aus einem selbstgebauten Array.
+  - `php.upload.traversal` — `'../' . $_FILES[…]['name']`, wenn Verschieben und
+    Ziel zwei Zeilen auseinanderstehen.
+
+- Die zweite Sicht lässt **Kommentare zu einem Leerzeichen zusammenfallen**. Ein
+  Schadprogramm hatte sie zwischen jedes Token geschoben:
+  `@require_once /*-x-*/ $T /*-y-*/ [9+1]`. Nur Kommentare mitten im Ausdruck
+  lösen einen zweiten Durchgang aus, sonst würde jede Datei mit Lizenzkopf den
+  Lauf verdoppeln.
+
+### Behoben
+
+- `php.webshell.session_filehash_gate` meldete **CMS Made Simple**. Es mischt
+  `md5(__FILE__)` in einen Login-Fingerabdruck und liest `$_SESSION` unter einem
+  festen Namen. Die Regel verlangt jetzt, dass der Dateihash der Sitzungsschlüssel
+  selbst ist.
+
+### Gemessen
+
+| | vorher | nachher |
+|---|---|---|
+| 217 Dateien aus dem Befallszeitraum | 184 | **215** |
+| frisches WordPress und Joomla | 0 | 0 |
+| vier Kundenseiten in Betrieb | 34 | 34 |
+| Laufzeit einer Website mit 7.350 Dateien | 71,2 s | 73,6 s |
+
+Und eine Korrektur an der eigenen Messlatte: fünf der 149 „bekannten
+Schaddateien" sind gewöhnliche WordPress-Dateien — `IDNAEncoder.php`,
+`Restriction.php`, `woocommerce.php` haben zufällig elfstellige Namen. Deshalb
+misst die zweite Zahl über den Zeitraum statt über die Namensform.
+
 ## [0.5.0] – 2026-09-05
 
 ### Neu
