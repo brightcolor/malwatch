@@ -2,6 +2,60 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.4.0] – 2026-09-05
+
+### Neu
+
+- **Bessere Erkennung.** An einem echten Befall gemessen: von 149 abgelegten
+  Schaddateien fand der Scanner 28, jetzt findet er 144. Frisches WordPress und
+  vier Websites im Betrieb melden unverändert dasselbe wie vorher.
+
+  Die Nutzlasten setzten ihre Funktionsnamen aus Bruchstücken zusammen —
+  `'base'.'64'.'_dec'.'ode'` —, sodass jede Regel, die `base64_decode`
+  ausschreibt, ins Leere lief. Die Maschine liest jede Datei jetzt ein zweites
+  Mal mit zusammengesetzten Zeichenketten; damit bekommt der ganze Katalog auf
+  einmal seine Sicht zurück. Drei neue Regeln decken den Rest ab:
+  `php.eval.variable_call`, `php.silence.preamble` und
+  `php.webshell.session_filehash_gate` — Letzteres für Werkzeuge wie Leafmailer,
+  die gar nicht verschleiert sind und deshalb durch jedes Raster fielen.
+
+  `tools/detection-score.sh` macht die Messung wiederholbar, `docs/erkennung-messen.md`
+  beschreibt sie.
+
+- **Wiederherstellen aus der Oberfläche.** Knopf auf der Website-Seite, mit
+  Rückfrage, dazu ein Probelauf. Die Website wird für die Dauer abgeschaltet und
+  kommt nur bei sauberem Rückgabecode zurück; danach läuft automatisch eine
+  Prüfung, die zeigt, was übrig ist.
+
+- **Einzelne Funde löschen.** Je Fundzeile ein Knopf, dazu „Alle Funde löschen",
+  beide mit Rückfrage. Gelöscht wird über die Warteschlange und nur, was als Fund
+  dieser Website in der Datenbank steht; das Binary prüft die Pfadgrenze ein
+  zweites Mal. Jede Datei wird vorher gesichert. Neuer Befehl `malwatch quarantine`.
+
+- **Fortschritt sichtbar.** Die Website-Seite zeigt Phasen, Element, Datei und
+  ein mitlaufendes Protokoll, solange ein Auftrag läuft, und holt sich danach
+  selbst zurück. Die Übersicht meldet laufende Aufträge und lädt nach.
+
+### Behoben
+
+- **Prüfungen verschwanden spurlos.** Eine Website bekommt ihre Einstellungszeile
+  erst, wenn jemand ihre Einstellungen speichert. Beim Eintragen des Ergebnisses
+  stieg das Einlesen ohne diese Zeile kommentarlos aus — 66 gelaufene Prüfungen,
+  60-mal „ungeprüft" in der Übersicht. Die Zeile wird jetzt angelegt.
+- **Der Knopf „Freigeben" heißt „Kein Befund".** Er ändert nur den Zustand und
+  rührt die Datei nicht an; neben einem Schadcode-Fund las sich das alte Wort wie
+  Durchwinken.
+- **Die Übersicht war unbenutzbar hoch.** Die beiden Knöpfe je Zeile stapelten
+  sich, weil ISPConfigs `.buttons`-Hülle für einen Formularfuß gedacht ist, nicht
+  für eine Tabellenzelle: rund 34 statt 100 Pixel je Zeile, zwei Spalten weniger,
+  und der Zustand färbt die linke Zeilenkante.
+
+### Geändert
+
+- `malwatch_job` kennt `job_kind`; neue Tabellen `malwatch_repair` und
+  `malwatch_repair_element`. Schemaänderungen prüfen sich in `information_schema`
+  selbst, damit sie auch bestehende Installationen erreichen.
+
 ## [0.3.1] – 2026-09-05
 
 ### Behoben
