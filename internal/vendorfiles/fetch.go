@@ -70,8 +70,13 @@ func (f *Fetcher) Core(version, locale, dest string) (string, error) {
 			return "", fmt.Errorf("unplausible Sprache %q", locale)
 		}
 		lang := strings.SplitN(locale, "_", 2)[0]
-		u = fmt.Sprintf(f.base.LocalisedCore, lang) +
-			"wordpress-" + url.PathEscape(version) + "-" + url.PathEscape(locale) + ".zip"
+		base := f.base.LocalisedCore
+		// A single address without a verb is what the acceptance test passes;
+		// Sprintf would otherwise append its complaint to the URL.
+		if strings.Contains(base, "%s") {
+			base = fmt.Sprintf(base, lang)
+		}
+		u = base + "wordpress-" + url.PathEscape(version) + "-" + url.PathEscape(locale) + ".zip"
 	}
 	if err := f.download(u, dest); err != nil {
 		return "", err

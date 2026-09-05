@@ -19,6 +19,8 @@ func run(args []string) int {
 	switch args[0] {
 	case "scan":
 		return cmdScan(args[1:])
+	case "repair":
+		return cmdRepair(args[1:])
 	case "update":
 		return cmdUpdate(args[1:])
 	case "whitelist":

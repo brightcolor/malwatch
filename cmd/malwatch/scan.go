@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/brightcolor/malwatch/internal/mail"
+	"github.com/brightcolor/malwatch/internal/progress"
 	"github.com/brightcolor/malwatch/internal/report"
 	"github.com/brightcolor/malwatch/internal/scanner"
 )
@@ -69,6 +70,7 @@ func cmdScan(args []string) int {
 	stateDir := fs.String("state-dir", defaultStateDir, "")
 	cacheFile := fs.String("cache", "", "")
 	whitelistPath := fs.String("whitelist-path", "", "")
+	progressFile := fs.String("progress", "", "")
 
 	if err := fs.Parse(args); err != nil {
 		return report.ExitError
@@ -124,14 +126,27 @@ func cmdScan(args []string) int {
 		StateDir:      *stateDir,
 		CacheFile:     *cacheFile,
 	}
-	if !*quiet && *out == "" && !*asJSON {
-		opts.Progress = func(n int64) {
+	// The panel reads the same document for a scan as for a repair, so both
+	// job kinds get the same view. Without it a scan says "eingeplant" and
+	// then nothing at all for minutes.
+	pw, err := progress.New(*progressFile, "scan")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Fortschrittsdatei: %v\n", err)
+		return report.ExitError
+	}
+	defer pw.Close()
+	pw.Phase(1, 1, "scan")
+
+	onTerminal := !*quiet && *out == "" && !*asJSON
+	opts.Progress = func(n int64) {
+		pw.File("", int(n), 0)
+		if onTerminal {
 			fmt.Fprintf(os.Stderr, "\r%d Dateien geprüft …", n)
 		}
 	}
 
 	rep, err := scanner.Run(opts)
-	if opts.Progress != nil {
+	if onTerminal {
 		fmt.Fprint(os.Stderr, "\r                                   \r")
 	}
 	if err != nil {
