@@ -18,6 +18,21 @@ type sample struct {
 // nothing: a pattern matching everything would pass it.
 var samples = []sample{
 	{
+		rule: "php.eval.variable_call", ext: "php", path: "/web/a.php",
+		hit:  `<?php $f = 'base' . '64' . '_decode'; eval($f($payload));`,
+		miss: `<?php $result = $formatter($value); echo $result;`,
+	},
+	{
+		rule: "php.silence.preamble", ext: "php", path: "/web/a.php",
+		hit:  `<?php error_reporting(0); ini_set('log_errors', 0); ini_set('error_log', NULL);`,
+		miss: `<?php error_reporting(0); // ruhig im Produktivbetrieb`,
+	},
+	{
+		rule: "php.webshell.session_filehash_gate", ext: "php", path: "/web/a.php",
+		hit:  `<?php $c = md5(__FILE__); if ($_SESSION[$c] != $password) { exit; }`,
+		miss: `<?php $key = md5(__FILE__); $cache[$key] = $rendered;`,
+	},
+	{
 		rule: "php.eval.encoded", ext: "php", path: "/web/a.php",
 		hit:  `<?php eval(base64_decode("ZWNobyAxOw=="));`,
 		miss: `<?php $data = base64_decode($row['payload']); echo strlen($data);`,
