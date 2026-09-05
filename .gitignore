@@ -1,3 +1,4 @@
 /dist/
 /.testbin/
 *.pkg
+.superpowers/
