@@ -131,6 +131,34 @@ var catalog = []*Rule{
 			`|YmFzZTY0X2RlY29k|c2U2NF9kZWNv|YXNlNjRfZGVj)`), // base64_decode
 	},
 	{
+		ID:          "php.obfuscation.goto_spaghetti",
+		Severity:    report.SeverityHigh,
+		Description: "Ablauf in Sprungmarken zerlegt",
+		// goto exists in PHP and is rare, but it is not unused: the WordPress
+		// HTML parser jumps out of nested loops with it, and so do the AWS SDK
+		// and Guzzle. Counting jumps therefore reports all three.
+		//
+		// What separates them is the layout. An obfuscator packs the jump and
+		// the label it lands on into one line - goto IC_4Q; gkxBA: @ini_set(...)
+		// - because the file is machine written and meant to be unreadable.
+		// Honest code puts a label on a line of its own.
+		// One line is the whole tell, and one pattern is cheap enough for a run
+		// over two hundred thousand files. Asking only for a label after any
+		// semicolon was not: a doc comment reading "; keys: ..." satisfied it.
+		Exts:  phpExts,
+		Match: rx(`(?i)\bgoto\s+[A-Za-z_]\w{0,40}\s*;[ \t]*[A-Za-z_]\w{0,40}:[ \t]`),
+	},
+	{
+		ID:          "php.obfuscation.split_open_tag",
+		Severity:    report.SeverityCritical,
+		Description: "PHP-Eröffnungstag aus Bruchstücken zusammengesetzt",
+		// '<' . '?' . 'php' is written by somebody who does not want the tag to
+		// be found in their file - a loader checking whether what it fetched is
+		// code, or a dropper about to write some. Honest code writes it whole.
+		Exts:  phpExts,
+		Match: rx(`(?is)['"]<[?]?['"]\s*\.\s*['"](?:[?]\s*['"]\s*\.\s*['"])?php['"]`),
+	},
+	{
 		ID:          "php.obfuscation.chr_chain",
 		Severity:    report.SeverityHigh,
 		Description: "Zeichenkette aus aneinandergehängten chr()-Aufrufen",
@@ -202,6 +230,16 @@ var catalog = []*Rule{
 		Description: "schreibt dekodierten oder übermittelten Inhalt in eine Datei",
 		Exts:        phpExts,
 		Match:       rx(`(?is)\b(?:file_put_contents|fwrite|fputs)\s*\(\s*[^;)]{0,160}(?:base64_decode|gzinflate|\$(?:_GET|_POST|_REQUEST|_COOKIE))`),
+	},
+	{
+		ID:          "php.include.assembled_path",
+		Severity:    report.SeverityCritical,
+		Description: "Pfad einer Einbindung aus Array-Zugriffen zusammengesetzt",
+		// require_once $T[9+1].$T[43+2].$T[7] spells a filename one character at
+		// a time out of an array the file built itself, so the name appears
+		// nowhere. Honest code joins a directory and a name, not two subscripts.
+		Exts:  phpExts,
+		Match: rx(`(?is)\b(?:require|include)(?:_once)?\s*\$[A-Za-z_]\w{0,40}\s*\[[^\]\n]{1,24}\]\s*\.\s*\$[A-Za-z_]\w{0,40}\s*\[`),
 	},
 	{
 		ID:          "php.include.stream_wrapper",
@@ -298,6 +336,18 @@ var catalog = []*Rule{
 		Description: "Datei-Upload ohne erkennbare Prüfung des Ziels",
 		Exts:        phpExts,
 		Match:       rx(`(?is)\bmove_uploaded_file\s*\(\s*\$_FILES\s*\[[^\]]{0,60}\]\s*\[\s*['"]tmp_name['"]\s*\]\s*,\s*[^;)]{0,80}\$(?:_GET|_POST|_REQUEST|_FILES)`),
+	},
+	{
+		ID:          "php.upload.traversal",
+		Severity:    report.SeverityCritical,
+		Description: "Hochgeladene Datei wird in ein übergeordnetes Verzeichnis gelegt",
+		// '../' . $_FILES[...]['name'] puts a file the client named wherever the
+		// client wants it. The rule above wants the move and the request data in
+		// one statement; this one fires when they sit two lines apart, which is
+		// how the shortest upload shell on that site was written.
+		Exts:     phpExts,
+		Match:    rx(`(?is)['"][^'"\n]{0,40}\.\.\/[^'"\n]{0,40}['"]\s*\.\s*\$_FILES\b`),
+		Requires: rx(`(?i)move_uploaded_file`),
 	},
 	{
 		ID:          "php.mailer.request",

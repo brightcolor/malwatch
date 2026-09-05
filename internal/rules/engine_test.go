@@ -18,6 +18,28 @@ type sample struct {
 // nothing: a pattern matching everything would pass it.
 var samples = []sample{
 	{
+		rule: "php.include.assembled_path", ext: "php", path: "/web/a.php",
+		hit:  `<?php $T = range("~", " "); @require_once $T[9+1].$T[43+2].$T[7];`,
+		miss: `<?php require_once $config['base'] . '/lib/' . $name . '.php';`,
+	},
+	{
+		rule: "php.obfuscation.goto_spaghetti", ext: "php", path: "/web/a.php",
+		hit:  `<?php goto gkxBA; rMYTg: @ini_set("x", 0); goto IC_4Q; gkxBA: $to = 1; goto Pk2Zb; Pk2Zb: echo $to;`,
+		miss: "<?php\n if ($x) {\n  goto in_body_list_done;\n }\n in_body_list_done:\n return true;",
+	},
+	{
+		rule: "php.obfuscation.split_open_tag", ext: "php", path: "/web/a.php",
+		hit: `<?php $need = '<' . '?' . 'php'; if (strpos($code, $need) === false) { die(); }`,
+		miss: `<?php $header = "<?php
+// generated
+"; file_put_contents($f, $header);`,
+	},
+	{
+		rule: "php.upload.traversal", ext: "php", path: "/web/a.php",
+		hit:  `<?php $dst = '../' . $_FILES['file']['name']; move_uploaded_file($tmp, $dst);`,
+		miss: `<?php $dst = $dir . '/' . basename($_FILES['file']['name']); move_uploaded_file($tmp, $dst);`,
+	},
+	{
 		rule: "php.webshell.hardcoded_gate", ext: "php", path: "/web/a.php",
 		hit:  `<?php $h = "d401e8f28dff5fe24cb2c2b511e9da27"; if (md5($_COOKIE['p8']) == $h) { $ok = 1; }`,
 		miss: `<?php if ($_REQUEST['u'] === $auth_name && sha1($_REQUEST['p']) === $auth_pass) { $ok = 1; }`,
