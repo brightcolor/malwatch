@@ -73,3 +73,23 @@ func Backup(dir, destDir, name string) (string, error) {
 	}
 	return archive, nil
 }
+
+// BackupFile copies one file below destDir and returns its path.
+//
+// A single file is kept as a copy rather than as a tar: getting one file back
+// should not need an unpacking step, and the whole point of keeping it is that
+// a finding may turn out to be a false alarm.
+func BackupFile(file, destDir, name string) (string, error) {
+	if err := os.MkdirAll(destDir, 0o750); err != nil {
+		return "", err
+	}
+	raw, err := os.ReadFile(file)
+	if err != nil {
+		return "", err
+	}
+	target := filepath.Join(destDir, name)
+	if err := os.WriteFile(target, raw, 0o600); err != nil {
+		return "", err
+	}
+	return target, nil
+}

@@ -102,3 +102,4 @@ $wb['relative_to_txt'] = 'Pfade relativ zu';
 $wb['line_txt'] = 'Zeile';
 $wb['files_new_txt'] = 'neu geprüft';
 $wb['files_unchanged_txt'] = 'unverändert';
+$wb['running_txt'] = 'Prüfung(en) laufen gerade. Die Liste kommt von selbst zurück';

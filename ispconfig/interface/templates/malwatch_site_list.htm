@@ -45,8 +45,53 @@
 	data-submit-form="pageForm" data-form-action="sites/malwatch_site_list.php">{tmpl_var name='scan_all_txt'}</button>
 
 <p class="fieldset-legend marginTop15">{tmpl_var name='list_head_txt'}</p>
+<tmpl_if name="running_jobs">
+<div class="alert alert-info marginTop15" id="mw-running" style="padding:6px 12px">
+	<strong>{tmpl_var name='running_jobs'}</strong> {tmpl_var name='running_txt'}
+	<span id="mw-dots">…</span>
+</div>
+<script>
+(function () {
+	// Without this the page said "startet innerhalb einer Minute" and then
+	// never moved again: sixty finished scans and no way to see any of them
+	// short of reloading by hand.
+	var dots = 0, box = document.getElementById('mw-running');
+	var tick = setInterval(function () {
+		if (!document.body.contains(box)) { clearInterval(tick); return; }
+		dots = (dots + 1) % 4;
+		document.getElementById('mw-dots').textContent = new Array(dots + 1).join('.');
+	}, 500);
+	var reload = setTimeout(function () {
+		clearInterval(tick);
+		ISPConfig.loadContent('sites/malwatch_site_list.php');
+	}, 5000);
+	// The panel swaps #pageContent without reloading, so a timer left behind
+	// would drag the user back to this list from wherever they went next.
+	document.addEventListener('DOMNodeRemoved', function (e) {
+		if (e.target === box) { clearInterval(tick); clearTimeout(reload); }
+	});
+})();
+</script>
+</tmpl_if>
+
+<style>
+/* Sixty-one rows at a hundred pixels each is six of them on a screen. The two
+   buttons stacked because ISPConfig's .buttons wrapper is built for a form
+   footer, not for a table cell. */
+#mw-sites td, #mw-sites th { padding: 4px 8px; vertical-align: middle; }
+#mw-sites td { white-space: nowrap; }
+#mw-sites td.mw-domain { white-space: normal; }
+/* The state colours the left edge as well as the label: at this length the eye
+   scans the edge, not the words. */
+#mw-sites tbody tr { border-left: 3px solid transparent; }
+#mw-sites tbody tr.mw-findings { border-left-color: #d9534f; }
+#mw-sites tbody tr.mw-error    { border-left-color: #d9534f; }
+#mw-sites tbody tr.mw-outdated { border-left-color: #f0ad4e; }
+#mw-sites tbody tr.mw-clean    { border-left-color: #5cb85c; }
+#mw-sites tbody tr.mw-busy     { border-left-color: #5bc0de; }
+</style>
 <div class="table-wrapper marginTop15">
-<table class="table">
+<table class="table" id="mw-sites">
 	<thead class="dark form-group-sm">
 		<tr>
 			<th data-column="domain">{tmpl_var name='domain_txt'}</th>
@@ -55,14 +100,13 @@
 			<th data-column="schedule">{tmpl_var name='schedule_txt'}</th>
 			<th data-column="last_run">{tmpl_var name='last_run_txt'}</th>
 			<th data-column="next_run">{tmpl_var name='next_run_txt'}</th>
-			<th data-column="actions">{tmpl_var name='actions_txt'}</th>
 			<th class="text-right">&nbsp;</th>
 		</tr>
 	</thead>
 	<tbody>
 		<tmpl_loop name="records">
-		<tr>
-			<td>
+		<tr class="{tmpl_var name='row_class'}">
+			<td class="mw-domain">
 				<a href="#" data-load-content="sites/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name="domain"}</a>
 				<tmpl_unless name="site_active"><span class="label label-default">{tmpl_var name='site_inactive_txt'}</span></tmpl_unless>
 			</td>
@@ -77,20 +121,17 @@
 			<td>{tmpl_var name="schedule"}</td>
 			<td>{tmpl_var name="last_run"}</td>
 			<td>{tmpl_var name="next_run"}</td>
-			<td><small>{tmpl_var name="actions"}</small></td>
 			<td class="text-right">
-				<div class="buttons icons16">
-					<button class="btn btn-default formbutton-default formbutton-narrow" type="button"
-						onclick="document.getElementById('malwatch_action').value='scan_one';document.getElementById('malwatch_domain_id').value='{tmpl_var name='domain_id'}';"
-						data-submit-form="pageForm" data-form-action="sites/malwatch_site_list.php">{tmpl_var name='scan_now_txt'}</button>
-					<a class="btn btn-default formbutton-default formbutton-narrow" href="#"
-						data-load-content="sites/malwatch_site_edit.php?domain_id={tmpl_var name='domain_id'}">{tmpl_var name='settings_txt'}</a>
-				</div>
+				<button class="btn btn-default btn-xs" type="button"
+					onclick="document.getElementById('malwatch_action').value='scan_one';document.getElementById('malwatch_domain_id').value='{tmpl_var name='domain_id'}';"
+					data-submit-form="pageForm" data-form-action="sites/malwatch_site_list.php">{tmpl_var name='scan_now_txt'}</button>
+				<a class="btn btn-default btn-xs" href="#"
+					data-load-content="sites/malwatch_site_edit.php?domain_id={tmpl_var name='domain_id'}">{tmpl_var name='settings_txt'}</a>
 			</td>
 		</tr>
 		</tmpl_loop>
 		<tmpl_unless name="has_records">
-		<tr><td colspan="8">{tmpl_var name='no_records_txt'}</td></tr>
+		<tr><td colspan="7">{tmpl_var name='no_records_txt'}</td></tr>
 		</tmpl_unless>
 	</tbody>
 </table>
