@@ -2,6 +2,35 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.5.0] – 2026-09-05
+
+### Neu
+
+- **Vier weitere Verschleierungen erkannt.** Ein zweiter Blick auf denselben
+  Befall, diesmal nicht über die Namensform der abgelegten Dateien, sondern über
+  den Zeitraum: von allem, was während des Befalls geschrieben wurde, findet der
+  Scanner jetzt 200 von 217 statt 184.
+
+  - `php.stream.archive_url` — ein Lader holt seinen Rumpf aus einem Archiv:
+    `zip://…zip#…tmp`, mal über `require`, mal über `file_get_contents`. Nur bei
+    fest verdrahteter Adresse, denn Roundcube kopiert legitim mit
+    `copy("zip://$path#$entry", …)`.
+  - `php.include.stream_wrapper` — `require "zip://…"`, `data://`, `php://input`.
+    `phar://` bleibt bewusst draußen: ein Phar-Stub tut genau das, und Guzzle
+    bringt einen mit.
+  - `php.tool.leaf_mailer` — Leaf PHP Mailer in seinen Varianten, die untereinander
+    keine Form teilen und deshalb beim Namen genannt werden.
+  - Die zweite Sicht löst jetzt **Hex- und Oktal-Escapes** mit auf: `"\x5f\107\x45\x54"`
+    ist `_GET`. Und sie überspringt **Kommentare zwischen den Teilen** einer
+    Verkettung: `"ra"/*-X8KKH~;-*/."nge"` ergibt `range`.
+
+### Geändert
+
+- `php.webshell.password_gate` verlangt nicht mehr `eval` oder `system` im
+  Klartext. Eine Shell, die ein Passwort gegen einen Hash im eigenen Quelltext
+  prüft und danach Dateien schreibt, Uploads annimmt oder über das Netz nachlädt,
+  ist dasselbe — eine solche kam ganz ohne `eval` aus.
+
 ## [0.4.0] – 2026-09-05
 
 ### Neu
