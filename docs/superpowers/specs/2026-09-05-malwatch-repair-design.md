@@ -209,6 +209,41 @@ Abgeschaltet wird nur für die Dauer des Laufs, und nur, weil die Installation
 währenddessen unvollständig ist und eine noch erreichbare Hintertür sonst
 mitschreiben könnte.
 
+### Einzelne Funde entfernen
+
+Die Wiederherstellung tauscht ganze Ordner. Für eine einzelne abgelegte Datei —
+eine Webshell in `uploads`, eine im Webstamm — ist das zu grob, und genau diese
+Dateien sind es, die nach einer Wiederherstellung übrig bleiben. Das Panel
+braucht deshalb einen zweiten, feineren Weg.
+
+**Knopf „Löschen"** je Fundzeile, mit einer Rückfrage, die den vollen Pfad
+nennt. Dazu „Alle Funde dieser Website löschen" mit derselben Rückfrage: bei
+über hundert Dateien klickt sonst niemand einzeln.
+
+Gelöscht wird über die Auftragswarteschlange, nicht aus der Oberfläche heraus.
+Die Panel-PHP läuft als `ispconfig`, die Kundendateien gehören dem Web-Benutzer;
+das Panel kann sie gar nicht entfernen. Das Server-Plugin läuft als root und
+kann es.
+
+Grenzen, so eng wie beim Tauschen:
+
+- Gelöscht wird **nur ein Pfad, der als Fund dieser Website in
+  `malwatch_finding` steht** und unterhalb ihres Dokumentenstamms liegt. Kein
+  Pfad aus dem Formular wird ungeprüft übernommen.
+- Vorher wandert die Datei nach
+  `/var/lib/malwatch/backups/<domain>/einzeln/<zeitpunkt>/`. Nichts verschwindet
+  unwiederbringlich, auch dann nicht, wenn sich der Fund als Fehlalarm
+  herausstellt.
+- Danach steht der Fund auf `fixed`, und `malwatch_action_log` hält fest, wann
+  und wegen welchen Fundes gelöscht wurde.
+
+### Der Knopf „Freigeben" heißt künftig „Kein Befund"
+
+Er setzt `finding_state = 'ignored'` und rührt die Datei nicht an. „Freigeben"
+liest sich neben einem Schadcode-Fund aber, als würde man ihn durchwinken — der
+erste Bediener ist genau darüber gestolpert. Die Beschriftung sagt jetzt, was
+der Knopf tut. Nur Text, keine Logik.
+
 ### Tabellen
 
 - `malwatch_repair` — ein Lauf: Zeiten, Zahl der Elemente je Ausgang,
@@ -219,7 +254,8 @@ mitschreiben könnte.
 Beide mit den ISPConfig-Spalten `sys_userid`, `sys_groupid`, `sys_perm_*` und
 `server_id`, wie die übrigen.
 
-`malwatch_job` bekommt `job_kind enum('scan','repair')`.
+`malwatch_job` bekommt `job_kind enum('scan','repair','delete')`; bei
+`delete` trägt `options` die Pfade, die entfernt werden sollen.
 
 ### Schema-Änderungen
 
@@ -234,7 +270,7 @@ Installation und jedem Update mit und braucht keine Versionszählung.
 
 ## Was nicht in diese Version kommt
 
-Andere CMS als WordPress — für Joomla, TYPO3 und die übrigen gibt es keine
+Ein Rückspielen der Sicherung über die Oberfläche. Andere CMS als WordPress — für Joomla, TYPO3 und die übrigen gibt es keine
 verlässliche Quelle für versionsgenaue Archive. Das Säubern von
 `wp-content/uploads`. Das Löschen von `mu-plugins`. Eine Wiederherstellung ohne
 Betreiber, also als selbsttätige Aktion auf einen Fund hin. Mehrere Server.
