@@ -1,7 +1,9 @@
 # malwatch
 
-Scanner für Schadcode und veraltete Web-Software auf Webservern, dazu ein
-Addon für ISPConfig 3.3, das ihn über die Oberfläche bedienbar macht.
+Scanner für Schadcode und veraltete Web-Software auf Webservern, der eine
+befallene WordPress-Installation auch wieder auf den Auslieferungszustand
+zurücksetzen kann, dazu ein Addon für ISPConfig 3.3, das ihn über die
+Oberfläche bedienbar macht.
 
 Zwei Teile in einem Repository:
 
@@ -91,6 +93,71 @@ Eine ganze Regel abschalten geht auch, ist aber selten richtig:
 ```bash
 malwatch scan --path=/var/www --ignore=php.eval.variable
 ```
+
+## Wiederherstellen
+
+Regeln und Signaturen finden, was sie kennen. Ein vollständiger Austausch
+braucht nichts zu kennen:
+
+```bash
+malwatch repair --path=/var/www/web1/web --backup-dir=/var/lib/malwatch/backups/web1
+```
+
+Kern, sämtliche Plugins und sämtliche Themes werden versionsgenau durch die
+Originale von wordpress.org ersetzt — der alte Ordner vorher vollständig
+entfernt, denn eine abgelegte Datei überlebt nur, solange ihr Verzeichnis
+überlebt. Ein Lauf danach zeigt, was übrig ist, und das ist per Definition
+nicht Teil der Software.
+
+Erst wird alles geholt und geprüft, dann gesichert, dann getauscht. Bis zum
+Tauschen ist keine Datei der Website angefasst: reißt das Netz ab, kostet das
+einen Lauf und keine Website. Was angefasst wird, liegt vorher als `tar.gz`
+unter `--backup-dir`.
+
+Unangetastet bleiben:
+
+| | Warum |
+|---|---|
+| `wp-config.php` | Zugangsdaten, kein Original vorhanden |
+| `wp-content/uploads` | Kundendaten ohne Herstellerfassung |
+| `wp-content`, soweit nicht Plugin oder Theme | `languages`, `cache`, eigene Verzeichnisse |
+| fremde Dateien im Webstamm | genau die soll der Lauf danach zeigen |
+
+`wp-content/mu-plugins` wird im Bericht ausgewiesen, nicht gelöscht: dort liegt
+ebenso oft legitimer Code von Hostern wie eine Hintertür.
+
+Findet sich für ein Element kein Original — ein gekauftes Plugin, ein
+zurückgezogenes Release —, wird der Ordner **trotzdem** entfernt, mit Name und
+Version im Protokoll und mit Sicherung. Die Website braucht danach Ersatz.
+
+Vorher ansehen, ohne etwas zu ändern:
+
+```bash
+malwatch repair --path=/var/www/web1/web --dry-run
+```
+
+Nur WordPress. Für Joomla, TYPO3 und die übrigen gibt es keine verlässliche
+Quelle für versionsgenaue Archive; sie werden im Bericht benannt und in Ruhe
+gelassen.
+
+### Rückgabecodes von repair
+
+| Code | Bedeutung |
+|---|---|
+| 0 | alles durch die Originale ersetzt |
+| 2 | fertig, aber Elemente ohne Original wurden gelöscht |
+| 3 | gescheitert; kam der Abbruch vor dem Tauschen, ist die Website unverändert |
+
+### Fortschritt mitlesen
+
+```bash
+malwatch repair --path=… --backup-dir=… --progress=/var/lib/malwatch/runs/job-8.progress
+```
+
+Die Datei enthält Phase, Element, Datei, Zähler und ein mitlaufendes Protokoll
+als JSON. Sie wird geschrieben und dann umbenannt, sodass ein mitlesendes
+Programm nie ein halbes Dokument sieht. `malwatch scan` kennt denselben
+Schalter.
 
 ## Das ISPConfig-Addon
 

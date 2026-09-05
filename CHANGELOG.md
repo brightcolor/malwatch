@@ -2,6 +2,60 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.3.0] – 2026-09-05
+
+### Neu
+
+- **`malwatch repair`** setzt eine WordPress-Installation auf den
+  Auslieferungszustand zurück: Kern, sämtliche Plugins und sämtliche Themes
+  werden versionsgenau durch die Originale ersetzt, der alte Ordner vorher
+  vollständig entfernt. Damit verschwindet auch, was keine Regel getroffen hat —
+  eine abgelegte Datei überlebt nur, solange ihr Verzeichnis überlebt. Was ein
+  Lauf danach noch meldet, ist per Definition nicht Teil der Software.
+
+  Erst wird alles geholt und geprüft, dann gesichert, dann getauscht. Bis zum
+  Tauschen ist keine Datei der Website angefasst: ein abgebrochener Download
+  kostet einen Lauf, keine Website. Gesichert wird alles, was angefasst wird,
+  als `tar.gz` unter `--backup-dir`.
+
+  Unangetastet bleiben `wp-config.php`, `wp-content/uploads`, alles in
+  `wp-content`, was kein Plugin- oder Theme-Ordner ist, und jede fremde Datei im
+  Webstamm. Das Letzte ist Absicht: genau diese Reste soll der anschließende
+  Lauf zeigen. `wp-content/mu-plugins` wird ausgewiesen, nicht gelöscht.
+
+  Findet sich für ein Element kein Original — ein gekauftes Plugin, ein
+  zurückgezogenes Release —, wird der Ordner trotzdem entfernt, mit Name und
+  Version im Protokoll und mit Sicherung. Ein 404 der Herstellerquelle ist eine
+  Tatsache über das Element; jeder andere Fehlschlag beendet den Lauf, solange
+  die Website unberührt ist.
+
+  `--dry-run` spielt alles bis vor den ersten Schreibvorgang durch.
+
+- **Laufender Fortschritt** über `--progress=DATEI`: Phase, Element, Datei,
+  Zähler und ein mitlaufendes Protokoll als JSON, geschrieben-dann-umbenannt,
+  damit ein Leser nie ein halbes Dokument sieht. Der Scan schreibt dieselbe
+  Datei — bisher meldete er „eingeplant" und dann minutenlang nichts.
+
+### Geändert
+
+- Der Scanner schreibt erstmals, und zwar ausschließlich unterhalb von `--path`
+  und `--backup-dir`. Ein Pfad, der nach Auflösung aller Symlinks außerhalb
+  liegt, führt zum Abbruch statt zum Überspringen — ein Überspringen würde eine
+  Manipulation stillschweigend hinnehmen.
+- Ein neuer CI-Job legt vier Webshells in echtes WordPress 6.6.2, zwei innerhalb
+  von Herstellerverzeichnissen und zwei außerhalb, und verlangt danach: die
+  innerhalb sind weg, die außerhalb sind genau das, was der Scan meldet.
+
+### Bekannte Grenzen
+
+- Themes werden nicht gegen Prüfsummen verifiziert — wordpress.org veröffentlicht
+  für sie keine. Der Bericht sagt das.
+- Der Abgleich der entpackten Archive gegen die Prüfsummenlisten ist noch nicht
+  verdrahtet; geholt und entpackt wird, verglichen noch nicht.
+- Nur WordPress. Für Joomla, TYPO3 und die übrigen gibt es keine verlässliche
+  Quelle für versionsgenaue Archive; sie werden im Bericht benannt.
+- Die Bedienung über die ISPConfig-Oberfläche folgt als Teil 2.
+
 ## [0.2.10] – 2026-09-05
 
 ### Behoben
