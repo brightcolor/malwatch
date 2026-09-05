@@ -253,12 +253,23 @@ var catalog = []*Rule{
 		Description: "Kennwortabfrage, die anschließend Code ausführt",
 		Exts:        phpExts,
 		Match:       rx(`(?is)\b(?:md5|sha1|crypt|password_verify)\s*\(\s*\$(?:_GET|_POST|_REQUEST|_COOKIE)\s*\[[^\]]{0,40}\]\s*\)\s*(?:==|===|!=|!==)`),
-		// Not only code execution. A shell that checks a password against a
-		// hash in its own source and then writes files, takes uploads or
-		// fetches from the network is the same thing - one of them carried no
-		// eval anywhere and slipped through on that alone.
-		Requires: rx(`(?is)\b(?:eval|assert|system|shell_exec|passthru|proc_open|popen|` +
-			`file_put_contents|move_uploaded_file|curl_exec|fsockopen|fwrite)\s*\(`),
+		Requires:    rx(`(?is)\b(?:eval|assert|system|shell_exec|passthru|proc_open)\s*\(`),
+	},
+	{
+		ID:          "php.webshell.hardcoded_gate",
+		Severity:    report.SeverityCritical,
+		Description: "Kennwortabfrage gegen einen fest eingetragenen Hash",
+		// The same gate as above, but the hash it compares against stands in
+		// the file itself. That is the difference between a tool that carries
+		// its own key and a plugin that looks one up: NinjaFirewall compares a
+		// request hash too, and holds not one hardcoded hash anywhere.
+		//
+		// It exists as its own rule because two conditions cannot be written
+		// into one pattern here, and widening the rule above instead reported
+		// that firewall as a webshell.
+		Exts:     phpExts,
+		Match:    rx(`(?is)\b(?:md5|sha1|crypt)\s*\(\s*\$(?:_GET|_POST|_REQUEST|_COOKIE)\s*\[[^\]]{0,40}\]\s*\)\s*(?:==|===|!=|!==)`),
+		Requires: rx(`(?i)=\s*['"][0-9a-f]{32,40}['"]`),
 	},
 	{
 		ID:          "php.webshell.session_filehash_gate",

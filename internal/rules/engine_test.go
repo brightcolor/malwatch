@@ -18,6 +18,11 @@ type sample struct {
 // nothing: a pattern matching everything would pass it.
 var samples = []sample{
 	{
+		rule: "php.webshell.hardcoded_gate", ext: "php", path: "/web/a.php",
+		hit:  `<?php $h = "d401e8f28dff5fe24cb2c2b511e9da27"; if (md5($_COOKIE['p8']) == $h) { $ok = 1; }`,
+		miss: `<?php if ($_REQUEST['u'] === $auth_name && sha1($_REQUEST['p']) === $auth_pass) { $ok = 1; }`,
+	},
+	{
 		rule: "php.stream.archive_url", ext: "php", path: "/web/a.php",
 		hit:  `<?php $c = file_get_contents("zip://jpc_6a3918.zip#b_6a3918.tmp");`,
 		miss: `<?php if (copy("zip://$path#$entry", $tmpfname)) { $ok = true; }`,
