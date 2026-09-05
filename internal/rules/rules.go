@@ -24,6 +24,14 @@ type Rule struct {
 	// Requires, when set, must also be present in the file. It keeps rules
 	// that are only suspicious in combination from firing on their own.
 	Requires *regexp.Regexp
+	// RawOnly keeps a rule off the reassembled view of the file.
+	//
+	// That view exists to expose split function names. It also glues data
+	// back together, and a rule that looks for a long block rather than a
+	// name changes meaning when it does: phpseclib writes a Diffie-Hellman
+	// prime as concatenated hex, a gallery plugin carries a base64 PNG, and
+	// both became findings. Rules that match data look at the file as it is.
+	RawOnly bool
 	// PathMatch, when set, limits the rule to files whose location matches.
 	// It is applied to the path below the scanned root, never to the
 	// absolute path - see walk.File.Rel for why.

@@ -48,28 +48,55 @@ func (e *Engine) Scan(path, rel, ext string, content []byte) []report.Finding {
 	if rel == "" {
 		rel = path
 	}
+	// The second view has the string literals glued together, so a payload
+	// that writes 'base'.'64'.'_dec'.'ode' cannot hide the function name from
+	// every rule that spells it out. It is nil when the file has no such seam,
+	// which is the ordinary case.
+	joined, index := joinConcatenated(content)
+
 	var out []report.Finding
 	for _, r := range e.rules {
 		if !r.AppliesTo(rel, ext) {
 			continue
 		}
-		loc := r.Match.FindIndex(content)
-		if loc == nil {
+		if f, ok := e.apply(r, path, content, content, nil); ok {
+			out = append(out, f)
 			continue
 		}
-		if r.Requires != nil && !r.Requires.Match(content) {
-			continue
+		if joined != nil && !r.RawOnly {
+			if f, ok := e.apply(r, path, joined, content, index); ok {
+				out = append(out, f)
+			}
 		}
-		out = append(out, report.Finding{
-			Path:     path,
-			Line:     lineOf(content, loc[0]),
-			Rule:     r.ID,
-			Severity: r.Severity,
-			Engine:   "heuristic",
-			Excerpt:  excerpt(content[loc[0]:loc[1]]),
-		})
 	}
 	return out
+}
+
+// apply runs one rule over hay. raw and index translate a position in hay back
+// to the file, so a finding names the line someone can actually open; index is
+// nil when hay is the file itself.
+func (e *Engine) apply(r *Rule, path string, hay, raw []byte, index []int) (report.Finding, bool) {
+	loc := r.Match.FindIndex(hay)
+	if loc == nil {
+		return report.Finding{}, false
+	}
+	if r.Requires != nil && !r.Requires.Match(hay) {
+		return report.Finding{}, false
+	}
+	at := loc[0]
+	if index != nil && at < len(index) {
+		at = index[at]
+	}
+	return report.Finding{
+		Path:     path,
+		Line:     lineOf(raw, at),
+		Rule:     r.ID,
+		Severity: r.Severity,
+		Engine:   "heuristic",
+		// The excerpt comes from the view that matched: reading the
+		// reassembled name is what explains the finding.
+		Excerpt: excerpt(hay[loc[0]:loc[1]]),
+	}, true
 }
 
 // lineOf returns the 1-based line number of a byte offset.

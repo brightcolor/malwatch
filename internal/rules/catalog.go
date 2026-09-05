@@ -70,6 +70,28 @@ var catalog = []*Rule{
 		Exts:        phpExts,
 		Match:       rx(`(?is)\beval\s*\(\s*(?:@\s*)?\$[a-zA-Z_]\w{0,40}\s*[;)]`),
 	},
+	{
+		ID:          "php.eval.variable_call",
+		Severity:    report.SeverityCritical,
+		Description: "eval auf dem Ergebnis eines Variablenaufrufs",
+		// Every dropped payload on the first real infection looked like
+		// eval($a($b('...'))): the function names sit in variables, so no rule
+		// that spells out base64_decode ever gets to see them. Honest code has
+		// no reason to call a variable from inside eval.
+		Exts:  phpExts,
+		Match: rx(`(?is)\beval\s*\(\s*(?:@\s*)?\$[a-zA-Z_]\w{0,40}\s*\(`),
+	},
+	{
+		ID:          "php.silence.preamble",
+		Severity:    report.SeverityHigh,
+		Description: "Fehlerausgabe und Fehlerprotokoll zusammen abgeschaltet",
+		// Silencing the output happens in honest code often enough. Silencing
+		// the error log as well means nobody is supposed to see what this file
+		// does - and it stood at the top of every payload of that infection.
+		Exts:     phpExts,
+		Match:    rx(`(?i)error_reporting\s*\(\s*0\s*\)`),
+		Requires: rx(`(?i)ini_set\s*\(\s*['"](?:log_errors|error_log)`),
+	},
 
 	// -------------------------------------------------------- obfuscation
 	{
@@ -80,6 +102,7 @@ var catalog = []*Rule{
 		// everyday work - fonts, images and WebAssembly all look like this,
 		// and WordPress ships several of them.
 		Exts:     phpExts,
+		RawOnly:  true,
 		Match:    rx(`[A-Za-z0-9+/]{260,}={0,2}`),
 		Requires: rx(`(?i)base64_decode|gzinflate|gzuncompress|str_rot13`),
 	},
@@ -198,6 +221,19 @@ var catalog = []*Rule{
 		Exts:        phpExts,
 		Match:       rx(`(?is)\b(?:md5|sha1|crypt|password_verify)\s*\(\s*\$(?:_GET|_POST|_REQUEST|_COOKIE)\s*\[[^\]]{0,40}\]\s*\)\s*(?:==|===|!=|!==)`),
 		Requires:    rx(`(?is)\b(?:eval|assert|system|shell_exec|passthru|proc_open)\s*\(`),
+	},
+	{
+		ID:          "php.webshell.session_filehash_gate",
+		Severity:    report.SeverityCritical,
+		Description: "Türsteher mit Sitzungsschlüssel aus dem Hash der eigenen Datei",
+		// A file that keys a session on its own hash and holds a password is a
+		// self-contained tool with a door in front of it: a mailer, a shell, a
+		// file manager. Nothing that belongs to a website needs to know the
+		// hash of its own path. This is the shape of Leafmailer, which carries
+		// no obfuscation at all and therefore slipped past every rule above.
+		Exts:     phpExts,
+		Match:    rx(`(?i)md5\s*\(\s*__FILE__\s*\)`),
+		Requires: rx(`(?is)\$_SESSION\s*\[`),
 	},
 	{
 		ID:          "php.webshell.file_manager",
