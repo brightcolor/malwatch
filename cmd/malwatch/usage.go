@@ -11,6 +11,7 @@ const usageText = `malwatch %s - Scanner für Schadcode und veraltete Web-Softwa
 
 Aufruf:
   malwatch scan --path=/var/www [Optionen]
+  malwatch repair --path=/var/www/web1/web --backup-dir=… [Optionen]
   malwatch update [--sig-dir=…]
   malwatch whitelist --file=/pfad/zur/datei.php [--whitelist-path=…]
   malwatch version
@@ -50,17 +51,32 @@ Bericht per E-Mail:
   --smtp-pass=WERT         Kennwort für den SMTP-Server
   --smtp-tls=MODUS         none, starttls oder tls (Vorgabe: starttls)
 
+Wiederherstellung (repair):
+  --path=PFAD              Webstamm der Installation
+  --backup-dir=PFAD        wohin die ersetzten Ordner gesichert werden
+                           (entfällt nur bei --dry-run)
+  --staging-dir=PFAD       wo die Archive vor dem Tausch abgelegt werden
+  --progress=DATEI         laufender Zustand als JSON, für die Oberfläche
+  --dry-run                holen und prüfen, aber nichts ändern
+  --vendor-base=URL        andere Bezugsadresse, für Tests
+
 Ablagen:
   --sig-dir=PFAD           Signaturverzeichnis (Vorgabe: /var/lib/malwatch/signatures)
   --state-dir=PFAD         Zwischenspeicher (Vorgabe: /var/lib/malwatch/state)
   --cache=DATEI            Datei für bereits als sauber bewertete Dateien
   --whitelist-path=DATEI   eigene Freigabeliste (Vorgabe: ~/.malwatch.whitelist)
 
-Rückgabecodes:
+Rückgabecodes von scan:
   0  nichts gefunden
   1  Funde ab der eingestellten Stufe
   2  nur veraltete Software gefunden
   3  der Lauf selbst ist gescheitert
+
+Rückgabecodes von repair:
+  0  alles durch die Originale ersetzt
+  2  fertig, aber Elemente ohne Original wurden gelöscht
+  3  der Lauf ist gescheitert; die Website blieb unverändert,
+     sofern der Abbruch vor dem Tauschen kam
 `
 
 func usage(w io.Writer) {
