@@ -163,6 +163,13 @@ if ! grep -q 'uninstall-schema.sql' "$root/install/installer.php"; then
 	fail "installer.php does not drop the tables from install/uninstall-schema.sql"
 fi
 
+# 14. Ein fertiger Lauf darf nicht daran scheitern, dass die Website noch
+#     keine Einstellungszeile hat. Genau das verwarf das Ergebnis von 66
+#     Prüfungen und zeigte 60 Websites als "ungeprüft" an.
+if grep -q 'function update_site_state' "$root/server/lib/classes/malwatch_actions.inc.php"; then
+	sed -n '/function update_site_state/,/^	}/p' "$root/server/lib/classes/malwatch_actions.inc.php" 		| grep -q 'create_site_row' 		|| fail "update_site_state verwirft das Ergebnis, wenn die Website keine Einstellungszeile hat"
+fi
+
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'
 fi

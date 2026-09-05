@@ -12,6 +12,7 @@ const usageText = `malwatch %s - Scanner für Schadcode und veraltete Web-Softwa
 Aufruf:
   malwatch scan --path=/var/www [Optionen]
   malwatch repair --path=/var/www/web1/web --backup-dir=… [Optionen]
+  malwatch quarantine --path=… --file=… --backup-dir=… [Optionen]
   malwatch update [--sig-dir=…]
   malwatch whitelist --file=/pfad/zur/datei.php [--whitelist-path=…]
   malwatch version
@@ -59,6 +60,12 @@ Wiederherstellung (repair):
   --progress=DATEI         laufender Zustand als JSON, für die Oberfläche
   --dry-run                holen und prüfen, aber nichts ändern
   --vendor-base=URL        andere Bezugsadresse, für Tests
+
+Einzelne Dateien entfernen (quarantine):
+  --path=PFAD              Webstamm der Installation
+  --file=PFAD              zu entfernende Datei, relativ zum Webstamm,
+                           mehrfach angebbar
+  --backup-dir=PFAD        wohin die Datei vorher gesichert wird
 
 Ablagen:
   --sig-dir=PFAD           Signaturverzeichnis (Vorgabe: /var/lib/malwatch/signatures)

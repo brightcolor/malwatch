@@ -97,6 +97,9 @@ if (is_array($rows)) {
 			'state' => $app->functions->htmlentities($state),
 			'state_label' => $app->functions->htmlentities(malwatch_state_label($wb, $state)),
 			'state_class' => malwatch_state_class($state),
+			// The state also colours the left edge of the row: at sixty rows the
+			// eye scans the edge, not the labels.
+			'row_class' => $app->functions->intval($row['busy']) > 0 ? 'mw-busy' : 'mw-' . $state,
 			'busy' => $app->functions->intval($row['busy']) > 0 ? 1 : 0,
 			'actions' => $app->functions->htmlentities(malwatch_action_summary($wb, $row)),
 		);
@@ -110,6 +113,12 @@ $app->tpl->setVar('count_findings', $summary['findings']);
 $app->tpl->setVar('count_clean', $summary['clean']);
 $app->tpl->setVar('count_outdated', $summary['outdated']);
 $app->tpl->setVar('count_unknown', $summary['unknown']);
+
+// While anything is queued the list says so and comes back on its own.
+$queued = $app->db->queryOneRecord(
+	"SELECT COUNT(*) AS n FROM malwatch_job WHERE job_status IN ('pending','running')");
+$app->tpl->setVar('running_jobs', is_array($queued) && $queued['n'] > 0
+	? $app->functions->intval($queued['n']) : '');
 
 $app->tpl->setVar('message', $app->functions->htmlentities($message));
 $app->tpl->setVar('error', $app->functions->htmlentities($error));

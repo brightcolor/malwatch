@@ -102,3 +102,4 @@ $wb['relative_to_txt'] = 'paths relative to';
 $wb['line_txt'] = 'line';
 $wb['files_new_txt'] = 'newly scanned';
 $wb['files_unchanged_txt'] = 'unchanged';
+$wb['running_txt'] = 'check(s) running. This list refreshes itself';

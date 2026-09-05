@@ -108,8 +108,17 @@ class malwatch_actions
 			$state = 'outdated';
 		}
 
+		// A website only gets a settings row once somebody opens its settings
+		// page and saves. Returning here dropped the result of every scan for
+		// every other website: sixty sites showed "ungeprüft" in the overview
+		// while sixty-six finished scans sat in the database.
 		if (!is_array($site)) {
-			return;
+			$site = $this->create_site_row($scan);
+			if (!is_array($site)) {
+				$app->log('malwatch: Zustand für ' . $scan['domain'] . ' konnte nicht abgelegt werden.',
+					LOGLEVEL_WARN);
+				return;
+			}
 		}
 
 		$app->uses('malwatch_helper');
@@ -119,6 +128,31 @@ class malwatch_actions
 			'UPDATE malwatch_site SET last_scan_id = ?, last_run = ?, next_run = ?, open_findings = ?, '
 			. 'worst_severity = ?, last_state = ? WHERE site_id = ?',
 			intval($scan['scan_id']), $scan['finished_at'], $next, $count, $worst, $state, intval($site['site_id']));
+	}
+
+	/**
+	 * Creates the settings row of a website with the defaults from the schema.
+	 *
+	 * Every column below the identity has a default, so the row is the plain
+	 * "not configured, but scanned" state - which is exactly what a website
+	 * is after a scan that nobody set up beforehand.
+	 */
+	private function create_site_row($scan)
+	{
+		global $app;
+
+		$domain_id = intval($scan['parent_domain_id']);
+		if ($domain_id < 1) {
+			return null;
+		}
+		$app->dbmaster->query(
+			'INSERT INTO malwatch_site (sys_userid, sys_groupid, sys_perm_user, sys_perm_group, '
+			. 'sys_perm_other, server_id, parent_domain_id, domain) '
+			. "VALUES (1, 1, 'riud', 'riud', '', ?, ?, ?)",
+			intval($scan['server_id']), $domain_id, (string) $scan['domain']);
+
+		return $app->dbmaster->queryOneRecord(
+			'SELECT * FROM malwatch_site WHERE parent_domain_id = ?', $domain_id);
 	}
 
 	private function notify_admin($scan, $site, $config, $findings, $worst)
