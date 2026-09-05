@@ -64,7 +64,44 @@ Was die Lücke ausmachte, in der Reihenfolge ihres Gewichts:
    fiel deshalb durch jedes Raster; erkennbar am Sitzungsschlüssel aus dem Hash
    der eigenen Datei. `php.webshell.session_filehash_gate`.
 
-## Zwei Lehren aus dieser Runde
+## Die zweite Runde, 05.09.2026
+
+Ein zweiter, gründlicherer Blick auf dieselbe Website — diesmal nicht über die
+Namensform der abgelegten Dateien, sondern über den **Zeitraum des Befalls**:
+alles, was zwischen dem 20. und dem 30. Juni geschrieben wurde.
+
+| | vorher | nachher |
+|---|---|---|
+| 149 bekannte Schaddateien | 144 | 144 |
+| 217 Dateien aus dem Befallszeitraum | 184 | **200** |
+| frisches WordPress, vier Kundenseiten | unverändert | unverändert |
+
+Vier weitere Kniffe, jeder mit eigener Antwort:
+
+1. **Türsteher ohne eval.** Eine Shell prüfte ein Passwort gegen einen Hash im
+   eigenen Quelltext und schrieb danach Dateien und holte über das Netz — die
+   Regel verlangte aber `eval` oder `system` im Klartext.
+2. **Lader aus einem Archiv.** `zip://jpc_….zip#b_….tmp`, mal über `require`,
+   mal über `file_get_contents`.
+3. **Superglobale in Escapes.** `"_GET"` ist `_GET`. Die zweite
+   Sicht löst jetzt Hex- und Oktal-Escapes mit auf.
+4. **Verkettung mit Kommentaren dazwischen.** `"ra"/*-X8KKH~;-*/."nge"` ergibt
+   `range`; die Nahtsuche übersprang bisher nur Leerraum.
+
+Dazu **Leaf PHP Mailer** in einer zweiten Variante, die mit der ersten keine
+Form teilt — die wird beim Namen genannt statt beschrieben.
+
+### Zwei Regeln, die wieder verschwunden sind
+
+Genau dafür gibt es den Fehlalarm-Korpus:
+
+- `${$var}` als Aufruf ist eine gewöhnliche PHP-Möglichkeit. Doctrine, Mailster
+  und BackupBuddy benutzen sie.
+- Eine Adresse in ein Archiv hinein ist für sich harmlos: Roundcube kopiert mit
+  `copy("zip://$path#$entry", …)` aus einem hochgeladenen Archiv. Die Regel
+  greift jetzt nur noch, wenn die Adresse **fest verdrahtet** ist.
+
+## Zwei Lehren aus der ersten Runde
 
 **Die zusammengesetzte Sicht ist für Namen da, nicht für Daten.** Sie klebt auch
 mehrzeilige Konstanten zusammen. phpseclib schreibt eine Diffie-Hellman-Primzahl
