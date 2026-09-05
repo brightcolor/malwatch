@@ -199,6 +199,25 @@ if [ -f "$root/interface/malwatch_progress.php" ]; then
 	grep -q 'is_admin' "$root/interface/malwatch_progress.php" 		|| fail "malwatch_progress.php prüft die Administratorrechte nicht"
 fi
 
+# 19. Jede Aktion, die löscht oder ersetzt, braucht eine Rückfrage. Ein
+#     Fehlklick auf "Alle Funde löschen" wäre sonst endgültig.
+for action in delete_one delete_all repair; do
+	if grep -q "=== '$action'" "$root/interface/malwatch_site_show.php"; then
+		grep -q "confirm_${action}_txt" "$root/interface/templates/malwatch_site_show.htm" 			|| fail "die Aktion $action hat keine Rückfrage in der Vorlage"
+	fi
+done
+
+# 20. "Freigeben" liest sich neben einem Schadcode-Fund wie Durchwinken.
+if grep -q "ignore_txt'\] = 'Freigeben'" "$root/interface/lang/de_malwatch.lng"; then
+	fail "der Knopf heißt noch 'Freigeben'; er ändert nur den Zustand, er gibt nichts frei"
+fi
+
+# 21. Eine halb getauschte Installation darf nicht zurück ans Netz. Der
+#     Rückweg hängt am Rückgabecode, nicht am blossen Ende des Laufs.
+if grep -q 'function finish_repair' "$root/server/lib/classes/cron.d/560-malwatch.inc.php"; then
+	sed -n '/function finish_repair/,/^	}/p' "$root/server/lib/classes/cron.d/560-malwatch.inc.php" 		| grep -q 'exit_code' 		|| fail "das Zurückschalten sieht den Rückgabecode nicht an"
+fi
+
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'
 fi

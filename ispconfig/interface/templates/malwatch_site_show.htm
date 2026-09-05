@@ -54,9 +54,89 @@
 <input type="hidden" name="malwatch_action" id="malwatch_action" value="" />
 
 <div class="marginTop15 marginBottom15">
+<tmpl_if name="running_job_id">
+<div id="mw-progress" class="marginTop15 marginBottom15">
+	<div id="mw-phases" class="marginBottom5"></div>
+	<div class="progress" style="height:16px;margin-bottom:6px">
+		<div id="mw-bar" class="progress-bar progress-bar-striped active" style="width:0%"></div>
+	</div>
+	<p id="mw-line"><small>{tmpl_var name='progress_waiting_txt'}</small></p>
+	<div class="table-wrapper"><table class="table" id="mw-log"><tbody></tbody></table></div>
+</div>
+<script>
+(function () {
+	var jobId = {tmpl_var name='running_job_id'};
+	var domainId = {tmpl_var name='domain_id'};
+	var names = ['Erkennen', 'Holen', 'Prüfen', 'Sichern', 'Tauschen'];
+	var box = document.getElementById('mw-progress');
+	var timer = null;
+
+	function stop() { if (timer) { clearInterval(timer); timer = null; } }
+
+	function draw(d) {
+		var p = d.progress || {};
+		var done = p.elements_done || 0, total = p.elements_total || 0;
+		document.getElementById('mw-bar').style.width = (total ? Math.round(done * 100 / total) : 5) + '%';
+		document.getElementById('mw-phases').innerHTML = names.map(function (n, i) {
+			var c = (i + 1) < (p.phase_index || 0) ? 'label-success'
+				: (i + 1) === (p.phase_index || 0) ? 'label-primary' : 'label-default';
+			return '<span class="label ' + c + '">' + n + '</span> ';
+		}).join('');
+		var el = p.element || {};
+		var line = el.slug ? el.kind + ' ' + el.slug + ' ' + el.version : (el.kind || '');
+		if (p.files_total) { line += ' · Datei ' + p.files_done + ' von ' + p.files_total; }
+		if (total) { line += ' · Element ' + done + ' von ' + total; }
+		if (p.file) { line += ' · ' + p.file; }
+		document.getElementById('mw-line').innerHTML = '<small>' + (line || '…') + '</small>';
+		var rows = (p.log || []).slice(-12).reverse().map(function (l) {
+			var c = l.level === 'error' ? 'text-danger' : l.level === 'warn' ? 'text-warning' : '';
+			return '<tr><td class="' + c + '" style="padding:2px 8px"><small>' + l.text + '</small></td></tr>';
+		}).join('');
+		document.getElementById('mw-log').getElementsByTagName('tbody')[0].innerHTML = rows;
+	}
+
+	function poll() {
+		if (!document.body.contains(box)) { stop(); return; }
+		var xhr = new XMLHttpRequest();
+		xhr.open('GET', 'sites/malwatch_progress.php?job_id=' + jobId, true);
+		xhr.onload = function () {
+			var d;
+			try { d = JSON.parse(xhr.responseText); } catch (e) { stop(); return; }
+			draw(d);
+			// Once the job is over the page has to be fetched again anyway:
+			// findings and report only exist after the cron read them in.
+			if (d.state === 'done' || d.state === 'error' || d.state === 'none') {
+				stop();
+				ISPConfig.loadContent('sites/malwatch_site_show.php?id=' + domainId);
+			}
+		};
+		xhr.onerror = stop;
+		xhr.send();
+	}
+
+	// The panel swaps #pageContent without reloading the page, so a timer left
+	// behind would keep polling behind whatever the user opens next.
+	document.addEventListener('DOMNodeRemoved', function (e) { if (e.target === box) { stop(); } });
+	poll();
+	timer = setInterval(poll, 2000);
+})();
+</script>
+</tmpl_if>
+
 	<button class="btn btn-default formbutton-default" type="button"
 		onclick="document.getElementById('malwatch_action').value='scan';"
 		data-submit-form="pageForm" data-form-action="sites/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='scan_now_txt'}</button>
+<button class="btn btn-default formbutton-default" type="button"
+		onclick="if(!confirm('{tmpl_var name='confirm_repair_txt'}')){event.stopPropagation();return false;} document.getElementById('malwatch_action').value='repair';"
+		data-submit-form="pageForm" data-form-action="sites/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='repair_txt'}</button>
+	<button class="btn btn-default formbutton-default" type="button"
+		onclick="document.getElementById('malwatch_action').value='repair_dry';"
+		data-submit-form="pageForm" data-form-action="sites/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='repair_dry_txt'}</button>
+	<tmpl_if name="has_findings">
+	<button class="btn btn-danger formbutton-default" type="button"
+		onclick="if(!confirm('{tmpl_var name='confirm_delete_all_txt'}')){event.stopPropagation();return false;} document.getElementById('malwatch_action').value='delete_all';"
+		data-submit-form="pageForm" data-form-action="sites/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='delete_all_txt'}</button>
+	</tmpl_if>
 	<a class="btn btn-default formbutton-default" href="#" data-load-content="sites/malwatch_site_edit.php?domain_id={tmpl_var name='domain_id'}">{tmpl_var name='settings_txt'}</a>
 	<tmpl_unless name="site_active">
 		<button class="btn btn-default formbutton-success" type="button"
@@ -117,6 +197,9 @@
 				<button class="btn btn-default formbutton-default formbutton-narrow" type="button"
 					onclick="document.getElementById('malwatch_action').value='ignore';document.getElementById('malwatch_finding_id').value='{tmpl_var name='full_path'}';"
 					data-submit-form="pageForm" data-form-action="sites/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='ignore_txt'}</button>
+<button class="btn btn-danger btn-xs" type="button"
+					onclick="if(!confirm('{tmpl_var name='confirm_delete_one_txt'}')){event.stopPropagation();return false;} document.getElementById('malwatch_action').value='delete_one';document.getElementById('malwatch_finding_id').value='{tmpl_var name='full_path'}';"
+					data-submit-form="pageForm" data-form-action="sites/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='delete_one_txt'}</button>
 				</tmpl_if>
 			</td>
 		</tr>

@@ -67,6 +67,112 @@ class malwatch_ingest
 	}
 
 	/** Writes the malwatch_scan row and returns its id. */
+	/**
+	 * Reads the report of a restore into malwatch_repair and its elements.
+	 *
+	 * Returns the repair_id, or 0 when there was nothing readable to read.
+	 */
+	public function ingest_repair($job)
+	{
+		global $app;
+
+		$app->uses('malwatch_helper');
+		$helper = $app->malwatch_helper;
+
+		$file = (string) $job['result_file'];
+		$report = is_file($file) ? json_decode((string) file_get_contents($file), true) : null;
+		if (!is_array($report) || !isset($report['schema'])) {
+			$helper->fail_job($job['job_id'], 'Die Wiederherstellung hat keinen lesbaren Bericht hinterlassen. '
+				. $this->tail_log($job));
+			return 0;
+		}
+
+		$web = $helper->get_web($job['parent_domain_id']);
+		$sys_groupid = is_array($web) ? intval($web['sys_groupid']) : 0;
+
+		$counts = array('replaced' => 0, 'deleted' => 0, 'failed' => 0);
+		foreach ((array) (isset($report['elements']) ? $report['elements'] : array()) as $element) {
+			$outcome = (string) $element['outcome'];
+			if ($outcome === 'replaced') {
+				$counts['replaced']++;
+			} elseif ($outcome === 'deleted-no-origin') {
+				$counts['deleted']++;
+			} elseif ($outcome === 'failed') {
+				$counts['failed']++;
+			}
+		}
+
+		$app->dbmaster->query(
+			'INSERT INTO malwatch_repair (sys_userid, sys_groupid, sys_perm_user, sys_perm_group, '
+			. 'sys_perm_other, server_id, job_id, parent_domain_id, domain, started_at, finished_at, '
+			. 'dry_run, backup_dir, count_replaced, count_deleted, count_failed, exit_code, raw_report) '
+			. "VALUES (1, ?, 'riud', 'r', '', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+			$sys_groupid, intval($job['server_id']), intval($job['job_id']),
+			intval($job['parent_domain_id']), (string) $job['domain'],
+			$this->to_datetime(isset($report['started_at']) ? $report['started_at'] : ''),
+			$this->to_datetime(isset($report['finished_at']) ? $report['finished_at'] : ''),
+			!empty($report['dry_run']) ? 'y' : 'n',
+			(string) (isset($report['backup_dir']) ? $report['backup_dir'] : ''),
+			$counts['replaced'], $counts['deleted'], $counts['failed'],
+			intval($job['exit_code']), (string) file_get_contents($file));
+
+		$repair_id = intval($app->dbmaster->insertID());
+
+		foreach ((array) (isset($report['elements']) ? $report['elements'] : array()) as $element) {
+			$app->dbmaster->query(
+				'INSERT INTO malwatch_repair_element (sys_userid, sys_groupid, sys_perm_user, '
+				. 'sys_perm_group, sys_perm_other, server_id, repair_id, parent_domain_id, '
+				. 'element_kind, slug, element_version, outcome, files, backup, message) '
+				. "VALUES (1, ?, 'riud', 'r', '', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+				$sys_groupid, intval($job['server_id']), $repair_id, intval($job['parent_domain_id']),
+				(string) $element['kind'], (string) (isset($element['slug']) ? $element['slug'] : ''),
+				(string) $element['version'], (string) $element['outcome'],
+				intval(isset($element['files']) ? $element['files'] : 0),
+				(string) (isset($element['backup']) ? $element['backup'] : ''),
+				substr((string) (isset($element['message']) ? $element['message'] : ''), 0, 255));
+		}
+
+		$app->dbmaster->query(
+			"UPDATE malwatch_job SET job_status = 'done', finished_at = NOW() WHERE job_id = ?",
+			intval($job['job_id']));
+		return $repair_id;
+	}
+
+	/**
+	 * Marks the findings of the files a quarantine job removed as fixed.
+	 *
+	 * The paths come from the job itself, not from the disk: the files are gone
+	 * by now, and their absence is exactly what makes them fixed.
+	 */
+	public function ingest_quarantine($job)
+	{
+		global $app;
+
+		$app->uses('malwatch_helper');
+		$options = json_decode((string) $job['options'], true);
+		$base = rtrim((string) $job['scan_path'], '/');
+		$removed = 0;
+
+		foreach ((array) (is_array($options) && isset($options['files']) ? $options['files'] : array()) as $rel) {
+			$full = $base . '/' . ltrim((string) $rel, '/');
+			if (is_file($full)) {
+				// Still there: the binary refused it or failed on it, and
+				// calling the finding fixed would be a lie.
+				continue;
+			}
+			$app->dbmaster->query(
+				"UPDATE malwatch_finding SET finding_state = 'fixed' WHERE parent_domain_id = ? "
+				. "AND file_path = ? AND finding_state IN ('open','ignored')",
+				intval($job['parent_domain_id']), $full);
+			$removed++;
+		}
+
+		$app->dbmaster->query(
+			"UPDATE malwatch_job SET job_status = 'done', finished_at = NOW() WHERE job_id = ?",
+			intval($job['job_id']));
+		return $removed;
+	}
+
 	private function store_scan($job, $report, $sys_groupid)
 	{
 		global $app, $conf;

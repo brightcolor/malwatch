@@ -53,6 +53,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 				? 'Die Datei wurde freigegeben.'
 				: 'Die Datei wird wieder gemeldet.';
 		}
+	} elseif ($action === 'repair' || $action === 'repair_dry') {
+		// The website goes off for the duration: an installation that is half
+		// exchanged has no business being served, and a backdoor that is still
+		// reachable would write again while it happens.
+		$was_active = (string) $web['active'];
+		if ($action === 'repair' && $was_active === 'y') {
+			$app->db->datalogUpdate('web_domain', array('active' => 'n'), 'domain_id', $domain_id);
+		}
+		$result = malwatch_queue_repair($app, $domain_id, $action === 'repair_dry', $was_active);
+		if ($result === true) {
+			$message = $action === 'repair_dry'
+				? 'Der Probelauf wurde eingeplant. Es wird nichts geändert.'
+				: 'Die Wiederherstellung wurde eingeplant. Die Website ist währenddessen abgeschaltet.';
+		} else {
+			$error = $result;
+		}
+	} elseif ($action === 'delete_one' || $action === 'delete_all') {
+		$paths = array();
+		if ($action === 'delete_one') {
+			$one = isset($_POST['finding_path']) ? (string) $_POST['finding_path'] : '';
+			if ($one !== '') {
+				$paths[] = $one;
+			}
+		} else {
+			$rows = $app->db->queryAllRecords(
+				'SELECT DISTINCT file_path FROM malwatch_finding WHERE parent_domain_id = ? '
+				. "AND finding_state = 'open'", $domain_id);
+			foreach ((array) $rows as $row) {
+				$paths[] = (string) $row['file_path'];
+			}
+		}
+		if (count($paths) === 0) {
+			$error = 'Es wurde keine Datei ausgewählt.';
+		} else {
+			$result = malwatch_queue_quarantine($app, $domain_id, $paths);
+			if (is_int($result)) {
+				$message = $result . ' Datei(en) werden entfernt. Kopien bleiben unter der Sicherung.';
+			} else {
+				$error = $result;
+			}
+		}
 	} elseif ($action === 'enable_site') {
 		if ($web['active'] === 'n') {
 			// Re-enabling goes through the datalog, so the web server config
@@ -213,6 +254,13 @@ $app->tpl->setVar('has_actionlog', count($action_rows) > 0);
 
 $app->tpl->setVar('message', $app->functions->htmlentities($message));
 $app->tpl->setVar('error', $app->functions->htmlentities($error));
+
+// While a job runs the page shows it and comes back on its own.
+$running = $app->db->queryOneRecord(
+	"SELECT job_id FROM malwatch_job WHERE parent_domain_id = ? AND job_status IN ('pending','running') "
+	. 'ORDER BY job_id DESC LIMIT 1', $domain_id);
+$app->tpl->setVar('running_job_id', is_array($running)
+	? $app->functions->intval($running['job_id']) : '');
 
 $csrf = $app->auth->csrf_token_get('malwatch_site_show');
 $app->tpl->setVar('_csrf_id', $csrf['csrf_id']);

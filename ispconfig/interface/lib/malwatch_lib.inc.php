@@ -94,9 +94,14 @@ function malwatch_queue_scan($app, $domain_id)
  * installation that is half exchanged has no business being served, and a
  * backdoor that is still reachable would write again while it happens.
  */
-function malwatch_queue_repair($app, $domain_id, $dry_run = false)
+function malwatch_queue_repair($app, $domain_id, $dry_run = false, $previous_active = 'y')
 {
-	return malwatch_queue_job($app, $domain_id, 'repair', array('dry_run' => $dry_run ? 1 : 0));
+	// The state before the run travels with the job: switching back has to
+	// restore what was, not guess that every website was online.
+	return malwatch_queue_job($app, $domain_id, 'repair', array(
+		'dry_run' => $dry_run ? 1 : 0,
+		'previous_active' => $previous_active === 'y' ? 'y' : 'n',
+	));
 }
 
 /**
