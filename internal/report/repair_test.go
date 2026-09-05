@@ -67,3 +67,30 @@ func TestRepairJSONCarriesTheSchema(t *testing.T) {
 		t.Fatalf("head is wrong: %+v", doc)
 	}
 }
+
+func TestADryRunReportsInTheConditional(t *testing.T) {
+	r := NewRepair("/var/www/web1/web")
+	r.DryRun = true
+	r.Elements = append(r.Elements,
+		RepairElement{Kind: "core", Version: "6.6.2", Outcome: OutcomeReplaced},
+		RepairElement{Kind: "plugin", Slug: "elementor-pro", Version: "3.21.0", Outcome: OutcomeDeleted})
+
+	var buf bytes.Buffer
+	if err := r.WriteText(&buf); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	// "ersetzt" for something that was not replaced misleads in exactly the
+	// moment the report matters most.
+	if strings.Contains(out, "  ersetzt ") || strings.Contains(out, "GELÖSCHT") {
+		t.Errorf("a dry run reports in the past tense:\n%s", out)
+	}
+	for _, want := range []string{"würde ersetzen", "WÜRDE LÖSCHEN", "elementor-pro"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("the dry run report does not say %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "0 Dateien") {
+		t.Errorf("a dry run must not claim a file count:\n%s", out)
+	}
+}

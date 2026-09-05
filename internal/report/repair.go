@@ -108,6 +108,21 @@ func (r *Repair) WriteText(w io.Writer) error {
 		if e.Slug != "" {
 			name = e.Kind + " " + e.Slug
 		}
+		// A dry run reports in the conditional. Reading "ersetzt" for something
+		// that was not replaced is worst in exactly the moment this report
+		// matters most: before someone starts the run that does change things.
+		if r.DryRun {
+			switch e.Outcome {
+			case OutcomeReplaced:
+				fmt.Fprintf(&b, "  würde ersetzen  %s %s\n", name, e.Version)
+			case OutcomeDeleted:
+				fmt.Fprintf(&b, "  WÜRDE LÖSCHEN   %s %s - kein Original verfügbar\n", name, e.Version)
+			default:
+				fmt.Fprintf(&b, "  unverändert     %s %s - %s\n", name, e.Version, e.Message)
+			}
+			continue
+		}
+
 		switch e.Outcome {
 		case OutcomeReplaced:
 			fmt.Fprintf(&b, "  ersetzt       %s %s (%d Dateien)\n", name, e.Version, e.Files)

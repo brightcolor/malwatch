@@ -2,6 +2,16 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.3.1] – 2026-09-05
+
+### Behoben
+
+- Der Probelauf berichtete im Perfekt: „ersetzt core 5.9.10 (0 Dateien)" für
+  etwas, das gerade nicht ersetzt wurde. Ausgerechnet dieser Bericht wird
+  gelesen, bevor jemand den Lauf startet, der tatsächlich löscht. `--dry-run`
+  schreibt jetzt „würde ersetzen" und „WÜRDE LÖSCHEN" und nennt keine
+  Dateizahl, die es noch nicht gibt.
+
 ## [0.3.0] – 2026-09-05
 
 ### Neu
