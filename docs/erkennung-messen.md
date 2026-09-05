@@ -83,7 +83,7 @@ Vier weitere Kniffe, jeder mit eigener Antwort:
    Regel verlangte aber `eval` oder `system` im Klartext.
 2. **Lader aus einem Archiv.** `zip://jpc_….zip#b_….tmp`, mal über `require`,
    mal über `file_get_contents`.
-3. **Superglobale in Escapes.** `"_GET"` ist `_GET`. Die zweite
+3. **Superglobale in Escapes.** `"\x5f\107\x45\x54"` ist `_GET`. Die zweite
    Sicht löst jetzt Hex- und Oktal-Escapes mit auf.
 4. **Verkettung mit Kommentaren dazwischen.** `"ra"/*-X8KKH~;-*/."nge"` ergibt
    `range`; die Nahtsuche übersprang bisher nur Leerraum.
