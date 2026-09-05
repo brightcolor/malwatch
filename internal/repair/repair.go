@@ -120,11 +120,17 @@ func Run(opts Options) (*report.Repair, error) {
 			pw.Log("error", "gelöscht %s %s - kein Original verfügbar", label(el), el.Version)
 
 		case el.Kind == "core":
-			// The core is a special case: swapping the whole root would take
-			// wp-content and wp-config.php with it. Task 9 wires SwapCore.
-			entry.Outcome = report.OutcomeSkipped
-			entry.Message = "Kern folgt in Task 9"
-			pw.Log("info", "übersprungen Kern %s", el.Version)
+			// The core cannot be swapped like a plugin: the element's path is
+			// the web root itself, and replacing it would take wp-content and
+			// wp-config.php along.
+			n, err := SwapCore(opts.Root, it.dir)
+			if err != nil {
+				entry.Outcome, entry.Message = report.OutcomeFailed, err.Error()
+				rep.Elements = append(rep.Elements, entry)
+				return rep, err
+			}
+			entry.Outcome, entry.Files = report.OutcomeReplaced, n
+			pw.Log("ok", "ersetzt Kern %s", el.Version)
 
 		default:
 			if err := Swap(opts.Root, el.Path, it.dir); err != nil {
