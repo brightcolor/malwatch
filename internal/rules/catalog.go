@@ -154,9 +154,13 @@ var catalog = []*Rule{
 		Description: "PHP-Eröffnungstag aus Bruchstücken zusammengesetzt",
 		// '<' . '?' . 'php' is written by somebody who does not want the tag to
 		// be found in their file - a loader checking whether what it fetched is
-		// code, or a dropper about to write some. Honest code writes it whole.
-		Exts:  phpExts,
-		Match: rx(`(?is)['"]<[?]?['"]\s*\.\s*['"](?:[?]\s*['"]\s*\.\s*['"])?php['"]`),
+		// be found in their file. On its own that is not enough: TCPDF writes
+		// PHP font files and avoids the tag in its own source for the same
+		// mechanical reason. Together with a network fetch it is a loader
+		// checking whether what it just pulled down is code.
+		Exts:     phpExts,
+		Match:    rx(`(?is)['"]<[?]?['"]\s*\.\s*['"](?:[?]\s*['"]\s*\.\s*['"])?php['"]`),
+		Requires: rx(`(?i)\b(?:curl_exec|fsockopen)\s*\(`),
 	},
 	{
 		ID:          "php.obfuscation.chr_chain",
@@ -317,10 +321,13 @@ var catalog = []*Rule{
 		// self-contained tool with a door in front of it: a mailer, a shell, a
 		// file manager. Nothing that belongs to a website needs to know the
 		// hash of its own path. This is the shape of Leafmailer, which carries
+		// The hash has to be the session key itself. CMS Made Simple mixes
+		// md5(__FILE__) into a login fingerprint and reads $_SESSION under a
+		// literal name; asking only that both appear reported it.
 		// no obfuscation at all and therefore slipped past every rule above.
 		Exts:     phpExts,
 		Match:    rx(`(?i)md5\s*\(\s*__FILE__\s*\)`),
-		Requires: rx(`(?is)\$_SESSION\s*\[`),
+		Requires: rx(`(?is)\$_SESSION\s*\[\s*\$`),
 	},
 	{
 		ID:          "php.webshell.file_manager",
