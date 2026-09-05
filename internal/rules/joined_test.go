@@ -131,3 +131,42 @@ func TestJoinStillFindsARealSeamNextToALiteralDot(t *testing.T) {
 		t.Errorf("the literal dot was destroyed: %s", s)
 	}
 }
+
+func TestTheEngineResolvesEscapedSuperglobals(t *testing.T) {
+	// A loader on a real site wrote the superglobal as "\x5f\107\x45\x54" and
+	// pulled its body out of a zip. Both halves were invisible to the catalog.
+	raw := []byte(`<?php error_reporting(0); $G = array("\x5f\107\x45\x54"); ` +
+		`(${$G[0]}["of"] == 1) && die("x"); ` +
+		`@require_once "\x7a\x69\x70\x3a\x2f\x2f\x6a\x2e\x7a\x69\x70\x23\x63";`)
+	found := map[string]bool{}
+	for _, f := range NewEngine(nil).Scan("x.php", "x.php", "php", raw) {
+		found[f.Rule] = true
+	}
+	if !found["php.include.stream_wrapper"] {
+		t.Errorf("the zip loader was not seen: %v", found)
+	}
+}
+
+func TestDecodedViewDoesNotInventFindings(t *testing.T) {
+	// Binary data in a string is everyday work. Resolving it must not spell
+	// anything the rules react to.
+	raw := []byte(`<?php $header = "\x89\x50\x4e\x47\x0d\x0a\x1a\x0a"; fwrite($fh, $header);`)
+	if hits := NewEngine(nil).Scan("x.php", "x.php", "php", raw); len(hits) != 0 {
+		t.Errorf("a PNG header became a finding: %+v", hits)
+	}
+}
+
+func TestJoinSkipsCommentsBetweenTheParts(t *testing.T) {
+	// A payload on a real site wrote "ra"/*-X8KKH~;-*/."nge" so the word never
+	// appears whole. Only whitespace between the parts would let that through.
+	raw := []byte(`<?php $f = "ra"/*-X8KKH~;-*/."nge"; $g = 'sys' // weg
+	. 'tem';`)
+	joined, _ := joinConcatenated(raw)
+	if joined == nil {
+		t.Fatal("nothing was joined")
+	}
+	s := string(joined)
+	if !strings.Contains(s, "range") || !strings.Contains(s, "system") {
+		t.Errorf("a comment between the parts hid the word: %s", s)
+	}
+}
