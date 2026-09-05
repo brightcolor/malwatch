@@ -18,6 +18,21 @@ type sample struct {
 // nothing: a pattern matching everything would pass it.
 var samples = []sample{
 	{
+		rule: "php.stream.archive_url", ext: "php", path: "/web/a.php",
+		hit:  `<?php $c = file_get_contents("zip://jpc_6a3918.zip#b_6a3918.tmp");`,
+		miss: `<?php if (copy("zip://$path#$entry", $tmpfname)) { $ok = true; }`,
+	},
+	{
+		rule: "php.include.stream_wrapper", ext: "php", path: "/web/a.php",
+		hit:  `<?php @require_once "zip://jpc_6a3918.zip#c_6a3918.php";`,
+		miss: `<?php Phar::mapPhar('guzzle.phar'); require_once 'phar://guzzle.phar/autoload.php';`,
+	},
+	{
+		rule: "php.tool.leaf_mailer", ext: "php", path: "/web/a.php",
+		hit:  `<?php $leaf['version'] = "2.8"; $leaf['website'] = "leafmailer.pw";`,
+		miss: `<?php $leaf = $tree->firstChild(); echo $leaf->name;`,
+	},
+	{
 		rule: "php.eval.variable_call", ext: "php", path: "/web/a.php",
 		hit:  `<?php $f = 'base' . '64' . '_decode'; eval($f($payload));`,
 		miss: `<?php $result = $formatter($value); echo $result;`,

@@ -78,13 +78,25 @@ func joinConcatenated(content []byte) ([]byte, []int) {
 			continue
 		}
 
-		// A string literal. Copy it, and swallow every seam that follows.
+		// A string literal. Copy it, swallow every seam that follows, and in a
+		// double quoted one resolve the escapes: PHP reads "\x5f\107\x45\x54"
+		// as _GET, and a rule that spells out the superglobal has to be able to
+		// see that.
 		quote := c
 		emit(i)
 		i++
 		closed := false
 		for i < len(content) {
 			if content[i] == '\\' {
+				if quote == '"' {
+					if b, width, ok := decodeEscape(content[i:]); ok {
+						out = append(out, b)
+						index = append(index, i)
+						seams++
+						i += width
+						continue
+					}
+				}
 				emit(i)
 				i++
 				if i < len(content) {
@@ -129,21 +141,45 @@ func joinConcatenated(content []byte) ([]byte, []int) {
 // concatenated with another of the same kind, and where that next literal's
 // content starts.
 func seamAfter(content []byte, i int, quote byte) (int, bool) {
-	j := i + 1
-	for j < len(content) && isSpace(content[j]) {
-		j++
-	}
+	j := skipGap(content, i+1)
 	if j >= len(content) || content[j] != '.' {
 		return 0, false
 	}
-	j++
-	for j < len(content) && isSpace(content[j]) {
-		j++
-	}
+	j = skipGap(content, j+1)
 	if j >= len(content) || content[j] != quote {
 		return 0, false
 	}
 	return j + 1, true
+}
+
+// skipGap walks over whitespace and comments.
+//
+// Comments belong here because a payload writes "ra"/*-X8KKH~;-*/."nge" to
+// keep the word out of the file: only whitespace between the parts would let
+// that one through.
+func skipGap(content []byte, j int) int {
+	for j < len(content) {
+		if isSpace(content[j]) {
+			j++
+			continue
+		}
+		if content[j] == '/' && j+1 < len(content) && content[j+1] == '*' {
+			j += 2
+			for j+1 < len(content) && !(content[j] == '*' && content[j+1] == '/') {
+				j++
+			}
+			j += 2
+			continue
+		}
+		if content[j] == '/' && j+1 < len(content) && content[j+1] == '/' {
+			for j < len(content) && content[j] != '\n' {
+				j++
+			}
+			continue
+		}
+		break
+	}
+	return j
 }
 
 func copyUntilNewline(content []byte, i int, emit func(int)) int {
@@ -160,4 +196,51 @@ func copyUntilNewline(content []byte, i int, emit func(int)) int {
 
 func isSpace(b byte) bool {
 	return b == ' ' || b == '\t' || b == '\r' || b == '\n'
+}
+
+// decodeEscape resolves one \xNN or \NNN escape and reports how many bytes
+// it consumed.
+//
+// Only those two: \n and \t are everyday text and resolving them would gain
+// nothing, while a hex or octal escape in a string is almost always somebody
+// spelling a name they would rather not write out.
+func decodeEscape(b []byte) (byte, int, bool) {
+	if len(b) < 2 || b[0] != '\\' {
+		return 0, 0, false
+	}
+	if b[1] == 'x' || b[1] == 'X' {
+		n, width := 0, 0
+		for width < 2 && 2+width < len(b) && isHex(b[2+width]) {
+			n = n*16 + hexVal(b[2+width])
+			width++
+		}
+		if width == 0 {
+			return 0, 0, false
+		}
+		return byte(n), 2 + width, true
+	}
+	if b[1] >= '0' && b[1] <= '7' {
+		n, width := 0, 0
+		for width < 3 && 1+width < len(b) && b[1+width] >= '0' && b[1+width] <= '7' {
+			n = n*8 + int(b[1+width]-'0')
+			width++
+		}
+		return byte(n), 1 + width, true
+	}
+	return 0, 0, false
+}
+
+func isHex(b byte) bool {
+	return (b >= '0' && b <= '9') || (b >= 'a' && b <= 'f') || (b >= 'A' && b <= 'F')
+}
+
+func hexVal(b byte) int {
+	switch {
+	case b >= '0' && b <= '9':
+		return int(b - '0')
+	case b >= 'a' && b <= 'f':
+		return int(b-'a') + 10
+	default:
+		return int(b-'A') + 10
+	}
 }

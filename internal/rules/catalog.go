@@ -158,6 +158,18 @@ var catalog = []*Rule{
 		Match:       rx(`(?is)\$\{\s*(?:'|")(?:\\x[0-9a-fA-F]{2}|[A-Za-z0-9_]){1,60}(?:'|")\s*\}\s*\[`),
 	},
 	{
+		ID:          "php.stream.archive_url",
+		Severity:    report.SeverityCritical,
+		Description: "Adresse, die in ein Archiv hineinzeigt",
+		// zip://payload.zip#inner.tmp names a file inside an archive. That is
+		// what a loader reads its body from, whether it includes the address
+		// or hands it to file_get_contents - the second form is why naming
+		// only require and include was not enough. A path built from variables
+		// is left alone: Roundcube reads an uploaded archive that way.
+		Exts:  phpExts,
+		Match: rx(`(?is)(?:zip|compress\.[a-z0-9]+)://[^"'$\s]{1,200}#[^"'$\s]{1,120}`),
+	},
+	{
 		ID:          "php.globals.extract_request",
 		Severity:    report.SeverityHigh,
 		Description: "extract() auf Anfragedaten überschreibt beliebige Variablen",
@@ -192,6 +204,27 @@ var catalog = []*Rule{
 		Match:       rx(`(?is)\b(?:file_put_contents|fwrite|fputs)\s*\(\s*[^;)]{0,160}(?:base64_decode|gzinflate|\$(?:_GET|_POST|_REQUEST|_COOKIE))`),
 	},
 	{
+		ID:          "php.include.stream_wrapper",
+		Severity:    report.SeverityCritical,
+		Description: "Code wird aus einem Archiv oder Datenstrom nachgeladen",
+		// require "zip://payload.zip#file" is how a loader keeps its body out
+		// of the file that gets scanned. Honest code includes files, not
+		// archives and not request bodies. phar:// is deliberately absent: a
+		// phar stub does exactly this, and guzzle ships one.
+		Exts:  phpExts,
+		Match: rx(`(?is)\b(?:require|include)(?:_once)?\s*(?:\(\s*)?["']\s*(?:(?:zip|data|compress\.[a-z0-9]+)://|php://(?:input|filter))`),
+	},
+	{
+		ID:          "php.tool.leaf_mailer",
+		Severity:    report.SeverityCritical,
+		Description: "Leaf PHP Mailer, ein Werkzeug für den Massenversand",
+		// A named tool rather than a shape. It comes in variants that share no
+		// obfuscation and no gate, so nothing structural covers them all - but
+		// every one of them carries its own name.
+		Exts:  phpExts,
+		Match: rx(`(?is)\$leaf\s*\[\s*['"](?:version|website)['"]\s*\]|leafmailer|orvx\.pw`),
+	},
+	{
 		ID:          "php.include.remote",
 		Severity:    report.SeverityHigh,
 		Description: "bindet eine Datei von einer fremden Adresse ein",
@@ -220,7 +253,12 @@ var catalog = []*Rule{
 		Description: "Kennwortabfrage, die anschließend Code ausführt",
 		Exts:        phpExts,
 		Match:       rx(`(?is)\b(?:md5|sha1|crypt|password_verify)\s*\(\s*\$(?:_GET|_POST|_REQUEST|_COOKIE)\s*\[[^\]]{0,40}\]\s*\)\s*(?:==|===|!=|!==)`),
-		Requires:    rx(`(?is)\b(?:eval|assert|system|shell_exec|passthru|proc_open)\s*\(`),
+		// Not only code execution. A shell that checks a password against a
+		// hash in its own source and then writes files, takes uploads or
+		// fetches from the network is the same thing - one of them carried no
+		// eval anywhere and slipped through on that alone.
+		Requires: rx(`(?is)\b(?:eval|assert|system|shell_exec|passthru|proc_open|popen|` +
+			`file_put_contents|move_uploaded_file|curl_exec|fsockopen|fwrite)\s*\(`),
 	},
 	{
 		ID:          "php.webshell.session_filehash_gate",
