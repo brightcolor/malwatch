@@ -2329,90 +2329,63 @@ git commit -m "feat: the repair command, and a progress file for scans too"
 **Interfaces:**
 - Consumes: das gebaute Binary mit `repair` aus Task 10.
 
+**Korrektur gegenüber der ersten Fassung dieses Plans.** Hier stand, nach dem
+Lauf seien „genau die zwei abgelegten Dateien übrig". Das ist falsch, und ein
+Lauf gegen echtes WordPress 6.6.2 hat es gezeigt: eine Datei in `wp-includes`
+oder in einem Plugin verschwindet **mit dem Verzeichnis**, das ersetzt wird —
+das ist ja der Zweck. Übrig bleibt, was **außerhalb** der Herstellerordner
+liegt. Der Test prüft deshalb beide Hälften:
+
+| abgelegt in | nach dem Lauf | warum |
+|---|---|---|
+| `wp-includes/2mOnl635P1W.php` | weg | Verzeichnis wurde vollständig ersetzt |
+| `wp-content/plugins/akismet/backdoor.php` | weg | dito |
+| `2q7ajgCOGou.php` (Webstamm) | da, und gemeldet | Wurzeldateien werden einzeln nach Namen ersetzt |
+| `wp-content/uploads/2026/06/shell.php` | da, und gemeldet | `uploads` gehört dem Kunden |
+
+Wer die erste Hälfte falsch baut, lässt Schadcode stehen. Wer die zweite falsch
+baut, löscht Kundendaten.
+
 - [ ] **Step 1: Write the failing test**
 
-Als neuer Job ans Ende von `.github/workflows/ci.yml`:
-
-```yaml
-  repair-roundtrip:
-    # The claim the whole feature rests on: after a repair, exactly the
-    # planted files are left. Anything else means the exchange missed
-    # something - or took something with it that it should not have.
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version: "1.24"
-          cache: true
-      - name: Build
-        run: go build -o malwatch ./cmd/malwatch
-      - name: Fetch signatures
-        run: ./malwatch update --sig-dir=sigs --quiet
-      - name: A WordPress with two planted files
-        run: |
-          mkdir -p www && cd www
-          curl -fsSL https://wordpress.org/wordpress-6.6.2.zip -o wp.zip
-          unzip -q wp.zip && rm wp.zip
-          cd wordpress
-          printf '<?php @eval($_POST["cmd"]);' > wp-includes/2mOnl635P1W.php
-          mkdir -p wp-content/plugins/akismet
-          printf '<?php @eval($_POST["cmd"]);' > wp-content/plugins/akismet/backdoor.php
-      - name: Repair
-        run: |
-          set +e
-          ./malwatch repair --path=www/wordpress \
-            --backup-dir=backups --json --out=repair.json
-          echo "exit code $?"
-          set -e
-          test -d backups || { echo "nothing was backed up"; exit 1; }
-      - name: Only the planted files may be left
-        run: |
-          set +e
-          ./malwatch scan --path=www/wordpress --sig-dir=sigs --state-dir=state \
-            --offline --quiet --json > after.json
-          set -e
-          left=$(grep -o '"path": "[^"]*"' after.json | sed 's/.*: "//;s/"$//' | sort -u)
-          echo "$left"
-          expected=$(printf '%s\n%s\n' \
-            "$PWD/www/wordpress/wp-content/plugins/akismet/backdoor.php" \
-            "$PWD/www/wordpress/wp-includes/2mOnl635P1W.php" | sort)
-          [ "$left" = "$expected" ] || {
-            echo "expected exactly the two planted files"; exit 1; }
-```
+Der Job `repair-roundtrip` ans Ende von `.github/workflows/ci.yml`: WordPress
+6.6.2 holen, die vier Dateien ablegen, `repair --backup-dir=backups
+--progress=progress.json` laufen lassen, danach in drei Schritten prüfen —
+die zwei innerhalb sind weg, die zwei außerhalb samt `akismet.php` sind da,
+und `jq -r '.findings[].path' after.json | sort -u` nennt genau die zwei
+außerhalb. Der vollständige Job steht in der Datei.
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Der Job läuft nur in CI. Lokal die Schritte von Hand nachvollziehen:
+Der Job läuft nur in CI. Lokal vorher von Hand nachvollziehen, mit echtem
+WordPress und echten Herstellerquellen — das ist billiger als eine Runde über
+GitHub und findet dieselben Fehler:
 
-Run: `go build -o malwatch ./cmd/malwatch && ./malwatch repair --path=/tmp/does-not-exist --dry-run`
-Expected: Rückgabecode 3 mit einer Meldung, kein Absturz
+Run:
+```bash
+curl -fsSL -o wp.zip https://wordpress.org/wordpress-6.6.2.zip && unzip -q wp.zip
+printf '<?php @eval($_POST["cmd"]);' > wordpress/wp-includes/2mOnl635P1W.php
+printf '<?php @eval($_POST["cmd"]);' > wordpress/2q7ajgCOGou.php
+malwatch repair --path=wordpress --backup-dir=backups
+```
+Expected: Bericht nennt Kern, Plugins und Themes als ersetzt; die Datei in
+`wp-includes` ist weg, die im Webstamm steht noch da.
 
 - [ ] **Step 3: Write minimal implementation**
 
 Keine — der Job prüft, was die Tasks 1 bis 10 gebaut haben. Schlägt er fehl,
 liegt der Fehler dort und nicht im Job.
 
-Zwei erwartbare Stolpersteine, die beim ersten Lauf auftreten und ins Ergebnis
-gehören statt in eine stille Anpassung des Tests:
-
-1. Das Plugin `akismet` liegt bei WordPress 6.6.2 als mitgelieferte Fassung
-   ohne eigenen Ordner-Zeitstempel vor. Erkennt `cms.Detect` es mit einer
-   Version, die `downloads.wordpress.org` nicht führt, ist der Ausgang
-   `deleted-no-origin` und der Rückgabecode 2 — der Job muss das zulassen.
-2. `wp-content/themes/twentytwentyfour` wird ersetzt, ohne dass es dafür
-   Prüfsummen gibt. Das ist bekannt und steht in der Spec.
-
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: nach dem Push den Job `repair-roundtrip` in GitHub Actions ansehen
-Expected: grün, Ausgabe nennt genau die zwei abgelegten Dateien
+Expected: grün; die Ausgabe nennt genau die zwei Dateien außerhalb
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add .github/workflows/ci.yml
-git commit -m "test: the round trip - after a repair only the planted files are left"
+git commit -m "test: the round trip - what sat in a vendor directory is gone, what sat outside is reported"
 ```
 
 ---
@@ -2437,7 +2410,7 @@ git commit -m "test: the round trip - after a repair only the planted files are 
 | Fortschrittsdatei, schreiben-dann-umbenennen, gedrosselt | 2 |
 | Dieselbe Datei für den Scan | 10 |
 | Bericht in JSON und Text, Rückgabecodes | 7 |
-| Abnahmetest | 11 |
+| Abnahmetest, beide Hälften | 11 |
 
 **Lücken, die dieser Plan bewusst offen lässt:**
 

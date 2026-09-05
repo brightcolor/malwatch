@@ -84,3 +84,74 @@ jobs:
           set -e
           grep -q 'php.eval.request' planted.json || { echo "the planted shell was not found"; exit 1; }
           [ "$code" = "1" ] || { echo "exit code $code, expected 1"; exit 1; }
+
+  repair-roundtrip:
+    # The claim the whole feature rests on, in its two halves: a file dropped
+    # inside a vendor directory is gone once that directory has been replaced,
+    # and a file outside one survives and is exactly what the following scan
+    # reports. Getting the first half wrong leaves malware behind; getting the
+    # second wrong destroys customer data.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+          cache: true
+      - name: Build
+        run: go build -o malwatch ./cmd/malwatch
+      - name: Fetch signatures
+        run: ./malwatch update --sig-dir=sigs --quiet
+      - name: A WordPress with four planted files
+        run: |
+          mkdir -p www && cd www
+          curl -fsSL https://wordpress.org/wordpress-6.6.2.zip -o wp.zip
+          unzip -q wp.zip && rm wp.zip
+          cd wordpress
+          # inside vendor directories - the repair has to take these with it
+          printf '<?php @eval($_POST["cmd"]);' > wp-includes/2mOnl635P1W.php
+          printf '<?php @eval($_POST["cmd"]);' > wp-content/plugins/akismet/backdoor.php
+          # outside - these are the customer's side and have to survive
+          printf '<?php @eval($_POST["cmd"]);' > 2q7ajgCOGou.php
+          mkdir -p wp-content/uploads/2026/06
+          printf '<?php @eval($_POST["cmd"]);' > wp-content/uploads/2026/06/shell.php
+      - name: Repair
+        run: |
+          set +e
+          ./malwatch repair --path=www/wordpress --backup-dir=backups \
+            --progress=progress.json --json --out=repair.json
+          code=$?
+          set -e
+          echo "exit code $code"
+          [ "$code" = "0" ] || { echo "the repair did not complete cleanly"; cat repair.json; exit 1; }
+          test -d backups || { echo "nothing was backed up"; exit 1; }
+          python3 -c "import json;d=json.load(open('progress.json'));assert d['schema']==1 and d['kind']=='repair'"
+      - name: What sat in a vendor directory has to be gone
+        run: |
+          for f in www/wordpress/wp-includes/2mOnl635P1W.php \
+                   www/wordpress/wp-content/plugins/akismet/backdoor.php; do
+            [ -e "$f" ] && { echo "$f survived the exchange"; exit 1; }
+          done
+          echo "both dropped files are gone"
+      - name: What sat outside one has to survive
+        run: |
+          for f in www/wordpress/2q7ajgCOGou.php \
+                   www/wordpress/wp-content/uploads/2026/06/shell.php \
+                   www/wordpress/wp-content/plugins/akismet/akismet.php; do
+            [ -e "$f" ] || { echo "$f was removed"; exit 1; }
+          done
+          echo "the customer's side is intact"
+      - name: The scan must report exactly those two files
+        run: |
+          set +e
+          ./malwatch scan --path=www/wordpress --sig-dir=sigs --state-dir=state \
+            --offline --quiet --json > after.json
+          set -e
+          left=$(jq -r '.findings[].path' after.json | sort -u)
+          echo "$left"
+          expected=$(printf '%s\n%s\n' \
+            "www/wordpress/2q7ajgCOGou.php" \
+            "www/wordpress/wp-content/uploads/2026/06/shell.php" | sort)
+          [ "$left" = "$expected" ] || {
+            echo "expected exactly the two files outside the vendor directories"
+            exit 1; }
