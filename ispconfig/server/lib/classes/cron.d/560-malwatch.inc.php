@@ -72,12 +72,71 @@ class cronjob_malwatch extends cronjob
 				$code, intval($job['job_id']));
 			$job['exit_code'] = $code;
 
+			$kind = isset($job['job_kind']) ? (string) $job['job_kind'] : 'scan';
+
+			if ($kind === 'repair') {
+				$repair_id = $app->malwatch_ingest->ingest_repair($job);
+				$app->malwatch_runner->clear_marker($job);
+				$this->finish_repair($job, $repair_id);
+				continue;
+			}
+			if ($kind === 'quarantine') {
+				$app->malwatch_ingest->ingest_quarantine($job);
+				$app->malwatch_runner->clear_marker($job);
+				continue;
+			}
+
 			$scan_id = $app->malwatch_ingest->ingest($job);
 			$app->malwatch_runner->clear_marker($job);
 
 			if ($scan_id > 0) {
 				$app->malwatch_actions->run($scan_id);
 			}
+		}
+	}
+
+	/**
+	 * Brings a website back after a restore, and queues the scan that shows
+	 * what is left.
+	 *
+	 * A half exchanged installation must not go back online, so only a clean
+	 * run switches it back: exit code 0 means everything came back, 2 means
+	 * elements without an original were deleted, which is a decision the
+	 * operator already took when starting the run. Anything else leaves the
+	 * website off and says so in the log, because somebody has to look first.
+	 */
+	private function finish_repair($job, $repair_id)
+	{
+		global $app;
+
+		$options = json_decode((string) $job['options'], true);
+		$dry = is_array($options) && !empty($options['dry_run']);
+		$previous = is_array($options) && isset($options['previous_active'])
+			? (string) $options['previous_active'] : 'y';
+		$code = intval($job['exit_code']);
+
+		if ($repair_id < 1 || ($code !== 0 && $code !== 2)) {
+			$app->log('malwatch: die Wiederherstellung von ' . $job['domain']
+				. ' ist gescheitert, die Website bleibt abgeschaltet.', LOGLEVEL_WARN);
+			return;
+		}
+
+		if (!$dry && $previous === 'y') {
+			$app->dbmaster->datalogUpdate('web_domain', array('active' => 'y'), 'domain_id',
+				intval($job['parent_domain_id']));
+		}
+
+		if ($dry) {
+			return;
+		}
+
+		// The scan afterwards is the point of the exercise: what it reports now
+		// is by definition not part of the software.
+		$site = $app->malwatch_helper->get_site($job['parent_domain_id']);
+		$web = $app->malwatch_helper->get_web($job['parent_domain_id']);
+		if (is_array($web)) {
+			$this->create_job(is_array($site) ? $site : array('parent_domain_id' => $job['parent_domain_id']),
+				$web, 'schedule');
 		}
 	}
 
