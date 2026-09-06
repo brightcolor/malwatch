@@ -131,6 +131,14 @@ var samples = []sample{
 		miss: `<?php $p = "SGFsbG8gV2VsdA=="; echo $p;`,
 	},
 	{
+		rule: "php.obfuscation.name_in_variable", ext: "php", path: "/web/a.php",
+		// The shape the second view reveals in a live backdoor.
+		hit: `<?php $d = 'strlen'; $s = 'str_split'; if ($d($k) == 16) { $p = $s($v); }`,
+		// guzzle does this with a decoder and means it. One assignment, and
+		// not one of the everyday names.
+		miss: `<?php $decoder = 'rawurldecode'; return $decoder($value);`,
+	},
+	{
 		rule: "php.obfuscation.chr_arithmetic", ext: "php", path: "/web/a.php",
 		// Verbatim from a live backdoor. chr_chain does not see it: the calls
 		// never stand six in a row, and the argument is a subtraction.

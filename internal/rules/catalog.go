@@ -107,6 +107,30 @@ var catalog = []*Rule{
 		Requires: rx(`(?i)base64_decode|gzinflate|gzuncompress|str_rot13`),
 	},
 	{
+		ID:          "php.obfuscation.name_in_variable",
+		Severity:    report.SeverityHigh,
+		Description: "gewöhnliche Funktionsnamen in Variablen geparkt",
+		Exts:        phpExts,
+		// The family that spells its names with chr() calls them through
+		// variables afterwards:
+		//
+		//	$d = 'strlen'; if ($d($k) == 16) { ... }
+		//
+		// so that no rule naming a function ever sees one. The second view
+		// spells the names out again; this rule is what makes that pay.
+		//
+		// The list holds everyday functions on purpose. Measured: a decoder
+		// in a variable is honest work - guzzle writes
+		// $decoder = 'rawurldecode' and ships inside WordPress plugins by the
+		// thousand - while $x = 'strlen' appeared in none of the 20.000 files
+		// of fresh WordPress, Joomla and two customer sites. Nobody writes it
+		// unless the point is that the word should not be findable.
+		//
+		// Two of them, because a single $callback = 'trim' next to an
+		// array_map is a style, not a disguise.
+		Match: rx(`(?is)\$\w+\s*=\s*["']?(?:strlen|str_split|array_keys|array_values|str_replace|in_array|is_array|implode|explode|substr|strpos|strtolower|strrev|ord|chr|trim|count|sprintf)["']?\s*;.{0,400}?\$\w+\s*=\s*["']?(?:strlen|str_split|array_keys|array_values|str_replace|in_array|is_array|implode|explode|substr|strpos|strtolower|strrev|ord|chr|trim|count|sprintf)["']?\s*;`),
+	},
+	{
 		ID:          "php.obfuscation.chr_arithmetic",
 		Severity:    report.SeverityHigh,
 		Description: "Zeichencodes als Rechnung geschrieben",
