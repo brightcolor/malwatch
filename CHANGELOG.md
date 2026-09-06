@@ -2,7 +2,27 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
-## [0.6.1] – 2026-09-06
+## [0.7.0] – 2026-09-06
+
+### Neu
+
+Ein Rundumschlag über alle 33 Websites mit Funden, gesucht über Signale, die der
+Scanner nicht kennt: versteckte `.php`-Dateien, PHP in `.well-known`, PHP in
+`uploads`. Von 898 Verdachtskandidaten blieben 415 unerkannt, und die zerfielen
+in 32 verschiedene Inhalte — fast alles leere WordPress-Schutzdateien,
+macOS-Metadaten und Werkzeugkonfigurationen. Zwei waren es nicht:
+
+- **`php.disguised_as_image`** — eine ausführbare Endung hinter einem Bildnamen.
+  Auf einer Website lag `Group-36-1-300x49.php` zwischen den echten
+  Vorschaubildern des Medienarchivs und trug deren Namensschema exakt. Am Inhalt
+  war nichts zu erkennen: der Name und die Endung sind der Fund, denn die Endung
+  ist es, die den Webserver dazu bringt, die Datei auszuführen. `svg` ist
+  bewusst ausgenommen — Symfonys Fehlerseite bringt `symfony-ghost.svg.php` mit,
+  eine Vorlage, die eines zeichnet.
+- **`php.in_uploads` erweitert.** Eine Datei dort braucht keinen PHP-Code, um ein
+  Problem zu sein. Die gefundene enthielt nichts als ein Upload-Formular in
+  reinem HTML — die sichtbare Hälfte einer Hintertür, eine angehängte Zeile von
+  der ganzen entfernt.
 
 ### Behoben
 

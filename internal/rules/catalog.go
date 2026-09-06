@@ -418,9 +418,27 @@ var catalog = []*Rule{
 		// A welded tag does not execute: this asks what the web server would
 		// do with the file as it lies on disk, which is a question about the
 		// raw bytes.
-		RawOnly:   true,
+		RawOnly: true,
+		// A file here needs no PHP in it to be a problem. One carried nothing
+		// but an upload form in plain HTML, which is the visible half of a
+		// shell and one appended line away from being the whole of it.
 		PathMatch: rx(`/(?:uploads|attachments|avatars|thumbs|userfiles|user_uploads|file_uploads)/`),
-		Match:     rx(`(?i)<\?(?:php|=|\s)`),
+		Match:     rx(`(?i)<\?(?:php|=|\s)|enctype\s*=\s*["']?multipart/form-data`),
+	},
+	{
+		ID:          "php.disguised_as_image",
+		Severity:    report.SeverityCritical,
+		Description: "Ausführbare Endung hinter einem Bildnamen versteckt",
+		// Group-36-1-300x49.php sat among the thumbnails of a media library and
+		// wore their naming exactly. Nothing about the content had to give it
+		// away - the name and the extension are the finding, because the
+		// extension is what makes the web server run it.
+		//
+		// svg is deliberately absent from the list: Symfony's error handler
+		// ships symfony-ghost.svg.php, a template that draws one.
+		RawOnly:   true,
+		PathMatch: rx(`(?i)(?:-[0-9]{2,4}x[0-9]{2,4}|\.(?:jpe?g|png|gif|webp|bmp|ico))\.(?:php[0-9]?|phtml|phps)$`),
+		Match:     rx(`(?s)^`),
 	},
 	{
 		ID:          "php.in_image",

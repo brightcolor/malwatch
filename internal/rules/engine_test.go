@@ -12,11 +12,29 @@ type sample struct {
 	path string
 	hit  string
 	miss string
+	// missPath is where the negative case lives, when the rule's finding is
+	// about location rather than content. A rule that fires on any file at a
+	// path cannot have a negative that differs only in what the file says.
+	missPath string
+}
+
+// negativePath is where the negative case of a sample is checked.
+func (s sample) negativePath() string {
+	if s.missPath != "" {
+		return s.missPath
+	}
+	return s.path
 }
 
 // Every rule needs both halves. A rule with only a positive case proves
 // nothing: a pattern matching everything would pass it.
 var samples = []sample{
+	{
+		rule: "php.disguised_as_image", ext: "php", path: "/web/wp-content/uploads/2021/02/Group-36-1-300x49.php",
+		hit:      `<meta name="robots" content="noindex"><form method="post"></form>`,
+		miss:     `<?php // ein gewöhnliches Vorschaubild-Verzeichnis`,
+		missPath: "/web/wp-content/uploads/2021/02/Group-36-1-300x49.jpg",
+	},
 	{
 		rule: "php.include.assembled_path", ext: "php", path: "/web/a.php",
 		hit:  `<?php $T = range("~", " "); @require_once $T[9+1].$T[43+2].$T[7];`,
@@ -252,7 +270,7 @@ func TestSamplesHitTheirRule(t *testing.T) {
 func TestSamplesDoNotHitOnTheNegativeCase(t *testing.T) {
 	e := NewEngine(nil)
 	for _, s := range samples {
-		if fires(e, s.rule, s.path, s.ext, s.miss) {
+		if fires(e, s.rule, s.negativePath(), s.ext, s.miss) {
 			t.Errorf("rule %s fired on its negative sample: %s", s.rule, s.miss)
 		}
 	}
