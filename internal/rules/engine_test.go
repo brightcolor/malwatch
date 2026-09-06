@@ -20,7 +20,7 @@ var samples = []sample{
 	{
 		rule: "php.include.assembled_path", ext: "php", path: "/web/a.php",
 		hit:  `<?php $T = range("~", " "); @require_once $T[9+1].$T[43+2].$T[7];`,
-		miss: `<?php require_once $config['base'] . '/lib/' . $name . '.php';`,
+		miss: `<?php require_once $paths['base'] . $paths['file']; include $tpl[$name] . $ext[$k];`,
 	},
 	{
 		rule: "php.obfuscation.goto_spaghetti", ext: "php", path: "/web/a.php",
@@ -30,7 +30,7 @@ var samples = []sample{
 	{
 		rule: "php.obfuscation.split_open_tag", ext: "php", path: "/web/a.php",
 		hit:  `<?php $code = curl_exec($ch); $need = '<' . '?' . 'php'; if (strpos($code, $need) === false) { die(); }`,
-		miss: `<?php $out = '<' . '?' . 'php'; file_put_contents($fontfile, $out);`,
+		miss: `<?php $out = '<' . '?' . 'php'; file_put_contents($fontfile, $out); $r = curl_exec($ch);`,
 	},
 	{
 		rule: "php.upload.traversal", ext: "php", path: "/web/a.php",
@@ -39,8 +39,8 @@ var samples = []sample{
 	},
 	{
 		rule: "php.webshell.hardcoded_gate", ext: "php", path: "/web/a.php",
-		hit:  `<?php $h = "d401e8f28dff5fe24cb2c2b511e9da27"; if (md5($_COOKIE['p8']) == $h) { $ok = 1; }`,
-		miss: `<?php if ($_REQUEST['u'] === $auth_name && sha1($_REQUEST['p']) === $auth_pass) { $ok = 1; }`,
+		hit:  `<?php $h = "d401e8f28dff5fe24cb2c2b511e9da27"; if (md5($_COOKIE['p8']) == $h) { file_put_contents($_POST['f'], $_POST['c']); }`,
+		miss: `<?php $expected = '5f4dcc3b5aa765d61d8327deb882cf99'; if (md5($_POST['pw']) === $expected) { login(); }`,
 	},
 	{
 		rule: "php.stream.archive_url", ext: "php", path: "/web/a.php",
@@ -55,7 +55,7 @@ var samples = []sample{
 	{
 		rule: "php.tool.leaf_mailer", ext: "php", path: "/web/a.php",
 		hit:  `<?php $leaf['version'] = "2.8"; $leaf['website'] = "leafmailer.pw";`,
-		miss: `<?php $leaf = $tree->firstChild(); echo $leaf->name;`,
+		miss: `<?php $leaf['version'] = $tree->version; $leaf["website"] = $site;`,
 	},
 	{
 		rule: "php.eval.variable_call", ext: "php", path: "/web/a.php",
@@ -65,7 +65,7 @@ var samples = []sample{
 	{
 		rule: "php.silence.preamble", ext: "php", path: "/web/a.php",
 		hit:  `<?php error_reporting(0); ini_set('log_errors', 0); ini_set('error_log', NULL);`,
-		miss: `<?php error_reporting(0); // ruhig im Produktivbetrieb`,
+		miss: `<?php error_reporting(0); ini_set('display_errors', 0); // ruhig im Produktivbetrieb`,
 	},
 	{
 		rule: "php.webshell.session_filehash_gate", ext: "php", path: "/web/a.php",

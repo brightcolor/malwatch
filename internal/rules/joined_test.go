@@ -31,7 +31,7 @@ func TestJoinKeepsPositionsPointingAtTheRealFile(t *testing.T) {
 	}
 	// The report has to name the line of the file, not of a buffer that only
 	// exists inside the scanner.
-	if got := lineOf(raw, index[at]); got != 3 {
+	if got := lineOf(raw, int(index[at])); got != 3 {
 		t.Errorf("line %d, want 3", got)
 	}
 }
@@ -168,5 +168,98 @@ func TestJoinSkipsCommentsBetweenTheParts(t *testing.T) {
 	s := string(joined)
 	if !strings.Contains(s, "range") || !strings.Contains(s, "system") {
 		t.Errorf("a comment between the parts hid the word: %s", s)
+	}
+}
+
+func TestJoinLeavesAHeredocBodyAlone(t *testing.T) {
+	// Text in a heredoc is not source. Welding inside one would manufacture
+	// the very names the rules look for, out of a README.
+	raw := []byte("<?php\n$help = <<<TXT\nSchreiben Sie 'base' . '64_decode' in den Quelltext.\nTXT;\n$f = 'sys' . 'tem';\n")
+	joined, index := joinConcatenated(raw)
+	if joined == nil {
+		t.Fatal("the file was dropped although the heredoc is well formed")
+	}
+	s := string(joined)
+	if strings.Contains(s, "base64_decode") {
+		t.Errorf("the heredoc body was welded: %s", s)
+	}
+	if !strings.Contains(s, "system") {
+		t.Errorf("the seam outside the heredoc was missed: %s", s)
+	}
+	if len(index) != len(joined) {
+		t.Errorf("index has %d entries for %d bytes", len(index), len(joined))
+	}
+}
+
+func TestJoinHandlesANowdocAndAnIndentedLabel(t *testing.T) {
+	raw := []byte("<?php\n\t$a = <<<'SQL'\n\tselect 'x' . 'y'\n\tSQL;\n\t$b = 'ex' . 'ec';\n")
+	joined, _ := joinConcatenated(raw)
+	if joined == nil {
+		t.Fatal("a nowdoc with an indented label was dropped")
+	}
+	s := string(joined)
+	if strings.Contains(s, "'xy'") {
+		t.Errorf("the nowdoc body was welded: %s", s)
+	}
+	if !strings.Contains(s, "exec") {
+		t.Errorf("the seam after it was missed: %s", s)
+	}
+}
+
+func TestJoinGivesUpOnAHeredocThatNeverCloses(t *testing.T) {
+	raw := []byte("<?php $a = <<<TXT\nkein Ende in Sicht 'x' . 'y'\n")
+	if joined, _ := joinConcatenated(raw); joined != nil {
+		t.Errorf("an unterminated heredoc produced a view: %s", joined)
+	}
+}
+
+func TestTheIndexCoversTheWholeView(t *testing.T) {
+	// The map is what makes a finding name the right line. A short or
+	// unordered map is worse than no second view at all.
+	inputs := []string{
+		`<?php $f = 'ba' . 'se64_decode'; // note`,
+		"<?php /* head */ $a = \"\x5f\107\";\n$b = 'x' . 'y';",
+		"<?php $t = <<<T\nbody 'a' . 'b'\nT;\n$u = 'c' . 'd';",
+		`<?php $p = explode('.', $h); $q = "a" . "b";`,
+	}
+	for _, in := range inputs {
+		joined, index := joinConcatenated([]byte(in))
+		if joined == nil {
+			continue
+		}
+		if len(index) != len(joined) {
+			t.Errorf("%q: index %d, view %d", in, len(index), len(joined))
+			continue
+		}
+		if len(joined) > len(in) {
+			t.Errorf("%q: the view grew from %d to %d bytes", in, len(in), len(joined))
+		}
+		last := int32(-1)
+		for k, at := range index {
+			if at < 0 || int(at) >= len(in) {
+				t.Errorf("%q: entry %d points at %d, outside the file", in, k, at)
+				break
+			}
+			if at < last {
+				t.Errorf("%q: entry %d goes backwards", in, k)
+				break
+			}
+			last = at
+		}
+	}
+}
+
+func TestARuleAboutRawBytesIsNotAskedTheSecondView(t *testing.T) {
+	// php.in_image asks what the web server would do with the file as it lies
+	// on disk. A tag welded together in the reassembled view does not execute,
+	// so answering from that view could only ever be wrong.
+	raw := []byte("GIF89a" + `$x = "<" . "?" . "php echo 1;";`)
+	if strings.Contains(string(raw), "<?php") {
+		t.Fatal("the sample already carries the tag; it proves nothing")
+	}
+	for _, f := range NewEngine(nil).Scan("a.gif", "wp-content/uploads/a.gif", "gif", raw) {
+		if f.Rule == "php.in_image" || f.Rule == "php.in_uploads" {
+			t.Errorf("%s answered from the reassembled view", f.Rule)
+		}
 	}
 }

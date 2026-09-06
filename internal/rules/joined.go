@@ -24,20 +24,25 @@ const maxJoin = 8 * 1024 * 1024
 // that reported a Diffie-Hellman prime in phpseclib and a base64 PNG in a
 // gallery plugin as malware.
 //
-// The map exists because a finding has to name the line of the real file. The
-// copy only ever drops bytes, so the mapping is exact.
-func joinConcatenated(content []byte) ([]byte, []int) {
+// The map exists because a finding has to name the line of the real file. It
+// rests on one contract, which every branch below keeps: this function only
+// ever drops bytes or replaces a run with a single space. It never inserts and
+// never reorders, so an offset in the copy always maps back to a real one.
+func joinConcatenated(content []byte) ([]byte, []int32) {
 	if len(content) == 0 || len(content) > maxJoin {
 		return nil, nil
 	}
 
 	out := make([]byte, 0, len(content))
-	index := make([]int, 0, len(content))
+	// int32 rather than int: the input is capped at maxJoin, and the map is
+	// the same length as the view - eight bytes an entry would be half the
+	// cost of a scan for nothing.
+	index := make([]int32, 0, len(content))
 	seams := 0
 
 	emit := func(i int) {
 		out = append(out, content[i])
-		index = append(index, i)
+		index = append(index, int32(i))
 	}
 
 	i := 0
@@ -65,7 +70,7 @@ func joinConcatenated(content []byte) ([]byte, []int) {
 		// one, and every join in between would be nonsense.
 		if c == '#' || (c == '/' && i+1 < len(content) && content[i+1] == '/') {
 			out = append(out, ' ')
-			index = append(index, i)
+			index = append(index, int32(i))
 			for i < len(content) && content[i] != '\n' {
 				i++
 			}
@@ -73,7 +78,7 @@ func joinConcatenated(content []byte) ([]byte, []int) {
 		}
 		if c == '/' && i+1 < len(content) && content[i+1] == '*' {
 			out = append(out, ' ')
-			index = append(index, i)
+			index = append(index, int32(i))
 			// Only a comment wedged into an expression counts as a reason to
 			// look at the file twice. Licence headers and doc blocks start
 			// their line, and treating those as a transformation would double
@@ -86,6 +91,20 @@ func joinConcatenated(content []byte) ([]byte, []int) {
 				i++
 			}
 			i += 2
+			continue
+		}
+
+		// A heredoc or nowdoc body is text, not code. Walking into one welds its
+		// content as though it were source: a README in a heredoc that mentions
+		// 'base' . '64_decode' would manufacture the very name the rules look
+		// for. Whether the scanner survived one at all used to depend on whether
+		// the body happened to hold an even number of quotes.
+		if c == '<' && i+2 < len(content) && content[i+1] == '<' && content[i+2] == '<' {
+			next, ok := skipHeredoc(content, i, emit)
+			if !ok {
+				return nil, nil
+			}
+			i = next
 			continue
 		}
 
@@ -108,7 +127,7 @@ func joinConcatenated(content []byte) ([]byte, []int) {
 				if quote == '"' {
 					if b, width, ok := decodeEscape(content[i:]); ok {
 						out = append(out, b)
-						index = append(index, i)
+						index = append(index, int32(i))
 						seams++
 						i += width
 						continue

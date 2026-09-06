@@ -146,21 +146,25 @@ var catalog = []*Rule{
 		// over two hundred thousand files. Asking only for a label after any
 		// semicolon was not: a doc comment reading "; keys: ..." satisfied it.
 		Exts:  phpExts,
-		Match: rx(`(?i)\bgoto\s+[A-Za-z_]\w{0,40}\s*;[ \t]*[A-Za-z_]\w{0,40}:[ \t]`),
+		Match: rx(`(?i)\bgoto\s+[A-Za-z_]\w{0,40}\s*;[ \t]*[A-Za-z_]\w{0,40}:[ \t]*\S`),
 	},
 	{
 		ID:          "php.obfuscation.split_open_tag",
 		Severity:    report.SeverityCritical,
 		Description: "PHP-Eröffnungstag aus Bruchstücken zusammengesetzt",
 		// '<' . '?' . 'php' is written by somebody who does not want the tag to
-		// be found in their file - a loader checking whether what it fetched is
-		// be found in their file. On its own that is not enough: TCPDF writes
-		// PHP font files and avoids the tag in its own source for the same
-		// mechanical reason. Together with a network fetch it is a loader
-		// checking whether what it just pulled down is code.
-		Exts:     phpExts,
-		Match:    rx(`(?is)['"]<[?]?['"]\s*\.\s*['"](?:[?]\s*['"]\s*\.\s*['"])?php['"]`),
-		Requires: rx(`(?i)\b(?:curl_exec|fsockopen)\s*\(`),
+		// be found in their own file. On its own that says nothing: TCPDF
+		// generates PHP font files and avoids the tag in its source for the
+		// same mechanical reason, and it ships inside countless plugins.
+		//
+		// The loader fetches over the network and then searches what came back
+		// for the tag, to see whether it is code. The generator writes the tag
+		// and searches for nothing. All three conditions together are the
+		// difference.
+		Exts:         phpExts,
+		Match:        rx(`(?is)['"]<[?]?['"]\s*\.\s*['"](?:[?]\s*['"]\s*\.\s*['"])?php['"]`),
+		Requires:     rx(`(?i)\b(?:curl_exec|fsockopen)\s*\(`),
+		AlsoRequires: rx(`(?i)\b(?:strpos|stripos|str_contains)\s*\(`),
 	},
 	{
 		ID:          "php.obfuscation.chr_chain",
@@ -199,7 +203,7 @@ var catalog = []*Rule{
 		// only require and include was not enough. A path built from variables
 		// is left alone: Roundcube reads an uploaded archive that way.
 		Exts:  phpExts,
-		Match: rx(`(?is)(?:zip|compress\.[a-z0-9]+)://[^"'$\s]{1,200}#[^"'$\s]{1,120}`),
+		Match: rx(`(?is)['"](?:zip|compress\.[a-z0-9]+)://[^"'$\s]{1,200}#[^"'$\s]{1,120}`),
 	},
 	{
 		ID:          "php.globals.extract_request",
@@ -241,9 +245,11 @@ var catalog = []*Rule{
 		Description: "Pfad einer Einbindung aus Array-Zugriffen zusammengesetzt",
 		// require_once $T[9+1].$T[43+2].$T[7] spells a filename one character at
 		// a time out of an array the file built itself, so the name appears
-		// nowhere. Honest code joins a directory and a name, not two subscripts.
+		// nowhere. At least one subscript has to be arithmetic: joining two
+		// plain subscripts - $paths['base'] . $paths['file'] - is how array
+		// driven loaders and older procedural code build a path every day.
 		Exts:  phpExts,
-		Match: rx(`(?is)\b(?:require|include)(?:_once)?\s*\$[A-Za-z_]\w{0,40}\s*\[[^\]\n]{1,24}\]\s*\.\s*\$[A-Za-z_]\w{0,40}\s*\[`),
+		Match: rx(`(?is)\b(?:require|include)(?:_once)?\s*\$[A-Za-z_]\w{0,40}\s*\[[ \t]*[0-9][0-9+\-*/ \t]{0,22}\]\s*\.\s*\$[A-Za-z_]\w{0,40}\s*\[`),
 	},
 	{
 		ID:          "php.include.stream_wrapper",
@@ -262,9 +268,11 @@ var catalog = []*Rule{
 		Description: "Leaf PHP Mailer, ein Werkzeug für den Massenversand",
 		// A named tool rather than a shape. It comes in variants that share no
 		// obfuscation and no gate, so nothing structural covers them all - but
-		// every one of them carries its own name.
+		// every one of them carries its own name. Matching $leaf['version']
+		// as well looked structural but was not: $leaf is an ordinary name in
+		// tree, menu and taxonomy code.
 		Exts:  phpExts,
-		Match: rx(`(?is)\$leaf\s*\[\s*['"](?:version|website)['"]\s*\]|leafmailer|orvx\.pw`),
+		Match: rx(`(?is)leafmailer|orvx\.pw`),
 	},
 	{
 		ID:          "php.include.remote",
@@ -307,11 +315,15 @@ var catalog = []*Rule{
 		// request hash too, and holds not one hardcoded hash anywhere.
 		//
 		// It exists as its own rule because two conditions cannot be written
-		// into one pattern here, and widening the rule above instead reported
+		// A hardcoded hash on its own is not enough either: a small admin gate
+		// compares one and does nothing else. The file also has to be able to
+		// use the access it grants.
 		// that firewall as a webshell.
 		Exts:     phpExts,
 		Match:    rx(`(?is)\b(?:md5|sha1|crypt)\s*\(\s*\$(?:_GET|_POST|_REQUEST|_COOKIE)\s*\[[^\]]{0,40}\]\s*\)\s*(?:==|===|!=|!==)`),
 		Requires: rx(`(?i)=\s*['"][0-9a-f]{32,40}['"]`),
+		AlsoRequires: rx(`(?is)\b(?:eval|assert|system|shell_exec|passthru|proc_open|popen|` +
+			`file_put_contents|move_uploaded_file|curl_exec|fsockopen|fwrite)\s*\(`),
 	},
 	{
 		ID:          "php.webshell.session_filehash_gate",
@@ -321,10 +333,11 @@ var catalog = []*Rule{
 		// self-contained tool with a door in front of it: a mailer, a shell, a
 		// file manager. Nothing that belongs to a website needs to know the
 		// hash of its own path. This is the shape of Leafmailer, which carries
+		// no obfuscation at all and therefore slipped past every rule above.
+		//
 		// The hash has to be the session key itself. CMS Made Simple mixes
 		// md5(__FILE__) into a login fingerprint and reads $_SESSION under a
-		// literal name; asking only that both appear reported it.
-		// no obfuscation at all and therefore slipped past every rule above.
+		// literal name; asking only that both appear anywhere reported it.
 		Exts:     phpExts,
 		Match:    rx(`(?i)md5\s*\(\s*__FILE__\s*\)`),
 		Requires: rx(`(?is)\$_SESSION\s*\[\s*\$`),
@@ -419,6 +432,10 @@ var catalog = []*Rule{
 		// Plural and lower case only. Joomla keeps its own update code under
 		// "src/View/Upload" and "tmpl/upload"; the singular form would flag
 		// all of it.
+		// A welded tag does not execute: this asks what the web server would
+		// do with the file as it lies on disk, which is a question about the
+		// raw bytes.
+		RawOnly:   true,
 		PathMatch: rx(`/(?:uploads|attachments|avatars|thumbs|userfiles|user_uploads|file_uploads)/`),
 		Match:     rx(`(?i)<\?(?:php|=|\s)`),
 	},
@@ -427,7 +444,11 @@ var catalog = []*Rule{
 		Severity:    report.SeverityCritical,
 		Description: "Bilddatei enthält PHP-Code",
 		Exts:        imageExts,
-		Match:       rx(`(?i)<\?php`),
+		// A welded tag does not execute: this asks what the web server would
+		// do with the file as it lies on disk, which is a question about the
+		// raw bytes.
+		RawOnly: true,
+		Match:   rx(`(?i)<\?php`),
 	},
 	{
 		ID:          "htaccess.php_handler",
