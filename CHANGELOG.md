@@ -2,6 +2,42 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.8.1] – 2026-09-07
+
+### Behoben
+
+Ein Review nahm 0.8.0 auseinander und fand dreimal denselben Fehler: eine Regel,
+deren Begründung ein Merkmal nannte, das das Muster nicht verlangte.
+
+**`php.include.decoy_guard`** meldete gewöhnliches PHP als kritisch —
+`if (!isset($lang)) { $lang = 'de'; } else { require_once "lang/$lang.php"; }`
+ist eine normale Redewendung. Was sie vom Loader trennt, ist das stummschaltende
+`@`. Einzeln nachgezählt: 43 von 43 Loadern haben es, die ehrlichen Formen
+verstummen.
+
+**`php.obfuscation.name_in_variable`** verlangte einen Großbuchstaben. WordPress
+und Joomla sind snake_case-Welten, ein Korpus aus ihnen kann über camelCase
+nichts sagen — und `$strLen = 'mb_strlen'` ist Jetpacks eigene Redewendung mit
+genau einem. Jetzt sind zwei nötig.
+
+**`php.obfuscation.chr_arithmetic`** und **`php.obfuscation.chr_chain`** hatten
+keine Namensgrenze, sodass `mb_chr(187-73)` als verschleierter Buchstabe galt.
+
+### Geändert
+
+Zwei Tests prüften nichts, beides durch Mutation belegt: der Schutz gegen
+`mb_chr` liess sich vollständig löschen, ohne dass die Suite rot wurde. Er wird
+jetzt direkt geprüft. Dazu ein Fuzzer für den Indexvertrag — ein Eintrag je
+Byte, jeder im Bereich, nie rückwärts, nie länger als die Eingabe; 34,7
+Millionen Eingaben ohne Bruch.
+
+Der Vertrag von `joinConcatenated` ist neu beschrieben. Er versprach, nie etwas
+einzufügen, ersetzt aber Läufe durch erzeugte Bytes — ein Kommentar wird zum
+Leerzeichen, `"\x5f"` und `chr(95)` zum Unterstrich. Beschrieben sind jetzt die
+vier Eigenschaften, die wirklich tragen.
+
+Die Erkennung bleibt unverändert: 756 Funde auf 392 Dateien.
+
 ## [0.8.0] – 2026-09-07
 
 ### Neu
