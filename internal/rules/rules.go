@@ -24,6 +24,13 @@ type Rule struct {
 	// Requires, when set, must also be present in the file. It keeps rules
 	// that are only suspicious in combination from firing on their own.
 	Requires *regexp.Regexp
+	// AlsoRequires is a second supporting condition, and every one of them has
+	// to hold. Some shapes need three facts about a file and two of them
+	// cannot be written into one pattern: a gate that compares against a hash
+	// in its own source is a webshell only if the file can also do something
+	// with the access it grants, and a firewall plugin that checks a request
+	// hash has the capability but not the hardcoded key.
+	AlsoRequires *regexp.Regexp
 	// RawOnly keeps a rule off the reassembled view of the file.
 	//
 	// That view exists to expose split function names. It also glues data

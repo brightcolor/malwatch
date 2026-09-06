@@ -48,11 +48,17 @@ func (e *Engine) Scan(path, rel, ext string, content []byte) []report.Finding {
 	if rel == "" {
 		rel = path
 	}
-	// The second view has the string literals glued together, so a payload
-	// that writes 'base'.'64'.'_dec'.'ode' cannot hide the function name from
-	// every rule that spells it out. It is nil when the file has no such seam,
-	// which is the ordinary case.
-	joined, index := joinConcatenated(content)
+	// The second view has string literals glued together, escapes resolved and
+	// comments collapsed, so a payload that writes 'base'.'64'.'_dec'.'ode'
+	// cannot hide the function name from every rule that spells it out.
+	//
+	// It is built on first use, not up front. A scan walks every candidate
+	// file, most of them match no rule at all, and the view costs a copy of
+	// the file plus an index over it - which for a zip or a log that only
+	// happens to be a candidate is paid for nothing.
+	var joined []byte
+	var index []int32
+	built := false
 
 	var out []report.Finding
 	for _, r := range e.rules {
@@ -63,7 +69,14 @@ func (e *Engine) Scan(path, rel, ext string, content []byte) []report.Finding {
 			out = append(out, f)
 			continue
 		}
-		if joined != nil && !r.RawOnly {
+		if r.RawOnly {
+			continue
+		}
+		if !built {
+			joined, index = joinConcatenated(content)
+			built = true
+		}
+		if joined != nil {
 			if f, ok := e.apply(r, path, joined, content, index); ok {
 				out = append(out, f)
 			}
@@ -75,7 +88,7 @@ func (e *Engine) Scan(path, rel, ext string, content []byte) []report.Finding {
 // apply runs one rule over hay. raw and index translate a position in hay back
 // to the file, so a finding names the line someone can actually open; index is
 // nil when hay is the file itself.
-func (e *Engine) apply(r *Rule, path string, hay, raw []byte, index []int) (report.Finding, bool) {
+func (e *Engine) apply(r *Rule, path string, hay, raw []byte, index []int32) (report.Finding, bool) {
 	loc := r.Match.FindIndex(hay)
 	if loc == nil {
 		return report.Finding{}, false
@@ -83,9 +96,18 @@ func (e *Engine) apply(r *Rule, path string, hay, raw []byte, index []int) (repo
 	if r.Requires != nil && !r.Requires.Match(hay) {
 		return report.Finding{}, false
 	}
+	if r.AlsoRequires != nil && !r.AlsoRequires.Match(hay) {
+		return report.Finding{}, false
+	}
 	at := loc[0]
-	if index != nil && at < len(index) {
-		at = index[at]
+	if index != nil {
+		// joinConcatenated only ever drops bytes, so the map covers the whole
+		// view. A short map would mean a finding pointing at the wrong line,
+		// which is worse than none at all.
+		if loc[0] >= len(index) {
+			return report.Finding{}, false
+		}
+		at = int(index[loc[0]])
 	}
 	return report.Finding{
 		Path:     path,
