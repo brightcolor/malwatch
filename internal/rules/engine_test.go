@@ -132,11 +132,12 @@ var samples = []sample{
 	},
 	{
 		rule: "php.obfuscation.name_in_variable", ext: "php", path: "/web/a.php",
-		// The shape the second view reveals in a live backdoor.
-		hit: `<?php $d = 'strlen'; $s = 'str_split'; if ($d($k) == 16) { $p = $s($v); }`,
-		// guzzle does this with a decoder and means it. One assignment, and
-		// not one of the everyday names.
-		miss: `<?php $decoder = 'rawurldecode'; return $decoder($value);`,
+		// The shape the second view reveals in a live backdoor, generated
+		// names and all.
+		hit: `<?php $DfgSFXZ = 'strlen'; $MyEtfywT = 'str_split'; if ($DfgSFXZ($k) == 16) { $p = $MyEtfywT($v); }`,
+		// jetpack, on millions of sites: the multibyte fallback names each
+		// variable after the function it holds, in lower case.
+		miss: `<?php if (function_exists('mb_stripos')) { $strlen = 'mb_strlen'; $substr = 'mb_substr'; } else { $strlen = 'strlen'; $substr = 'substr'; }`,
 	},
 	{
 		rule: "php.obfuscation.chr_arithmetic", ext: "php", path: "/web/a.php",

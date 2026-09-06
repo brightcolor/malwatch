@@ -119,16 +119,29 @@ var catalog = []*Rule{
 		// so that no rule naming a function ever sees one. The second view
 		// spells the names out again; this rule is what makes that pay.
 		//
-		// The list holds everyday functions on purpose. Measured: a decoder
-		// in a variable is honest work - guzzle writes
-		// $decoder = 'rawurldecode' and ships inside WordPress plugins by the
-		// thousand - while $x = 'strlen' appeared in none of the 20.000 files
-		// of fresh WordPress, Joomla and two customer sites. Nobody writes it
-		// unless the point is that the word should not be findable.
+		// The list holds everyday functions on purpose. A decoder in a
+		// variable is honest work - guzzle writes $decoder = 'rawurldecode'
+		// and ships inside WordPress plugins by the thousand.
 		//
-		// Two of them, because a single $callback = 'trim' next to an
+		// The variable has to carry a capital letter, and that is the whole
+		// rule. Honest code that puts a function name in a variable names the
+		// variable after it, in lower case:
+		//
+		//	if (function_exists('mb_stripos')) { $strlen = 'mb_strlen'; }
+		//	else                               { $strlen = 'strlen'; }
+		//
+		// That is jetpack, on millions of sites, and the first version of this
+		// rule reported it. The obfuscator has no such reason and takes what
+		// its generator produced: $DfgSFXZ, $IoaaIh, $MyEtfywT.
+		//
+		// Measured over the same sets: written loosely the shape appears in 5
+		// files of a 193.888 file installation, all of them honest; asking for
+		// the capital letter leaves none of them and none in a fresh WordPress
+		// or Joomla either.
+		//
+		// Two of them, because a single $myCallback = 'trim' next to an
 		// array_map is a style, not a disguise.
-		Match: rx(`(?is)\$\w+\s*=\s*["']?(?:strlen|str_split|array_keys|array_values|str_replace|in_array|is_array|implode|explode|substr|strpos|strtolower|strrev|ord|chr|trim|count|sprintf)["']?\s*;.{0,400}?\$\w+\s*=\s*["']?(?:strlen|str_split|array_keys|array_values|str_replace|in_array|is_array|implode|explode|substr|strpos|strtolower|strrev|ord|chr|trim|count|sprintf)["']?\s*;`),
+		Match: rx(`(?s)\$[a-zA-Z_]*[A-Z]\w*\s*=\s*["']?(?:strlen|str_split|array_keys|array_values|str_replace|in_array|is_array|implode|explode|substr|strpos|strtolower|strrev|ord|chr|trim|count|sprintf)["']?\s*;.{0,400}?\$[a-zA-Z_]*[A-Z]\w*\s*=\s*["']?(?:strlen|str_split|array_keys|array_values|str_replace|in_array|is_array|implode|explode|substr|strpos|strtolower|strrev|ord|chr|trim|count|sprintf)["']?\s*;`),
 	},
 	{
 		ID:          "php.obfuscation.chr_arithmetic",
