@@ -313,8 +313,6 @@ func TestJoinLeavesAVariableChrAlone(t *testing.T) {
 	}
 }
 
-
-
 func TestFoldChrDoesNotTakeChrOutOfALongerName(t *testing.T) {
 	// This asks foldChr rather than the whole view on purpose. Written as a
 	// view test it proved nothing: none of these inputs has a seam, so no view
