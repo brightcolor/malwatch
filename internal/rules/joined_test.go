@@ -221,6 +221,15 @@ func TestTheIndexCoversTheWholeView(t *testing.T) {
 		"<?php /* head */ $a = \"\x5f\107\";\n$b = 'x' . 'y';",
 		"<?php $t = <<<T\nbody 'a' . 'b'\nT;\n$u = 'c' . 'd';",
 		`<?php $p = explode('.', $h); $q = "a" . "b";`,
+		// The chain shapes. The first two are the asymmetric cases: a chain
+		// that opens on a fold has no opening quote, one that closes on a fold
+		// has no closing quote, and both still have to map cleanly.
+		`<?php $f = chr(95).'abc';`,
+		`<?php $f = 'abc'.chr(95);`,
+		`<?php $f = chr(95).chr(96);`,
+		`<?php $f = 'a'.chr(65).'b';`,
+		`<?php $f = 's'."\164"."\x72".chr(95)."\162".chr(116)."\61";`,
+		`<?php $f = chr(187-73).'a'.chr(634-535).'o';`,
 	}
 	for _, in := range inputs {
 		joined, index := joinConcatenated([]byte(in))
@@ -304,25 +313,93 @@ func TestJoinLeavesAVariableChrAlone(t *testing.T) {
 	}
 }
 
-func TestJoinDoesNotTakeChrOutOfALongerName(t *testing.T) {
-	// mb_chr and $chr are not the function this folds.
+
+
+func TestFoldChrDoesNotTakeChrOutOfALongerName(t *testing.T) {
+	// This asks foldChr rather than the whole view on purpose. Written as a
+	// view test it proved nothing: none of these inputs has a seam, so no view
+	// is built, and a review showed the assertion could never run - deleting
+	// the guard in chain.go left the whole suite green.
 	for _, in := range []string{
-		`<?php $s = mb_chr(65) . mb_chr(66);`,
-		`<?php $s = $chr(65);`,
-		`<?php $s = $o->chr(65);`,
+		`mb_chr(65)`,
+		`$chr(65)`,
+		`$o->chr(65)`,
+		`Foo::chr(65)`,
+		`my_chr(65)`,
 	} {
-		joined, _ := joinConcatenated([]byte(in))
-		if joined != nil && !strings.Contains(string(joined), "chr(65)") {
-			t.Errorf("%q: the call was folded away: %s", in, joined)
+		k := strings.Index(in, "chr(")
+		if k < 0 {
+			t.Fatalf("bad case %q", in)
 		}
+		if _, ok := foldChr([]byte(in), k); ok {
+			t.Errorf("%q: folded a call that is not chr()", in)
+		}
+	}
+	if _, ok := foldChr([]byte(`chr(65)`), 0); !ok {
+		t.Error("the plain call was not folded")
 	}
 }
 
-func TestJoinKeepsAPlainChrFromForcingASecondPass(t *testing.T) {
-	// chr(10) is ordinary. Building a second view for it would double the
-	// work of a scan and find nothing.
-	raw := []byte(`<?php $eol = chr(13) . chr(10); echo $eol;`)
-	if joined, _ := joinConcatenated(raw); joined != nil && !strings.Contains(string(joined), "\r\n") {
-		t.Fatalf("unexpected view: %q", joined)
+func TestAPlainChrChainStillBuildsAView(t *testing.T) {
+	// It does, and the name of the test says so because an earlier one claimed
+	// the opposite and passed by accident. A fold on its own counts no seam,
+	// but the dot that carries the chain does, so chr(13).chr(10) is enough.
+	//
+	// Kept rather than tightened: measured over two live trees, the files that
+	// owe their second view to a chr() chain are 4 of 7863 and 0 of 7252. The
+	// gate costs 0.05 percent, and closing it would lose every payload that
+	// spells a name in plain chr() calls.
+	joined, _ := joinConcatenated([]byte(`<?php $eol = chr(13) . chr(10); echo $eol;`))
+	if joined == nil {
+		t.Fatal("no view was built")
 	}
+	if !strings.Contains(string(joined), "\r\n") {
+		t.Fatalf("the chain was not folded: %q", joined)
+	}
+}
+
+// FuzzJoinConcatenated states the contract the whole second view rests on.
+//
+// A finding names a line by looking its offset up in the index, so a short
+// map, an entry outside the file or one that goes backwards is worse than no
+// second view at all: it points an operator at the wrong line, or panics.
+// The table test above covers the shapes we know; this covers the ones we
+// have not thought of.
+func FuzzJoinConcatenated(f *testing.F) {
+	for _, s := range []string{
+		`<?php $f = 'ba'.'se64_decode';`,
+		`<?php $f = chr(95).'abc';`,
+		`<?php $f = 'abc'.chr(95);`,
+		`<?php $t = <<<T` + "\nbody 'a' . 'b'\nT;\n" + `$u = 'c'.'d';`,
+		`<?php $p = explode('.', $h);`,
+		`<?php /* x */ $a = "\x5f\107" . 'y';`,
+		`<?php $s = 'a' . chr(1-2) . "b";`,
+	} {
+		f.Add([]byte(s))
+	}
+	f.Fuzz(func(t *testing.T, raw []byte) {
+		view, index := joinConcatenated(raw)
+		if view == nil {
+			if index != nil {
+				t.Fatal("no view but an index")
+			}
+			return
+		}
+		if len(index) != len(view) {
+			t.Fatalf("index has %d entries for %d view bytes", len(index), len(view))
+		}
+		if len(view) > len(raw) {
+			t.Fatalf("the view grew from %d to %d bytes", len(raw), len(view))
+		}
+		last := int32(-1)
+		for k, at := range index {
+			if at < 0 || int(at) >= len(raw) {
+				t.Fatalf("entry %d points at %d, outside a file of %d bytes", k, at, len(raw))
+			}
+			if at < last {
+				t.Fatalf("entry %d goes backwards: %d after %d", k, at, last)
+			}
+			last = at
+		}
+	})
 }

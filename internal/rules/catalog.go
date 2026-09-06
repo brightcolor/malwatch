@@ -125,10 +125,23 @@ var catalog = []*Rule{
 		// The bracket that really identifies this family is a pair of hex
 		// marker comments around the block, the same five characters at both
 		// ends. That needs a back reference, which Go's regexp does not have
-		// by design, and the decoy is just as decisive: none of a fresh
-		// WordPress, a fresh Joomla, three customer sites or a 193.888 file
-		// installation contains it, and it covers all 43.
-		Match: rx(`(?i)if\s*\(\s*!\s*isset\s*\(\s*\$\w+\s*\)\s*\)\s*\{[^}]{0,80}\}\s*else\s*\{[^}]{0,120}(?:include|require)`),
+		// by design.
+		//
+		// The silencing @ is required as well, and it is what makes the rule
+		// safe. Without it the shape alone is ordinary enough to write by
+		// accident - a review produced four honest snippets in a minute:
+		//
+		//	if (!isset($lang)) { $lang = 'de'; } else { require_once "lang/$lang.php"; }
+		//	if (!isset($tpl))  { $tpl = 'default.php'; } else { include $tpl; }
+		//
+		// none of which silences the include. All 43 loaders do. Measured on
+		// them one by one: 43 of 43 carry the @, and the four snippets above
+		// go quiet.
+		//
+		// Together with the decoy that leaves: none of a fresh WordPress, a
+		// fresh Joomla, three customer sites or a 193.888 file installation
+		// contains this, and it covers all 43.
+		Match: rx(`(?i)if\s*\(\s*!\s*isset\s*\(\s*\$\w+\s*\)\s*\)\s*\{[^}]{0,80}\}\s*else\s*\{[^}]{0,120}@\s*(?:include|require)`),
 	},
 	{
 		ID:          "php.obfuscation.name_in_variable",
@@ -158,14 +171,28 @@ var catalog = []*Rule{
 		// rule reported it. The obfuscator has no such reason and takes what
 		// its generator produced: $DfgSFXZ, $IoaaIh, $MyEtfywT.
 		//
+		// Two capitals, not one. WordPress and Joomla are snake_case worlds,
+		// so a corpus made of them cannot say anything about camelCase - and
+		// $strLen = 'mb_strlen' is the same honest idiom with one capital in
+		// it. The generated names carry several: $DfgSFXZ, $IoaaIh, $MyEtfywT.
+		// Asking for two keeps every one of the 316 findings on the infected
+		// site and drops the camelCase spelling of jetpack's fallback.
+		//
 		// Measured over the same sets: written loosely the shape appears in 5
 		// files of a 193.888 file installation, all of them honest; asking for
-		// the capital letter leaves none of them and none in a fresh WordPress
-		// or Joomla either.
+		// the capitals leaves none of them and none in a fresh WordPress or
+		// Joomla either.
 		//
-		// Two of them, because a single $myCallback = 'trim' next to an
+		// The quotes are optional and need not match, which looks careless and
+		// is not: this rule reads the second view, where a chain that ends in a
+		// chr() call has lost its closing quote and one that begins with a
+		// literal of the other kind has a mismatched pair. The live samples
+		// arrive as $DfgSFXZ = strlen; and $vIXmi = 'str_rot13";. Requiring a
+		// matched pair would make the rule fire on nothing at all.
+		//
+		// Two occurrences, because a single $myCallback = 'trim' next to an
 		// array_map is a style, not a disguise.
-		Match: rx(`(?s)\$[a-zA-Z_]*[A-Z]\w*\s*=\s*["']?(?:strlen|str_split|array_keys|array_values|str_replace|in_array|is_array|implode|explode|substr|strpos|strtolower|strrev|ord|chr|trim|count|sprintf)["']?\s*;.{0,400}?\$[a-zA-Z_]*[A-Z]\w*\s*=\s*["']?(?:strlen|str_split|array_keys|array_values|str_replace|in_array|is_array|implode|explode|substr|strpos|strtolower|strrev|ord|chr|trim|count|sprintf)["']?\s*;`),
+		Match: rx(`(?s)\$[a-zA-Z_]*[A-Z][a-zA-Z_0-9]*[A-Z]\w*\s*=\s*["']?(?:strlen|str_split|array_keys|array_values|str_replace|in_array|is_array|implode|explode|substr|strpos|strtolower|strrev|ord|chr|trim|count|sprintf)["']?\s*;.{0,400}?\$[a-zA-Z_]*[A-Z][a-zA-Z_0-9]*[A-Z]\w*\s*=\s*["']?(?:strlen|str_split|array_keys|array_values|str_replace|in_array|is_array|implode|explode|substr|strpos|strtolower|strrev|ord|chr|trim|count|sprintf)["']?\s*;`),
 	},
 	{
 		ID:          "php.obfuscation.chr_arithmetic",
@@ -190,7 +217,10 @@ var catalog = []*Rule{
 		// the argument as a sum. Across 194.000 files of customer code exactly
 		// one did - a single odd constant in a plugin - and never twice.
 		RawOnly: true,
-		Match:   rx(`(?is)chr\s*\(\s*\d+\s*[-+*]\s*\d+\s*\).{0,200}?chr\s*\(\s*\d+\s*[-+*]\s*\d+\s*\)`),
+		// The name boundary matters as much here as it does in the folder that
+		// backs this rule up: mb_chr, $chr and ->chr are other functions, and
+		// without the guard mb_chr(187-73) reports as an obfuscated letter.
+		Match: rx(`(?is)(?:^|[^\w$>:])chr\s*\(\s*\d+\s*[-+*]\s*\d+\s*\).{0,200}?[^\w$>:]chr\s*\(\s*\d+\s*[-+*]\s*\d+\s*\)`),
 	},
 	{
 		ID:          "php.obfuscation.base64_marker",
@@ -260,7 +290,9 @@ var catalog = []*Rule{
 		// Only codes 32 to 126 count, so the chain spells readable text -
 		// which is what hiding a function name looks like. Character tables
 		// in honest libraries work with the high bytes above 127.
-		Match: rx(`(?:chr\s*\(\s*(?:3[2-9]|[4-9][0-9]|1[01][0-9]|12[0-6])\s*\)\s*\.\s*){6,}`),
+		// Boundary as in php.obfuscation.chr_arithmetic: a run of mb_chr calls
+		// is somebody handling multibyte text, not somebody spelling a name.
+		Match: rx(`(?:^|[^\w$>:])(?:chr\s*\(\s*(?:3[2-9]|[4-9][0-9]|1[01][0-9]|12[0-6])\s*\)\s*\.\s*){6,}`),
 	},
 	{
 		ID:          "php.obfuscation.hex_call",
