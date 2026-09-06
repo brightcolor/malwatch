@@ -68,11 +68,6 @@ var samples = []sample{
 		miss: `<?php error_reporting(0); ini_set('display_errors', 0); // ruhig im Produktivbetrieb`,
 	},
 	{
-		rule: "php.webshell.session_filehash_gate", ext: "php", path: "/web/a.php",
-		hit:  `<?php $c = md5(__FILE__); if ($_SESSION[$c] != $password) { exit; }`,
-		miss: `<?php $t = array(md5(__FILE__), $u->password); if (isset($_SESSION['login_user_id'])) { $ok = 1; }`,
-	},
-	{
 		rule: "php.eval.encoded", ext: "php", path: "/web/a.php",
 		hit:  `<?php eval(base64_decode("ZWNobyAxOw=="));`,
 		miss: `<?php $data = base64_decode($row['payload']); echo strlen($data);`,

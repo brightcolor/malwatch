@@ -326,23 +326,6 @@ var catalog = []*Rule{
 			`file_put_contents|move_uploaded_file|curl_exec|fsockopen|fwrite)\s*\(`),
 	},
 	{
-		ID:          "php.webshell.session_filehash_gate",
-		Severity:    report.SeverityCritical,
-		Description: "Türsteher mit Sitzungsschlüssel aus dem Hash der eigenen Datei",
-		// A file that keys a session on its own hash and holds a password is a
-		// self-contained tool with a door in front of it: a mailer, a shell, a
-		// file manager. Nothing that belongs to a website needs to know the
-		// hash of its own path. This is the shape of Leafmailer, which carries
-		// no obfuscation at all and therefore slipped past every rule above.
-		//
-		// The hash has to be the session key itself. CMS Made Simple mixes
-		// md5(__FILE__) into a login fingerprint and reads $_SESSION under a
-		// literal name; asking only that both appear anywhere reported it.
-		Exts:     phpExts,
-		Match:    rx(`(?i)md5\s*\(\s*__FILE__\s*\)`),
-		Requires: rx(`(?is)\$_SESSION\s*\[\s*\$`),
-	},
-	{
 		ID:          "php.webshell.file_manager",
 		Severity:    report.SeverityHigh,
 		Description: "Dateiverwaltung über die Anfrage",
