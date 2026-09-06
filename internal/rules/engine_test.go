@@ -131,6 +131,14 @@ var samples = []sample{
 		miss: `<?php $p = "SGFsbG8gV2VsdA=="; echo $p;`,
 	},
 	{
+		rule: "php.include.decoy_guard", ext: "php", path: "/web/a.php",
+		// Verbatim from error/index.php on a live site, one of 43 identical
+		// loaders that pull PHP out of a hidden .css file.
+		hit: `<?php /*4150d*/ $rog = "/var/www/x/web/stats/2021\x2d11/.1674d7c1.css"; if (!isset($rog)) {rtrim ($rog);} else { @include_once /* 68 */ ($rog); } /*4150d*/`,
+		// The question honest code asks: if the value is there, use it.
+		miss: `<?php if (isset($tpl) && file_exists($tpl)) { include $tpl; } else { include __DIR__ . '/default.php'; }`,
+	},
+	{
 		rule: "php.obfuscation.name_in_variable", ext: "php", path: "/web/a.php",
 		// The shape the second view reveals in a live backdoor, generated
 		// names and all.

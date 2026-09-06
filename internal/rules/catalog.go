@@ -107,6 +107,30 @@ var catalog = []*Rule{
 		Requires: rx(`(?i)base64_decode|gzinflate|gzuncompress|str_rot13`),
 	},
 	{
+		ID:          "php.include.decoy_guard",
+		Severity:    report.SeverityCritical,
+		Description: "Einbindung hinter einer Schein-Abfrage",
+		Exts:        phpExts,
+		// A loader found 43 times on one site, always the same shape:
+		//
+		//	$rog = "/var/www/…/stats/2021\x2d11/.1674d7c1.css";
+		//	if (!isset($rog)) {rtrim ($rog);} else { @include_once ($rog); }
+		//
+		// isset on a variable assigned one statement earlier is always true,
+		// and rtrim in void context does nothing at all. The whole branch is
+		// scenery: it makes the include look like it belongs to some control
+		// flow. Honest code asks the opposite question - if the value is
+		// there, use it.
+		//
+		// The bracket that really identifies this family is a pair of hex
+		// marker comments around the block, the same five characters at both
+		// ends. That needs a back reference, which Go's regexp does not have
+		// by design, and the decoy is just as decisive: none of a fresh
+		// WordPress, a fresh Joomla, three customer sites or a 193.888 file
+		// installation contains it, and it covers all 43.
+		Match: rx(`(?i)if\s*\(\s*!\s*isset\s*\(\s*\$\w+\s*\)\s*\)\s*\{[^}]{0,80}\}\s*else\s*\{[^}]{0,120}(?:include|require)`),
+	},
+	{
 		ID:          "php.obfuscation.name_in_variable",
 		Severity:    report.SeverityHigh,
 		Description: "gewöhnliche Funktionsnamen in Variablen geparkt",
