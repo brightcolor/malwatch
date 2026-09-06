@@ -2,7 +2,7 @@
 package version
 
 // Version is the semantic version. Overridden at build time via ldflags.
-var Version = "0.7.0"
+var Version = "0.8.0"
 
 // SchemaVersion is the version of the JSON report format. Consumers (the
 // ISPConfig addon) check this before parsing a report.

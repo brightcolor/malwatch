@@ -2,6 +2,58 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.8.0] – 2026-09-07
+
+### Neu
+
+Eine Site trug 272 Hintertüren durch `wp-includes`, `wp-admin`, Plugins und
+Themes, und der Scanner meldete keine einzige. Sie verstecken den
+Funktionsnamen alle gleich:
+
+```php
+$v = 's'."\164"."\x72".chr(95)."\162"."\x6f".chr(116)."\61"."\x33";
+```
+
+Das ist `str_rot13`. Zwei Dinge hinderten die zweite Ansicht daran, es zu
+lesen: sie verklebte zwei Literale nur bei gleichem Anführungszeichen, obwohl
+PHP das egal ist, und `chr(95)` ist ein Aufruf statt eines Literals, sodass der
+Unterstrich nie ankam.
+
+**Kettenleser.** Die zweite Ansicht läuft jetzt eine Verkettung ab — Literale
+beider Anführungsarten und `chr()`-Aufrufe mit Zahl oder Rechnung als Argument.
+Punkte und innere Anführungszeichen fallen weg, die äußeren bleiben. `chr($i)`
+bleibt unangetastet: das hat erst zur Laufzeit eine Antwort.
+
+**`php.obfuscation.chr_arithmetic`** – `chr(187-73)` ist der Buchstabe `r`, und
+es gibt genau einen Grund, ihn so zu schreiben. Gemessen vor der Schwelle: ein
+frisches WordPress und Joomla halten 7.605 PHP-Dateien, 110 davon rufen `chr`
+auf, keine schreibt das Argument als Summe.
+
+**`php.obfuscation.name_in_variable`** – gewöhnliche Funktionsnamen in
+Variablen geparkt, damit keine Regel sie je sieht. Die Variable muss einen
+Großbuchstaben tragen: ehrlicher Code benennt sie nach der Funktion und
+schreibt sie klein (`$strlen = 'mb_strlen'` in Jetpack), der Verschleierer
+nimmt, was sein Erzeuger ausgeworfen hat.
+
+**`php.include.decoy_guard`** – eine Einbindung hinter einer Abfrage, die nie
+falsch sein kann:
+
+```php
+if (!isset($rog)) { rtrim($rog); } else { @include_once($rog); }
+```
+
+`isset` auf eine gerade zugewiesene Variable ist immer wahr, `rtrim` im
+leeren Kontext tut nichts. Der Zweig ist Kulisse. 43 solcher Loader zogen PHP
+aus versteckten `.css`-Dateien.
+
+### Gemessen
+
+Auf der befallenen Site steigen die gemeldeten Dateien von 73 auf 392. Zum
+Vergleich: ein anderer Scanner mit 334 eigenen Definitionen meldet dort 390.
+Fehlalarme bleiben bei null — frisches WordPress, frisches Joomla, drei
+Kundensites und eine Installation mit 193.888 PHP-Dateien melden genau das,
+was sie vorher meldeten.
+
 ## [0.7.0] – 2026-09-06
 
 ### Neu
