@@ -107,6 +107,31 @@ var catalog = []*Rule{
 		Requires: rx(`(?i)base64_decode|gzinflate|gzuncompress|str_rot13`),
 	},
 	{
+		ID:          "php.obfuscation.chr_arithmetic",
+		Severity:    report.SeverityHigh,
+		Description: "Zeichencodes als Rechnung geschrieben",
+		Exts:        phpExts,
+		// chr(187-73) is the letter r. There is one reason to write it that
+		// way and it is to keep the letter out of the file, so that the name
+		// the letters spell cannot be searched for.
+		//
+		// The second view folds these calls, which lets every rule that names
+		// a function read the word again. This one is the net underneath: a
+		// chain that spells nothing the catalog knows still says plainly what
+		// it is.
+		//
+		// RawOnly, because the second view resolves exactly this away - asked
+		// there, the rule could never match.
+		//
+		// Two of them, close together. A name spelled this way needs one call
+		// per letter, so they arrive in a run. Measured: a fresh WordPress and
+		// Joomla hold 7.605 PHP files, 110 of which call chr, and none writes
+		// the argument as a sum. Across 194.000 files of customer code exactly
+		// one did - a single odd constant in a plugin - and never twice.
+		RawOnly: true,
+		Match:   rx(`(?is)chr\s*\(\s*\d+\s*[-+*]\s*\d+\s*\).{0,200}?chr\s*\(\s*\d+\s*[-+*]\s*\d+\s*\)`),
+	},
+	{
 		ID:          "php.obfuscation.base64_marker",
 		Severity:    report.SeverityHigh,
 		Description: "kodierter Aufruf einer Ausführungsfunktion",

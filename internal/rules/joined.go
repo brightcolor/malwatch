@@ -108,84 +108,35 @@ func joinConcatenated(content []byte) ([]byte, []int32) {
 			continue
 		}
 
-		if c != '\'' && c != '"' {
-			emit(i)
-			i++
+		// A concatenation chain of string literals and chr() calls. The dots
+		// and the quotes between the parts fall away, so 'ba'."se".chr(54)."4"
+		// becomes the word it spells.
+		//
+		// Quote styles may differ across a seam. PHP concatenates 's'."tr" into
+		// str whatever quotes are used, and requiring the same one on both
+		// sides let this family through unread.
+		if c == '\'' || c == '"' || (c|0x20 == 'c' && isChainElement(content, i)) {
+			next, chained, ok := emitChain(content, i, &out, &index)
+			if !ok {
+				// The scanner lost track - an unterminated string, a construct
+				// not handled here. Guessing on from an unknown state is how
+				// the false positives happened, so the second view is dropped
+				// and the rules see the file as it is.
+				return nil, nil
+			}
+			seams += chained
+			i = next
 			continue
 		}
 
-		// A string literal. Copy it, swallow every seam that follows, and in a
-		// double quoted one resolve the escapes: PHP reads "\x5f\107\x45\x54"
-		// as _GET, and a rule that spells out the superglobal has to be able to
-		// see that.
-		quote := c
 		emit(i)
 		i++
-		closed := false
-		for i < len(content) {
-			if content[i] == '\\' {
-				if quote == '"' {
-					if b, width, ok := decodeEscape(content[i:]); ok {
-						out = append(out, b)
-						index = append(index, int32(i))
-						seams++
-						i += width
-						continue
-					}
-				}
-				emit(i)
-				i++
-				if i < len(content) {
-					emit(i)
-					i++
-				}
-				continue
-			}
-			if content[i] != quote {
-				emit(i)
-				i++
-				continue
-			}
-			if next, ok := seamAfter(content, i, quote); ok {
-				// Drop the closing quote, the dot and the opening quote: the
-				// two literals become one.
-				seams++
-				i = next
-				continue
-			}
-			emit(i)
-			i++
-			closed = true
-			break
-		}
-		if !closed {
-			// The scanner lost track - an unterminated string, a heredoc, a
-			// construct not handled here. Guessing on from an unknown state is
-			// how the false positives happened, so the second view is dropped
-			// and the rules see the file as it is.
-			return nil, nil
-		}
 	}
 
 	if seams == 0 {
 		return nil, nil
 	}
 	return out, index
-}
-
-// seamAfter reports whether the quote at i closes a literal that is immediately
-// concatenated with another of the same kind, and where that next literal's
-// content starts.
-func seamAfter(content []byte, i int, quote byte) (int, bool) {
-	j := skipGap(content, i+1)
-	if j >= len(content) || content[j] != '.' {
-		return 0, false
-	}
-	j = skipGap(content, j+1)
-	if j >= len(content) || content[j] != quote {
-		return 0, false
-	}
-	return j + 1, true
 }
 
 // skipGap walks over whitespace and comments.
