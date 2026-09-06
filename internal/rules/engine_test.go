@@ -131,6 +131,14 @@ var samples = []sample{
 		miss: `<?php $p = "SGFsbG8gV2VsdA=="; echo $p;`,
 	},
 	{
+		rule: "php.obfuscation.chr_arithmetic", ext: "php", path: "/web/a.php",
+		// Verbatim from a live backdoor. chr_chain does not see it: the calls
+		// never stand six in a row, and the argument is a subtraction.
+		hit: `<?php $I = chr(187-73).'a'."\167".chr(108).chr(101).chr(634-535).'o';`,
+		// A plain chain is the other rule's business, not this one's.
+		miss: `<?php $s = chr(101).chr(118).chr(97).chr(108).chr(40).chr(36).chr(120);`,
+	},
+	{
 		rule: "php.obfuscation.chr_chain", ext: "php", path: "/web/a.php",
 		hit:  `<?php $s = chr(101).chr(118).chr(97).chr(108).chr(40).chr(36).chr(120);`,
 		miss: `<?php $s = chr(13).chr(10);`,

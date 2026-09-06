@@ -263,3 +263,66 @@ func TestARuleAboutRawBytesIsNotAskedTheSecondView(t *testing.T) {
 		}
 	}
 }
+
+func TestJoinSpellsOutANameBuiltFromChrCalls(t *testing.T) {
+	// Verbatim from wp-includes/IXR/zhvxcyuh.php on a live site, one of 272
+	// backdoors the scanner walked straight past. The name never appears; it
+	// is assembled from literals of both quote kinds, hex and octal escapes,
+	// and chr() calls whose argument is a subtraction.
+	raw := []byte(`<?php $v = 's'."\164"."\x72".chr(95)."\162"."\x6f".chr(116)."\61"."\x33"; $x = $v($y);`)
+	joined, index := joinConcatenated(raw)
+	if joined == nil {
+		t.Fatal("nothing was joined")
+	}
+	if !strings.Contains(string(joined), "str_rot13") {
+		t.Fatalf("the name was not spelled out: %s", joined)
+	}
+	if len(index) != len(joined) {
+		t.Fatalf("index has %d entries for %d bytes", len(index), len(joined))
+	}
+}
+
+func TestJoinReadsAChainThatStartsWithChr(t *testing.T) {
+	// Same file, second name: the chain opens with the call rather than a
+	// literal, so a reader that only follows on from a string finds nothing.
+	raw := []byte(`<?php $f = chr(187-73).'a'."\167"."\x75"."\x72".chr(108)."\x64".chr(101).chr(634-535).'o'.'d'.'e';`)
+	joined, _ := joinConcatenated(raw)
+	if joined == nil {
+		t.Fatal("nothing was joined")
+	}
+	if !strings.Contains(string(joined), "rawurldecode") {
+		t.Fatalf("the name was not spelled out: %s", joined)
+	}
+}
+
+func TestJoinLeavesAVariableChrAlone(t *testing.T) {
+	// chr($i) has no answer until the program runs, and guessing one would
+	// weld characters that are never next to each other.
+	raw := []byte(`<?php for ($i = 0; $i < 26; $i++) { $s .= chr($i + 65); }`)
+	if joined, _ := joinConcatenated(raw); joined != nil {
+		t.Fatalf("a runtime chr was folded: %s", joined)
+	}
+}
+
+func TestJoinDoesNotTakeChrOutOfALongerName(t *testing.T) {
+	// mb_chr and $chr are not the function this folds.
+	for _, in := range []string{
+		`<?php $s = mb_chr(65) . mb_chr(66);`,
+		`<?php $s = $chr(65);`,
+		`<?php $s = $o->chr(65);`,
+	} {
+		joined, _ := joinConcatenated([]byte(in))
+		if joined != nil && !strings.Contains(string(joined), "chr(65)") {
+			t.Errorf("%q: the call was folded away: %s", in, joined)
+		}
+	}
+}
+
+func TestJoinKeepsAPlainChrFromForcingASecondPass(t *testing.T) {
+	// chr(10) is ordinary. Building a second view for it would double the
+	// work of a scan and find nothing.
+	raw := []byte(`<?php $eol = chr(13) . chr(10); echo $eol;`)
+	if joined, _ := joinConcatenated(raw); joined != nil && !strings.Contains(string(joined), "\r\n") {
+		t.Fatalf("unexpected view: %q", joined)
+	}
+}
