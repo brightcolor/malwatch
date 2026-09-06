@@ -101,6 +101,39 @@ Genau dafür gibt es den Fehlalarm-Korpus:
   `copy("zip://$path#$entry", …)` aus einem hochgeladenen Archiv. Die Regel
   greift jetzt nur noch, wenn die Adresse **fest verdrahtet** ist.
 
+## Was eine Prüfung durch fremde Augen zutage fördert
+
+Eine Durchsicht des Regelstands durch einen frischen Leser hat sieben Punkte
+gebracht, davon fünf Fehlalarme auf ehrlichem Code — jeder davon vor der
+Änderung nachgestellt:
+
+| ehrlicher Code | meldete |
+|---|---|
+| `require_once $paths['base'] . $paths['file']` | `php.include.assembled_path` |
+| `$leaf['version'] = $tree->version` | `php.tool.leaf_mailer` |
+| `$expected = '<hash>'; if (md5($_POST['pw']) === $expected)` | `php.webshell.hardcoded_gate` |
+| eine Klasse, die PHP schreibt, und eine, die `curl_exec` ruft | `php.obfuscation.split_open_tag` |
+| `// siehe zip://docs/readme.txt#abschnitt` | `php.stream.archive_url` |
+
+Für „fest verdrahteter Hash **und** Fähigkeit" brauchte es eine zweite
+unterstützende Bedingung je Regel; `Rule` hat dafür `AlsoRequires` bekommen.
+Zwei Bedingungen in ein Muster zu pressen ist genau das, was in der Runde davor
+NinjaFirewall als Webshell gemeldet hat.
+
+**Eine Regel ist ganz verschwunden.** `php.webshell.session_filehash_gate`
+suchte nach einem Sitzungsschlüssel aus dem Hash der eigenen Datei — was
+Sitzungsbibliotheken schlicht auch tun. Sie hat zweimal auf ehrlichem Code
+gefeuert und trug messbar **null** zur Erkennung bei: die Dateien, die sie fing,
+fängt `php.tool.leaf_mailer` beim Namen. Eine Regel, die nichts findet und
+Fehlalarme kostet, ist kein Kompromiss, sondern nur Schaden.
+
+**Und ein Fehler, den nur ein zweiter Leser findet:** ob der Zusammensetzer
+einen Heredoc überlebte, hing daran, ob dessen Rumpf eine *gerade* Anzahl
+Anführungszeichen enthielt. Bei ungerader Zahl blieb eine Zeichenkette bis zum
+Dateiende offen und der Sicherheitsausstieg griff; bei gerader wurde der Rumpf
+als Quelltext verschweißt. Eine README in einem Heredoc konnte damit den Namen
+erzeugen, nach dem die Regeln suchen.
+
 ## Zwei Lehren aus der ersten Runde
 
 **Die zusammengesetzte Sicht ist für Namen da, nicht für Daten.** Sie klebt auch

@@ -2,6 +2,59 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.6.1] – 2026-09-06
+
+### Behoben
+
+Sieben Punkte aus einer Durchsicht des Regelstands, fünf davon Fehlalarme auf
+ehrlichem Code. Jeder wurde vor der Änderung nachgestellt:
+
+- `php.include.assembled_path` meldete `require_once $paths['base'] . $paths['file']`.
+  Mindestens ein Index muss jetzt **gerechnet** sein — `$T[9+1]` ist die
+  Handschrift des Laders, zwei schlichte Indizes sind die eines Pfadbauers.
+- `php.tool.leaf_mailer` meldete jedes `$leaf['version']`. `$leaf` ist ein
+  gewöhnlicher Name in Baum-, Menü- und Taxonomie-Code; die beiden
+  Werkzeugnamen decken beide Varianten allein ab.
+- `php.webshell.hardcoded_gate` meldete ein kleines Anmeldetor mit fest
+  eingetragenem Hash. Die Datei muss den erschlichenen Zugang auch **nutzen**
+  können.
+- `php.obfuscation.split_open_tag` meldete eine Datei, die PHP erzeugt und
+  irgendwo auch `curl_exec` ruft. Der Lader **sucht** zusätzlich nach dem Tag in
+  dem, was er geholt hat; ein Erzeuger sucht nach nichts.
+- `php.stream.archive_url` meldete eine Archivadresse in einem Kommentar. Sie
+  muss in einer Zeichenkette stehen.
+- `php.in_image` und `php.in_uploads` fragten die zusammengesetzte Sicht, ob
+  eine Datei einen PHP-Tag trägt. Diese Sicht schweißt einen zusammen, und ein
+  zusammengeschweißter Tag wird nicht ausgeführt. Beide sind `RawOnly`.
+- `php.obfuscation.goto_spaghetti` ließ sich mit einem fehlenden Leerzeichen
+  hinter der Sprungmarke umgehen.
+
+**Heredocs und Nowdocs werden übersprungen.** Ob der Zusammensetzer einen
+überlebte, hing bisher daran, ob sein Rumpf eine gerade Anzahl
+Anführungszeichen enthielt; bei gerader wurde der Rumpf als Quelltext
+verschweißt. Eine README in einem Heredoc konnte damit den Namen erzeugen, nach
+dem die Regeln suchen.
+
+### Entfernt
+
+- `php.webshell.session_filehash_gate`. Ein Sitzungsschlüssel aus dem Hash der
+  eigenen Datei ist auch das, was Sitzungsbibliotheken tun: die Regel feuerte
+  auf CMS Made Simple, auf ein Sitzungsmodul und auf den Contao-Manager. Sie
+  trug messbar **null** zur Erkennung bei — was sie fing, fängt
+  `php.tool.leaf_mailer` beim Namen.
+
+### Geändert
+
+- `Rule` kennt `AlsoRequires`, eine zweite unterstützende Bedingung. Manche
+  Formen brauchen drei Aussagen über eine Datei, und zwei davon lassen sich
+  nicht in ein Muster schreiben.
+- Die zweite Sicht wird erst bei Bedarf gebaut, nicht vorab, und ihr Index ist
+  `int32`. Ein 2-MB-Archiv, auf das keine Regel zutrifft, zahlte vorher eine
+  Kopie und eine 12,8-MB-Landkarte — je Arbeiter.
+
+Erkennung unverändert: 215 von 217 Dateien aus dem Befallszeitraum, null
+Fehlalarme auf frischem WordPress und vier Websites im Betrieb.
+
 ## [0.6.0] – 2026-09-05
 
 ### Neu
