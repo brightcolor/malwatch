@@ -338,18 +338,6 @@ function malwatch_queue_quarantine_action($app, array $ids, $action)
 		return 'Keiner der ausgewählten Einträge wurde gefunden.';
 	}
 
-	if ($action === 'export') {
-		foreach ($valid as $entry) {
-			$options = array(
-				'action' => 'export',
-				'ids' => array($entry['entry_id']),
-				'token' => bin2hex(random_bytes(20)),
-			);
-			malwatch_insert_quarantine_job($app, $entry['server_id'], $options);
-		}
-		return count($valid);
-	}
-
 	$by_server = array();
 	foreach ($valid as $entry) {
 		if (!isset($by_server[$entry['server_id']])) {
@@ -357,8 +345,17 @@ function malwatch_queue_quarantine_action($app, array $ids, $action)
 		}
 		$by_server[$entry['server_id']][] = $entry['entry_id'];
 	}
+
 	foreach ($by_server as $server_id => $group_ids) {
-		malwatch_insert_quarantine_job($app, $server_id, array('action' => $action, 'ids' => $group_ids));
+		$options = array('action' => $action, 'ids' => $group_ids);
+		if ($action === 'export') {
+			// One ZIP for the whole selection, not one per entry. A job runs
+			// alone per server, so twenty single exports would be nineteen
+			// refusals and one download - and the operator asked for twenty
+			// files, not for twenty waits.
+			$options['token'] = bin2hex(random_bytes(20));
+		}
+		malwatch_insert_quarantine_job($app, $server_id, $options);
 	}
 	return count($valid);
 }

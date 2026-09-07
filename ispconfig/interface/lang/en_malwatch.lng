@@ -119,5 +119,5 @@ $wb['phase_scanning_txt'] = 'Checking files';
 $wb['phase_detect_txt'] = 'Detect';
 $wb['phase_fetch_txt'] = 'Fetch';
 $wb['phase_verify_txt'] = 'Verify';
-$wb['phase_backup_txt'] = 'Back up';
+$wb['phase_quarantine_txt'] = 'Move to quarantine';
 $wb['phase_swap_txt'] = 'Swap';

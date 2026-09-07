@@ -88,7 +88,7 @@ $app->tpl->newTemplate('form.tpl.htm');
 $app->tpl->setInclude('content_tpl', 'templates/malwatch_quarantine_list.htm');
 $app->tpl->setVar($wb);
 
-$totals = $app->db->queryOneRecord('SELECT COUNT(*) AS n, COALESCE(SUM(bytes),0) AS b FROM malwatch_quarantine');
+$totals = $app->db->queryOneRecord('SELECT COUNT(*) AS n, COALESCE(SUM(archive_bytes),0) AS b FROM malwatch_quarantine');
 $total_count = is_array($totals) ? $app->functions->intval($totals['n']) : 0;
 $total_bytes = is_array($totals) ? (float) $totals['b'] : 0.0;
 

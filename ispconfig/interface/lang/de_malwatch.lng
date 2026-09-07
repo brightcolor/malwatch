@@ -120,5 +120,5 @@ $wb['phase_scanning_txt'] = 'Dateien werden geprüft';
 $wb['phase_detect_txt'] = 'Erkennen';
 $wb['phase_fetch_txt'] = 'Holen';
 $wb['phase_verify_txt'] = 'Prüfen';
-$wb['phase_backup_txt'] = 'Sichern';
+$wb['phase_quarantine_txt'] = 'In Quarantäne legen';
 $wb['phase_swap_txt'] = 'Tauschen';
