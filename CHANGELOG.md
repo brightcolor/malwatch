@@ -2,6 +2,18 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.9.1] – 2026-09-07
+
+### Behoben
+
+**Der Knopf „Ansehen" auf der Statusseite führte bei jeder Website ins Leere.**
+Er hängte `?domain_id=` an, `malwatch_site_show.php` liest aber `$_REQUEST['id']`
+— es kam also 0 an, und die Seite antwortete „Ungültige Website." Die Fundliste
+machte es von jeher richtig; die neue Statusseite nicht. Keine der 33
+Verdrahtungsprüfungen sah es, weil beide Namen für sich betrachtet plausibel
+aussehen. Prüfung 34 hält jetzt fest, dass ein Verweis den Parameternamen
+benutzt, den die Zielseite liest.
+
 ## [0.9.0] – 2026-09-07
 
 ### Neu

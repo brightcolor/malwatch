@@ -550,6 +550,19 @@ if [ -f "$conf" ]; then
 	done
 fi
 
+
+# 34. Ein Verweis muss den Parameternamen benutzen, den die Zielseite liest.
+#     malwatch_site_show.php liest $_REQUEST['id']. Die Statusseite haengte
+#     domain_id= an, also kam dort 0 an und jede Website meldete
+#     "Ungueltige Website." - der Knopf "Ansehen" fuehrte bei jeder Website
+#     ins Leere, und keine der bis dahin 33 Pruefungen sah es, weil beide
+#     Namen fuer sich betrachtet plausibel aussehen.
+for tpl in "$root"/interface/templates/*.htm "$root"/interface/*.php; do
+	[ -f "$tpl" ] || continue
+	if grep -q 'malwatch_site_show\.php?domain_id=' "$tpl"; then
+		fail "$(basename "$tpl") verlinkt site_show mit domain_id=, die Seite liest id="
+	fi
+done
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'
 fi
