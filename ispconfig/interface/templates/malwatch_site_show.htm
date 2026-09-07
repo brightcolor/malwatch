@@ -116,6 +116,13 @@
 		var xhr = new XMLHttpRequest();
 		xhr.open('GET', 'security/malwatch_progress.php?job_id=' + jobId, true);
 		xhr.onload = function () {
+			// Dieselbe Zeile wie in poll() und wie in status.htm, und hier die
+			// wichtigste: zwischen dem Absenden und der Antwort kann der
+			// Bediener laengst weitergeklickt haben. Ohne die Pruefung ruft der
+			// Rueckruf unbedingt loadContent() auf, die spaeter aufloesende
+			// Navigation gewinnt, und er sitzt wieder auf der Detailseite -
+			// genau die Beschwerde, um die es hier geht.
+			if (!document.contains(box)) { stop(); return; }
 			var d;
 			try { d = JSON.parse(xhr.responseText); } catch (e) { stop(); return; }
 			draw(d);
