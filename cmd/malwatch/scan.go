@@ -139,14 +139,15 @@ func cmdScan(args []string) int {
 	pw.Phase(1, 1, "scan")
 
 	onTerminal := !*quiet && *out == "" && !*asJSON
-	// Der Erwartungswert kommt vom Panel und ist die Dateizahl des letzten
-	// Laufs derselben Website. Er kann danebenliegen - eine Website wächst -,
-	// und deshalb ist er eine Schätzung und keine Zusage. Wer ihn auswertet,
-	// deckelt bei 99 Prozent, bis der Lauf fertig meldet.
+	// Der Erwartungswert kommt vom Panel und ist die Zahl der Dateien, die der
+	// letzte Lauf derselben Website angesehen hat - geprüfte und übersprungene
+	// zusammen, dasselbe, was n hier zählt. Er kann danebenliegen - eine
+	// Website wächst -, und deshalb ist er eine Schätzung und keine Zusage.
+	// Wer ihn auswertet, deckelt bei 99 Prozent, bis der Lauf fertig meldet.
 	opts.Progress = func(n int64) {
 		pw.File("", int(n), *expect)
 		if onTerminal {
-			fmt.Fprintf(os.Stderr, "\r%d Dateien geprüft …", n)
+			fmt.Fprintf(os.Stderr, "\r%d Dateien durchgesehen …", n)
 		}
 	}
 
@@ -159,7 +160,7 @@ func cmdScan(args []string) int {
 	// der letzte Teilstapel. Bei kleinen Dateilisten ist das der ganze Lauf,
 	// und die Fortschrittsanzeige bleibt stehen, obwohl der Scan längst fertig ist.
 	if opts.Progress != nil {
-		opts.Progress(rep.Stats.FilesScanned)
+		opts.Progress(rep.Stats.FilesScanned + rep.Stats.FilesSkipped)
 	}
 	if onTerminal {
 		fmt.Fprint(os.Stderr, "\r                                   \r")

@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/brightcolor/malwatch/internal/clamav"
@@ -49,8 +50,18 @@ type Options struct {
 	// installed version without a verdict rather than guessing.
 	Offline bool
 
-	Progress func(scanned int64)
+	// Progress meldet, wie viele Dateien der Lauf bisher ANGESEHEN hat -
+	// geprüfte und übersprungene zusammen. Nicht nur die geprüften: bei
+	// eingeschaltetem Cache verfehlt ein zweiter Lauf über dieselbe Website
+	// fast jede Datei nicht, sondern trifft sie im Cache, und der Zähler der
+	// geprüften Dateien bliebe bei null stehen (siehe scanner_test.go). Der
+	// Nenner, den das Panel über --expect mitgibt, zählt dasselbe.
+	Progress func(considered int64)
 }
+
+// progressEvery ist der Abstand, in dem der Fortschritt gemeldet wird. Eine
+// Meldung je Datei wären hunderttausend Schreibvorgänge für einen Lauf.
+const progressEvery = 500
 
 // maxReadSize caps how much of one file is examined. A 300 MB log file has
 // nothing to say about malware and would stall a worker for seconds.
@@ -117,6 +128,32 @@ func scanFiles(rep *report.Report, opts *Options, sigDB *sigs.DB, engine *rules.
 	)
 	var wg sync.WaitGroup
 
+	// Gemeldet wird die Summe aus geprüften und übersprungenen Dateien, und
+	// zwar aus beiden Richtungen: aus den Arbeitern, die prüfen, und aus dem
+	// Lauf über den Baum, der überspringt. Ein warmer Lauf schickt kaum eine
+	// Datei an die Arbeiter - dann meldet nur noch der Baumlauf, und der Balken
+	// bewegt sich trotzdem. lastPublished ist die Drossel: gemeldet wird erst,
+	// wenn seit der letzten Meldung progressEvery Dateien dazugekommen sind.
+	// Das CompareAndSwap macht das zwischen den Arbeitern eindeutig, ein
+	// Modulo auf einen aus zwei Zählern gebildeten Wert wäre es nicht.
+	var lastPublished atomic.Int64
+	publish := func() {
+		if opts.Progress == nil {
+			return
+		}
+		n := counters.Files.Load() + counters.Skipped.Load()
+		for {
+			prev := lastPublished.Load()
+			if n-prev < progressEvery {
+				return
+			}
+			if lastPublished.CompareAndSwap(prev, n) {
+				break
+			}
+		}
+		opts.Progress(n)
+	}
+
 	for i := 0; i < opts.Threads; i++ {
 		wg.Add(1)
 		go func() {
@@ -133,11 +170,9 @@ func scanFiles(rep *report.Report, opts *Options, sigDB *sigs.DB, engine *rules.
 				if got == nil {
 					cache.MarkClean(j.file.Path, j.file.Size, j.file.MTime)
 				}
-				n := counters.Files.Add(1)
+				counters.Files.Add(1)
 				counters.Bytes.Add(j.file.Size)
-				if opts.Progress != nil && n%500 == 0 {
-					opts.Progress(n)
-				}
+				publish()
 			}
 		}()
 	}
@@ -154,12 +189,14 @@ func scanFiles(rep *report.Report, opts *Options, sigDB *sigs.DB, engine *rules.
 		err := walker.Walk(root, func(f walk.File) error {
 			if !interesting(f) {
 				counters.Skipped.Add(1)
+				publish()
 				return nil
 			}
 			if cache.IsClean(f.Path, f.Size, f.MTime) {
 				cache.Keep(f.Path)
 				counters.Skipped.Add(1)
 				rep.Stats.FilesCached++
+				publish()
 				return nil
 			}
 			jobs <- job{file: f}

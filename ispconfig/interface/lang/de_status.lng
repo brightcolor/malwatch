@@ -14,5 +14,5 @@ $wb['state_running_txt'] = 'Wird geprüft';
 $wb['findings_txt'] = '%s auffällige Dateien, davon %s dringend.';
 $wb['findings_one_txt'] = 'Eine auffällige Datei.';
 $wb['waiting_txt'] = 'Startet gleich …';
-$wb['progress_scanned_txt'] = '%s Dateien geprüft';
+$wb['progress_scanned_txt'] = '%s Dateien durchgesehen';
 $wb['progress_of_total_txt'] = '%s von %s Dateien';

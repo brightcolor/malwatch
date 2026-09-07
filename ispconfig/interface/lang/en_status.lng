@@ -14,5 +14,5 @@ $wb['state_running_txt'] = 'Being checked';
 $wb['findings_txt'] = '%s affected files, %s of them urgent.';
 $wb['findings_one_txt'] = 'One affected file.';
 $wb['waiting_txt'] = 'Starting soon …';
-$wb['progress_scanned_txt'] = '%s files scanned';
+$wb['progress_scanned_txt'] = '%s files examined';
 $wb['progress_of_total_txt'] = '%s of %s files';
