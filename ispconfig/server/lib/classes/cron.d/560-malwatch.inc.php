@@ -269,6 +269,16 @@ class cronjob_malwatch extends cronjob
 			}
 		}
 
+		// Diese drei bringen ihre eigene Bremse mit - der Spool wird nach
+		// Alter geräumt, Signaturen und Regelkatalog nach dem Alter ihrer
+		// Datei - und stehen deshalb vor der Stundensperre unten. Hinter ihr
+		// zeigte die Einstellungsseite nach einer frischen Installation bis
+		// zu eine Stunde lang „0 Prüfungen" neben jeder Möglichkeit, weil der
+		// Katalog noch leer war.
+		$this->clean_spool($config);
+		$this->refresh_signatures($config);
+		$this->refresh_rules($config);
+
 		// Only once an hour: the queries below scan whole tables and there is
 		// nothing to gain from running them every minute.
 		if (intval(date('i')) !== 7) {
@@ -299,11 +309,6 @@ class cronjob_malwatch extends cronjob
 		$app->dbmaster->query(
 			"DELETE FROM malwatch_finding WHERE finding_state = 'fixed' "
 			. 'AND last_seen < DATE_SUB(NOW(), INTERVAL 90 DAY)');
-
-		$this->clean_spool($config);
-
-		$this->refresh_signatures($config);
-		$this->refresh_rules($config);
 	}
 
 	/**
