@@ -148,6 +148,21 @@ var samples = []sample{
 		miss: `<?php if (function_exists('mb_stripos')) { $strlen = 'mb_strlen'; $substr = 'mb_substr'; } else { $strlen = 'strlen'; $substr = 'substr'; }`,
 	},
 	{
+		rule: "php.obfuscation.xor_literal", ext: "php", path: "/web/a.php",
+		// Verbatim from wp-includes/blocks/block/themes.php on a live site:
+		// 'gdigop' xor those three bytes is the word chr.
+		hit: "<?php $gdigop = /* ycliai */ 'gdigop' ^ '\x04\x0c\x1b'; $n = \"a\".\"r\".\"r\".$gdigop(97);",
+		// A caret near a multi-line string is not this. Written without the
+		// exception for tab and newline the rule reported 58 files of a fresh
+		// WordPress on exactly this shape.
+		miss: "<?php $sql = 'SELECT *\nFROM t'; $mask = 'a' ^ 'b'; echo $sql;",
+	},
+	{
+		rule: "php.obfuscation.substr_of_nothing", ext: "php", path: "/web/a.php",
+		hit:  `<?php function it1($cn2){ $el4=0; $pn5 = substr("", 0); while(1){ $pn5 .= $bt3[$cn2[$el4]]; $el4++; } }`,
+		miss: `<?php $short = substr($title, 0, 40); $rest = substr($body, 40);`,
+	},
+	{
 		rule: "php.obfuscation.chr_arithmetic", ext: "php", path: "/web/a.php",
 		// Verbatim from a live backdoor. chr_chain does not see it: the calls
 		// never stand six in a row, and the argument is a subtraction.

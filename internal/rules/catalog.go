@@ -195,6 +195,55 @@ var catalog = []*Rule{
 		Match: rx(`(?s)\$[a-zA-Z_]*[A-Z][a-zA-Z_0-9]*[A-Z]\w*\s*=\s*["']?(?:strlen|str_split|array_keys|array_values|str_replace|in_array|is_array|implode|explode|substr|strpos|strtolower|strrev|ord|chr|trim|count|sprintf)["']?\s*;.{0,400}?\$[a-zA-Z_]*[A-Z][a-zA-Z_0-9]*[A-Z]\w*\s*=\s*["']?(?:strlen|str_split|array_keys|array_values|str_replace|in_array|is_array|implode|explode|substr|strpos|strtolower|strrev|ord|chr|trim|count|sprintf)["']?\s*;`),
 	},
 	{
+		ID:          "php.obfuscation.xor_literal",
+		Severity:    report.SeverityHigh,
+		Description: "Funktionsname aus zwei Literalen verrechnet",
+		Exts:        phpExts,
+		// A payload writes the word chr without writing it:
+		//
+		//	$gdigop = 'gdigop' ^ "\x04\x0c\x1b";   // 'chr'
+		//	$name   = "a"."r"."r".$gdigop(97)."\171"."\137"…   // array_map
+		//
+		// PHP's ^ on two strings works byte by byte up to the shorter one, so
+		// any word can be spelled by XORing a decoy against a mask. The mask
+		// is what gives it away: to land on printable letters it has to hold
+		// bytes below space, and those have no business inside a literal that
+		// somebody typed.
+		//
+		// Tab, newline and carriage return are excluded. Written without that
+		// exception the pattern matched 58 files of a fresh WordPress and 213
+		// of a 193.888 file installation - any multi-line string next to a
+		// caret. With it: none in either, none on three customer sites, and
+		// five on the infected one, every one of them a payload.
+		//
+		// Not RawOnly on purpose. Written with raw bytes the first view sees
+		// it; written as "\x04\x0c\x1b" only the second view does, because
+		// that is where the escapes are resolved.
+		Match: rx(`["'][^"'\n]{1,24}["']\s*\^\s*["'][^"'\n]{0,24}[\x00-\x08\x0b\x0c\x0e-\x1f][^"'\n]{0,24}["']`),
+	},
+	{
+		ID:          "php.obfuscation.substr_of_nothing",
+		Severity:    report.SeverityHigh,
+		Description: "Leerstring umständlich erzeugt",
+		Exts:        phpExts,
+		// substr("", 0) is the empty string, written the long way round. It
+		// stands at the head of a decoder that builds names out of a scrambled
+		// alphabet:
+		//
+		//	$bt3 = "?MYsp<1c.h4y#*/UfndD6L[gP(F@ kuaEHjb]r't)m_iKelxNIov;AT";
+		//	while (1) { … $pn5 .= $bt3[$cn2[$el4]]; … }
+		//
+		// The table itself cannot be described here - "forty distinct
+		// characters in no particular order" is a property of the string, not
+		// a pattern in it - and the double subscript that reads it appears in
+		// 723 files of one honest installation. This tic does not: none in a
+		// fresh WordPress or Joomla, none on three customer sites, none in
+		// 193.888 files, and seven on the infected one. All seven carry the
+		// same decoder, one of them dropped into a plugin directory eight days
+		// after the directory around it was written.
+		Match: rx(`(?i)substr\s*\(\s*(?:""|'')\s*,`),
+	},
+	{
 		ID:          "php.obfuscation.chr_arithmetic",
 		Severity:    report.SeverityHigh,
 		Description: "Zeichencodes als Rechnung geschrieben",
