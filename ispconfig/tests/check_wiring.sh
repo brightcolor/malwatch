@@ -224,6 +224,12 @@ fi
 #     Ein Filter auf einen Wert aus der falschen Tabelle (z.B. scan_state = 'done',
 #     ein Wert aus malwatch_job.job_status) lässt die Abfrage stillschweigend
 #     leer laufen und kein --expect wird je angehängt.
+#     WICHTIG: Die nachfolgende Prüfung darf nicht in einer Pipe stehen, weil
+#     fail() dann in einer Subshell läuft und status=1 in der Hauptshell nicht
+#     wirkt. Das würde dazu führen, dass die Prüfung die Fehler zwar druckt, aber
+#     das Skript trotzdem mit Rückgabewert 0 endet — genau die Sorte Fehler,
+#     die sie fangen soll. Deshalb schreiben wir die Zeilen in eine temporäre
+#     Datei und lesen daraus.
 runner="$root/server/lib/classes/malwatch_runner.inc.php"
 if ! grep -q -- "--expect=" "$runner"; then
 	fail "der Runner reicht kein --expect durch, der Balken bleibt stehen"
@@ -241,29 +247,34 @@ if grep -q 'scan_state' "$runner"; then
 	# Entferne Anführungszeichen und erstelle eine Liste der gültigen Werte
 	valid_list=$(printf "%s" "$valid_enum" | sed "s/'//g" | sed "s/,/ /g")
 
-	# Extrahiere jeden quoted Wert nach scan_state aus dem Runner
-	# Das einfache Muster: suche nach scan_state und dann nach dem ersten quoted string
-	# um zu sehen, welchen Wert der Runner nutzt
-	grep 'scan_state' "$runner" | while read line; do
+	# Extrahiere jeden quoted Wert nach scan_state aus dem Runner.
+	# Speichere die Zeilen in eine temporäre Datei und lese aus der Datei,
+	# nicht aus einer Pipe — so läuft fail() in der Hauptshell.
+	tmp="/tmp/check_wiring_$$_scan_state"
+	grep 'scan_state' "$runner" > "$tmp" 2>/dev/null || true
+
+	while read line; do
 		# Entferne alles bis scan_state
 		after=$(printf "%s" "$line" | sed 's/^.*scan_state//')
 		# Extrahiere den ersten quoted Wert
 		first_val=$(printf "%s" "$after" | sed "s/[^']*'\([^']*\).*/\1/")
 
 		if [ -n "$first_val" ]; then
-			# Prüfe ob dieser Wert in der gültigen Liste ist
-			found=0
-			for v in $valid_list; do
-				if [ "$first_val" = "$v" ]; then
-					found=1
-					break
-				fi
-			done
-			if [ "$found" = "0" ]; then
-				fail "der Runner nutzt scan_state-Wert '$first_val', aber schema.sql kennt ihn nicht (gültig: $valid_list)"
-			fi
+			# Prüfe ob dieser Wert in der gültigen Liste ist.
+			# Die Leerzeichen ringsum verhindern, dass „clean" als Treffer
+			# für „cleanX" zählt.
+			case " $valid_list " in
+				*" $first_val "*)
+					# Wert ist gültig
+					;;
+				*)
+					# Wert ist ungültig
+					fail "der Runner nutzt scan_state-Wert '$first_val', aber schema.sql kennt ihn nicht (gültig: $valid_list)"
+					;;
+			esac
 		fi
-	done
+	done < "$tmp"
+	rm -f "$tmp"
 fi
 
 if [ "$status" -eq 0 ]; then
