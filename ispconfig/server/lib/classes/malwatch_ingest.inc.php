@@ -132,6 +132,46 @@ class malwatch_ingest
 				substr((string) (isset($element['message']) ? $element['message'] : ''), 0, 255));
 		}
 
+		// A repair alone never runs the quarantine binary, so nothing else
+		// would index what it archived. The next quarantine job's full-list
+		// sync (sync_quarantine) will find the same entry_id later and leave
+		// it alone - but only once such a job actually runs for this server.
+		foreach ((array) (isset($report['elements']) ? $report['elements'] : array()) as $element) {
+			$entry_id = isset($element['quarantine_id']) ? (string) $element['quarantine_id'] : '';
+			if ($entry_id === '') {
+				// Nothing was archived for this element - kept in place, or
+				// the run predates the field.
+				continue;
+			}
+			$existing = $app->dbmaster->queryOneRecord(
+				'SELECT quarantine_id FROM malwatch_quarantine WHERE server_id = ? AND entry_id = ?',
+				intval($job['server_id']), $entry_id);
+			if (is_array($existing)) {
+				continue;
+			}
+
+			$root = rtrim((string) $job['scan_path'], '/');
+			$abs = (string) (isset($element['path']) ? $element['path'] : '');
+			$rel_path = (strpos($abs, $root . '/') === 0) ? substr($abs, strlen($root) + 1) : $abs;
+
+			// The exact Reason string Store was called with never reaches
+			// this report - only the id it handed back does - but every
+			// element the run archived took one of these two sentences,
+			// keyed on the run's own mode.
+			$reason = ((string) (isset($report['mode']) ? $report['mode'] : '')) === 'overlay'
+				? 'Vor dem Darüberschreiben abgelegt'
+				: 'Beim Ersetzen durch das Original abgelegt';
+
+			$app->dbmaster->query(
+				'INSERT INTO malwatch_quarantine (sys_userid, sys_groupid, sys_perm_user, sys_perm_group, '
+				. 'sys_perm_other, server_id, parent_domain_id, domain, entry_id, entry_kind, rel_path, '
+				. "origin, reason, rule_id, severity, files, bytes, created_at) "
+				. "VALUES (1, ?, 'riud', 'r', '', ?, ?, ?, ?, 'dir', ?, 'repair', ?, '', '', ?, 0, ?)",
+				$sys_groupid, intval($job['server_id']), intval($job['parent_domain_id']), (string) $job['domain'],
+				$entry_id, $rel_path, $reason, intval(isset($element['files']) ? $element['files'] : 0),
+				$this->to_datetime(isset($report['finished_at']) ? $report['finished_at'] : ''));
+		}
+
 		$app->dbmaster->query(
 			"UPDATE malwatch_job SET job_status = 'done', finished_at = NOW() WHERE job_id = ?",
 			intval($job['job_id']));
@@ -139,21 +179,49 @@ class malwatch_ingest
 	}
 
 	/**
-	 * Marks the findings of the files a quarantine job removed as fixed.
+	 * Reads the result of a quarantine job and brings malwatch_quarantine
+	 * back in step with the store, then marks any findings it removed.
 	 *
-	 * The paths come from the job itself, not from the disk: the files are gone
-	 * by now, and their absence is exactly what makes them fixed.
+	 * The report is always the store's complete list, never a diff of what
+	 * this one job did (see sync_quarantine) - that is what lets the index
+	 * heal itself run after run, whichever job or operator made an entry
+	 * disappear.
 	 */
 	public function ingest_quarantine($job)
 	{
 		global $app;
 
 		$app->uses('malwatch_helper');
-		$options = json_decode((string) $job['options'], true);
-		$base = rtrim((string) $job['scan_path'], '/');
-		$removed = 0;
+		$helper = $app->malwatch_helper;
 
-		foreach ((array) (is_array($options) && isset($options['files']) ? $options['files'] : array()) as $rel) {
+		$file = (string) $job['result_file'];
+		if ($file === '' || !is_file($file)) {
+			$helper->fail_job($job['job_id'], 'Die Quarantäne hat keinen Bericht hinterlassen. '
+				. $this->tail_log($job));
+			return 0;
+		}
+
+		$report = json_decode((string) file_get_contents($file), true);
+		if (!is_array($report) || !isset($report['schema']) || intval($report['schema']) !== self::SCHEMA) {
+			$helper->fail_job($job['job_id'], 'Der Bericht ist unlesbar. ' . $this->tail_log($job));
+			return 0;
+		}
+
+		$entries = isset($report['entries']) && is_array($report['entries']) ? $report['entries'] : array();
+		$server_id = intval($job['server_id']);
+		$this->sync_quarantine($server_id, $entries);
+
+		$options = json_decode((string) $job['options'], true);
+		if (!is_array($options)) {
+			$options = array();
+		}
+
+		// Marking the finding fixed happens from the job itself, right away
+		// - otherwise a finding list left open would still show it until
+		// the next scheduled scan runs. Only an 'add' job ever populates
+		// options['files'], so this is a no-op for the other actions.
+		$base = rtrim((string) $job['scan_path'], '/');
+		foreach ((array) (isset($options['files']) ? $options['files'] : array()) as $rel) {
 			$full = $base . '/' . ltrim((string) $rel, '/');
 			if (is_file($full)) {
 				// Still there: the binary refused it or failed on it, and
@@ -164,13 +232,129 @@ class malwatch_ingest
 				"UPDATE malwatch_finding SET finding_state = 'fixed' WHERE parent_domain_id = ? "
 				. "AND file_path = ? AND finding_state IN ('open','ignored')",
 				intval($job['parent_domain_id']), $full);
-			$removed++;
+		}
+
+		$action = isset($options['action']) ? (string) $options['action'] : 'add';
+		if ($action === 'export') {
+			$this->finish_export($server_id, $options);
 		}
 
 		$app->dbmaster->query(
 			"UPDATE malwatch_job SET job_status = 'done', finished_at = NOW() WHERE job_id = ?",
 			intval($job['job_id']));
-		return $removed;
+		return count($entries);
+	}
+
+	/**
+	 * Brings malwatch_quarantine back in step with what the store actually
+	 * holds for one server.
+	 *
+	 * entries is always the store's complete list (see ingest_quarantine),
+	 * so an entry_id missing from it is gone regardless of which job took
+	 * it out - restore, delete, or an export that happened to run last. A
+	 * row already on file is left untouched: rewriting it here would throw
+	 * away an export_token a download link may still be waiting on.
+	 */
+	public function sync_quarantine($server_id, $entries)
+	{
+		global $app;
+
+		$server_id = intval($server_id);
+
+		$known = array();
+		$rows = $app->dbmaster->queryAllRecords(
+			'SELECT entry_id FROM malwatch_quarantine WHERE server_id = ?', $server_id);
+		if (is_array($rows)) {
+			foreach ($rows as $row) {
+				$known[(string) $row['entry_id']] = true;
+			}
+		}
+
+		$seen = array();
+		foreach ((array) $entries as $entry) {
+			$entry_id = isset($entry['id']) ? (string) $entry['id'] : '';
+			if ($entry_id === '') {
+				continue;
+			}
+			$seen[$entry_id] = true;
+
+			if (isset($known[$entry_id])) {
+				// Already indexed - left alone on purpose, see above.
+				continue;
+			}
+			$this->insert_quarantine_row($server_id, $entry);
+		}
+
+		foreach (array_keys($known) as $entry_id) {
+			if (!isset($seen[$entry_id])) {
+				$app->dbmaster->query(
+					'DELETE FROM malwatch_quarantine WHERE server_id = ? AND entry_id = ?',
+					$server_id, $entry_id);
+			}
+		}
+	}
+
+	/** Inserts one row from a store entry, as the scanner's report describes it. */
+	private function insert_quarantine_row($server_id, $entry)
+	{
+		global $app;
+
+		$domain = isset($entry['domain']) ? (string) $entry['domain'] : '';
+		// A miss here is not an error: the entry is still valid with
+		// parent_domain_id 0, just not click-through-able to a website.
+		$web = $domain !== '' ? $app->dbmaster->queryOneRecord(
+			'SELECT domain_id, sys_groupid FROM web_domain WHERE domain = ?', $domain) : null;
+		$parent_domain_id = is_array($web) ? intval($web['domain_id']) : 0;
+		$sys_groupid = is_array($web) ? intval($web['sys_groupid']) : 0;
+
+		$app->dbmaster->query(
+			'INSERT INTO malwatch_quarantine (sys_userid, sys_groupid, sys_perm_user, sys_perm_group, '
+			. 'sys_perm_other, server_id, parent_domain_id, domain, entry_id, entry_kind, rel_path, '
+			. 'origin, reason, rule_id, severity, files, bytes, created_at) '
+			. "VALUES (1, ?, 'riud', 'r', '', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+			$sys_groupid, $server_id, $parent_domain_id, $domain,
+			(string) (isset($entry['id']) ? $entry['id'] : ''),
+			(string) (isset($entry['entry_kind']) ? $entry['entry_kind'] : 'file'),
+			substr((string) (isset($entry['rel_path']) ? $entry['rel_path'] : ''), 0, 1024),
+			(string) (isset($entry['origin']) ? $entry['origin'] : 'manual'),
+			substr((string) (isset($entry['reason']) ? $entry['reason'] : ''), 0, 255),
+			(string) (isset($entry['rule_id']) ? $entry['rule_id'] : ''),
+			substr((string) (isset($entry['severity']) ? $entry['severity'] : ''), 0, 10),
+			intval(isset($entry['files']) ? $entry['files'] : 0),
+			intval(isset($entry['bytes']) ? $entry['bytes'] : 0),
+			$this->to_datetime(isset($entry['created_at']) ? $entry['created_at'] : ''));
+	}
+
+	/**
+	 * Records that an exported ZIP is ready to download.
+	 *
+	 * The token is the same one build_arguments() put into the file name -
+	 * this is the only place that needs to know the spool layout, so the
+	 * download page can work from the token alone and never see a path.
+	 */
+	private function finish_export($server_id, $options)
+	{
+		global $app;
+
+		$token = isset($options['token']) ? (string) $options['token'] : '';
+		$ids = isset($options['ids']) && is_array($options['ids']) ? $options['ids'] : array();
+		$entry_id = isset($ids[0]) ? (string) $ids[0] : '';
+		if ($token === '' || $entry_id === '') {
+			return;
+		}
+
+		$config = $app->malwatch_helper->get_config();
+		$zip = rtrim((string) $config['state_dir'], '/') . '/spool/' . $token . '.zip';
+		if (!is_file($zip)) {
+			// The scanner reported success but left no file behind - do not
+			// hand the download page a token nothing backs.
+			return;
+		}
+
+		$app->dbmaster->query(
+			'UPDATE malwatch_quarantine SET export_token = ?, export_bytes = ?, export_ready_at = NOW() '
+			. 'WHERE server_id = ? AND entry_id = ?',
+			$token, filesize($zip), $server_id, $entry_id);
 	}
 
 	private function store_scan($job, $report, $sys_groupid)

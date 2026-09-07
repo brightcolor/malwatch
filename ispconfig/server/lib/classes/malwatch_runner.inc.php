@@ -100,14 +100,27 @@ class malwatch_runner
 		}
 
 		if ($kind === 'repair') {
+			// Both switches take the same "unset or empty means the default"
+			// rule the CLI itself uses, so a job queued before an option
+			// existed still resolves to the old behaviour.
+			$mode = isset($options['mode']) && $options['mode'] !== '' ? (string) $options['mode'] : 'replace';
+			$no_original = isset($options['no_original']) && $options['no_original'] !== ''
+				? (string) $options['no_original'] : 'keep';
+
 			$repair = array(
 				'repair',
 				'--path=' . $path,
-				'--backup-dir=' . $state_dir . '/backups/' . $job['domain'],
-				'--progress=' . $progress,
-				'--json',
-				'--out=' . $result_file,
+				'--quarantine-dir=' . $state_dir . '/quarantine',
+				'--domain=' . $job['domain'],
+				'--mode=' . $mode,
+				'--no-original=' . $no_original,
 			);
+			foreach ((array) (isset($options['only']) ? $options['only'] : array()) as $only) {
+				$repair[] = '--only=' . $only;
+			}
+			$repair[] = '--progress=' . $progress;
+			$repair[] = '--json';
+			$repair[] = '--out=' . $result_file;
 			if (!empty($options['dry_run'])) {
 				$repair[] = '--dry-run';
 			}
@@ -115,16 +128,45 @@ class malwatch_runner
 		}
 
 		if ($kind === 'quarantine') {
+			// The action is the first, positional argument; add/restore/
+			// delete/export all still get --quarantine-dir, --json and
+			// --out, since every one of them ends by reporting the store's
+			// full list (see malwatch_ingest::sync_quarantine).
+			$action = isset($options['action']) && $options['action'] !== '' ? (string) $options['action'] : 'add';
 			$quarantine = array(
-				'quarantine',
-				'--path=' . $path,
-				'--backup-dir=' . $state_dir . '/backups/' . $job['domain'] . '/einzeln',
+				$action,
+				'--quarantine-dir=' . $state_dir . '/quarantine',
+				'--json',
+				'--out=' . $result_file,
 			);
-			// The paths were checked against malwatch_finding before the job
-			// was queued; the binary checks the boundary a second time.
-			foreach ((array) (isset($options['files']) ? $options['files'] : array()) as $rel) {
-				$quarantine[] = '--file=' . $rel;
+
+			if ($action === 'add') {
+				$quarantine[] = '--path=' . $path;
+				$quarantine[] = '--domain=' . $job['domain'];
+				$quarantine[] = '--origin=' . (isset($options['origin']) ? (string) $options['origin'] : 'manual');
+				$quarantine[] = '--reason=' . (isset($options['reason']) ? (string) $options['reason'] : '');
+				// The paths were checked against malwatch_finding before the job
+				// was queued; the binary checks the boundary a second time.
+				foreach ((array) (isset($options['files']) ? $options['files'] : array()) as $rel) {
+					$quarantine[] = '--file=' . $rel;
+				}
+				return $quarantine;
 			}
+
+			// restore, delete and export all act on entries the store
+			// already holds, named by the id it gave them - never by path.
+			foreach ((array) (isset($options['ids']) ? $options['ids'] : array()) as $id) {
+				$quarantine[] = '--id=' . $id;
+			}
+
+			if ($action === 'export') {
+				// The zip switch is deliberately not --out: --out is the JSON
+				// report on every action including this one, and reusing it
+				// for the archive would make the two overwrite each other.
+				$token = isset($options['token']) ? (string) $options['token'] : '';
+				$quarantine[] = '--zip=' . $state_dir . '/spool/' . $token . '.zip';
+			}
+
 			return $quarantine;
 		}
 
