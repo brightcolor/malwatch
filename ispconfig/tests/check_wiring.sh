@@ -283,9 +283,9 @@ conf="$root/interface/module.conf.php"
 if [ ! -f "$conf" ]; then
 	fail "interface/module.conf.php fehlt, das Modul erscheint nicht"
 else
-	for key in "module\['name'\]" "module\['title'\]" "module\['startpage'\]"; do
-		if ! grep -qE "\\\$$key" "$conf"; then
-			fail "module.conf.php setzt \$$key nicht"
+	for key in "name" "title" "startpage"; do
+		if ! grep -qE "\\\$module\['$key'\]" "$conf"; then
+			fail "module.conf.php setzt \$module['$key'] nicht"
 		fi
 	done
 fi

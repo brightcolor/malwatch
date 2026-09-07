@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Shared helpers for the malwatch pages in the Websites module.
+ * Shared helpers for the malwatch pages in the Security module.
  *
  * Plain functions rather than a class: ISPConfig loads interface pages
  * directly, and a class would have to be registered with $app->uses(), which

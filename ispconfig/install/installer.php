@@ -31,7 +31,7 @@ class malwatch_installer extends extension_installer_base
 			// the operator what to do. Failing hard here would leave a half
 			// installed extension behind.
 			$app->log('malwatch: the scanner binary could not be installed automatically. '
-				. 'Install it by hand and check the path under Websites > malwatch > Settings.', LOGLEVEL_WARN);
+				. 'Install it by hand and check the path in Security.', LOGLEVEL_WARN);
 		} else {
 			$this->update_signatures();
 		}

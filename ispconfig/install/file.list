@@ -5,10 +5,11 @@
 #   target relative to /usr/local/ispconfig.
 
 # --- Interface -------------------------------------------------------------
-# The extension does not add a module of its own. A module name would have to
-# be written into sys_user.modules for every operator, which means touching
-# core data. Instead the pages join the existing "sites" module through its
-# menu.d directory, which is the hook the 3.3 extension mechanism provides.
+# The extension adds its own Security module. Each operator must have the
+# module name written to sys_user.modules to see the section; the installer
+# does this automatically via grant_module(), avoiding the need to touch
+# core tables directly. This is cleaner than joining an existing module
+# through menu.d, because the module gets its own configuration file.
 #
 # Interface files are COPIED, not symlinked: the pages use ISPConfig's own
 # convention of relative includes (require_once '../../lib/config.inc.php'),
