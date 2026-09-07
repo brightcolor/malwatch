@@ -411,6 +411,14 @@ done < "$old_refs_file"
 
 rm -f "$old_refs_file"
 
+# 27. Der Endpunkt muss den Prozentwert deckeln. Der Erwartungswert ist die
+#     Dateizahl des letzten Laufs, und eine Website waechst dazwischen - ein
+#     Balken bei 140 Prozent ist schlimmer als einer ohne Prozentangabe.
+prog="$root/interface/malwatch_progress.php"
+if ! grep -q '99' "$prog"; then
+	fail "malwatch_progress.php deckelt den Prozentwert nicht bei 99"
+fi
+
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'
 fi

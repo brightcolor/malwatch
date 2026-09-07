@@ -49,21 +49,60 @@ if (!is_array($job)) {
 	exit;
 }
 
-$out = array(
-	'state' => (string) $job['job_status'],
-	'kind' => (string) $job['job_kind'],
-	'job_id' => $app->functions->intval($job['job_id']),
-	'domain_id' => $app->functions->intval($job['parent_domain_id']),
-);
+$state = (string) $job['job_status'];
 
 $config = malwatch_get_config($app);
-$file = rtrim((string) $config['state_dir'], '/') . '/runs/job-' . $out['job_id'] . '.progress';
+$file = rtrim((string) $config['state_dir'], '/') . '/runs/job-' . $app->functions->intval($job['job_id']) . '.progress';
 $raw = @file_get_contents($file);
+$progress = array();
 if ($raw !== false) {
 	$doc = json_decode($raw, true);
 	if (is_array($doc)) {
-		$out['progress'] = $doc;
+		$progress = $doc;
 	}
+}
+
+// Der Erwartungswert ist die Dateizahl des letzten Laufs derselben Website.
+// Eine Website waechst zwischen zwei Laeufen, also kann der Zaehler den
+// Erwartungswert ueberholen. Bis der Lauf "done" meldet, wird deshalb bei
+// 99 Prozent gedeckelt - ein Balken bei 140 Prozent ist schlimmer als einer
+// ohne Prozentangabe.
+$files_done  = isset($progress['files_done'])  ? intval($progress['files_done'])  : 0;
+$files_total = isset($progress['files_total']) ? intval($progress['files_total']) : 0;
+
+$percent = null;
+if ($files_total > 0) {
+	$percent = intval(floor($files_done * 100 / $files_total));
+	if ($percent > 99) {
+		$percent = 99;
+	}
+	if ($percent < 0) {
+		$percent = 0;
+	}
+}
+if ($state === 'done') {
+	$percent = 100;
+}
+
+// Ohne Nenner zaehlt die Anzeige nur - "71.240 Dateien geprueft" ist eine
+// ehrliche Aussage, eine erfundene Prozentzahl waere keine.
+$label = ($percent === null)
+	? number_format($files_done, 0, ',', '.') . ' Dateien geprüft'
+	: number_format($files_done, 0, ',', '.') . ' von '
+		. number_format($files_total, 0, ',', '.') . ' Dateien';
+
+$out = array(
+	'state' => $state,
+	'kind' => (string) $job['job_kind'],
+	'job_id' => $app->functions->intval($job['job_id']),
+	'domain_id' => $app->functions->intval($job['parent_domain_id']),
+	'percent'     => $percent,
+	'files_done'  => $files_done,
+	'files_total' => $files_total,
+	'label'       => $label,
+);
+if (isset($doc) && is_array($doc)) {
+	$out['progress'] = $doc;
 }
 
 echo json_encode($out);
