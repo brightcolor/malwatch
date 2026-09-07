@@ -486,17 +486,44 @@ function malwatch_status_rows($app)
 		$attention[] = $row;
 	}
 
+	$next = malwatch_next_run($app);
+
 	return array(
-		'attention'   => $attention,
-		'quiet_count' => $quiet,
-		'as_of'       => $newest ? malwatch_when($newest) : '—',
-		'next_run'    => 'heute Nacht um 03:00 Uhr',
+		'attention'      => $attention,
+		'quiet_count'    => $quiet,
+		'as_of'          => $newest ? malwatch_when($newest) : '—',
+		'next_run_state' => $next['state'],
+		'next_run'       => $next['when'],
 	);
 }
 
 /**
  * Ein Zeitpunkt so, wie ein Mensch ihn sagt: "heute 03:14 Uhr", "gestern
  * 21:12 Uhr", sonst "6. September, 21:12 Uhr".
+ *
+ * Gilt fuer Zeitpunkte in der Vergangenheit (as_of - ein Scan-Ende) genauso
+ * wie in der Zukunft (next_run - ein geplanter Lauf): "heute" und "gestern"
+ * brauchen dafuer beide eine obere Grenze. Ohne sie prueft "heute" nur
+ * "$stamp >= Mitternacht heute", was fuer einen ausschliesslich in der
+ * Vergangenheit liegenden Zeitpunkt (der nie nach "jetzt" liegen kann)
+ * zufaellig richtig war, aber jeden kuenftigen Zeitpunkt - auch naechste
+ * Woche oder naechsten Monat - ebenfalls "heute" nennen wuerde.
+ *
+ * Bleibt absichtlich bei deutschen Wortbestandteilen ("heute", "gestern",
+ * den Monatsnamen, "Uhr"), unabhaengig von der Sprache des Bedieners - das
+ * ist kein Versehen. Der Rueckgabewert dieser Funktion steckt bereits seit
+ * dem vorigen Bündel unveraendert in as_of_txt und erscheint dort auch auf
+ * der englischen Oberflaeche; next_run tritt dieser bestehenden Abweichung
+ * lediglich bei, statt eine neue zu schaffen. Eine echte Uebersetzung ist
+ * kein Ersetzen einzelner Woerter: die Monatsnamen muessten in beide
+ * Sprachdateien wandern, "Uhr" hat im Englischen keine Entsprechung
+ * ("3:14 PM", nicht "3:14 PM o'clock"), und die dritte Form dreht die
+ * Reihenfolge von Tag/Monat auf Monat/Tag um ("6. September" gegenueber
+ * "September 6") - das ist ein Umbau der Funktionslogik, nicht nur ihrer
+ * Zeichenketten, und damit ausserhalb dessen, was diese Aenderung beheben
+ * soll: next_run war falsch (ein erfundenes 03:00 Uhr), nicht unuebersetzt.
+ * Wer das fuer die englische Oberflaeche vervollstaendigen will, sollte
+ * as_of gleich mit erledigen - beide teilen sich diese Funktion.
  */
 function malwatch_when($stamp)
 {
@@ -504,11 +531,64 @@ function malwatch_when($stamp)
 		'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember');
 	$heute  = strtotime('today');
 	$zeit   = date('H:i', $stamp) . ' Uhr';
-	if ($stamp >= $heute) {
+	if ($stamp >= $heute && $stamp < $heute + 86400) {
 		return 'heute ' . $zeit;
 	}
-	if ($stamp >= $heute - 86400) {
+	if ($stamp >= $heute - 86400 && $stamp < $heute) {
 		return 'gestern ' . $zeit;
 	}
 	return intval(date('j', $stamp)) . '. ' . $monate[intval(date('n', $stamp))] . ', ' . $zeit;
+}
+
+/**
+ * Der naechste anstehende Lauf ueber alle Websites - oder der Grund, warum
+ * es keinen gibt.
+ *
+ * Es gibt keine feste Uhrzeit: next_run gehoert der einzelnen Website
+ * (malwatch_site.next_run), jede hat ihren eigenen schedule, und der Cron
+ * (server/lib/classes/cron.d/560-malwatch.inc.php, '* * * * *') greift jede
+ * Minute auf, was faellig ist. Der richtige Wert ist deshalb das Minimum von
+ * next_run ueber alle Websites, deren schedule nicht 'off' ist - aber nur
+ * unter denen, die tatsaechlich noch in der Zukunft liegen.
+ *
+ * Liefert ein Array mit 'state' und 'when':
+ *   - 'scheduled': 'when' ist ein mit malwatch_when() formatierter Zeitpunkt.
+ *   - 'due': ein Zeitplan ist eingeschaltet, aber sein faelliger Zeitpunkt
+ *     liegt nicht (mehr) in der Zukunft. Das deckt zwei Faelle ab, die von
+ *     hier aus nicht zu unterscheiden sind: eine Website, die gerade erst
+ *     eingeschaltet wurde (next_run steht auf NOW(), siehe scheduleNextRun()
+ *     in malwatch_site_edit.php) und binnen einer Minute vom naechsten
+ *     Cron-Tick abgeholt wird - der Normalfall - oder ein Cron, der laenger
+ *     nicht lief. Eine erfundene Uhrzeit waere in beiden Faellen falsch
+ *     ("gestern 03:00 Uhr" fuer etwas, das die Seite als kuenftig
+ *     ankuendigt); 'due' behauptet nur, dass eine Pruefung ansteht, nicht
+ *     wann - keine Diagnose, nur eine ehrliche Aussage ueber die Tabelle.
+ *   - 'none': keine Website hat ueberhaupt einen Zeitplan (alle 'off', oder
+ *     die Tabelle ist leer). Anders als 'due' behauptet das nicht, dass
+ *     gleich etwas passiert.
+ *
+ * Absichtlich nicht auf web_domain.active gefiltert: eine abgeschaltete
+ * Website mit noch laufendem Zeitplan wuerde ihren next_run zwar erreichen,
+ * aber ohne Scan - der Cron schiebt next_run in diesem Fall nur weiter
+ * (queue_due_scans() in 560-malwatch.inc.php). Ob so eine Website hier
+ * mitzaehlen soll, ist eine dritte Frage, die der Auftrag fuer diese
+ * Aenderung nicht stellt; siehe Bericht.
+ */
+function malwatch_next_run($app)
+{
+	$upcoming = $app->db->queryOneRecord(
+		"SELECT MIN(next_run) AS next_run FROM malwatch_site WHERE schedule != 'off' AND next_run > NOW()");
+	if (is_array($upcoming) && !empty($upcoming['next_run'])) {
+		$stamp = strtotime($upcoming['next_run']);
+		if ($stamp !== false && $stamp > 0) {
+			return array('state' => 'scheduled', 'when' => malwatch_when($stamp));
+		}
+	}
+
+	$any = $app->db->queryOneRecord("SELECT site_id FROM malwatch_site WHERE schedule != 'off' LIMIT 1");
+	if (is_array($any)) {
+		return array('state' => 'due', 'when' => '');
+	}
+
+	return array('state' => 'none', 'when' => '');
 }

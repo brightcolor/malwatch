@@ -55,11 +55,24 @@ if ($rows['quiet_count'] === 1) {
 	$app->tpl->setVar('quiet_txt', sprintf($wb['quiet_txt'], number_format($rows['quiet_count'], 0, ',', '.')));
 }
 
-// as_of_txt traegt zwei Platzhalter: den Stand und den naechsten Lauf. Beide
-// kamen bisher als eigene, unformatierte tmpl_var an - die Vorlage zeigte
-// "as_of" roh an, "next_run" ueberhaupt nicht. Jetzt liefert eine einzige
-// sprintf-Zeile den ganzen Satz, wie bei findings_line oben.
-$app->tpl->setVar('as_of_txt', sprintf($wb['as_of_txt'], $rows['as_of'], $rows['next_run']));
+// as_of_txt hat drei Fassungen, je nachdem, was malwatch_next_run() (in
+// malwatch_lib.inc.php) als next_run_state ermittelt hat. 'scheduled' ist
+// der Normalfall: as_of_txt traegt zwei Platzhalter, Stand und naechster
+// Lauf, wie bei findings_line oben per sprintf gefuellt. 'due' und 'none'
+// haben keine Uhrzeit zum Einsetzen - eine Website kann faellig sein, ohne
+// dass die Seite weiss, wann sie tatsaechlich laeuft, und wenn ueberhaupt
+// nichts geplant ist, gibt es keinen Zeitpunkt zu nennen. Beide haben
+// deshalb ihren eigenen, vollstaendigen Satz mit nur einem Platzhalter
+// (as_of_due_txt / as_of_none_txt) statt eines erfundenen oder leeren
+// zweiten Werts fuer as_of_txt.
+if ($rows['next_run_state'] === 'scheduled') {
+	$as_of_txt = sprintf($wb['as_of_txt'], $rows['as_of'], $rows['next_run']);
+} elseif ($rows['next_run_state'] === 'due') {
+	$as_of_txt = sprintf($wb['as_of_due_txt'], $rows['as_of']);
+} else {
+	$as_of_txt = sprintf($wb['as_of_none_txt'], $rows['as_of']);
+}
+$app->tpl->setVar('as_of_txt', $as_of_txt);
 
 $app->tpl_defaults();
 $app->tpl->pparse();
