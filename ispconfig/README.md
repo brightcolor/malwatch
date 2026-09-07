@@ -1,8 +1,8 @@
 # malwatch für ISPConfig
 
-Addon nach der Extension-Struktur von ISPConfig 3.3. Es fügt dem Modul
-**Websites** einen Bereich hinzu, in dem Websites geprüft, Funde nachgelesen
-und Zeitpläne mit Aktionen hinterlegt werden.
+Addon nach der Extension-Struktur von ISPConfig 3.3. Es bringt einen
+**eigenen Bereich „Security"** in der oberen Leiste, in dem Websites geprüft,
+Funde nachgelesen und Zeitpläne mit Aktionen hinterlegt werden.
 
 ## Voraussetzungen
 

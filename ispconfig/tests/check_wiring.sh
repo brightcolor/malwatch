@@ -309,7 +309,8 @@ if grep -q 'menu.d/malwatch.menu.php' "$root/install/file.list"; then
 fi
 
 # 26. Nach dem Umzug darf nirgends mehr Code oder Benutzertexte auf sites/
-#     zeigen: weder in check_module_permissions('sites') noch in Pfaden wie
+#     zeigen: weder in check_module_permissions('sites') noch in Modulnamen
+#     wie $_SESSION['s']['module']['name'] = 'sites', noch in Pfaden wie
 #     web/sites/ noch in Meldungen wie "Websites > malwatch". Historische
 #     Kommentare, die erklären WARUM es früher so war, sind ok - sie helfen,
 #     den Kontext zu verstehen, nennen aber keinem Benutzer einen Weg zum Gehen.
@@ -324,22 +325,32 @@ rm -f "$old_refs_file"
 
 # Suchmuster, die auf den alten Ort zeigen:
 # 1. check_module_permissions mit 'sites' oder "sites"
-# 2. Benutzer-lesbarer Text "Websites > malwatch" oder "web/sites/"
-# 3. Direkter Pfad sites/malwatch oder web/sites/
+# 2. Modulnamens-Wert als 'sites' oder "sites" in $_SESSION['s']['module']['name']
+# 3. 'sites' in der modules-Liste (z.B. 'modules' => '...sites...')
+# 4. 'sites' in startmodule-Wert (z.B. 'startmodule' => 'sites')
+# 5. Benutzer-lesbarer Text "Websites > malwatch" oder "web/sites/"
+# 6. Direkter Pfad sites/malwatch oder web/sites/
 #
 # Schließe die check_wiring.sh Datei selbst aus (sie beschreibt in Kommentaren,
 # was sie sucht, und würde sich selbst finden).
+# Schließe auch SQL-Kontexte aus wie "COUNT(*) FROM malwatch_site AS sites".
 
 grep -rn \
 	-e "check_module_permissions('sites')" \
 	-e 'check_module_permissions("sites")' \
+	-e "'name' *=> *'sites'" \
+	-e '"name" *=> *"sites"' \
+	-e "'modules' *=> *'[^']*sites" \
+	-e '"modules" *=> *"[^"]*sites' \
+	-e "'startmodule' *=> *'sites'" \
+	-e '"startmodule" *=> *"sites"' \
 	-e "Websites > malwatch" \
 	-e "Websites.*module" \
 	-e "interface/web/sites" \
 	-e "web/sites/" \
 	-e "sites/malwatch" \
 	"$root" \
-	2>/dev/null | grep -v "^Binary" | grep -v "check_wiring.sh" > "$old_refs_file" || true
+	2>/dev/null | grep -v "^Binary" | grep -v "check_wiring.sh" | grep -v "AS sites" > "$old_refs_file" || true
 
 # Lese die Treffer und prüfe, ob sie Benutzertexte oder aktiven Code sind.
 # Kommentare und historische Erklärungen sind ok - Benutzertexte nicht.
@@ -352,15 +363,27 @@ while read line; do
 	stripped=$(printf "%s" "$content" | sed 's/^[[:space:]]*//g')
 
 	# Ein Treffer ist ok, wenn die Zeile historischen Kontext gibt.
-	# Das tut sie, wenn sie Wörter wie "früher", "alt", "historisch", "before",
-	# "previously" enthält. Das funktioniert für Kommentare (// früher) und für
-	# Markdown/Fließtext (Früher hing...).
+	# Das tut sie, wenn sie GANZE WÖRTER wie "früher", "alt", "historisch",
+	# "before", "previously" enthält (keine Teilstrings wie "alt" in "Verwaltung").
+	# Nutze Wort-Grenzen (\b ist in grep -E verfügbar).
 	case "$content" in
-		*früher*|*Früher*|*alt*|*Alt*|*historisch*|*previously*|*before*)
+		*" früher "*|*" Früher "*|*" alt "*|*" Alt "*|*" historisch "*|*" previously "*|*" before "*)
 			# Historischer Kontext - ok
 			continue
 			;;
 	esac
+
+	# Zusätzlich: prüfe mit grep auf Wort-Grenzen für diese Wörter
+	if printf "%s" "$content" | grep -qE '(^|[^a-zA-Z])(früher|Früher|historisch|previously|before)([^a-zA-Z]|$)'; then
+		# Historischer Kontext mit Wort-Grenzen - ok
+		continue
+	fi
+
+	# Prüfe auch auf "alt" oder "Alt" als GANZES WORT (z.B. nicht in "Verwaltung")
+	if printf "%s" "$content" | grep -qE '(^|[^a-zA-ZäöüßÄÖÜ])(alt|Alt)([^a-zA-ZäöüßÄÖÜ]|$)'; then
+		# Historisches "alt" als ganzes Wort - ok
+		continue
+	fi
 
 	# Ansonsten: Das ist aktiver Code oder ein Benutzertext, der einen alten
 	# Ort nennt - unerlaubt.
