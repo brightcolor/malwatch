@@ -35,14 +35,27 @@ $wb['count_findings_txt'] = 'Open findings';
 $wb['last_signature_update_txt'] = 'Signatures';
 
 $wb['auto_head_txt'] = 'What should the nightly scans do on their own?';
-$wb['auto_intro_txt'] = 'Anything moved automatically is backed up first and can be restored at any time. You get an email with the list.';
+// Used to say "You get an email with the list." unconditionally. It is only
+// sent when the website is set to notify AND the worst new finding reaches
+// that website's severity level (default: high) - see
+// malwatch_actions::run(). The sentence sits on the very screen where it is
+// decided whether files disappear on their own at night.
+$wb['auto_intro_txt'] = 'Anything moved automatically is backed up first and can be restored at any time. You get an email with the list when the website concerned is set to notify you and the finding reaches the level set there. The list is in quarantine either way.';
 $wb['auto_scope_txt'] = 'Applies to findings that are newly added. What is already on the list stays put - you have seen it and left it there.';
 
 $wb['auto_none_name_txt'] = 'Leave everything alone';
 $wb['auto_none_desc_txt'] = 'Only report. Every file waits for you to decide. The safest setting - and the one where a backdoor stays reachable for as long as it takes you to look.';
 $wb['auto_safe_name_txt'] = 'Remove unambiguous malware';
 $wb['auto_safe_tag_txt'] = 'recommended';
-$wb['auto_safe_desc_txt'] = 'Only the findings that leave nothing to decide: backdoors, downloaders, obfuscated function names. These checks have not produced a single false positive across more than 200,000 clean files.';
+// Used to say "These checks have not produced a single false positive across
+// more than 200,000 clean files." Two inaccuracies, both in the sentence's
+// own favour: 193,888 files were measured, and the measurement covers the
+// two biggest of these checks, not all of the ones the line below counts as
+// "%s of %s checks". The sentence now names both. It still does not compare
+// itself with "Remove everything critical": neither set contains the other
+// (767 against 472 out of 1511 open found files, measured on the live
+// system).
+$wb['auto_safe_desc_txt'] = 'Only the findings that leave nothing to decide: backdoors, downloaders, obfuscated function names. The two most common of these checks ran across 193,888 clean files without a single false positive.';
 $wb['auto_critical_name_txt'] = 'Remove everything critical';
 // Used to say "catches more [than unambiguous malware]" - a measurement
 // against real findings disproves that (see progress.md): auto_safe is not
@@ -58,7 +71,10 @@ $wb['preset_new_hint_txt'] = 'Save the selection under a name first - only then 
 $wb['rule_finding_count_txt'] = '%s findings';
 $wb['show_all_rules_txt'] = 'Show all %s';
 $wb['preset_name_label_txt'] = 'Name of the selection';
-$wb['btn_save_preset_txt'] = 'Save';
+// Two buttons on one page that save different things: this one creates the
+// selection, btn_save_txt further down stores the settings. Both read
+// "Save".
+$wb['btn_save_preset_txt'] = 'Save this selection';
 $wb['btn_apply_txt'] = 'Apply';
 $wb['apply_hint_txt'] = 'Takes effect from the next nightly run onward.';
 $wb['err_preset_name_empty_txt'] = 'Please give the selection a name.';
@@ -83,5 +99,5 @@ $wb['max_parallel_error_range'] = 'The number of concurrent scans must be betwee
 $wb['job_timeout_error_range'] = 'The abort time must be between 1 and 168 hours.';
 $wb['keep_scans_error_range'] = 'The number of kept scans must be between 1 and 1000.';
 
-$wb['btn_save_txt'] = 'Save';
+$wb['btn_save_txt'] = 'Save settings';
 $wb['btn_cancel_txt'] = 'Cancel';

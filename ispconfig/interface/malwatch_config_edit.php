@@ -63,21 +63,42 @@ class page_action extends tform_actions
 
 		// save_preset and apply_existing are not tform fields - the first
 		// inserts a malwatch_auto_preset row, the second reads
-		// malwatch_finding and queues quarantine jobs. Handled here, ahead
-		// of parent::onLoad(), so tform never attempts a field-by-field save
-		// for either: the "Übernehmen" button (no malwatch_action) is the
-		// only path that still reaches it, exactly as before this block
-		// existed.
+		// malwatch_finding and queues quarantine jobs. Both are handled here,
+		// ahead of parent::onLoad(), because tform has no field to hang them
+		// on.
+		//
+		// What this block must not do is return. It used to end in
+		// $this->onShow() and skip parent::onLoad() entirely, and that cost
+		// two things. loadFormDef() never ran, so onShowEdit() went on to
+		// $app->tform->getHTML() over a form definition that had never been
+		// loaded. And tform never saved: a settings field the operator had
+		// just edited - "Abbruch nach Stunden" from 6 to 12 - was thrown away
+		// without a word by a click on a button that says it saves something.
+		// Falling through to parent::onLoad() does both jobs in one request.
+		//
+		// next_tab is what keeps tform_actions::onUpdate() from redirecting to
+		// status.php once the save went through; it only redirects when
+		// next_tab is empty. Without it the message set further down would be
+		// written onto a page nobody ever sees. The form has exactly one tab,
+		// so naming it changes nothing else.
+		//
+		// The token is checked here and only here: auth::csrf_token_check()
+		// consumes the token it just accepted, and tform_actions runs no check
+		// of its own - a second call in the same request would answer a
+		// perfectly valid POST with "CSRF attempt blocked".
 		if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['malwatch_action']) && $_POST['malwatch_action'] !== '') {
 			$app->auth->csrf_token_check('POST');
 			$action = (string) $_POST['malwatch_action'];
 			if ($action === 'save_preset') {
 				$this->handle_save_preset($wb);
 			} elseif ($action === 'apply_existing') {
+				// Runs before the save below, not after: the number in the
+				// confirmation the operator just agreed to was counted from
+				// the setting as it stands, and the sweep has to cover that
+				// same set - not one being changed in the very same click.
 				$this->handle_apply_existing($wb);
 			}
-			$this->onShow();
-			return;
+			$_REQUEST['next_tab'] = 'settings';
 		}
 
 		parent::onLoad();
@@ -216,6 +237,17 @@ class page_action extends tform_actions
 		}
 
 		parent::onBeforeUpdate();
+	}
+
+	public function onAfterUpdate()
+	{
+		global $app;
+
+		// The extension never creates a second settings row. Guarding here
+		// keeps a stray insert from producing two rows the server would then
+		// read at random.
+		$app->db->query('DELETE FROM malwatch_config WHERE config_id != 1');
+		parent::onAfterUpdate();
 	}
 
 	public function onShowEnd()

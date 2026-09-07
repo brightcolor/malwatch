@@ -35,14 +35,27 @@ $wb['count_findings_txt'] = 'Offene Funde';
 $wb['last_signature_update_txt'] = 'Signaturen';
 
 $wb['auto_head_txt'] = 'Was soll bei den nächtlichen Prüfungen automatisch passieren?';
-$wb['auto_intro_txt'] = 'Alles, was automatisch verschoben wird, wird vorher gesichert und lässt sich jederzeit zurückholen. Sie bekommen eine E-Mail mit der Liste.';
+// Frueher stand hier unbedingt "Sie bekommen eine E-Mail mit der Liste.".
+// Verschickt wird sie nur, wenn die Website auf Benachrichtigung steht UND
+// der schlimmste neue Fund deren Stufe erreicht (Vorgabe: hoch) - siehe
+// malwatch_actions::run(). Der Satz stand auf genau dem Bildschirm, auf dem
+// entschieden wird, ob nachts von allein Dateien verschwinden.
+$wb['auto_intro_txt'] = 'Alles, was automatisch verschoben wird, wird vorher gesichert und lässt sich jederzeit zurückholen. Eine E-Mail mit der Liste bekommen Sie, wenn die betroffene Website auf Benachrichtigung eingestellt ist und der Fund deren Stufe erreicht. In der Quarantäne steht die Liste in jedem Fall.';
 $wb['auto_scope_txt'] = 'Gilt für Funde, die neu hinzukommen. Was schon in der Liste steht, bleibt liegen — das haben Sie gesehen und stehen gelassen.';
 
 $wb['auto_none_name_txt'] = 'Nichts anfassen';
 $wb['auto_none_desc_txt'] = 'Nur melden. Jede Datei wartet darauf, dass Sie entscheiden. Die sicherste Einstellung — und die, bei der eine Hintertür so lange erreichbar bleibt, bis Sie hinsehen.';
 $wb['auto_safe_name_txt'] = 'Eindeutige Schädlinge entfernen';
 $wb['auto_safe_tag_txt'] = 'empfohlen';
-$wb['auto_safe_desc_txt'] = 'Nur die Funde, bei denen es nichts zu entscheiden gibt: Hintertüren, Nachlader, verschleierte Funktionsnamen. Diese Prüfungen haben in über 200.000 unbescholtenen Dateien keinen einzigen Fehlalarm erzeugt.';
+// Frueher: "Diese Pruefungen haben in ueber 200.000 unbescholtenen Dateien
+// keinen einzigen Fehlalarm erzeugt." Zwei Ungenauigkeiten, beide zugunsten
+// des Satzes: gemessen wurden 193.888 Dateien, und die Messung deckt die zwei
+// groessten dieser Pruefungen ab, nicht alle, die die Zeile darunter als
+// "%s von %s Pruefungen" zaehlt. Der Satz nennt jetzt beides beim Namen. Er
+// vergleicht sich weiterhin nicht mit "Alles Kritische entfernen": keine der
+// beiden Mengen enthaelt die andere (767 gegenueber 472 von 1511 offenen
+// Funddateien auf dem Livesystem gemessen).
+$wb['auto_safe_desc_txt'] = 'Nur die Funde, bei denen es nichts zu entscheiden gibt: Hintertüren, Nachlader, verschleierte Funktionsnamen. Die beiden häufigsten dieser Prüfungen liefen über 193.888 unbescholtene Dateien, ohne einen einzigen Fehlalarm.';
 $wb['auto_critical_name_txt'] = 'Alles Kritische entfernen';
 // Frueher stand hier "erwischt mehr [als eindeutige Schaedlinge]" - eine
 // Messung gegen echte Funde widerlegt das (siehe progress.md): auto_safe ist
@@ -59,7 +72,10 @@ $wb['preset_new_hint_txt'] = 'Speichern Sie die Auswahl unter einem Namen — er
 $wb['rule_finding_count_txt'] = '%s Funde';
 $wb['show_all_rules_txt'] = 'Alle %s anzeigen';
 $wb['preset_name_label_txt'] = 'Name der Zusammenstellung';
-$wb['btn_save_preset_txt'] = 'Speichern';
+// Zwei Knoepfe auf einer Seite, die Verschiedenes speichern: dieser legt die
+// Zusammenstellung an, btn_save_txt weiter unten sichert die Einstellungen.
+// Beide hiessen "Speichern".
+$wb['btn_save_preset_txt'] = 'Zusammenstellung speichern';
 $wb['btn_apply_txt'] = 'Übernehmen';
 $wb['apply_hint_txt'] = 'Gilt ab dem nächsten nächtlichen Lauf.';
 $wb['err_preset_name_empty_txt'] = 'Bitte geben Sie einen Namen für die Zusammenstellung an.';
@@ -84,5 +100,5 @@ $wb['max_parallel_error_range'] = 'Die Zahl gleichzeitiger Prüfungen muss zwisc
 $wb['job_timeout_error_range'] = 'Die Abbruchzeit muss zwischen 1 und 168 Stunden liegen.';
 $wb['keep_scans_error_range'] = 'Die Zahl aufbewahrter Prüfläufe muss zwischen 1 und 1000 liegen.';
 
-$wb['btn_save_txt'] = 'Speichern';
+$wb['btn_save_txt'] = 'Einstellungen speichern';
 $wb['btn_cancel_txt'] = 'Abbrechen';
