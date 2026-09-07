@@ -21,4 +21,14 @@ Was Sie tun sollten:
 3. Spielen Sie eine Sicherung von einem Zeitpunkt vor dem Befall zurück oder
    lassen Sie die betroffenen Dateien entfernen.
 
+{quarantine_block}
+{quarantine_count} der betroffenen Datei(en) wurden bereits automatisch in die
+Quarantäne verschoben, gesichert und unangetastet:
+
+{quarantine}
+
+Gelöscht ist nichts davon. Falls Sie eine dieser Dateien zurückbrauchen,
+wenden Sie sich an uns.
+
+{/quarantine_block}
 Bei Fragen wenden Sie sich bitte an uns.

@@ -14,4 +14,13 @@ New findings:
 
 {findings}
 
+{quarantine_block}
+Automatically moved to quarantine ({quarantine_count} file(s)):
+
+{quarantine}
+
+The originals are now held, unaltered, in this website's quarantine. You can
+restore them from the ISPConfig panel under Security > Quarantine.
+
+{/quarantine_block}
 The full list is in the ISPConfig panel under Security.

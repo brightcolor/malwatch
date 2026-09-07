@@ -14,4 +14,13 @@ Neue Funde:
 
 {findings}
 
+{quarantine_block}
+Automatisch in die Quarantäne verschoben ({quarantine_count} Datei(en)):
+
+{quarantine}
+
+Die Originale liegen jetzt gesichert in der Quarantäne dieser Website.
+Zurückholen können Sie sie im ISPConfig-Panel unter Security > Quarantäne.
+
+{/quarantine_block}
 Die vollständige Liste steht im ISPConfig-Panel unter Security.
