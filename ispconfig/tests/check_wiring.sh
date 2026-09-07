@@ -466,6 +466,34 @@ if [ ! -f "$root/interface/status.php" ]; then
 	fail "interface/status.php fehlt, das Modul startet ins Leere"
 fi
 
+# 31. Jedes Kopierziel unter interface/web/security/ braucht ein Verzeichnis,
+#     das der Installer selbst anlegt.
+#
+#     enable_files() im Kern legt kein Elternverzeichnis an und prueft den
+#     Rueckgabewert von copy() nicht: fehlt das Verzeichnis, scheitert jede
+#     einzelne Kopie STILL, enable_files() liefert trotzdem true, der Installer
+#     schreibt "malwatch installed." - und die Seite ist nicht da. Genau das
+#     traefe jede Erstinstallation. Vor dem Umzug fiel es nicht auf, weil das
+#     damalige Zielverzeichnis zu ISPConfig gehoert; security/ gehoert niemandem.
+#
+#     Ueber 'd:'-Zeilen in file.list ist es nicht zu loesen: enable_files()
+#     setzt auf ein so angelegtes Verzeichnis chmod 640 und nimmt ihm das x-Bit.
+web_root="interface/web/security"
+inst="$root/install/installer.php"
+grep -q 'mkdir' "$inst" || fail "installer.php legt kein Verzeichnis an; die Kopien der Oberflaeche gingen ins Leere"
+for dir in $(awk -F: '/^c:/ { print $3 }' "$root/install/file.list" | sed 's:/[^/]*$::' | sort -u); do
+	case "$dir" in
+		"$web_root"|"$web_root"/*) ;;
+		*) continue ;;
+	esac
+	sub=${dir#$web_root}
+	if [ -z "$sub" ]; then
+		grep -q "$web_root" "$inst" || fail "file.list kopiert nach $dir, aber der Installer legt das Verzeichnis nicht an"
+	else
+		grep -q "'$sub'" "$inst" || fail "file.list kopiert nach $dir, aber der Installer legt das Verzeichnis nicht an ('$sub' fehlt in prepare_interface_dirs)"
+	fi
+done
+
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'
 fi
