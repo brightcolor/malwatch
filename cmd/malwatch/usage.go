@@ -42,6 +42,7 @@ Ausgabe:
                            (low, medium, high, critical; Vorgabe: medium)
   --show-all               auch aktuelle Installationen aufführen
   --quiet                  keine Fortschrittsanzeige
+  --expect=N               erwartete Dateizahl, nur für die Fortschrittsanzeige
 
 Bericht per E-Mail:
   --email=ADRESSE          Bericht an diese Adresse senden, mehrfach angebbar

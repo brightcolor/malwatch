@@ -71,6 +71,7 @@ func cmdScan(args []string) int {
 	cacheFile := fs.String("cache", "", "")
 	whitelistPath := fs.String("whitelist-path", "", "")
 	progressFile := fs.String("progress", "", "")
+	expect := fs.Int("expect", 0, "")
 
 	if err := fs.Parse(args); err != nil {
 		return report.ExitError
@@ -138,14 +139,22 @@ func cmdScan(args []string) int {
 	pw.Phase(1, 1, "scan")
 
 	onTerminal := !*quiet && *out == "" && !*asJSON
+	// Der Erwartungswert kommt vom Panel und ist die Dateizahl des letzten
+	// Laufs derselben Website. Er kann danebenliegen - eine Website wächst -,
+	// und deshalb ist er eine Schätzung und keine Zusage. Wer ihn auswertet,
+	// deckelt bei 99 Prozent, bis der Lauf fertig meldet.
 	opts.Progress = func(n int64) {
-		pw.File("", int(n), 0)
+		pw.File("", int(n), *expect)
 		if onTerminal {
 			fmt.Fprintf(os.Stderr, "\r%d Dateien geprüft …", n)
 		}
 	}
 
 	rep, err := scanner.Run(opts)
+	// Fortschritt für kleine Dateilisten melden, die die 500er-Grenze nicht erreichen.
+	if opts.Progress != nil {
+		opts.Progress(rep.Stats.FilesScanned)
+	}
 	if onTerminal {
 		fmt.Fprint(os.Stderr, "\r                                   \r")
 	}
