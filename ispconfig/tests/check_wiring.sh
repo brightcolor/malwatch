@@ -218,6 +218,17 @@ if grep -q 'function finish_repair' "$root/server/lib/classes/cron.d/560-malwatc
 	sed -n '/function finish_repair/,/^	}/p' "$root/server/lib/classes/cron.d/560-malwatch.inc.php" 		| grep -q 'exit_code' 		|| fail "das Zurückschalten sieht den Rückgabecode nicht an"
 fi
 
+# 22. Der Fortschrittsbalken braucht einen Nenner. Ohne --expect meldet der
+#     Scanner nur einen Zaehler, und die Anzeige faellt auf feste fuenf
+#     Prozent zurueck - was ein Lauf ist, der aussieht wie ein Absturz.
+runner="$root/server/lib/classes/malwatch_runner.inc.php"
+if ! grep -q -- "--expect=" "$runner"; then
+	fail "der Runner reicht kein --expect durch, der Balken bleibt stehen"
+fi
+if ! grep -q 'files_scanned' "$runner"; then
+	fail "der Runner liest die Dateizahl des letzten Laufs nicht"
+fi
+
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'
 fi
