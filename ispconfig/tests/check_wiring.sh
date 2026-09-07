@@ -221,12 +221,49 @@ fi
 # 22. Der Fortschrittsbalken braucht einen Nenner. Ohne --expect meldet der
 #     Scanner nur einen Zaehler, und die Anzeige faellt auf feste fuenf
 #     Prozent zurueck - was ein Lauf ist, der aussieht wie ein Absturz.
+#     Ein Filter auf einen Wert aus der falschen Tabelle (z.B. scan_state = 'done',
+#     ein Wert aus malwatch_job.job_status) lässt die Abfrage stillschweigend
+#     leer laufen und kein --expect wird je angehängt.
 runner="$root/server/lib/classes/malwatch_runner.inc.php"
 if ! grep -q -- "--expect=" "$runner"; then
 	fail "der Runner reicht kein --expect durch, der Balken bleibt stehen"
 fi
 if ! grep -q 'files_scanned' "$runner"; then
 	fail "der Runner liest die Dateizahl des letzten Laufs nicht"
+fi
+# Prüfe, dass der scan_state-Filter des Runners nur gültige Enum-Werte nutzt.
+# Die gültigen Werte liest der Test aus schema.sql, nicht aus dem Runner.
+schema="$root/install/schema.sql"
+if grep -q 'scan_state' "$runner"; then
+	# Extrahiere die gültigen Enum-Werte aus schema.sql
+	# Beispiel: `scan_state` enum('clean','findings','outdated','error') NOT NULL
+	valid_enum=$(grep '`scan_state` enum' "$schema" | sed "s/.*enum(\([^)]*\)).*/\1/")
+	# Entferne Anführungszeichen und erstelle eine Liste der gültigen Werte
+	valid_list=$(printf "%s" "$valid_enum" | sed "s/'//g" | sed "s/,/ /g")
+
+	# Extrahiere jeden quoted Wert nach scan_state aus dem Runner
+	# Das einfache Muster: suche nach scan_state und dann nach dem ersten quoted string
+	# um zu sehen, welchen Wert der Runner nutzt
+	grep 'scan_state' "$runner" | while read line; do
+		# Entferne alles bis scan_state
+		after=$(printf "%s" "$line" | sed 's/^.*scan_state//')
+		# Extrahiere den ersten quoted Wert
+		first_val=$(printf "%s" "$after" | sed "s/[^']*'\([^']*\).*/\1/")
+
+		if [ -n "$first_val" ]; then
+			# Prüfe ob dieser Wert in der gültigen Liste ist
+			found=0
+			for v in $valid_list; do
+				if [ "$first_val" = "$v" ]; then
+					found=1
+					break
+				fi
+			done
+			if [ "$found" = "0" ]; then
+				fail "der Runner nutzt scan_state-Wert '$first_val', aber schema.sql kennt ihn nicht (gültig: $valid_list)"
+			fi
+		fi
+	done
 fi
 
 if [ "$status" -eq 0 ]; then

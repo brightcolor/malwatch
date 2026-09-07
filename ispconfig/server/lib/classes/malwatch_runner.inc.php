@@ -147,7 +147,7 @@ class malwatch_runner
 		// entfaellt der Schalter und die Anzeige zaehlt ohne Prozentangabe.
 		$last = $app->db->queryOneRecord(
 			'SELECT files_scanned FROM malwatch_scan WHERE parent_domain_id = ? '
-			. "AND scan_state = 'done' AND files_scanned > 0 "
+			. "AND scan_state IN ('clean','findings','outdated') AND files_scanned > 0 "
 			. 'ORDER BY scan_id DESC LIMIT 1',
 			intval($job['parent_domain_id'])
 		);

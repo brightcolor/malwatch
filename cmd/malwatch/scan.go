@@ -151,16 +151,18 @@ func cmdScan(args []string) int {
 	}
 
 	rep, err := scanner.Run(opts)
-	// Fortschritt für kleine Dateilisten melden, die die 500er-Grenze nicht erreichen.
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Der Lauf ist gescheitert: %v\n", err)
+		return report.ExitError
+	}
+	// Der Scanner meldet nur alle 500 Dateien; am Ende eines Laufs fehlt deshalb
+	// der letzte Teilstapel. Bei kleinen Dateilisten ist das der ganze Lauf,
+	// und die Fortschrittsanzeige bleibt stehen, obwohl der Scan längst fertig ist.
 	if opts.Progress != nil {
 		opts.Progress(rep.Stats.FilesScanned)
 	}
 	if onTerminal {
 		fmt.Fprint(os.Stderr, "\r                                   \r")
-	}
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Der Lauf ist gescheitert: %v\n", err)
-		return report.ExitError
 	}
 
 	if err := writeReport(rep, *out, *asJSON, *showAll); err != nil {
