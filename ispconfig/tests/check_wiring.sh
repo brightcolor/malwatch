@@ -27,7 +27,7 @@ fail() {
 # beginnt, erklaert etwas - sie ruft nichts auf und zeigt niemandem einen Weg
 # zum Gehen. Eine Erklaerung muss den Fehler, vor dem sie warnt, beim Namen
 # nennen duerfen, sonst verbietet die Pruefung ihre eigene Begruendung.
-# Benutzt von Pruefung 28 und 32.
+# Benutzt von Pruefung 26, 28 und 32.
 comment_start='[[:space:]]*(//|#|\*|/\*|<!--)'
 
 # 1. A page using tform_actions must set $tform_def_file. tform_actions reads
@@ -536,9 +536,13 @@ done
 #     Menuepunkt ohne Ziel ist schlimmer als gar keiner; umgekehrt ist eine
 #     Seite, die installiert wird und die nichts verlinkt, unerreichbar. Genau
 #     das war malwatch_finding_list.php, seit die alte Menuedatei entfiel.
+#     Gelesen werden nur die Zeilen, die 'link' oder 'startpage' setzen. Ein
+#     Kommentar, der eine Seite nennt, die es noch nicht gibt - etwa als
+#     Hinweis auf eine spaetere Stufe -, ist kein Menuepunkt und soll hier
+#     nicht anschlagen.
 conf="$root/interface/module.conf.php"
 if [ -f "$conf" ]; then
-	for link in $(grep -oE "security/[a-z_]+\.php" "$conf" | sed 's|^security/||' | sort -u); do
+	for link in $(grep -E "'(link|startpage)'" "$conf" | grep -oE "security/[a-z_]+\.php" | sed 's|^security/||' | sort -u); do
 		[ -f "$root/interface/$link" ] \
 			|| fail "module.conf.php verlinkt security/$link, die Datei gibt es nicht"
 		grep -q ":interface/web/security/$link\$" "$root/install/file.list" \
