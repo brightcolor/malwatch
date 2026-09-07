@@ -2,6 +2,92 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.10.0] – 2026-09-07
+
+### Hinzugefügt
+
+**Die Quarantäne.** Alles, was das Addon von einer Website entfernt, liegt jetzt an einer
+Stelle, die man ansehen kann: einzelne Funde, ganze Verzeichnisse, die eine Reparatur
+ersetzt hat, und was eine automatische Maßnahme nachts weggenommen hat. Jeder Eintrag
+nennt Pfad, Website, Grund, Zeitpunkt, Herkunft und Größe. Von dort geht es zurück auf die
+Website, als Datei zum eigenen Rechner oder endgültig weg — und nur das Letzte ist
+unwiderruflich.
+
+Vorher schrieb „Entfernen" eine Kopie in ein Verzeichnis, das niemand ansieht, und löschte
+die Datei. Auf dem Testsystem hatten sich dort 1,1 GB angesammelt, aus denen kein Mensch
+je wieder etwas herausgeholt hat, weil nichts sagte, was darin liegt.
+
+**Herunterladen gibt ein passwortgeschütztes ZIP, Passwort `infected`.** Das ist die
+Übereinkunft, mit der Sicherheitsleute Proben verschicken: jeder Entpacker versteht sie,
+und kein Virenscanner sieht hinein, also kommt die Datei heil am Arbeitsplatz an, statt
+unterwegs eingesammelt zu werden. Vertraulichkeit ist das nicht und soll es nicht sein —
+es hält die Probe davon ab, aus Versehen zu laufen.
+
+**Die Reparatur ist eine Entscheidung geworden statt zweier Knöpfe.** Eine eigene Seite
+fragt, wie ersetzt werden soll, was mit Elementen geschieht, für die es keine
+Herstellerdatei gibt, und welche Elemente überhaupt angefasst werden. Daneben steht, was
+mit jedem einzelnen passieren wird.
+
+- *Vollständig ersetzen*: der bisherige Inhalt wandert in die Quarantäne, dann kommt das
+  Original an seine Stelle. Untergeschobene Dateien sind damit aus dem Webverzeichnis
+  heraus, auch die, die keine Prüfung gefunden hat.
+- *Darüberschreiben, nichts verschieben*: der Inhalt wandert ebenfalls in die Quarantäne,
+  bleibt aber liegen, und die Herstellerdateien werden darübergelegt. Angepasste Vorlagen
+  überleben — eine untergeschobene Datei allerdings auch.
+
+**Automatische Maßnahme nach den nächtlichen Prüfungen.** Vier Möglichkeiten: nichts
+anfassen, nur die Funde ohne Ermessensspielraum, alles Kritische, oder eine selbst
+zusammengestellte Auswahl von Prüfungen, die sich unter einem Namen speichern lässt. Neben
+jeder Möglichkeit steht, wie viele Prüfungen sie umfasst und wie viele Funddateien sie
+gerade beträfe — eine Zahl aus den eigenen Daten, nicht aus dem Werbetext.
+
+Die Maßnahme greift nur bei Funden, die neu hinzukommen. Was schon in der Liste steht, hat
+der Bediener gesehen und stehen gelassen; das nachträglich nachts wegzunehmen wäre eine
+Entscheidung über seinen Kopf hinweg. Für die bestehenden Funde gibt es einen eigenen
+Knopf, der vorher die Zahl nennt.
+
+**Neue Befehle.** `malwatch quarantine list|restore|delete|export` bedient den Speicher von
+der Kommandozeile, `malwatch rules --json` gibt den Regelkatalog aus, damit die Oberfläche
+Prüfungen beim Namen nennen kann statt bei ihrer Kennung.
+
+### Geändert
+
+**Eine Reparatur löscht kein Element mehr, nur weil der Hersteller die Version nicht
+veröffentlicht.** Bezahlte Plugins und selbst gebaute Themes gibt es nirgends zum
+Herunterladen; bisher verschwanden sie, und die Website verlor eine Funktion, weil eine
+Datei nicht öffentlich ist. Die Vorgabe ist jetzt, das Element stehen zu lassen und zu
+melden. Wer es doch weghaben will, wählt „in die Quarantäne" — `os.RemoveAll` ohne vorher
+angelegte Kopie gibt es an keiner Stelle mehr.
+
+**Beide Reparaturmodi sichern, bevor sie etwas anfassen.** „Nichts geht verloren" steht so
+in der Oberfläche und stimmt jetzt ohne Fußnote.
+
+**Ein Sammel-Download ist ein ZIP, kein Auftrag je Eintrag.** Pro Server läuft immer nur ein
+Auftrag; zwanzig ausgewählte Einträge wären neunzehn Absagen und ein Download gewesen.
+
+### Behoben
+
+**Der Fortschrittsbalken zählte auf jedem Livesystem null Dateien.** `/var/lib/malwatch`
+gehört root und ist `0750`, die Oberfläche läuft als Benutzer `ispconfig` — sie konnte die
+Fortschrittsdatei also nie lesen:
+
+```
+$ sudo -u ispconfig cat /var/lib/malwatch/runs/job-100.progress
+cat: … Permission denied
+```
+
+Damit kam von der ganzen Zählerarbeit aus 0.9.0 — `--expect`, Nenner, Prozentzahl —
+nichts im Browser an; sichtbar waren nur die Phasen, die die Vorlage selbst setzt. Der
+Installer gibt `runs` und `spool` jetzt die Gruppe der Oberfläche und das Setgid-Bit, damit
+neu geschriebene Dateien sie erben, und zieht vorhandene Dateien nach. Der Runner legt
+fehlende Verzeichnisse genauso an, falls ein Auftrag vor dem Update eintrifft.
+
+**Die Deinstallation ließ zwei Tabellen stehen.** `malwatch_repair` und
+`malwatch_repair_element` fehlten in `uninstall-schema.sql`, seit es sie gibt.
+
+**Die vierte Reparaturphase hieß „Sichern".** Sie legt den alten Baum in die Quarantäne;
+der Name stammte noch aus der Zeit, als sie ein `.tar.gz` schrieb, das niemand wiederfand.
+
 ## [0.9.2] – 2026-09-07
 
 ### Geändert

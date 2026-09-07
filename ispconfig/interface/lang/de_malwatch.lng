@@ -103,17 +103,22 @@ $wb['line_txt'] = 'Zeile';
 $wb['files_new_txt'] = 'neu geprüft';
 $wb['files_unchanged_txt'] = 'unverändert';
 $wb['running_txt'] = 'Prüfung(en) laufen gerade. Die Liste kommt von selbst zurück';
-$wb['delete_one_txt'] = 'Löschen';
-$wb['delete_all_txt'] = 'Alle Funde löschen';
-$wb['repair_txt'] = 'Wiederherstellen';
-$wb['repair_dry_txt'] = 'Probelauf';
+// "Löschen" hieß dieser Knopf, bevor es die Quarantäne gab - er hat aber nie
+// gelöscht, sondern schon immer denselben Auftrag eingereiht wie "In
+// Quarantäne verschieben" auf der Reparaturseite. Der Name folgt jetzt der
+// Tat.
+$wb['delete_one_txt'] = 'In Quarantäne verschieben';
+$wb['delete_all_txt'] = 'Alle offenen Funde in Quarantäne verschieben';
+$wb['repair_txt'] = 'Herstellerdateien wiederherstellen';
 $wb['progress_waiting_txt'] = 'Der Lauf wird vorbereitet …';
-$wb['confirm_delete_one_txt'] = 'Diese Datei wirklich löschen? Eine Kopie bleibt unter /var/lib/malwatch/backups.';
-$wb['confirm_delete_all_txt'] = 'Alle gemeldeten Dateien dieser Website löschen? Kopien bleiben unter /var/lib/malwatch/backups.';
-$wb['confirm_repair_txt'] = 'Kern, Plugins und Themes durch die Originale ersetzen? Die Website wird dafür kurz abgeschaltet, alles Ersetzte wird vorher gesichert, und Elemente ohne Original werden gelöscht.';
+$wb['confirm_delete_one_txt'] = 'Diese Datei in Quarantäne verschieben? Sie lässt sich von dort zurückholen oder herunterladen.';
+$wb['confirm_delete_all_txt'] = 'Alle offenen Funde dieser Website in Quarantäne verschieben? Jede Datei lässt sich von dort zurückholen oder herunterladen.';
+$wb['quarantine_hint_one_txt'] = 'Ein Eintrag dieser Website liegt in Quarantäne.';
+$wb['quarantine_hint_many_txt'] = '%s Einträge dieser Website liegen in Quarantäne.';
+$wb['quarantine_hint_link_txt'] = 'Ansehen';
 $wb['phase_scanning_txt'] = 'Dateien werden geprüft';
 $wb['phase_detect_txt'] = 'Erkennen';
 $wb['phase_fetch_txt'] = 'Holen';
 $wb['phase_verify_txt'] = 'Prüfen';
-$wb['phase_backup_txt'] = 'Sichern';
+$wb['phase_quarantine_txt'] = 'In Quarantäne legen';
 $wb['phase_swap_txt'] = 'Tauschen';

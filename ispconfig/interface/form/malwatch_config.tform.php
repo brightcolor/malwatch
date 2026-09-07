@@ -177,6 +177,33 @@ $form['tabs']['settings'] = array(
 			'formtype' => 'CHECKBOX',
 			'default' => 'y',
 			'value' => array(0 => 'n', 1 => 'y')
+		),
+		// The template does not use the auto-generated widget for either
+		// field below - the "choice card" markup in malwatch_config_edit.htm
+		// is hand-written, because none of tform's stock formtypes render a
+		// priced decision with a description under each option. Both fields
+		// are declared here anyway so tform validates and persists them the
+		// same way it does every other column on this row: 'value' fixes the
+		// four columns malwatch_config.auto_action actually allows (see
+		// schema.sql), so a tampered POST cannot write anything else, and
+		// auto_preset_id rides along as a plain integer the template's own
+		// script keeps in sync with which "choice card" is selected.
+		'auto_action' => array(
+			'datatype' => 'VARCHAR',
+			'formtype' => 'SELECT',
+			'default' => 'none',
+			'value' => array(
+				'none' => 'none',
+				'safe' => 'safe',
+				'critical' => 'critical',
+				'preset' => 'preset',
+			),
+		),
+		'auto_preset_id' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '0',
+			'value' => '',
 		)
 	)
 );

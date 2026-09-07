@@ -56,6 +56,15 @@ func SwapCore(root, stagedDir string) (int, error) {
 		if err := InsideRoot(root, dst); err != nil {
 			return replaced, err
 		}
+		// InsideRoot resolves the path and would catch a link pointing out of
+		// the web root, but one pointing back inside passes - and os.WriteFile
+		// follows it, so index.php could be made to overwrite wp-config.php.
+		// A loose core file is a file; a link in its place is not something to
+		// write through.
+		if lst, err := os.Lstat(dst); err == nil && lst.Mode()&os.ModeSymlink != 0 {
+			return replaced, fmt.Errorf("%s ist eine Verknüpfung und wird nicht überschrieben - "+
+				"eine Kerndatei ist keine Verknüpfung", dst)
+		}
 		raw, err := os.ReadFile(filepath.Join(stagedDir, entry.Name()))
 		if err != nil {
 			return replaced, err

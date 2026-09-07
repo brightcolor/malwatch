@@ -1,6 +1,9 @@
 package main
 
 import (
+	"archive/zip"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -50,5 +53,65 @@ func TestRepairDryRunWritesAReportAndChangesNothing(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(root, "wp-includes", "version.php")); err != nil {
 		t.Error("the tree was modified during a dry run")
+	}
+}
+
+func TestRepairRefusesAnUnknownMode(t *testing.T) {
+	code := cmdRepair([]string{
+		"--path=" + t.TempDir(), "--dry-run", "--mode=verschmelzen",
+		"--vendor-base=http://127.0.0.1:1/",
+	})
+	if code != 3 {
+		t.Errorf("exit code %d for an unknown --mode, want 3", code)
+	}
+}
+
+func TestRepairRefusesAnUnknownNoOriginal(t *testing.T) {
+	code := cmdRepair([]string{
+		"--path=" + t.TempDir(), "--dry-run", "--no-original=irgendwas",
+		"--vendor-base=http://127.0.0.1:1/",
+	})
+	if code != 3 {
+		t.Errorf("exit code %d for an unknown --no-original, want 3", code)
+	}
+}
+
+func TestRepairAcceptsTheOldBackupDirNameAsQuarantineDir(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "wp-includes"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "wp-includes", "version.php"),
+		[]byte("<?php\n$wp_version = '6.6.2';\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "wp-login.php"), []byte("<?php // old"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		zw := zip.NewWriter(w)
+		fh, _ := zw.Create("wordpress/wp-includes/version.php")
+		_, _ = fh.Write([]byte("<?php\n$wp_version = '6.6.2';\n"))
+		fh2, _ := zw.Create("wordpress/wp-login.php")
+		_, _ = fh2.Write([]byte("<?php // original"))
+		_ = zw.Close()
+	}))
+	defer srv.Close()
+
+	backupDir := t.TempDir()
+	// --backup-dir is the pre-quarantine flag name; a script still using it
+	// must keep working exactly as --quarantine-dir would - including
+	// actually filing the replaced tree there, not just passing validation.
+	code := cmdRepair([]string{
+		"--path=" + root, "--backup-dir=" + backupDir,
+		"--vendor-base=" + srv.URL + "/",
+	})
+	if code != 0 {
+		t.Fatalf("exit code %d, want 0", code)
+	}
+	entries, err := os.ReadDir(backupDir)
+	if err != nil || len(entries) == 0 {
+		t.Fatalf("--backup-dir did not receive the quarantine entry: %v %v", entries, err)
 	}
 }

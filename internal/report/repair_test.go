@@ -94,3 +94,49 @@ func TestADryRunReportsInTheConditional(t *testing.T) {
 		t.Errorf("a dry run must not claim a file count:\n%s", out)
 	}
 }
+
+func TestRepairExitCodeTreatsKeptLikeDeleted(t *testing.T) {
+	// An element --no-original=keep left in place still carries whatever the
+	// scan flagged before the repair ran; the exit code has to say so exactly
+	// as it would for one that was deleted.
+	r := NewRepair("/var/www/web1/web")
+	r.Elements = append(r.Elements,
+		RepairElement{Kind: "core", Outcome: OutcomeReplaced},
+		RepairElement{Kind: "plugin", Slug: "elementor-pro", Outcome: OutcomeKept})
+	if got := r.ExitCode(); got != 2 {
+		t.Errorf("exit code %d for a kept element, want 2", got)
+	}
+}
+
+func TestRepairTextNamesTheQuarantineEntry(t *testing.T) {
+	r := NewRepair("/var/www/web1/web")
+	r.Elements = append(r.Elements, RepairElement{
+		Kind: "plugin", Slug: "akismet", Version: "5.3.3",
+		Outcome: OutcomeReplaced, QuarantineIDs: []string{"20260907T101500Z-abcd1234"},
+	})
+	var buf bytes.Buffer
+	if err := r.WriteText(&buf); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "20260907T101500Z-abcd1234") {
+		t.Errorf("the report does not name the quarantine entry:\n%s", out)
+	}
+}
+
+func TestRepairTextRendersOverlaidAndKept(t *testing.T) {
+	r := NewRepair("/var/www/web1/web")
+	r.Elements = append(r.Elements,
+		RepairElement{Kind: "plugin", Slug: "akismet", Version: "5.3.3", Outcome: OutcomeOverlaid, Files: 3},
+		RepairElement{Kind: "plugin", Slug: "elementor-pro", Version: "3.21.0", Outcome: OutcomeKept})
+	var buf bytes.Buffer
+	if err := r.WriteText(&buf); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	for _, want := range []string{"überlagert", "akismet", "BEHALTEN", "elementor-pro"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("the report does not mention %q:\n%s", want, out)
+		}
+	}
+}

@@ -3,6 +3,12 @@
 </div>
 <p>{tmpl_var name='config_desc_txt'}</p>
 
+<tmpl_if name="message">
+	<div class="alert alert-success">{tmpl_var name='message'}</div>
+</tmpl_if>
+<tmpl_if name="error">
+	<div class="alert alert-danger">{tmpl_var name='error'}</div>
+</tmpl_if>
 <tmpl_if name="binary_missing">
 	<div class="alert alert-warning">{tmpl_var name='binary_missing_txt'}</div>
 </tmpl_if>
@@ -94,6 +100,106 @@
 	<div class="col-sm-9">{tmpl_var name='auto_update_signatures'}</div>
 </div>
 
+<p class="fieldset-legend">{tmpl_var name='auto_head_txt'}</p>
+<p>{tmpl_var name='auto_intro_txt'}</p>
+<p>{tmpl_var name='auto_scope_txt'}</p>
+
+<tmpl_if name="has_apply_existing">
+<div class="mw-quiet">
+	<span>{tmpl_var name='apply_existing_intro'}</span>
+	<button class="btn btn-default formbutton-default formbutton-narrow" type="button"
+		onclick="if(!confirm('{tmpl_var name='confirm_apply_existing'}')){event.stopPropagation();return false;} document.getElementById('mw-action').value='apply_existing';"
+		data-submit-form="pageForm" data-form-action="security/malwatch_config_edit.php">{tmpl_var name='btn_apply_existing_txt'}</button>
+</div>
+</tmpl_if>
+
+<!--
+	No form of our own - the panel wraps the whole content area in one form
+	called pageForm and posts it by AJAX (see malwatch_site_show.htm for the
+	same note). auto_action/auto_preset_id are the two real columns; the
+	script above keeps them in step with whichever "choice card" below is
+	selected, since several of those cards - every saved preset - share the
+	same auto_action value and differ only in auto_preset_id.
+-->
+<input type="hidden" name="malwatch_action" id="mw-action" value="" />
+<input type="hidden" name="auto_action" id="mw-auto-action" value="{tmpl_var name='auto_action'}" />
+<input type="hidden" name="auto_preset_id" id="mw-auto-preset-id" value="{tmpl_var name='auto_preset_id'}" />
+
+<div id="mw-config-auto" class="mw-choices">
+	<label class="mw-choice">
+		<input type="radio" name="auto_choice" value="none" <tmpl_if name="auto_none_checked">checked</tmpl_if>>
+		<div>
+			<div class="mw-name">{tmpl_var name='auto_none_name_txt'}</div>
+			<p class="mw-desc">{tmpl_var name='auto_none_desc_txt'}</p>
+		</div>
+	</label>
+
+	<label class="mw-choice">
+		<input type="radio" name="auto_choice" value="safe" <tmpl_if name="auto_safe_checked">checked</tmpl_if>>
+		<div>
+			<div class="mw-name">{tmpl_var name='auto_safe_name_txt'} <span class="mw-tag">{tmpl_var name='auto_safe_tag_txt'}</span></div>
+			<p class="mw-desc">{tmpl_var name='auto_safe_desc_txt'}<br><code class="mw-mono">{tmpl_var name='safe_count'}</code></p>
+		</div>
+	</label>
+
+	<label class="mw-choice">
+		<input type="radio" name="auto_choice" value="critical" <tmpl_if name="auto_critical_checked">checked</tmpl_if>>
+		<div>
+			<div class="mw-name">{tmpl_var name='auto_critical_name_txt'}</div>
+			<p class="mw-desc">{tmpl_var name='auto_critical_desc_txt'}<br><code class="mw-mono">{tmpl_var name='critical_count'}</code></p>
+		</div>
+	</label>
+
+	<tmpl_if name="has_presets">
+	<tmpl_loop name="presets">
+	<label class="mw-choice">
+		<input type="radio" name="auto_choice" value="{tmpl_var name='radio_value'}" <tmpl_if name="is_checked">checked</tmpl_if>>
+		<div>
+			<div class="mw-name">{tmpl_var name='name'}</div>
+			<p class="mw-desc"><code class="mw-mono">{tmpl_var name='count_line'}</code></p>
+		</div>
+	</label>
+	</tmpl_loop>
+	</tmpl_if>
+
+	<label class="mw-choice">
+		<input type="radio" name="auto_choice" value="preset_new" <tmpl_if name="preset_new_checked">checked</tmpl_if>>
+		<div>
+			<div class="mw-name">{tmpl_var name='auto_preset_name_txt'}</div>
+			<p class="mw-desc">{tmpl_var name='auto_preset_desc_txt'}</p>
+
+			<div class="mw-ownlist">
+				<h4>{tmpl_var name='ownlist_head_txt'}</h4>
+				<p>{tmpl_var name='preset_new_hint_txt'}</p>
+				<div class="mw-rules">
+					<tmpl_loop name="rules">
+					<label<tmpl_if name="is_extra"> class="mw-rule-more" hidden</tmpl_if>>
+						<input type="checkbox" name="rule_ids[]" value="{tmpl_var name='rule_id'}">
+						<span>{tmpl_var name='title'}</span>
+						<span class="mw-rid mw-mono">{tmpl_var name='finding_count'}</span>
+					</label>
+					</tmpl_loop>
+				</div>
+				<div class="mw-savebar">
+					<input type="text" name="preset_name" aria-label="{tmpl_var name='preset_name_label_txt'}" placeholder="{tmpl_var name='preset_name_label_txt'}">
+					<button class="btn btn-default formbutton-default formbutton-narrow" type="button"
+						onclick="document.getElementById('mw-action').value='save_preset';"
+						data-submit-form="pageForm" data-form-action="security/malwatch_config_edit.php">{tmpl_var name='btn_save_preset_txt'}</button>
+					<button class="btn btn-default formbutton-default formbutton-narrow" type="button" id="mw-show-all-rules">{tmpl_var name='show_all_rules'}</button>
+				</div>
+			</div>
+		</div>
+	</label>
+</div>
+
+<hr class="mw-rule">
+<div class="mw-savebar-final">
+	<button class="btn btn-default formbutton-success" type="button"
+		onclick="document.getElementById('mw-action').value='';"
+		data-submit-form="pageForm" data-form-action="security/malwatch_config_edit.php">{tmpl_var name='btn_apply_txt'}</button>
+	<span class="help-block" style="margin:0">{tmpl_var name='apply_hint_txt'}</span>
+</div>
+
 <input type="hidden" name="id" value="{tmpl_var name='id'}">
 
 <div class="clear"><div class="right">
@@ -102,3 +208,86 @@
 	<button class="btn btn-default formbutton-default" type="button" value="{tmpl_var name='btn_cancel_txt'}"
 		data-load-content="security/status.php">{tmpl_var name='btn_cancel_txt'}</button>
 </div></div>
+
+<style>
+/* Farben ausschliesslich aus den Theme-Variablen, mit Rueckfallwert - siehe
+   malwatch_quarantine_list.htm fuer denselben Grund. Radius 3px fest.
+   ".mw-choice" gibt es sonst nirgends im Bestand (siehe
+   malwatch_repair_start.htm fuer dieselbe Begruendung: eine Entscheidung mit
+   Preis und Beschreibung ist kein Standardelement des Panels) - hier neu
+   definiert statt geteilt, weil jede Vorlage in diesem Addon ihr eigenes,
+   in sich geschlossenes <style> mitbringt. */
+#mw-config-auto{margin-top:10px}
+#mw-config-auto.mw-choices{display:flex;flex-direction:column;gap:9px;max-width:82ch}
+#mw-config-auto .mw-choice{
+	display:grid;grid-template-columns:auto 1fr;gap:11px;padding:12px 14px;
+	border:1px solid var(--cic-line-soft,#3c3c3b);border-radius:3px;
+	background:var(--cic-raised,#292929);cursor:pointer;
+}
+#mw-config-auto .mw-choice:hover{border-color:var(--cic-line-loud,#5a5a5a)}
+#mw-config-auto .mw-choice:has(> input:checked){border-color:var(--cic-accent,#dd630d);background:var(--cic-hover,#2d2d2d)}
+#mw-config-auto .mw-choice > input{margin-top:4px;accent-color:var(--cic-accent,#dd630d)}
+#mw-config-auto .mw-name{font-weight:600;font-size:14px;color:var(--cic-text-loud,#fff);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+#mw-config-auto .mw-desc{margin:4px 0 0;font-size:13px;color:var(--cic-text,#bac3ca)}
+#mw-config-auto .mw-mono{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:12px;color:var(--cic-text-dim,#8b9298)}
+#mw-config-auto .mw-tag{
+	font-size:10.5px;font-weight:600;padding:1px 6px;border-radius:3px;
+	background:var(--cic-sunken,#151515);color:var(--cic-accent-text,#ef7d21);
+	border:1px solid var(--cic-accent-deep,#a84c0b);
+}
+#mw-config-auto .mw-ownlist{margin-top:12px;padding:12px 14px;border:1px solid var(--cic-line-soft,#3c3c3b);border-radius:3px;background:var(--cic-sunken,#151515)}
+#mw-config-auto .mw-ownlist h4{margin:0 0 9px;font-size:13px;font-weight:600;color:var(--cic-text-loud,#fff)}
+#mw-config-auto .mw-ownlist p{font-size:12.5px;color:var(--cic-text-dim,#8b9298);margin:0 0 10px}
+#mw-config-auto .mw-rules{display:flex;flex-direction:column;gap:7px}
+#mw-config-auto .mw-rules label{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;font-size:13px;cursor:pointer}
+#mw-config-auto .mw-rules input{accent-color:var(--cic-accent,#dd630d)}
+#mw-config-auto .mw-rid{font-size:11.5px;color:var(--cic-text-dim,#8b9298);justify-self:end;font-variant-numeric:tabular-nums}
+#mw-config-auto .mw-savebar{display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap}
+#mw-config-auto .mw-savebar input[type=text]{
+	font:inherit;font-size:13px;padding:6px 10px;border:1px solid var(--cic-line-loud,#5a5a5a);
+	border-radius:3px;background:var(--cic-page,#1c1c1c);color:var(--cic-text,#bac3ca);min-width:190px;
+}
+.mw-quiet{margin:12px 0;padding:12px 15px;border:1px solid var(--cic-line-soft,#3c3c3b);border-radius:3px;color:var(--cic-text-dim,#8b9298);font-size:13px;background:var(--cic-head,#202020);display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.mw-rule{height:1px;background:var(--cic-line-soft,#3c3c3b);border:0;margin:18px 0}
+.mw-savebar-final{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
+</style>
+
+<script>
+(function () {
+	var root = document.getElementById('mw-config-auto');
+	if (!root) { return; }
+
+	var hiddenAction = document.getElementById('mw-auto-action');
+	var hiddenPreset = document.getElementById('mw-auto-preset-id');
+
+	// The radios the operator actually sees (none / safe / critical / one
+	// per saved preset / the ad-hoc editor) are not themselves the columns
+	// malwatch_config has - auto_action and auto_preset_id are two separate
+	// values, and several radios here all mean auto_action=preset, only
+	// differing in which id. Splitting the two keeps every saved preset a
+	// plain radio value instead of inventing one tform field per preset.
+	function sync(value) {
+		if (value.indexOf('preset_') === 0) {
+			hiddenAction.value = 'preset';
+			hiddenPreset.value = (value === 'preset_new') ? '0' : value.slice(7);
+		} else {
+			hiddenAction.value = value;
+			hiddenPreset.value = '0';
+		}
+	}
+
+	var radios = root.querySelectorAll('input[name="auto_choice"]');
+	for (var i = 0; i < radios.length; i++) {
+		radios[i].addEventListener('change', function () { sync(this.value); });
+	}
+
+	var showAll = document.getElementById('mw-show-all-rules');
+	if (showAll) {
+		showAll.addEventListener('click', function () {
+			var more = root.querySelectorAll('.mw-rule-more');
+			for (var j = 0; j < more.length; j++) { more[j].hidden = false; }
+			showAll.hidden = true;
+		});
+	}
+})();
+</script>

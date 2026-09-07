@@ -1,10 +1,11 @@
 <?php
 
 /**
- * Carries out what a website's settings ask for after a scan: notifications
- * and, if the operator asked for it, disabling the site.
+ * Carries out what a website's settings ask for after a scan: notifications,
+ * moving files the operator trusted the scanner to move on its own, and, if
+ * the operator asked for it, disabling the site.
  *
- * Three rules hold everywhere in this class:
+ * Four rules hold everywhere in this class:
  *
  *   - Only findings that are new since the last run can trigger an action.
  *     Otherwise a site would be disabled again on every nightly run for a
@@ -13,6 +14,9 @@
  *     not a break-in.
  *   - A clean run never re-enables a site. Turning a customer's website back
  *     on is a decision for a person, not for a scanner.
+ *   - Moving files on its own is reserved for a run nobody is watching. A
+ *     scan started by hand has an operator at the screen already; the
+ *     scanner does not also reach for their website's files.
  */
 class malwatch_actions
 {
@@ -45,11 +49,22 @@ class malwatch_actions
 		$worst = $this->worst_severity($new);
 		$config = $helper->get_config();
 
+		// Decided once, up front: the notification below and the job queued
+		// further down must describe the exact same files, never two
+		// selections that could in principle disagree.
+		$scheduled = $this->scan_job_source($scan) === 'schedule';
+		$auto_candidates = $scheduled ? $this->auto_paths($scan, $site, $config) : array();
+		$auto_blocked = !empty($auto_candidates) && $this->job_queued($scan['parent_domain_id']);
+		$auto_mail = $auto_blocked ? array() : $auto_candidates;
+
 		if ($site['notify_admin'] === 'y' && $helper->severity_at_least($worst, $site['notify_admin_severity'])) {
-			$this->notify_admin($scan, $site, $config, $new, $worst);
+			$this->notify_admin($scan, $site, $config, $new, $worst, $auto_mail);
 		}
 		if ($site['notify_client'] === 'y' && $helper->severity_at_least($worst, $site['notify_client_severity'])) {
-			$this->notify_client($scan, $site, $config, $new, $worst);
+			$this->notify_client($scan, $site, $config, $new, $worst, $auto_mail);
+		}
+		if ($scheduled) {
+			$this->auto_quarantine($scan, $worst, $auto_candidates, $auto_blocked);
 		}
 		if ($site['disable_site'] === 'y' && $helper->severity_at_least($worst, $site['disable_severity'])) {
 			$this->disable_site($scan, $site, $new, $worst);
@@ -155,7 +170,7 @@ class malwatch_actions
 			'SELECT * FROM malwatch_site WHERE parent_domain_id = ?', $domain_id);
 	}
 
-	private function notify_admin($scan, $site, $config, $findings, $worst)
+	private function notify_admin($scan, $site, $config, $findings, $worst, $auto)
 	{
 		global $app;
 
@@ -169,10 +184,10 @@ class malwatch_actions
 				'Keine Empfängeradresse hinterlegt, die Benachrichtigung an den Betreiber wurde nicht versendet.');
 			return;
 		}
-		$this->send($scan, $site, $config, $findings, $worst, $recipient, 'notify_admin', 'malwatch_notification');
+		$this->send($scan, $site, $config, $findings, $worst, $auto, $recipient, 'notify_admin', 'malwatch_notification');
 	}
 
-	private function notify_client($scan, $site, $config, $findings, $worst)
+	private function notify_client($scan, $site, $config, $findings, $worst, $auto)
 	{
 		global $app;
 
@@ -188,12 +203,12 @@ class malwatch_actions
 			return;
 		}
 		$language = is_array($client) && $client['language'] !== '' ? $client['language'] : 'de';
-		$this->send($scan, $site, $config, $findings, $worst, $recipient, 'notify_client',
+		$this->send($scan, $site, $config, $findings, $worst, $auto, $recipient, 'notify_client',
 			'malwatch_client_notification', $language);
 	}
 
 	/** Renders a template and hands it to ISPConfig's mailer. */
-	private function send($scan, $site, $config, $findings, $worst, $recipient, $type, $template, $language = 'de')
+	private function send($scan, $site, $config, $findings, $worst, $auto, $recipient, $type, $template, $language = 'de')
 	{
 		global $app, $conf;
 
@@ -204,7 +219,7 @@ class malwatch_actions
 			$sender = isset($global['admin_mail']) && $global['admin_mail'] !== '' ? $global['admin_mail'] : 'root';
 		}
 
-		$body = $this->render($template, $language, $scan, $findings, $worst);
+		$body = $this->render($template, $language, $scan, $findings, $worst, $auto);
 		if ($body === '') {
 			$this->log_action($scan, 'error', $worst, count($findings), $recipient,
 				'Die Mailvorlage ' . $template . ' fehlt.');
@@ -228,7 +243,7 @@ class malwatch_actions
 		$this->log_action($scan, $type, $worst, count($findings), $recipient, '');
 	}
 
-	private function render($template, $language, $scan, $findings, $worst)
+	private function render($template, $language, $scan, $findings, $worst, $auto)
 	{
 		global $conf;
 
@@ -258,6 +273,14 @@ class malwatch_actions
 			$lines[] = '  … und ' . (count($findings) - 25) . ' weitere.';
 		}
 
+		$auto_lines = array();
+		foreach (array_slice($auto, 0, 50) as $rel) {
+			$auto_lines[] = '  ' . $rel;
+		}
+		if (count($auto) > 50) {
+			$auto_lines[] = '  … und ' . (count($auto) - 50) . ' weitere.';
+		}
+
 		$replace = array(
 			'{domain}' => (string) $scan['domain'],
 			'{hostname}' => (string) php_uname('n'),
@@ -268,9 +291,185 @@ class malwatch_actions
 			'{files_scanned}' => (string) $scan['files_scanned'],
 			'{outdated}' => (string) $scan['count_outdated'],
 			'{findings}' => implode("\n", $lines),
+			'{quarantine}' => implode("\n", $auto_lines),
+			'{quarantine_count}' => (string) count($auto),
 		);
 
-		return strtr((string) file_get_contents($file), $replace);
+		$body = strtr((string) file_get_contents($file), $replace);
+
+		// The paragraph about moved files applies only when this very run
+		// queued something; a template written once for both cases needs a
+		// way to leave it out on the others, which a plain strtr() cannot do.
+		return $this->strip_optional_block($body, 'quarantine', !empty($auto));
+	}
+
+	/**
+	 * Cuts a {name_block}...{/name_block} section out of $text, or leaves the
+	 * section but drops its two marker lines when $keep is true.
+	 */
+	private function strip_optional_block($text, $name, $keep)
+	{
+		$open = '{' . $name . '_block}';
+		$close = '{/' . $name . '_block}';
+		if ($keep) {
+			return str_replace(array($open . "\n", $close . "\n", $open, $close), '', $text);
+		}
+		return preg_replace('/' . preg_quote($open, '/') . '.*?' . preg_quote($close, '/') . '\n?/s', '', $text);
+	}
+
+	/** The job_source of the job that produced this scan, 'manual' when unreadable. */
+	private function scan_job_source($scan)
+	{
+		global $app;
+
+		$job = $app->dbmaster->queryOneRecord('SELECT job_source FROM malwatch_job WHERE job_id = ?',
+			intval($scan['job_id']));
+
+		return is_array($job) ? (string) $job['job_source'] : 'manual';
+	}
+
+	/** True when a job is already pending or running for a website. */
+	private function job_queued($parent_domain_id)
+	{
+		global $app;
+
+		$row = $app->dbmaster->queryOneRecord(
+			"SELECT job_id FROM malwatch_job WHERE parent_domain_id = ? AND job_status IN ('pending','running')",
+			intval($parent_domain_id));
+
+		return is_array($row);
+	}
+
+	/**
+	 * Selects which of this scan's new findings the operator's auto-action
+	 * setting covers, as paths relative to the scan directory - exactly the
+	 * form a quarantine job's file list takes.
+	 *
+	 * Kept apart from auto_quarantine() and free of side effects, so what a
+	 * mode would move can be checked on its own before anything is moved.
+	 */
+	public function auto_paths($scan, $site, $config)
+	{
+		global $app;
+
+		$inherit = !isset($site['auto_action']) || $site['auto_action'] === '' || $site['auto_action'] === 'inherit';
+		$mode = (string) ($inherit
+			? (isset($config['auto_action']) ? $config['auto_action'] : '')
+			: $site['auto_action']);
+
+		// Nur was ausdruecklich dasteht, handelt. Die Umkehrung - alles ausser
+		// 'none' laeuft weiter - hat einen teuren Ausgang: es gibt Wege, auf
+		// denen hier ein leerer Wert ankommt (eine malwatch_config-Zeile, die
+		// noch nie durch die Einstellungsseite ging, ein Feld, das eine
+		// aeltere Abfrage nicht mitliest), und ohne Regelfilter waere die
+		// Folge, dass in dieser Nacht JEDER neue Fund verschwindet.
+		if (!in_array($mode, array('safe', 'critical', 'preset'), true)) {
+			return array();
+		}
+
+		$new = $this->new_findings($scan);
+		if (empty($new)) {
+			return array();
+		}
+
+		// null means "no rule filter", used by critical mode, which goes by
+		// severity instead. safe and preset build a lookup of the rule ids
+		// that qualify.
+		$rule_ids = null;
+		if ($mode === 'safe') {
+			$rule_ids = array();
+			$rows = $app->dbmaster->queryAllRecords("SELECT rule_id FROM malwatch_rule WHERE auto_safe = 'y'");
+			foreach ((array) $rows as $row) {
+				$rule_ids[$row['rule_id']] = true;
+			}
+		} elseif ($mode === 'preset') {
+			$preset_id = intval($inherit ? $config['auto_preset_id'] : $site['auto_preset_id']);
+			$preset = $preset_id > 0 ? $app->dbmaster->queryOneRecord(
+				'SELECT rule_ids FROM malwatch_auto_preset WHERE preset_id = ?', $preset_id) : null;
+			if (!is_array($preset)) {
+				// preset mode without a preset that still exists moves
+				// nothing - guessing which rules were meant would be worse
+				// than leaving the files alone.
+				return array();
+			}
+			$rule_ids = array();
+			foreach (explode(',', (string) $preset['rule_ids']) as $id) {
+				$id = trim($id);
+				if ($id !== '') {
+					$rule_ids[$id] = true;
+				}
+			}
+		}
+
+		$base = rtrim((string) $scan['scan_path'], '/');
+		$paths = array();
+		foreach ($new as $finding) {
+			if ($mode === 'critical' && $finding['severity'] !== 'critical') {
+				continue;
+			}
+			if ($rule_ids !== null && !isset($rule_ids[$finding['rule_id']])) {
+				continue;
+			}
+			$path = (string) $finding['file_path'];
+			// The same boundary check malwatch_queue_quarantine() makes for a
+			// manual selection: a finding outside the scan directory is not
+			// supposed to happen, and reaching outside it silently would be
+			// worse than skipping it.
+			if ($base === '' || strpos($path, $base . '/') !== 0) {
+				continue;
+			}
+			$paths[substr($path, strlen($base) + 1)] = true;
+		}
+
+		return array_keys($paths);
+	}
+
+	/**
+	 * Queues the quarantine job an operator's auto-action setting calls for.
+	 *
+	 * Takes the selection run() already made - and, where a notification went
+	 * out, already told someone about - instead of choosing again: the mail
+	 * and the queued job must never end up describing two different sets of
+	 * files. Only ever reached for a scheduled run (the caller checks
+	 * job_source): a scan started by hand already has someone looking at the
+	 * result, and that person decides what happens to the files, not the
+	 * scanner.
+	 */
+	private function auto_quarantine($scan, $worst, $paths, $blocked)
+	{
+		global $app;
+
+		if (empty($paths)) {
+			return;
+		}
+		if ($blocked) {
+			// Silence here would mean files a notification just promised were
+			// moved are actually still sitting on the site with no record
+			// saying why.
+			$this->log_action($scan, 'quarantine', $worst, count($paths), (string) $scan['domain'],
+				'Für diese Website läuft bereits ein Auftrag, die automatische Maßnahme wurde nicht eingereiht.');
+			return;
+		}
+
+		$options = json_encode(array(
+			'action' => 'add',
+			'origin' => 'auto',
+			'reason' => 'Automatische Maßnahme nach dem geplanten Lauf',
+			'files' => $paths,
+		));
+
+		$app->dbmaster->query(
+			'INSERT INTO malwatch_job (sys_userid, sys_groupid, sys_perm_user, sys_perm_group, sys_perm_other, '
+			. 'server_id, parent_domain_id, domain, scan_path, job_source, job_kind, job_status, options, created_at) '
+			. "VALUES (1, ?, 'riud', 'r', '', ?, ?, ?, ?, 'schedule', 'quarantine', 'pending', ?, NOW())",
+			intval($scan['sys_groupid']), intval($scan['server_id']), intval($scan['parent_domain_id']),
+			(string) $scan['domain'], (string) $scan['scan_path'], $options);
+
+		// The paths are the record of what happened to a customer's files
+		// without anyone watching; better logged in full up to the cap than
+		// left to be reconstructed later from a website that looks smaller.
+		$this->log_action($scan, 'quarantine', $worst, count($paths), (string) $scan['domain'],
+			implode("\n", array_slice($paths, 0, 50)));
 	}
 
 	/**

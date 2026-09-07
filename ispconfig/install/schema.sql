@@ -296,3 +296,141 @@ CREATE TABLE IF NOT EXISTS `malwatch_repair_element` (
   PRIMARY KEY (`element_id`),
   KEY `repair_id` (`repair_id`)
 ) DEFAULT CHARSET=utf8mb4 AUTO_INCREMENT=1 ;
+
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_config` ADD COLUMN `auto_action` enum(''none'',''safe'',''critical'',''preset'') NOT NULL DEFAULT ''none'' AFTER `last_signature_update`',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_config' AND COLUMN_NAME = 'auto_action');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_config` ADD COLUMN `auto_preset_id` int(11) unsigned NOT NULL DEFAULT ''0'' AFTER `auto_action`',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_config' AND COLUMN_NAME = 'auto_preset_id');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- malwatch_site kennt zusaetzlich 'inherit': eine einzelne Website kann damit
+-- von der globalen Vorgabe abweichen, ohne dass 'none' ueberladen werden
+-- muesste, das schon "nichts automatisch tun" bedeutet.
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_site` ADD COLUMN `auto_action` enum(''inherit'',''none'',''safe'',''critical'',''preset'') NOT NULL DEFAULT ''inherit'' AFTER `last_state`',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_site' AND COLUMN_NAME = 'auto_action');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_site` ADD COLUMN `auto_preset_id` int(11) unsigned NOT NULL DEFAULT ''0'' AFTER `auto_action`',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_site' AND COLUMN_NAME = 'auto_preset_id');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- action_type bekommt quarantine als weiteren Wert: die automatische Massnahme
+-- reiht denselben quarantine-Auftrag ein wie ein manueller Klick und muss das
+-- im Protokoll ebenso festhalten koennen. Die Spalte selbst gibt es schon,
+-- gefragt ist nur ein zusaetzlicher Enum-Wert - deshalb prueft die Huelle hier
+-- COLUMN_TYPE statt COUNT(*): ein reiner Existenztest der Spalte waere immer
+-- erfuellt und das MODIFY liefe bei jedem Update erneut.
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_action_log` MODIFY COLUMN `action_type` enum(''notify_admin'',''notify_client'',''disable_site'',''error'',''quarantine'') NOT NULL DEFAULT ''notify_admin''',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_action_log' AND COLUMN_NAME = 'action_type'
+    AND COLUMN_TYPE LIKE '%''quarantine''%');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+--
+-- One held file or directory. entry_id is the key the store uses on disk;
+-- rel_path is for display only. server_id is part of the uniqueness because
+-- the store lives on one server's disk, not centrally - the same entry_id
+-- can occur once per server. export_* stays empty until an operator asks
+-- for a download; the ZIP is built on demand, not kept for every entry.
+--
+CREATE TABLE IF NOT EXISTS `malwatch_quarantine` (
+  `quarantine_id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `sys_userid` int(11) unsigned NOT NULL DEFAULT '0',
+  `sys_groupid` int(11) unsigned NOT NULL DEFAULT '0',
+  `sys_perm_user` varchar(5) DEFAULT NULL,
+  `sys_perm_group` varchar(5) DEFAULT NULL,
+  `sys_perm_other` varchar(5) DEFAULT NULL,
+  `server_id` int(11) unsigned NOT NULL DEFAULT '0',
+  `parent_domain_id` int(11) unsigned NOT NULL DEFAULT '0',
+  `domain` varchar(255) NOT NULL DEFAULT '',
+  `entry_id` varchar(64) NOT NULL DEFAULT '',
+  `entry_kind` enum('file','dir') NOT NULL DEFAULT 'file',
+  `rel_path` varchar(1024) NOT NULL DEFAULT '',
+  `origin` enum('manual','auto','repair') NOT NULL DEFAULT 'manual',
+  `reason` varchar(255) NOT NULL DEFAULT '',
+  `rule_id` varchar(128) NOT NULL DEFAULT '',
+  `severity` varchar(10) NOT NULL DEFAULT '',
+  `files` int(11) unsigned NOT NULL DEFAULT '0',
+  `bytes` bigint(20) unsigned NOT NULL DEFAULT '0',
+  -- Zwei Größen, weil zwei Fragen: `bytes` ist, was der Eintrag im
+  -- Webverzeichnis gewogen hat - die Zahl, die ein Mensch wiedererkennt -,
+  -- `archive_bytes` ist, was er gepackt auf der Platte belegt. Wer aufräumt,
+  -- braucht die zweite; wer entscheidet, ob er etwas zurückholt, die erste.
+  `archive_bytes` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `created_at` datetime DEFAULT NULL,
+  `export_token` varchar(64) NOT NULL DEFAULT '',
+  `export_bytes` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `export_ready_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`quarantine_id`),
+  UNIQUE KEY `identity` (`server_id`,`entry_id`),
+  KEY `parent_domain_id` (`parent_domain_id`),
+  -- Der Downloadweg sucht ausschliesslich hierueber
+  -- (malwatch_quarantine_download.php): ein Token, eine Zeile, waehrend der
+  -- Bediener wartet. Ohne Index ist das ein voller Tabellendurchlauf je Klick.
+  KEY `export_token` (`export_token`)
+) DEFAULT CHARSET=utf8mb4 AUTO_INCREMENT=1 ;
+
+-- Der Index oben erreicht keine bestehende Installation: CREATE TABLE IF NOT
+-- EXISTS laesst eine vorhandene Tabelle unberuehrt (siehe den Hinweis weiter
+-- oben). Deshalb dieselbe selbstpruefende Huelle wie fuer die Spalten, nur
+-- gegen information_schema.STATISTICS statt COLUMNS.
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_quarantine` ADD INDEX `export_token` (`export_token`)',
+  'DO 0')
+  FROM information_schema.STATISTICS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_quarantine' AND INDEX_NAME = 'export_token');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+--
+-- Mirror of the scanner's rule catalogue, refreshed once a day by cron from
+-- `malwatch rules --json`. The interface reads this instead of shelling out,
+-- to show a rule's title next to its bare id and to count how many rules
+-- fall under each automatic-action choice. auto_safe is not something an
+-- operator sets here: it comes from the scanner's own catalogue
+-- (internal/rules) and marks a rule where a hit alone justifies moving the
+-- file, because the file cannot have a legitimate purpose.
+--
+CREATE TABLE IF NOT EXISTS `malwatch_rule` (
+  `rule_id` varchar(128) NOT NULL,
+  `title` varchar(255) NOT NULL DEFAULT '',
+  `severity` varchar(10) NOT NULL DEFAULT '',
+  `auto_safe` enum('n','y') NOT NULL DEFAULT 'n',
+  `last_seen` datetime DEFAULT NULL,
+  PRIMARY KEY (`rule_id`)
+) DEFAULT CHARSET=utf8mb4 ;
+
+--
+-- Named rule selections for the "eigene Auswahl" auto action. Not tied to a
+-- server or a site: malwatch_config.auto_preset_id and
+-- malwatch_site.auto_preset_id both point in here. rule_ids is a
+-- comma-separated list of malwatch_rule.rule_id kept as text, since a join
+-- table would be overkill for what is at most a few dozen ids.
+--
+CREATE TABLE IF NOT EXISTS `malwatch_auto_preset` (
+  `preset_id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `sys_userid` int(11) unsigned NOT NULL DEFAULT '0',
+  `sys_groupid` int(11) unsigned NOT NULL DEFAULT '0',
+  `sys_perm_user` varchar(5) DEFAULT NULL,
+  `sys_perm_group` varchar(5) DEFAULT NULL,
+  `sys_perm_other` varchar(5) DEFAULT NULL,
+  `preset_name` varchar(64) NOT NULL DEFAULT '',
+  `rule_ids` mediumtext,
+  `created_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`preset_id`)
+) DEFAULT CHARSET=utf8mb4 AUTO_INCREMENT=1 ;

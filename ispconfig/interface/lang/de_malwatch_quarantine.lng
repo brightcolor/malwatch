@@ -1,0 +1,76 @@
+<?php
+$wb['lede_none_txt'] = 'Die Quarantäne ist leer.';
+$wb['lede_one_txt'] = 'Ein Eintrag liegt in Quarantäne.';
+$wb['lede_many_txt'] = '%s Einträge liegen in Quarantäne.';
+$wb['sub_txt'] = 'Alles hier ist aus dem Webverzeichnis heraus und nicht mehr erreichbar — einzelne Dateien ebenso wie ganze Verzeichnisse, die eine Reparatur ersetzt hat. Von allein verschwindet nichts.';
+
+$wb['btn_restore_selected_txt'] = 'Ausgewählte zurückholen';
+$wb['btn_download_selected_txt'] = 'Ausgewählte herunterladen';
+$wb['btn_delete_selected_txt'] = 'Ausgewählte endgültig löschen';
+// {n} bleibt fuer das Skript stehen, das nur diesen Platzhalter ersetzt, wenn
+// sich die Auswahl aendert - die beiden %s aendern sich beim Anhaken nicht und
+// werden deshalb einmalig von PHP gefuellt. Die erste Zahl ist die der Zeilen
+// auf dieser Seite, nicht die der ganzen Tabelle: angehakt werden kann nur,
+// was zu sehen ist (siehe pager_hint_txt).
+$wb['toolbar_selected_txt'] = '{n} von %s ausgewählt · %s auf der Platte';
+$wb['select_all_txt'] = 'Alle Einträge auf dieser Seite auswählen';
+
+$wb['col_what_txt'] = 'Was';
+$wb['col_website_txt'] = 'Website';
+$wb['col_why_txt'] = 'Warum';
+$wb['col_moved_txt'] = 'Verschoben';
+$wb['col_size_txt'] = 'Größe';
+$wb['size_unknown_txt'] = 'noch unbekannt';
+
+$wb['kind_file_txt'] = 'Datei';
+$wb['kind_dir_txt'] = 'Verzeichnis';
+
+$wb['origin_manual_txt'] = 'von Ihnen';
+$wb['origin_auto_txt'] = 'automatisch';
+$wb['origin_repair_txt'] = 'Reparatur';
+
+$wb['btn_restore_txt'] = 'Zurückholen';
+$wb['btn_download_txt'] = 'Herunterladen';
+// Der Knopf in der Zeile vernichtet die letzte Kopie einer Kundendatei. Ein
+// Aufdruck, der nur "Löschen" sagt, verschweigt genau das, was ihn von jedem
+// anderen Löschknopf im Panel unterscheidet.
+$wb['btn_delete_txt'] = 'Endgültig löschen';
+$wb['dl_preparing_txt'] = 'wird vorbereitet';
+$wb['dl_ready_txt'] = 'Herunterladen (%s)';
+// Ein Auftrag packt ein ZIP fuer die ganze Auswahl, nicht eines je Eintrag.
+// Steht dieselbe Groesse ohne Erklaerung neben einer Zeile, deren Spalte
+// "Größe" 169 B sagt, liest sie sich wie die Groesse dieser einen Datei.
+$wb['dl_ready_shared_txt'] = 'ZIP mit %s Einträgen (%s)';
+
+$wb['pager_range_txt'] = 'Einträge %s bis %s von %s';
+$wb['pager_hint_txt'] = 'Die Sammelaktionen oben gelten für die Einträge auf dieser Seite.';
+$wb['btn_prev_page_txt'] = 'Vorherige Seite';
+$wb['btn_next_page_txt'] = 'Nächste Seite';
+
+$wb['footnote_zip_txt'] = 'Herunterladen gibt ein passwortgeschütztes ZIP.';
+$wb['footnote_zip_body_txt'] = 'Passwort %s — die Übereinkunft, mit der Sicherheitsleute Proben verschicken. Das hält jeden Virenscanner davon ab, die Datei unterwegs wegzunehmen, und verhindert, dass sie irgendwo aus Versehen läuft. Ihr eigener Rechner wird sie sonst genauso einsammeln wie dieser Server sie gefunden hat. Haken Sie mehrere Einträge an, kommt ein einziges ZIP mit allen darin.';
+$wb['footnote_size_txt'] = 'Zwei Größen, zwei Fragen.';
+$wb['footnote_size_body_txt'] = 'Die Spalte „Größe" sagt, was ein Eintrag auf der Website gewogen hat — die Zahl, die Sie wiedererkennen. Die Angabe in der Leiste darüber sagt, was alle Einträge zusammen gepackt auf der Platte belegen. Die Spalte summiert sich deshalb nie zu der Zahl in der Leiste. Was eine Reparatur abgelegt hat, steht so lange auf „noch unbekannt", bis der nächste Quarantänelauf die Größe nachträgt.';
+$wb['footnote_where_txt'] = 'Wo liegt das alles?';
+$wb['footnote_where_body_txt'] = 'Unter %s, nur für root lesbar, außerhalb jedes Webverzeichnisses. Nach 90 Tagen erinnert der Bericht ans Aufräumen — gelöscht wird nur, was Sie hier löschen.';
+
+$wb['confirm_restore_selected_txt'] = 'Ausgewählte Einträge zurück auf die Websites legen? Sie sind damit sofort wieder aktiv, Schadcode inbegriffen. Die Funde stehen danach wieder in der Liste, und die betroffenen Websites gelten nicht mehr als sauber.';
+$wb['confirm_restore_one_txt'] = 'Diesen Eintrag zurück auf die Website legen? Er ist damit sofort wieder aktiv, Schadcode inbegriffen. Der Fund steht danach wieder in der Liste, und die Website gilt nicht mehr als sauber.';
+$wb['confirm_delete_selected_txt'] = 'Ausgewählte Einträge endgültig aus der Quarantäne löschen? Das ist die letzte Kopie dieser Dateien. Danach sind sie weg, auch für den Kunden, und das kann niemand rückgängig machen.';
+$wb['confirm_delete_one_txt'] = 'Diesen Eintrag endgültig aus der Quarantäne löschen? Das ist die letzte Kopie dieser Datei. Danach ist sie weg, auch für den Kunden, und das kann niemand rückgängig machen.';
+$wb['confirm_none_selected_txt'] = 'Es wurde kein Eintrag ausgewählt.';
+
+$wb['msg_restore_one_txt'] = 'Der Eintrag wird zurückgeholt. Sobald er wieder auf der Website liegt, steht der Fund wieder in der Liste.';
+$wb['msg_restore_many_txt'] = '%s Einträge werden zurückgeholt. Sobald sie wieder auf ihren Websites liegen, stehen die Funde wieder in der Liste.';
+$wb['msg_delete_one_txt'] = 'Der Eintrag wird endgültig gelöscht.';
+$wb['msg_delete_many_txt'] = '%s Einträge werden endgültig gelöscht.';
+$wb['msg_download_one_txt'] = 'Das ZIP wird vorbereitet. Sobald es bereitliegt, erscheint bei diesem Eintrag ein Verweis mit der Größe.';
+$wb['msg_download_many_txt'] = 'Ein einziges ZIP mit allen ausgewählten Einträgen wird vorbereitet. Sobald es bereitliegt, steht der Verweis darauf in jeder der ausgewählten Zeilen — überall dasselbe Archiv.';
+$wb['job_error_head_txt'] = 'Ein Quarantäneauftrag der letzten 24 Stunden ist gescheitert.';
+$wb['err_no_selection_txt'] = 'Es wurde kein Eintrag ausgewählt.';
+$wb['err_unknown_action_txt'] = 'Diese Aktion gibt es nicht. Bitte laden Sie die Seite neu.';
+$wb['err_none_found_txt'] = 'Keiner der ausgewählten Einträge wurde gefunden. Wahrscheinlich ist die Liste vor Ihnen älter als die Quarantäne — bitte laden Sie die Seite neu.';
+
+$wb['err_dl_bad_link_txt'] = 'Dieser Verweis ist unvollständig. Holen Sie das ZIP bitte über die Quarantäneliste erneut.';
+$wb['err_dl_expired_txt'] = 'Dieser Verweis gilt nicht mehr. Ein ZIP lässt sich einmal und innerhalb von 24 Stunden holen — fordern Sie es in der Quarantäneliste neu an.';
+$wb['err_dl_gone_txt'] = 'Das ZIP liegt nicht mehr auf der Platte. Fordern Sie es in der Quarantäneliste neu an.';

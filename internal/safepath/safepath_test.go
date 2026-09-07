@@ -1,4 +1,4 @@
-package repair
+package safepath
 
 import (
 	"os"

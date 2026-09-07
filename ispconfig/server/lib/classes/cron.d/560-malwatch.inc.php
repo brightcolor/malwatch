@@ -300,7 +300,109 @@ class cronjob_malwatch extends cronjob
 			"DELETE FROM malwatch_finding WHERE finding_state = 'fixed' "
 			. 'AND last_seen < DATE_SUB(NOW(), INTERVAL 90 DAY)');
 
+		$this->clean_spool($config);
+
 		$this->refresh_signatures($config);
+		$this->refresh_rules($config);
+	}
+
+	/**
+	 * Removes zips nobody downloaded within a day and clears the row that
+	 * pointed at them.
+	 *
+	 * Without the second half a stale export_token would still look valid
+	 * to malwatch_quarantine_download.php and offer a link to a file that
+	 * is no longer on disk.
+	 */
+	private function clean_spool($config)
+	{
+		global $app, $conf;
+
+		$spool_dir = rtrim((string) $config['state_dir'], '/') . '/spool';
+		if (!is_dir($spool_dir)) {
+			return;
+		}
+
+		$names = scandir($spool_dir);
+		if ($names === false) {
+			return;
+		}
+
+		$cutoff = time() - 86400;
+		foreach ($names as $name) {
+			if ($name === '.' || $name === '..') {
+				continue;
+			}
+			$full = $spool_dir . '/' . $name;
+			if (!is_file($full) || filemtime($full) >= $cutoff) {
+				continue;
+			}
+
+			@unlink($full);
+
+			// The token is the file name without its extension - the only
+			// naming rule shared between build_arguments() and here.
+			$token = preg_replace('/\.zip$/', '', $name);
+			if ($token === '') {
+				continue;
+			}
+			$app->dbmaster->query(
+				"UPDATE malwatch_quarantine SET export_token = '', export_bytes = 0, export_ready_at = NULL "
+				. 'WHERE server_id = ? AND export_token = ?',
+				$conf['server_id'], $token);
+		}
+	}
+
+	/**
+	 * Refreshes malwatch_rule from the scanner's own catalogue, once a day.
+	 *
+	 * Unlike signature updates there is no config column to remember the
+	 * last run in - the state file the run itself writes is already proof
+	 * of when that was, so its mtime is the only marker this needs.
+	 */
+	private function refresh_rules($config)
+	{
+		global $app;
+
+		$binary = (string) $config['binary_path'];
+		if ($binary === '' || !is_executable($binary)) {
+			return;
+		}
+
+		$out = rtrim((string) $config['state_dir'], '/') . '/state/rules.json';
+		if (is_file($out) && filemtime($out) > time() - 82800) {
+			return;
+		}
+
+		$cmd = escapeshellcmd($binary) . ' rules --json --out=' . escapeshellarg($out) . ' 2>&1';
+		$output = array();
+		$status = 0;
+		exec($cmd, $output, $status);
+
+		if ($status !== 0) {
+			$app->log('malwatch: refreshing the rule catalogue failed: ' . implode(' ', $output), LOGLEVEL_WARN);
+			return;
+		}
+
+		$doc = json_decode((string) @file_get_contents($out), true);
+		$rules = is_array($doc) && isset($doc['rules']) && is_array($doc['rules']) ? $doc['rules'] : array();
+		$now = date('Y-m-d H:i:s');
+
+		foreach ($rules as $rule) {
+			$rule_id = isset($rule['id']) ? (string) $rule['id'] : '';
+			if ($rule_id === '') {
+				continue;
+			}
+			$app->dbmaster->query(
+				'INSERT INTO malwatch_rule (rule_id, title, severity, auto_safe, last_seen) VALUES (?, ?, ?, ?, ?) '
+				. 'ON DUPLICATE KEY UPDATE title = VALUES(title), severity = VALUES(severity), '
+				. 'auto_safe = VALUES(auto_safe), last_seen = VALUES(last_seen)',
+				$rule_id, substr((string) (isset($rule['title']) ? $rule['title'] : ''), 0, 255),
+				substr((string) (isset($rule['severity']) ? $rule['severity'] : ''), 0, 10),
+				!empty($rule['auto_safe']) ? 'y' : 'n', $now);
+		}
+
+		$app->log('malwatch: rule catalogue refreshed (' . count($rules) . ').', LOGLEVEL_DEBUG);
 	}
 
 	/** Loads new malware signatures once a day. */

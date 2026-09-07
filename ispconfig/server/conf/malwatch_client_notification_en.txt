@@ -20,4 +20,14 @@ What you should do:
 3. Restore a backup from before the infection, or have the affected files
    removed.
 
+{quarantine_block}
+{quarantine_count} of the affected file(s) have already been moved to
+quarantine automatically, kept safe and unaltered:
+
+{quarantine}
+
+None of it has been deleted. If you need one of these files back, please get
+in touch.
+
+{/quarantine_block}
 Please get in touch if you have any questions.

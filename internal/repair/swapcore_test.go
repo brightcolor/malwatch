@@ -3,6 +3,7 @@ package repair
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -84,5 +85,49 @@ func TestSwapCoreRefusesStagingInsideTheRoot(t *testing.T) {
 	}
 	if _, err := SwapCore(root, inside); err == nil {
 		t.Fatal("staging inside the web root was accepted")
+	}
+}
+
+// TestSwapCoreRefusesToWriteThroughASymlinkedLooseRootFile guards the loose
+// root file side of K1: InsideRoot resolves every symlink in the candidate
+// path, so it catches a link pointing out of the web root, but one pointing
+// at a sibling file inside it - wp-config.php, say - resolves to a path that
+// is still under root and passes that check. os.WriteFile then follows the
+// link, so a symlinked index.php could be made to overwrite wp-config.php
+// with vendor content instead of its own. Only a link-specific check (not a
+// containment check) catches this.
+func TestSwapCoreRefusesToWriteThroughASymlinkedLooseRootFile(t *testing.T) {
+	root := t.TempDir()
+	configPath := filepath.Join(root, "wp-config.php")
+	if err := os.WriteFile(configPath, []byte("<?php // secrets\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// The attacker's move: the loose core file's spot in the web root now
+	// points at wp-config.php, so writing "index.php" by name really writes
+	// wp-config.php.
+	indexPath := filepath.Join(root, "index.php")
+	symlinkOrSkip(t, configPath, indexPath)
+
+	staged := t.TempDir()
+	if err := os.WriteFile(filepath.Join(staged, "index.php"),
+		[]byte("<?php // ORIGINAL WORDPRESS\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := SwapCore(root, staged)
+	if err == nil {
+		t.Fatal("SwapCore wrote through a symlinked loose core file instead of refusing")
+	}
+	if !strings.Contains(err.Error(), indexPath) {
+		t.Errorf("error %q does not name the symlinked path %q", err, indexPath)
+	}
+
+	got, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "<?php // secrets\n" {
+		t.Errorf("SwapCore wrote through the link: wp-config.php now %q", got)
 	}
 }

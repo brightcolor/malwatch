@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/brightcolor/malwatch/internal/cms"
 )
@@ -65,4 +66,44 @@ func BuildPlan(root string) (Plan, error) {
 	}
 
 	return plan, nil
+}
+
+// Filter narrows Elements to what only names - "core", or "plugin:elementor"
+// for one specific slug. An empty only leaves the plan as it is.
+//
+// A filter that matches nothing is an error rather than a silent no-op: a
+// typo in --only must not quietly repair everything, or quietly repair
+// nothing while looking like it ran.
+func (p Plan) Filter(only []string) (Plan, error) {
+	if len(only) == 0 {
+		return p, nil
+	}
+
+	matched := make([]bool, len(only))
+	out := p
+	out.Elements = nil
+	for _, el := range p.Elements {
+		for i, f := range only {
+			if elementMatches(el, f) {
+				matched[i] = true
+				out.Elements = append(out.Elements, el)
+				break
+			}
+		}
+	}
+	for i, f := range only {
+		if !matched[i] {
+			return Plan{}, fmt.Errorf("--only=%s passt auf kein gefundenes Element", f)
+		}
+	}
+	return out, nil
+}
+
+// elementMatches reports whether filter names el: either its kind alone
+// ("plugin") or kind and slug together ("plugin:elementor").
+func elementMatches(el Element, filter string) bool {
+	if kind, slug, ok := strings.Cut(filter, ":"); ok {
+		return el.Kind == kind && el.Slug == slug
+	}
+	return el.Kind == filter
 }

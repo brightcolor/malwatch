@@ -103,17 +103,21 @@ $wb['line_txt'] = 'line';
 $wb['files_new_txt'] = 'newly scanned';
 $wb['files_unchanged_txt'] = 'unchanged';
 $wb['running_txt'] = 'check(s) running. This list refreshes itself';
-$wb['delete_one_txt'] = 'Delete';
-$wb['delete_all_txt'] = 'Delete all findings';
-$wb['repair_txt'] = 'Restore';
-$wb['repair_dry_txt'] = 'Dry run';
+// Named "Delete" before quarantine existed - it never deleted anything, it
+// queued the same job "Move to quarantine" on the repair page does. The
+// name now matches what it does.
+$wb['delete_one_txt'] = 'Move to quarantine';
+$wb['delete_all_txt'] = 'Move all open findings to quarantine';
+$wb['repair_txt'] = 'Restore the vendor files';
 $wb['progress_waiting_txt'] = 'Preparing the run …';
-$wb['confirm_delete_one_txt'] = 'Really delete this file? A copy is kept under /var/lib/malwatch/backups.';
-$wb['confirm_delete_all_txt'] = 'Delete every reported file of this website? Copies are kept under /var/lib/malwatch/backups.';
-$wb['confirm_repair_txt'] = 'Replace core, plugins and themes with the originals? The website is switched off for the duration, everything replaced is kept, and elements without an original are deleted.';
+$wb['confirm_delete_one_txt'] = 'Move this file to quarantine? You can restore or download it from there.';
+$wb['confirm_delete_all_txt'] = 'Move every open finding of this website to quarantine? Each file can be restored or downloaded from there.';
+$wb['quarantine_hint_one_txt'] = 'One entry of this website is in quarantine.';
+$wb['quarantine_hint_many_txt'] = '%s entries of this website are in quarantine.';
+$wb['quarantine_hint_link_txt'] = 'View';
 $wb['phase_scanning_txt'] = 'Checking files';
 $wb['phase_detect_txt'] = 'Detect';
 $wb['phase_fetch_txt'] = 'Fetch';
 $wb['phase_verify_txt'] = 'Verify';
-$wb['phase_backup_txt'] = 'Back up';
+$wb['phase_quarantine_txt'] = 'Move to quarantine';
 $wb['phase_swap_txt'] = 'Swap';

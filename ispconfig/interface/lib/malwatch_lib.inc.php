@@ -93,14 +93,24 @@ function malwatch_queue_scan($app, $domain_id)
  * The website is switched off for the duration by the caller, not here: an
  * installation that is half exchanged has no business being served, and a
  * backdoor that is still reachable would write again while it happens.
+ *
+ * $mode, $no_original and $only travel straight into options under the exact
+ * keys malwatch_runner::build_arguments() reads for a 'repair' job - see
+ * that method before renaming any of them. Defaults match its own fallback
+ * ("unset or empty means the default"), so a caller that skips them gets the
+ * same behaviour a job queued before these options existed would.
  */
-function malwatch_queue_repair($app, $domain_id, $dry_run = false, $previous_active = 'y')
+function malwatch_queue_repair($app, $domain_id, $dry_run = false, $previous_active = 'y',
+	$mode = 'replace', $no_original = 'keep', array $only = array())
 {
 	// The state before the run travels with the job: switching back has to
 	// restore what was, not guess that every website was online.
 	return malwatch_queue_job($app, $domain_id, 'repair', array(
 		'dry_run' => $dry_run ? 1 : 0,
 		'previous_active' => $previous_active === 'y' ? 'y' : 'n',
+		'mode' => $mode === 'overlay' ? 'overlay' : 'replace',
+		'no_original' => $no_original === 'quarantine' ? 'quarantine' : 'keep',
+		'only' => array_values($only),
 	));
 }
 
@@ -146,6 +156,94 @@ function malwatch_queue_quarantine($app, $domain_id, array $paths)
 	return $queued === true ? count($accepted) : $queued;
 }
 
+/**
+ * The WHERE fragment and bind params one automatic-action mode filters open
+ * findings by, or null for a mode that covers nothing ('none', or 'preset'
+ * with no rule to go by).
+ *
+ * Mirrors malwatch_actions::auto_paths() on the server side exactly - 'safe'
+ * goes by malwatch_rule.auto_safe, 'critical' by the finding's own severity,
+ * never the rule catalogue's. The two are not one a subset of the other; a
+ * measurement against real findings found 767 files under 'safe' and 472
+ * under 'critical' out of 1511 open ones, so keeping both queries faithful
+ * to auto_paths() rather than approximating one from the other matters.
+ */
+function malwatch_auto_mode_filter($app, $mode, array $rule_ids = array())
+{
+	if ($mode === 'critical') {
+		return array("severity = 'critical'", array());
+	}
+	if ($mode === 'safe') {
+		return array("rule_id IN (SELECT rule_id FROM malwatch_rule WHERE auto_safe = 'y')", array());
+	}
+	if ($mode === 'preset' && count($rule_ids) > 0) {
+		$placeholders = implode(',', array_fill(0, count($rule_ids), '?'));
+		return array("rule_id IN ($placeholders)", array_values($rule_ids));
+	}
+	return null;
+}
+
+/**
+ * How many currently open findings - counted as distinct files, the way a
+ * human reads "how many files", not as raw rule hits - a mode would cover
+ * right now. The only honest preview for a setting that moves files on its
+ * own: a rule count from the catalogue says nothing about what is actually
+ * sitting on real websites today.
+ */
+function malwatch_auto_mode_finding_count($app, $mode, array $rule_ids = array())
+{
+	$filter = malwatch_auto_mode_filter($app, $mode, $rule_ids);
+	if ($filter === null) {
+		return 0;
+	}
+	list($where, $params) = $filter;
+	$row = call_user_func_array(array($app->db, 'queryOneRecord'), array_merge(
+		array('SELECT COUNT(DISTINCT parent_domain_id, file_path) AS n FROM malwatch_finding '
+			. "WHERE finding_state = 'open' AND $where"),
+		$params));
+	return is_array($row) ? $app->functions->intval($row['n']) : 0;
+}
+
+/**
+ * Open finding paths a mode currently covers, grouped by website - the
+ * shape malwatch_queue_quarantine() wants, one call per parent_domain_id.
+ *
+ * Only 'open' findings qualify, never 'ignored': an ignored finding was a
+ * person's own call that this file is not a problem, and a sweep like this
+ * has no business overriding that on its own.
+ */
+function malwatch_auto_mode_paths_by_domain($app, $mode, array $rule_ids = array())
+{
+	$filter = malwatch_auto_mode_filter($app, $mode, $rule_ids);
+	if ($filter === null) {
+		return array();
+	}
+	list($where, $params) = $filter;
+	$rows = call_user_func_array(array($app->db, 'queryAllRecords'), array_merge(
+		array('SELECT parent_domain_id, file_path FROM malwatch_finding '
+			. "WHERE finding_state = 'open' AND $where"),
+		$params));
+
+	// Keyed by path first, so a file two different rules both hit (a real
+	// case for 'preset', which can name several rule_ids at once) ends up
+	// in the job's file list once, not once per matching rule.
+	$by_domain = array();
+	foreach ((array) $rows as $row) {
+		$domain_id = $app->functions->intval($row['parent_domain_id']);
+		if ($domain_id < 1) {
+			continue;
+		}
+		if (!isset($by_domain[$domain_id])) {
+			$by_domain[$domain_id] = array();
+		}
+		$by_domain[$domain_id][(string) $row['file_path']] = true;
+	}
+	foreach ($by_domain as $domain_id => $paths) {
+		$by_domain[$domain_id] = array_keys($paths);
+	}
+	return $by_domain;
+}
+
 /** Puts one job of any kind into the queue. */
 function malwatch_queue_job($app, $domain_id, $kind, array $options)
 {
@@ -188,6 +286,118 @@ function malwatch_queue_job($app, $domain_id, $kind, array $options)
 	return true;
 }
 
+/**
+ * Queues a restore, download or permanent delete for one or more quarantine
+ * entries.
+ *
+ * The quarantine list spans every website on the server, so a batch of ids
+ * can belong to more than one domain at once - unlike malwatch_queue_job,
+ * which is always about a single site. What ties a job to one machine is
+ * server_id, not parent_domain_id: the store the CLI opens with
+ * --quarantine-dir lives on one server's disk, and that is what its cron
+ * uses to find its own work.
+ *
+ * restore and delete both end in a full-list resync of the store
+ * (malwatch_ingest::sync_quarantine), so several ids from the same server
+ * are safe to queue as one job. So is an export: one job writes one ZIP for
+ * the whole selection, and malwatch_ingest::finish_export() files that one
+ * token onto every id of the job's list, so whichever row the operator
+ * clicks hands back the same archive. A job runs alone per server, so twenty
+ * single exports would be nineteen refusals and one download - and the
+ * operator asked for twenty files, not for twenty waits.
+ *
+ * Every id arrives as "<server_id>:<entry_id>", the pair the quarantine list
+ * puts into its checkboxes. Not because the panel can act on a second server
+ * yet, but because entry_id on its own is not a key: malwatch_quarantine is
+ * unique on (server_id, entry_id), since the store lives on one server's
+ * disk and the same id can occur once per machine (see schema.sql).
+ *
+ * Returns the number of ids queued, or the language key of a message
+ * explaining why nothing was queued - this file has no $wb of its own, and
+ * anything an operator reads belongs in a language file.
+ */
+function malwatch_queue_quarantine_action($app, array $ids, $action)
+{
+	if (!in_array($action, array('restore', 'delete', 'export'), true)) {
+		return 'err_unknown_action_txt';
+	}
+
+	$valid = array();
+	foreach ($ids as $id) {
+		$id = (string) $id;
+		$separator = strpos($id, ':');
+		if ($separator === false) {
+			continue;
+		}
+		$server_part = substr($id, 0, $separator);
+		$entry_id = substr($id, $separator + 1);
+		if ($server_part === '' || !ctype_digit($server_part) || $entry_id === '') {
+			continue;
+		}
+		// Only a pair actually in the store may be queued - it came back from
+		// a form field, and a stale or tampered value must not reach the
+		// binary as if it named a real entry.
+		$row = $app->db->queryOneRecord(
+			'SELECT entry_id, server_id FROM malwatch_quarantine WHERE server_id = ? AND entry_id = ?',
+			$app->functions->intval($server_part), $entry_id);
+		if (!is_array($row)) {
+			continue;
+		}
+		$valid[] = array(
+			'entry_id' => (string) $row['entry_id'],
+			'server_id' => $app->functions->intval($row['server_id']),
+		);
+	}
+	if (count($valid) === 0) {
+		return 'err_none_found_txt';
+	}
+
+	$by_server = array();
+	foreach ($valid as $entry) {
+		if (!isset($by_server[$entry['server_id']])) {
+			$by_server[$entry['server_id']] = array();
+		}
+		$by_server[$entry['server_id']][] = $entry['entry_id'];
+	}
+
+	foreach ($by_server as $server_id => $group_ids) {
+		$options = array('action' => $action, 'ids' => $group_ids);
+		if ($action === 'export') {
+			$options['token'] = bin2hex(random_bytes(20));
+		}
+		malwatch_insert_quarantine_job($app, $server_id, $options);
+	}
+	return count($valid);
+}
+
+/**
+ * Inserts one malwatch_job row of kind 'quarantine'.
+ *
+ * parent_domain_id and domain stay empty on purpose: nothing reads them for
+ * this job kind once options['action'] is not 'add' - the runner works
+ * entirely from --id, and a job's ids can span more than one website anyway,
+ * so neither field could name a single one honestly.
+ */
+function malwatch_insert_quarantine_job($app, $server_id, array $options)
+{
+	$app->db->datalogInsert('malwatch_job', array(
+		'sys_userid' => $_SESSION['s']['user']['userid'],
+		'sys_groupid' => $app->functions->intval($_SESSION['s']['user']['default_group']),
+		'sys_perm_user' => 'riud',
+		'sys_perm_group' => 'r',
+		'sys_perm_other' => '',
+		'server_id' => $server_id,
+		'parent_domain_id' => 0,
+		'domain' => '',
+		'scan_path' => '',
+		'job_source' => 'manual',
+		'job_kind' => 'quarantine',
+		'job_status' => 'pending',
+		'options' => json_encode($options),
+		'created_at' => date('Y-m-d H:i:s'),
+	), 'job_id');
+}
+
 /** The directory of a website that actually holds the customer's files. */
 function malwatch_scan_path($web)
 {
@@ -226,6 +436,13 @@ function malwatch_schedule_label($wb, $schedule)
 	}
 	$key = 'schedule_' . (string) $schedule . '_txt';
 	return isset($wb[$key]) ? $wb[$key] : (string) $schedule;
+}
+
+/** How a quarantine entry got there: manual, auto or repair. */
+function malwatch_origin_label($wb, $origin)
+{
+	$key = 'origin_' . (string) $origin . '_txt';
+	return isset($wb[$key]) ? $wb[$key] : (string) $origin;
 }
 
 /** Bootstrap label class for a website state. */
@@ -416,6 +633,26 @@ function malwatch_duration($seconds)
 		return floor($seconds / 60) . ' min ' . ($seconds % 60) . ' s';
 	}
 	return floor($seconds / 3600) . ' h ' . floor(($seconds % 3600) / 60) . ' min';
+}
+
+/**
+ * Formats a byte count the way a human reads it: "169 B", "5,4 kB",
+ * "41,8 MB" - decimal units and a German comma, not the binary kind an
+ * administrator's tools would show.
+ */
+function malwatch_bytes($n)
+{
+	$n = (float) $n;
+	$units = array('B', 'kB', 'MB', 'GB', 'TB');
+	$i = 0;
+	while ($n >= 1000 && $i < count($units) - 1) {
+		$n /= 1000;
+		$i++;
+	}
+	if ($i === 0) {
+		return number_format($n, 0, ',', '.') . ' B';
+	}
+	return number_format($n, 1, ',', '.') . ' ' . $units[$i];
 }
 
 /**

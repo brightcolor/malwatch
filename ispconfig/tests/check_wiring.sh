@@ -292,6 +292,59 @@ if grep -q 'scan_state' "$runner"; then
 	done < "$tmp"
 fi
 
+# Erweiterung von Prüfung 22 auf die zwei Aufzählungen, die dieser Zweig neu
+# schreibt: action_type bekommt den Wert 'quarantine' dazu (das MODIFY COLUMN
+# weiter unten in schema.sql), und malwatch_config.auto_action pflegt seine
+# Whitelist im Formular getrennt von der Spalte selbst. Dieselbe Technik wie
+# oben: die gültigen Werte kommen aus schema.sql, nicht aus einer Abschrift
+# hier im Test, und die Treffer landen erst in einer Datei, damit fail() in
+# der Hauptshell läuft statt in einer Pipe-Subshell.
+actions="$root/server/lib/classes/malwatch_actions.inc.php"
+if [ -f "$actions" ]; then
+	valid_enum=$(grep -E '`malwatch_action_log`.*`action_type` enum' "$schema" | sed "s/.*enum(\([^)]*\)).*/\1/")
+	valid_list=$(printf "%s" "$valid_enum" | sed "s/'//g" | sed "s/,/ /g")
+
+	tmp="$tmpdir/action_type"
+	grep -oE "log_action\([^,]+, '[a-z_]+'" "$actions" > "$tmp" 2>/dev/null || true
+
+	while read line; do
+		val=$(printf "%s" "$line" | sed "s/[^']*'\([^']*\).*/\1/")
+		if [ -n "$val" ]; then
+			case " $valid_list " in
+				*" $val "*)
+					;;
+				*)
+					fail "malwatch_actions.inc.php schreibt action_type='$val', aber schema.sql kennt ihn nicht (gültig: $valid_list)"
+					;;
+			esac
+		fi
+	done < "$tmp"
+fi
+
+tform="$root/interface/form/malwatch_config.tform.php"
+if [ -f "$tform" ]; then
+	valid_enum=$(grep -E '`malwatch_config`.*`auto_action` enum' "$schema" | sed "s/.*enum(\([^)]*\)).*/\1/")
+	valid_list=$(printf "%s" "$valid_enum" | sed "s/'//g" | sed "s/,/ /g")
+
+	# Nur der eigene Block des Feldes: 'value' => array(...) kommt in
+	# derselben Datei auch bei anderen Feldern vor, mit fremden Schlüsseln.
+	tmp="$tmpdir/auto_action"
+	sed -n "/'auto_action' => array(/,/'auto_preset_id' => array(/p" "$tform" \
+		| grep -oE "=> '[a-z]+'" | sed "s/=> '\([a-z]*\)'/\1/" | sort -u > "$tmp" 2>/dev/null || true
+
+	while read val; do
+		if [ -n "$val" ]; then
+			case " $valid_list " in
+				*" $val "*)
+					;;
+				*)
+					fail "malwatch_config.tform.php erlaubt auto_action=$val, aber schema.sql kennt ihn nicht (gültig: $valid_list)"
+					;;
+			esac
+		fi
+	done < "$tmp"
+fi
+
 # 23. Das Modul braucht eine module.conf.php mit Namen und Startseite, sonst
 #     erscheint der Punkt in der oberen Leiste ohne Inhalt.
 conf="$root/interface/module.conf.php"
@@ -557,12 +610,130 @@ fi
 #     "Ungueltige Website." - der Knopf "Ansehen" fuehrte bei jeder Website
 #     ins Leere, und keine der bis dahin 33 Pruefungen sah es, weil beide
 #     Namen fuer sich betrachtet plausibel aussehen.
+#
+#     Um die beiden Seiten dieser Stufe erweitert: malwatch_repair_start.php
+#     liest denselben Namen id=, aus demselben Grund (siehe die Datei selbst).
+#     malwatch_quarantine_download.php liest dagegen token=, nicht id= oder
+#     domain_id= - der Download haengt an einem Exportauftrag, nicht an einer
+#     Website.
 for tpl in "$root"/interface/templates/*.htm "$root"/interface/*.php; do
 	[ -f "$tpl" ] || continue
 	if grep -q 'malwatch_site_show\.php?domain_id=' "$tpl"; then
 		fail "$(basename "$tpl") verlinkt site_show mit domain_id=, die Seite liest id="
 	fi
+	if grep -q 'malwatch_repair_start\.php?domain_id=' "$tpl"; then
+		fail "$(basename "$tpl") verlinkt repair_start mit domain_id=, die Seite liest id="
+	fi
+	if grep -qE 'malwatch_quarantine_download\.php\?(id|domain_id)=' "$tpl"; then
+		fail "$(basename "$tpl") verlinkt quarantine_download mit id=/domain_id=, die Seite liest token="
+	fi
 done
+
+# 35. Jede .php- und .htm-Datei unter interface/ muss in file.list stehen.
+#     Pruefung 6 deckt das schon fuer den ganzen Baum ab (interface UND
+#     server, jede Endung); diese Pruefung ist enger, aber genau die zwei
+#     Endungen sind es, die eine Seite unerreichbar machen, wenn sie fehlen -
+#     eine neue Seite dieser Stufe, die man zu installieren vergisst, faellt
+#     sonst nur auf, wenn jemand sie von Hand aufruft.
+for file in $(cd "$root" && find interface -type f \( -name '*.php' -o -name '*.htm' \) | sort); do
+	grep -q ":$file:" "$root/install/file.list" || fail "$file ist nicht in install/file.list eingetragen"
+done
+
+# 36. Dieselbe Pruefung wie 9, aber fuer Englisch. Pruefung 9 deckt nur
+#     Deutsch ab (siehe dort) - eine fehlende Zeile in der englischen Datei
+#     zeigt derselben Seite in der zweiten Sprache ein leeres Etikett, und
+#     faellt unauffaelliger auf als eine fehlende deutsche Zeile, weil die
+#     deutsche Oberflaeche selbst dabei weiterhin richtig aussieht.
+for tpl in "$root"/interface/templates/*.htm; do
+	[ -f "$tpl" ] || continue
+	for key in $(grep -ohE "tmpl_var name=['\"][a-z_]+_txt['\"]" "$tpl" | sed -E "s/.*['\"]([a-z_]+_txt)['\"]/\1/" | sort -u); do
+		if ! grep -qhE "\\\$wb\['$key'\]" "$root"/interface/lang/en_*.lng; then
+			fail "$(basename "$tpl") uses {$key}, which no English language file defines"
+		fi
+	done
+done
+
+# 37. Jeder Schalter, den der Runner an den Scanner uebergibt, muss in
+#     usage.go stehen - sonst kennt die eingebaute Hilfe einen Schalter
+#     nicht, den das Addon laengst benutzt, und niemand kann von der
+#     Kommandozeile aus nachvollziehen, was ein Auftrag tatsaechlich aufruft.
+usage_go="$root/../cmd/malwatch/usage.go"
+if [ -f "$runner" ] && [ -f "$usage_go" ]; then
+	tmp="$tmpdir/runner_flags"
+	grep -ohE "'--[a-z-]+" "$runner" | sed "s/^'//" | sort -u > "$tmp" 2>/dev/null || true
+
+	while read flag; do
+		[ -n "$flag" ] || continue
+		grep -q -- "$flag" "$usage_go" || fail "der Runner übergibt $flag, aber usage.go dokumentiert das nicht"
+	done < "$tmp"
+fi
+
+# 38. Dieselbe Technik wie Pruefung 22, aber fuer die Aufzaehlungswerte, die
+#     malwatch_ingest.inc.php schreibt. Zwei davon kommen aus dem JSON des
+#     Scanners (entry_kind, origin) und werden dort gegen eine Liste geprueft;
+#     zwei schreibt die Datei selbst als Literal (malwatch_site.last_state,
+#     nach einem Zurueckholen). Beide Sorten muessen zu schema.sql passen -
+#     eine Liste, die einen Wert zu wenig kennt, wirft eine gueltige Zeile weg;
+#     eine, die einen zu viel kennt, laesst die INSERT-Anweisung im
+#     Strict-Modus scheitern. Treffer wieder erst in eine Datei, damit fail()
+#     in der Hauptshell laeuft statt in einer Subshell der Pipe.
+ingest="$root/server/lib/classes/malwatch_ingest.inc.php"
+if [ -f "$ingest" ]; then
+	# Die drei Paare: PHP-Fundstelle, Tabelle, Spalte. Die ersten beiden sind
+	# je eine einzeilige Liste, die dritte ein Methodenrumpf.
+	tmp="$tmpdir/ingest_enums"
+	: > "$tmp"
+	sed -n 's/.*\$entry_kinds *= *array(\(.*\));.*/malwatch_quarantine entry_kind \1/p' "$ingest" >> "$tmp"
+	sed -n 's/.*\$origins *= *array(\(.*\));.*/malwatch_quarantine origin \1/p' "$ingest" >> "$tmp"
+	sed -n '/function restored_site_state/,/^	}/p' "$ingest" \
+		| grep -oE "return '[a-z]+';" | sed "s/return \('[a-z]*'\);/malwatch_site last_state \1/" >> "$tmp"
+
+	# Ohne diese drei Zeilen waere die Pruefung still wirkungslos, sobald
+	# jemand eine der Fundstellen umbenennt: kein Treffer, keine Meldung.
+	for expect in 'entry_kind' 'origin' 'last_state'; do
+		grep -q " $expect " "$tmp" || fail "check_wiring 38 findet in malwatch_ingest.inc.php nichts zu $expect mehr; die Pruefung liefe ins Leere"
+	done
+
+	while read table column values; do
+		[ -n "$values" ] || continue
+		# Anders als bei action_type (Pruefung 22, dort ein MODIFY COLUMN auf
+		# einer Zeile) stehen Tabelle und Spalte hier auf verschiedenen Zeilen:
+		# erst den CREATE-TABLE-Block der Tabelle ausschneiden, dann darin die
+		# Spalte suchen. Sonst faende der Ausdruck nie etwas und die Pruefung
+		# meldete jede Spalte als fehlend.
+		valid_enum=$(sed -n "/CREATE TABLE IF NOT EXISTS \`$table\`/,/^)/p" "$schema" \
+			| grep -E "^[[:space:]]*\`$column\` enum" | sed "s/.*enum(\([^)]*\)).*/\1/")
+		if [ -z "$valid_enum" ]; then
+			fail "schema.sql hat keine Spalte $table.$column, malwatch_ingest.inc.php schreibt sie aber"
+			continue
+		fi
+		valid_list=$(printf "%s" "$valid_enum" | sed "s/'//g" | sed "s/,/ /g")
+		for val in $(printf "%s" "$values" | sed "s/'//g" | sed "s/,/ /g"); do
+			case " $valid_list " in
+				*" $val "*) ;;
+				*) fail "malwatch_ingest.inc.php schreibt $table.$column='$val', aber schema.sql kennt ihn nicht (gültig: $valid_list)" ;;
+			esac
+		done
+	done < "$tmp"
+fi
+
+# 39. Dieselbe Pruefung wie 9 und 36, aber fuer die Seiten statt der Vorlagen.
+#     Ein $wb['...'], das keine Sprachdatei setzt, faellt in einer Vorlage als
+#     leeres Etikett auf; in einer Seite wird daraus eine leere Fehlermeldung
+#     oder ein sprintf() ueber null - eine Meldung, die nichts sagt, an genau
+#     der Stelle, an der etwas schiefgegangen ist. Geprueft werden beide
+#     Sprachen: eine fehlende englische Zeile sieht man auf der deutschen
+#     Oberflaeche nie.
+for page in "$root"/interface/*.php "$root"/interface/lib/*.php; do
+	[ -f "$page" ] || continue
+	for key in $(grep -ohE "\\\$wb\['[a-z_]+'\]" "$page" | sed -E "s/.*\['([a-z_]+)'\].*/\1/" | sort -u); do
+		for lang in de en; do
+			grep -qhE "\\\$wb\['$key'\]" "$root"/interface/lang/${lang}_*.lng \
+				|| fail "$(basename "$page") liest {$key}, was keine ${lang}_-Sprachdatei definiert"
+		done
+	done
+done
+
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'
 fi

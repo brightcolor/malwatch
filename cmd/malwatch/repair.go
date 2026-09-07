@@ -18,23 +18,43 @@ func cmdRepair(args []string) int {
 	fs.Usage = func() { usage(os.Stderr) }
 
 	path := fs.String("path", "", "")
-	backupDir := fs.String("backup-dir", "", "")
+	// --backup-dir is the old name; both write to the same variable so
+	// either one works and, if a caller somehow passes both, the one parsed
+	// last wins.
+	var quarantineDir string
+	fs.StringVar(&quarantineDir, "quarantine-dir", "", "")
+	fs.StringVar(&quarantineDir, "backup-dir", "", "")
 	stagingDir := fs.String("staging-dir", "", "")
 	progressFile := fs.String("progress", "", "")
 	dryRun := fs.Bool("dry-run", false, "")
 	asJSON := fs.Bool("json", false, "")
 	out := fs.String("out", "", "")
 	vendorBase := fs.String("vendor-base", "", "")
+	mode := fs.String("mode", "replace", "")
+	noOriginal := fs.String("no-original", "keep", "")
+	domain := fs.String("domain", "", "")
+	var only stringList
+	fs.Var(&only, "only", "")
 
 	if err := fs.Parse(args); err != nil {
 		return report.ExitError
 	}
 	if *path == "" {
-		fmt.Fprintln(os.Stderr, "repair braucht --path. Beispiel: malwatch repair --path=/var/www/web1/web --backup-dir=/var/lib/malwatch/backups/web1")
+		fmt.Fprintln(os.Stderr, "repair braucht --path. Beispiel: malwatch repair --path=/var/www/web1/web --quarantine-dir=/var/lib/malwatch/quarantine/web1")
 		return report.ExitError
 	}
-	if *backupDir == "" && !*dryRun {
-		fmt.Fprintln(os.Stderr, "repair braucht --backup-dir, außer mit --dry-run.")
+	if quarantineDir == "" && !*dryRun {
+		fmt.Fprintln(os.Stderr, "repair braucht --quarantine-dir (oder --backup-dir), außer mit --dry-run.")
+		return report.ExitError
+	}
+	modeVal, err := repair.ParseMode(*mode)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return report.ExitError
+	}
+	noOriginalVal, err := repair.ParseNoOriginal(*noOriginal)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
 		return report.ExitError
 	}
 
@@ -56,12 +76,16 @@ func cmdRepair(args []string) int {
 	defer pw.Close()
 
 	rep, runErr := repair.Run(repair.Options{
-		Root:       *path,
-		BackupDir:  *backupDir,
-		StagingDir: staging,
-		DryRun:     *dryRun,
-		Fetcher:    vendorfiles.NewFetcher(vendorBaseURLs(*vendorBase), 5*time.Minute),
-		Progress:   pw,
+		Root:          *path,
+		QuarantineDir: quarantineDir,
+		StagingDir:    staging,
+		DryRun:        *dryRun,
+		Mode:          modeVal,
+		Only:          only,
+		NoOriginal:    noOriginalVal,
+		Domain:        *domain,
+		Fetcher:       vendorfiles.NewFetcher(vendorBaseURLs(*vendorBase), 5*time.Minute),
+		Progress:      pw,
 	})
 
 	w := os.Stdout

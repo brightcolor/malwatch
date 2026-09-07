@@ -35,9 +35,8 @@ class malwatch_runner
 
 		$state_dir = rtrim((string) $config['state_dir'], '/');
 		$runs_dir = $state_dir . '/runs';
-		if (!is_dir($runs_dir)) {
-			@mkdir($runs_dir, 0750, true);
-		}
+		$this->ensure_shared_dir($runs_dir);
+		$this->ensure_shared_dir($state_dir . '/spool');
 		$result_file = $runs_dir . '/job-' . intval($job['job_id']) . '.json';
 		$log_file = $runs_dir . '/job-' . intval($job['job_id']) . '.log';
 		$done_file = $this->done_file($result_file);
@@ -84,6 +83,31 @@ class malwatch_runner
 		return true;
 	}
 
+	/**
+	 * Creates a directory the interface has to be able to read.
+	 *
+	 * The installer sets these up, but a job may arrive before an upgrade has
+	 * run, and a directory created here with the plain 0750 the old code used
+	 * would be root-only - which is exactly how the progress counter came to
+	 * show zero files on a live install for a whole release. Setgid so new
+	 * files inherit the group instead of being root:root one by one.
+	 */
+	private function ensure_shared_dir($dir)
+	{
+		if (is_dir($dir)) {
+			return;
+		}
+		if (!@mkdir($dir, 02750, true)) {
+			return;
+		}
+		@chmod($dir, 02750);
+		foreach (array('ispconfig', 'ispapps', 'www-data') as $group) {
+			if (@chgrp($dir, $group)) {
+				break;
+			}
+		}
+	}
+
 	/** Assembles the scanner arguments for one job. */
 	private function build_arguments($job, $config, $path, $result_file)
 	{
@@ -100,14 +124,27 @@ class malwatch_runner
 		}
 
 		if ($kind === 'repair') {
+			// Both switches take the same "unset or empty means the default"
+			// rule the CLI itself uses, so a job queued before an option
+			// existed still resolves to the old behaviour.
+			$mode = isset($options['mode']) && $options['mode'] !== '' ? (string) $options['mode'] : 'replace';
+			$no_original = isset($options['no_original']) && $options['no_original'] !== ''
+				? (string) $options['no_original'] : 'keep';
+
 			$repair = array(
 				'repair',
 				'--path=' . $path,
-				'--backup-dir=' . $state_dir . '/backups/' . $job['domain'],
-				'--progress=' . $progress,
-				'--json',
-				'--out=' . $result_file,
+				'--quarantine-dir=' . $state_dir . '/quarantine',
+				'--domain=' . $job['domain'],
+				'--mode=' . $mode,
+				'--no-original=' . $no_original,
 			);
+			foreach ((array) (isset($options['only']) ? $options['only'] : array()) as $only) {
+				$repair[] = '--only=' . $only;
+			}
+			$repair[] = '--progress=' . $progress;
+			$repair[] = '--json';
+			$repair[] = '--out=' . $result_file;
 			if (!empty($options['dry_run'])) {
 				$repair[] = '--dry-run';
 			}
@@ -115,16 +152,45 @@ class malwatch_runner
 		}
 
 		if ($kind === 'quarantine') {
+			// The action is the first, positional argument; add/restore/
+			// delete/export all still get --quarantine-dir, --json and
+			// --out, since every one of them ends by reporting the store's
+			// full list (see malwatch_ingest::sync_quarantine).
+			$action = isset($options['action']) && $options['action'] !== '' ? (string) $options['action'] : 'add';
 			$quarantine = array(
-				'quarantine',
-				'--path=' . $path,
-				'--backup-dir=' . $state_dir . '/backups/' . $job['domain'] . '/einzeln',
+				$action,
+				'--quarantine-dir=' . $state_dir . '/quarantine',
+				'--json',
+				'--out=' . $result_file,
 			);
-			// The paths were checked against malwatch_finding before the job
-			// was queued; the binary checks the boundary a second time.
-			foreach ((array) (isset($options['files']) ? $options['files'] : array()) as $rel) {
-				$quarantine[] = '--file=' . $rel;
+
+			if ($action === 'add') {
+				$quarantine[] = '--path=' . $path;
+				$quarantine[] = '--domain=' . $job['domain'];
+				$quarantine[] = '--origin=' . (isset($options['origin']) ? (string) $options['origin'] : 'manual');
+				$quarantine[] = '--reason=' . (isset($options['reason']) ? (string) $options['reason'] : '');
+				// The paths were checked against malwatch_finding before the job
+				// was queued; the binary checks the boundary a second time.
+				foreach ((array) (isset($options['files']) ? $options['files'] : array()) as $rel) {
+					$quarantine[] = '--file=' . $rel;
+				}
+				return $quarantine;
 			}
+
+			// restore, delete and export all act on entries the store
+			// already holds, named by the id it gave them - never by path.
+			foreach ((array) (isset($options['ids']) ? $options['ids'] : array()) as $id) {
+				$quarantine[] = '--id=' . $id;
+			}
+
+			if ($action === 'export') {
+				// The zip switch is deliberately not --out: --out is the JSON
+				// report on every action including this one, and reusing it
+				// for the archive would make the two overwrite each other.
+				$token = isset($options['token']) ? (string) $options['token'] : '';
+				$quarantine[] = '--zip=' . $state_dir . '/spool/' . $token . '.zip';
+			}
+
 			return $quarantine;
 		}
 
