@@ -567,17 +567,41 @@ function malwatch_when($stamp)
  *     die Tabelle ist leer). Anders als 'due' behauptet das nicht, dass
  *     gleich etwas passiert.
  *
- * Absichtlich nicht auf web_domain.active gefiltert: eine abgeschaltete
- * Website mit noch laufendem Zeitplan wuerde ihren next_run zwar erreichen,
- * aber ohne Scan - der Cron schiebt next_run in diesem Fall nur weiter
- * (queue_due_scans() in 560-malwatch.inc.php). Ob so eine Website hier
- * mitzaehlen soll, ist eine dritte Frage, die der Auftrag fuer diese
- * Aenderung nicht stellt; siehe Bericht.
+ * Gezaehlt werden nur Websites, deren angekuendigter Lauf auch stattfinden
+ * kann. Zwei Faelle, in denen er das nicht tut, und beide stehen in
+ * queue_due_scans() (server/lib/classes/cron.d/560-malwatch.inc.php):
+ *
+ *   - Eine abgeschaltete Website (web_domain.active = 'n'). Der Cron liest die
+ *     Zeile, sieht active != 'y' und schiebt next_run nur weiter, ohne einen
+ *     Auftrag anzulegen. Die Seite haette einen Lauf angekuendigt, der nie
+ *     kommt. malwatch_status_rows() blendet abgeschaltete Websites ohnehin
+ *     aus - die Kopfzeile darf nicht ueber eine Website sprechen, die
+ *     darunter nicht steht.
+ *   - Eine Zeile, deren server_id nicht die der Website ist. Der Cron holt
+ *     sich seine Zeilen ueber malwatch_site.server_id = eigene ID: der dort
+ *     genannte Server findet das Verzeichnis der Website bei sich nicht
+ *     (create_job() bricht mit "no scan path" ab), und der Server, auf dem
+ *     die Website wirklich liegt, sieht die Zeile nie. Auf einer
+ *     Mehrserver-Installation kuendigte die Seite so den Lauf eines fremden
+ *     Servers an, den es nicht geben wird.
+ *
+ * Der Typfilter ist derselbe wie in malwatch_status_rows(): worueber die
+ * Kopfzeile spricht, muss darunter auch auftauchen koennen.
  */
 function malwatch_next_run($app)
 {
+	// Beide Abfragen sehen dieselbe Menge an Websites an. Sonst koennte die
+	// zweite 'due' melden fuer eine Website, die die erste zu Recht nicht
+	// mitzaehlt - und die Seite behauptete, gleich passiere etwas.
+	$scope = ' FROM malwatch_site s'
+		. ' JOIN web_domain w ON w.domain_id = s.parent_domain_id'
+		. " WHERE s.schedule != 'off'"
+		. " AND w.active = 'y'"
+		. " AND w.type IN ('vhost','vhostsubdomain','vhostalias')"
+		. ' AND s.server_id = w.server_id';
+
 	$upcoming = $app->db->queryOneRecord(
-		"SELECT MIN(next_run) AS next_run FROM malwatch_site WHERE schedule != 'off' AND next_run > NOW()");
+		'SELECT MIN(s.next_run) AS next_run' . $scope . ' AND s.next_run > NOW()');
 	if (is_array($upcoming) && !empty($upcoming['next_run'])) {
 		$stamp = strtotime($upcoming['next_run']);
 		if ($stamp !== false && $stamp > 0) {
@@ -585,7 +609,7 @@ function malwatch_next_run($app)
 		}
 	}
 
-	$any = $app->db->queryOneRecord("SELECT site_id FROM malwatch_site WHERE schedule != 'off' LIMIT 1");
+	$any = $app->db->queryOneRecord('SELECT s.site_id' . $scope . ' LIMIT 1');
 	if (is_array($any)) {
 		return array('state' => 'due', 'when' => '');
 	}
