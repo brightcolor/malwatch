@@ -137,39 +137,50 @@ class malwatch_ingest
 		// sync (sync_quarantine) will find the same entry_id later and leave
 		// it alone - but only once such a job actually runs for this server.
 		foreach ((array) (isset($report['elements']) ? $report['elements'] : array()) as $element) {
-			$entry_id = isset($element['quarantine_id']) ? (string) $element['quarantine_id'] : '';
-			if ($entry_id === '') {
-				// Nothing was archived for this element - kept in place, or
-				// the run predates the field.
-				continue;
+			// Eine Liste, kein einzelner Wert: eine Kernreparatur legt
+			// wp-admin, wp-includes und jede geänderte lose Kerndatei je
+			// einzeln ab. Aus mehreren Kennungen eine Zeile zu machen hieße,
+			// eine Zeile unter einer Kennung anzulegen, die im Speicher
+			// nichts benennt - und die restlichen Einträge gar nicht.
+			$ids = isset($element['quarantine_ids']) && is_array($element['quarantine_ids'])
+				? $element['quarantine_ids'] : array();
+			foreach ($ids as $entry_id) {
+				$entry_id = (string) $entry_id;
+				if ($entry_id === '') {
+					continue;
+				}
+				$existing = $app->dbmaster->queryOneRecord(
+					'SELECT quarantine_id FROM malwatch_quarantine WHERE server_id = ? AND entry_id = ?',
+					intval($job['server_id']), $entry_id);
+				if (is_array($existing)) {
+					continue;
+				}
+
+				$root = rtrim((string) $job['scan_path'], '/');
+				$abs = (string) (isset($element['path']) ? $element['path'] : '');
+				$rel_path = (strpos($abs, $root . '/') === 0) ? substr($abs, strlen($root) + 1) : $abs;
+
+				// The exact Reason string Store was called with never reaches
+				// this report - only the id it handed back does - but every
+				// element the run archived took one of these two sentences,
+				// keyed on the run's own mode.
+				$reason = ((string) (isset($report['mode']) ? $report['mode'] : '')) === 'overlay'
+					? 'Vor dem Darüberschreiben abgelegt'
+					: 'Beim Ersetzen durch das Original abgelegt';
+
+				// Größe und Art bleiben hier vorläufig: die kennt nur die
+				// Liste des Speichers, und die holt der nächste
+				// Quarantäneauftrag über sync_quarantine nach. Bis dahin ist
+				// die Zeile auffindbar, nur nicht vollständig.
+				$app->dbmaster->query(
+					'INSERT INTO malwatch_quarantine (sys_userid, sys_groupid, sys_perm_user, sys_perm_group, '
+					. 'sys_perm_other, server_id, parent_domain_id, domain, entry_id, entry_kind, rel_path, '
+					. "origin, reason, rule_id, severity, files, bytes, created_at) "
+					. "VALUES (1, ?, 'riud', 'r', '', ?, ?, ?, ?, 'dir', ?, 'repair', ?, '', '', ?, 0, ?)",
+					$sys_groupid, intval($job['server_id']), intval($job['parent_domain_id']), (string) $job['domain'],
+					$entry_id, $rel_path, $reason, intval(isset($element['files']) ? $element['files'] : 0),
+					$this->to_datetime(isset($report['finished_at']) ? $report['finished_at'] : ''));
 			}
-			$existing = $app->dbmaster->queryOneRecord(
-				'SELECT quarantine_id FROM malwatch_quarantine WHERE server_id = ? AND entry_id = ?',
-				intval($job['server_id']), $entry_id);
-			if (is_array($existing)) {
-				continue;
-			}
-
-			$root = rtrim((string) $job['scan_path'], '/');
-			$abs = (string) (isset($element['path']) ? $element['path'] : '');
-			$rel_path = (strpos($abs, $root . '/') === 0) ? substr($abs, strlen($root) + 1) : $abs;
-
-			// The exact Reason string Store was called with never reaches
-			// this report - only the id it handed back does - but every
-			// element the run archived took one of these two sentences,
-			// keyed on the run's own mode.
-			$reason = ((string) (isset($report['mode']) ? $report['mode'] : '')) === 'overlay'
-				? 'Vor dem Darüberschreiben abgelegt'
-				: 'Beim Ersetzen durch das Original abgelegt';
-
-			$app->dbmaster->query(
-				'INSERT INTO malwatch_quarantine (sys_userid, sys_groupid, sys_perm_user, sys_perm_group, '
-				. 'sys_perm_other, server_id, parent_domain_id, domain, entry_id, entry_kind, rel_path, '
-				. "origin, reason, rule_id, severity, files, bytes, created_at) "
-				. "VALUES (1, ?, 'riud', 'r', '', ?, ?, ?, ?, 'dir', ?, 'repair', ?, '', '', ?, 0, ?)",
-				$sys_groupid, intval($job['server_id']), intval($job['parent_domain_id']), (string) $job['domain'],
-				$entry_id, $rel_path, $reason, intval(isset($element['files']) ? $element['files'] : 0),
-				$this->to_datetime(isset($report['finished_at']) ? $report['finished_at'] : ''));
 		}
 
 		$app->dbmaster->query(

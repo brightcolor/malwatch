@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/brightcolor/malwatch/internal/progress"
@@ -177,7 +176,7 @@ func Run(opts Options) (*report.Repair, error) {
 				rep.Elements = append(rep.Elements, entry)
 				return rep, err
 			}
-			entry.Outcome, entry.QuarantineID = report.OutcomeDeleted, qEntry.ID
+			entry.Outcome, entry.QuarantineIDs = report.OutcomeDeleted, []string{qEntry.ID}
 			pw.Log("error", "gelöscht %s %s - kein Original verfügbar, in Quarantäne %s",
 				label(el), el.Version, qEntry.ID)
 
@@ -194,7 +193,7 @@ func Run(opts Options) (*report.Repair, error) {
 				rep.Elements = append(rep.Elements, entry)
 				return rep, err
 			}
-			entry.Files, entry.QuarantineID = n, strings.Join(ids, ", ")
+			entry.Files, entry.QuarantineIDs = n, ids
 			if mode == "overlay" {
 				entry.Outcome = report.OutcomeOverlaid
 				pw.Log("ok", "überlagert Kern %s", el.Version)
@@ -227,7 +226,7 @@ func Run(opts Options) (*report.Repair, error) {
 				rep.Elements = append(rep.Elements, entry)
 				return rep, err
 			}
-			entry.QuarantineID = qEntry.ID
+			entry.QuarantineIDs = []string{qEntry.ID}
 
 			pw.Phase(5, phaseTotal, "swap")
 			if mode == "overlay" {

@@ -35,16 +35,20 @@ const (
 
 // RepairElement is what happened to one core, plugin or theme.
 type RepairElement struct {
-	Kind         string        `json:"kind"`
-	Slug         string        `json:"slug,omitempty"`
-	Version      string        `json:"version"`
-	Locale       string        `json:"locale,omitempty"`
-	Path         string        `json:"path"`
-	Outcome      RepairOutcome `json:"outcome"`
-	Files        int           `json:"files"`
-	QuarantineID string        `json:"quarantine_id,omitempty"`
-	Backup       string        `json:"backup,omitempty"`
-	Message      string        `json:"message,omitempty"`
+	Kind    string        `json:"kind"`
+	Slug    string        `json:"slug,omitempty"`
+	Version string        `json:"version"`
+	Locale  string        `json:"locale,omitempty"`
+	Path    string        `json:"path"`
+	Outcome RepairOutcome `json:"outcome"`
+	Files   int           `json:"files"`
+	// A list, not one id: a core repair files wp-admin, wp-includes and
+	// every loose root file it changes away separately, and the panel builds
+	// one index row per entry. Joining them into a string produced a row
+	// under an id that named nothing in the store.
+	QuarantineIDs []string `json:"quarantine_ids,omitempty"`
+	Backup        string   `json:"backup,omitempty"`
+	Message       string   `json:"message,omitempty"`
 }
 
 // Repair is the report of one run.
@@ -153,8 +157,8 @@ func (r *Repair) WriteText(w io.Writer) error {
 		// Whatever was archived is named regardless of outcome: a failed swap
 		// still quarantined the tree it was about to replace, and that is
 		// exactly the run where the operator most needs to find it again.
-		if e.QuarantineID != "" {
-			fmt.Fprintf(&b, "                Quarantäne: %s\n", e.QuarantineID)
+		if len(e.QuarantineIDs) > 0 {
+			fmt.Fprintf(&b, "                Quarantäne: %s\n", strings.Join(e.QuarantineIDs, ", "))
 		}
 		if e.Backup != "" {
 			fmt.Fprintf(&b, "                Sicherung: %s\n", e.Backup)

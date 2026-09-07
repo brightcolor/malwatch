@@ -112,7 +112,7 @@ func TestRepairTextNamesTheQuarantineEntry(t *testing.T) {
 	r := NewRepair("/var/www/web1/web")
 	r.Elements = append(r.Elements, RepairElement{
 		Kind: "plugin", Slug: "akismet", Version: "5.3.3",
-		Outcome: OutcomeReplaced, QuarantineID: "20260907T101500Z-abcd1234",
+		Outcome: OutcomeReplaced, QuarantineIDs: []string{"20260907T101500Z-abcd1234"},
 	})
 	var buf bytes.Buffer
 	if err := r.WriteText(&buf); err != nil {

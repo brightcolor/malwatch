@@ -165,7 +165,7 @@ func TestAnElementWithoutAnOriginIsDeletedAndNamed(t *testing.T) {
 	if deleted == nil || deleted.Outcome != report.OutcomeDeleted {
 		t.Fatalf("akismet was not reported as deleted: %+v", rep.Elements)
 	}
-	if deleted.Version != "5.3.3" || deleted.QuarantineID == "" {
+	if deleted.Version != "5.3.3" || len(deleted.QuarantineIDs) == 0 {
 		t.Errorf("version or quarantine id missing: %+v", deleted)
 	}
 	if _, err := os.Stat(filepath.Join(root, "wp-content", "plugins", "akismet")); !os.IsNotExist(err) {
@@ -296,14 +296,14 @@ func TestOverlayLeavesAForeignFileReplaceDoesNotBothQuarantine(t *testing.T) {
 				t.Errorf("mode %s: the original is not in place: %v", tc.mode, err)
 			}
 
-			if len(rep.Elements) != 1 || rep.Elements[0].QuarantineID == "" {
+			if len(rep.Elements) != 1 || len(rep.Elements[0].QuarantineIDs) == 0 {
 				t.Fatalf("mode %s: no quarantine entry recorded: %+v", tc.mode, rep.Elements)
 			}
 			entries, _, err := quarantine.List(qdir)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if len(entries) != 1 || entries[0].ID != rep.Elements[0].QuarantineID {
+			if len(entries) != 1 || entries[0].ID != rep.Elements[0].QuarantineIDs[0] {
 				t.Fatalf("mode %s: quarantine store does not hold the reported entry: %+v", tc.mode, entries)
 			}
 		})
@@ -428,7 +428,7 @@ func TestNoOriginalKeepLeavesTheElementAndReportsKept(t *testing.T) {
 	if len(rep.Elements) != 1 || rep.Elements[0].Outcome != report.OutcomeKept {
 		t.Fatalf("akismet was not reported as kept: %+v", rep.Elements)
 	}
-	if rep.Elements[0].QuarantineID != "" {
+	if len(rep.Elements[0].QuarantineIDs) > 0 {
 		t.Errorf("a kept element must not be quarantined: %+v", rep.Elements[0])
 	}
 	if rep.ExitCode() != 2 {
@@ -478,7 +478,7 @@ func TestCoreWithoutAnOriginIsKeptEvenWithNoOriginalQuarantine(t *testing.T) {
 	if len(rep.Elements) != 1 || rep.Elements[0].Outcome != report.OutcomeKept {
 		t.Fatalf("the core without an origin was not kept: %+v", rep.Elements)
 	}
-	if rep.Elements[0].QuarantineID != "" {
+	if len(rep.Elements[0].QuarantineIDs) > 0 {
 		t.Errorf("the core without an origin must not be quarantined as a whole: %+v", rep.Elements[0])
 	}
 	if got := treeOf(t, root); got != before {
