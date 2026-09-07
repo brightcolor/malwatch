@@ -26,6 +26,20 @@ $items[] = array(
 	'html_id' => 'security_status'
 );
 
+// Die Fundliste ist die einzige Ansicht, die ueber die Grenze einer Website
+// hinweg sieht. Die Detailseite zeigt die Funde EINER Website; wer wissen
+// will, wo dieselbe Regel sonst noch angeschlagen hat - eine Infektionswelle
+// trifft selten nur einen Kunden -, filtert hier nach Regel, Pfad oder Stufe.
+// Die Seite, ihre Vorlage, ihre Listendefinition und vier Sprachdateien werden
+// ohnehin installiert; ohne diesen Eintrag war sie nur nicht mehr erreichbar,
+// seit die alte Menuedatei entfallen ist.
+$items[] = array(
+	'title'   => 'Funde',
+	'target'  => 'content',
+	'link'    => 'security/malwatch_finding_list.php',
+	'html_id' => 'security_findings'
+);
+
 $items[] = array(
 	'title'   => 'Prüfläufe',
 	'target'  => 'content',

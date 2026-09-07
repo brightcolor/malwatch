@@ -531,6 +531,21 @@ for page in "$root"/interface/*.php; do
 		|| fail "$(basename "$page") hat keinen en_-Rueckfall; eine Sprache ohne eigene Datei zeigt sonst gar nichts"
 done
 
+# 33. Jede Seite, die die Modulkonfiguration nennt - Startseite wie
+#     Seitenleiste -, muss es geben und muss installiert werden. Ein
+#     Menuepunkt ohne Ziel ist schlimmer als gar keiner; umgekehrt ist eine
+#     Seite, die installiert wird und die nichts verlinkt, unerreichbar. Genau
+#     das war malwatch_finding_list.php, seit die alte Menuedatei entfiel.
+conf="$root/interface/module.conf.php"
+if [ -f "$conf" ]; then
+	for link in $(grep -oE "security/[a-z_]+\.php" "$conf" | sed 's|^security/||' | sort -u); do
+		[ -f "$root/interface/$link" ] \
+			|| fail "module.conf.php verlinkt security/$link, die Datei gibt es nicht"
+		grep -q ":interface/web/security/$link\$" "$root/install/file.list" \
+			|| fail "module.conf.php verlinkt security/$link, file.list installiert die Seite aber nicht"
+	done
+fi
+
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'
 fi
