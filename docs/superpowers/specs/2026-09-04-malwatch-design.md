@@ -4,9 +4,9 @@ Stand: 04.09.2026
 
 ## Zweck
 
-Ein quelloffener Scanner, der Webspace auf
-Schadcode und veraltete Web-Software prüft, und ein ISPConfig-Addon, das ihn
-über die Oberfläche bedienbar macht.
+Ein quelloffener Scanner, der Webspace auf Schadcode und veraltete
+Web-Software prüft, und ein ISPConfig-Addon, das ihn über die Oberfläche
+bedienbar macht.
 
 Zwei Teile in einem Repository:
 
