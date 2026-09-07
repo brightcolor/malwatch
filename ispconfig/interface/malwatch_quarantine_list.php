@@ -77,7 +77,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 					$message = $result === 1 ? $wb['msg_download_one_txt'] : $wb['msg_download_many_txt'];
 				}
 			} else {
-				$error = $result;
+				// The library has no $wb of its own and hands back the key of
+				// the message rather than the sentence itself.
+				$error = isset($wb[$result]) ? $wb[$result] : $result;
 			}
 		}
 	}
@@ -101,14 +103,21 @@ if ($total_count === 0) {
 	$app->tpl->setVar('lede', sprintf($wb['lede_many_txt'], number_format($total_count, 0, ',', '.')));
 }
 
-// {n} is left in place for the client-side counter (see the template's
-// script); the two %s never change while the page sits on screen, so they
-// are filled in once, here, instead of being re-sent from the server on
-// every checkbox click.
-$selected_template = sprintf($wb['toolbar_selected_txt'],
-	number_format($total_count, 0, ',', '.'), malwatch_bytes($total_bytes));
-$app->tpl->setVar('selected_template', $app->functions->htmlentities($selected_template));
-$app->tpl->setVar('selected_line', $app->functions->htmlentities(str_replace('{n}', '0', $selected_template)));
+// The table used to show at most 500 rows while the heading and the toolbar
+// counted the whole table: with 800 entries, 300 of them were neither
+// viewable nor restorable, downloadable or deletable from the panel, and
+// nothing said they existed. 500 a page keeps the ordinary case - one page -
+// looking exactly as it did.
+$per_page = 500;
+$pages = $total_count > 0 ? (int) ceil($total_count / $per_page) : 1;
+$page = $app->functions->intval(isset($_REQUEST['page']) ? $_REQUEST['page'] : 1);
+if ($page < 1) {
+	$page = 1;
+}
+if ($page > $pages) {
+	$page = $pages;
+}
+$offset = ($page - 1) * $per_page;
 
 $app->tpl->setVar('footnote_zip_body',
 	sprintf($wb['footnote_zip_body_txt'], '<span class="mw-mono">infected</span>'));
@@ -134,7 +143,26 @@ if (is_array($pending_jobs)) {
 	}
 }
 
-$rows = $app->db->queryAllRecords('SELECT * FROM malwatch_quarantine ORDER BY quarantine_id DESC LIMIT 500');
+// One export job packs one ZIP for the whole selection, so several rows can
+// carry the same token. Counted once here instead of per row, so the link in
+// each of them can say how many entries the archive holds - the size on its
+// own, next to a row whose "Größe" column says 169 B, reads as the size of
+// that one file.
+$token_share = array();
+$token_rows = $app->db->queryAllRecords(
+	"SELECT export_token, COUNT(*) AS n FROM malwatch_quarantine WHERE export_token != '' GROUP BY export_token");
+if (is_array($token_rows)) {
+	foreach ($token_rows as $token_row) {
+		$token_share[(string) $token_row['export_token']] = $app->functions->intval($token_row['n']);
+	}
+}
+
+// $per_page is a constant above and $offset comes from an intval'd request
+// value, so both are safe to write into the statement directly - the panel's
+// db class does not bind LIMIT parameters.
+$rows = $app->db->queryAllRecords(
+	'SELECT * FROM malwatch_quarantine ORDER BY quarantine_id DESC LIMIT ' . (int) $per_page
+	. ' OFFSET ' . (int) $offset);
 
 $entry_rows = array();
 if (is_array($rows)) {
@@ -165,8 +193,23 @@ if (is_array($rows)) {
 		$dl_ready = $export_token !== '' && $ready_stamp !== false && $ready_stamp > (time() - 86400);
 		$dl_preparing = !$dl_ready && isset($exporting[$entry_id]);
 
+		$shared = isset($token_share[$export_token]) ? $token_share[$export_token] : 1;
+		$dl_ready_label = $shared > 1
+			? sprintf($wb['dl_ready_shared_txt'], number_format($shared, 0, ',', '.'),
+				malwatch_bytes($row['export_bytes']))
+			: sprintf($wb['dl_ready_txt'], malwatch_bytes($row['export_bytes']));
+
+		// A row a repair filed knows only its entry id until the next
+		// quarantine run lists the store; "0 B" next to the biggest entry on
+		// the page is a measurement, and there is none yet.
+		$bytes = (float) $row['bytes'];
+		$size_label = $bytes > 0 ? malwatch_bytes($bytes) : $wb['size_unknown_txt'];
+
 		$entry_rows[] = array(
-			'entry_id' => $app->functions->htmlentities($entry_id),
+			// Both halves of the key the table is unique on, in the one value
+			// the form posts back - see malwatch_queue_quarantine_action().
+			'row_key' => $app->functions->htmlentities(
+				$app->functions->intval($row['server_id']) . ':' . $entry_id),
 			'kind_label' => $app->functions->htmlentities(
 				$row['entry_kind'] === 'dir' ? $wb['kind_dir_txt'] : $wb['kind_file_txt']),
 			'path' => $app->functions->htmlentities($path),
@@ -176,16 +219,36 @@ if (is_array($rows)) {
 			'reason' => $app->functions->htmlentities((string) $row['reason']),
 			'moved_when' => $app->functions->htmlentities($moved_when),
 			'origin_label' => $app->functions->htmlentities(malwatch_origin_label($wb, $row['origin'])),
-			'size_label' => $app->functions->htmlentities(malwatch_bytes($row['bytes'])),
+			'size_label' => $app->functions->htmlentities($size_label),
 			'dl_ready' => $dl_ready ? 1 : 0,
 			'dl_preparing' => $dl_preparing ? 1 : 0,
 			'dl_normal' => (!$dl_ready && !$dl_preparing) ? 1 : 0,
 			'dl_token' => $app->functions->htmlentities($export_token),
-			'dl_ready_label' => $app->functions->htmlentities(sprintf($wb['dl_ready_txt'], malwatch_bytes($row['export_bytes']))),
+			'dl_ready_label' => $app->functions->htmlentities($dl_ready_label),
 		);
 	}
 }
 $app->tpl->setLoop('entries', $entry_rows);
+
+// {n} is left in place for the client-side counter (see the template's
+// script); the two %s never change while the page sits on screen, so they are
+// filled in once, here, instead of being re-sent from the server on every
+// checkbox click. The first is the number of rows on THIS page - a box can
+// only be ticked where it is visible - the second the whole store on disk.
+$selected_template = sprintf($wb['toolbar_selected_txt'],
+	number_format(count($entry_rows), 0, ',', '.'), malwatch_bytes($total_bytes));
+$app->tpl->setVar('selected_template', $app->functions->htmlentities($selected_template));
+$app->tpl->setVar('selected_line', $app->functions->htmlentities(str_replace('{n}', '0', $selected_template)));
+
+$app->tpl->setVar('has_pager', $pages > 1 ? 1 : 0);
+$app->tpl->setVar('has_prev_page', $page > 1 ? 1 : 0);
+$app->tpl->setVar('has_next_page', $page < $pages ? 1 : 0);
+$app->tpl->setVar('prev_page', $page - 1);
+$app->tpl->setVar('next_page', $page + 1);
+$app->tpl->setVar('pager_range', $app->functions->htmlentities(sprintf($wb['pager_range_txt'],
+	number_format(count($entry_rows) > 0 ? $offset + 1 : 0, 0, ',', '.'),
+	number_format($offset + count($entry_rows), 0, ',', '.'),
+	number_format($total_count, 0, ',', '.'))));
 
 $app->tpl->setVar('message', $app->functions->htmlentities($message));
 $app->tpl->setVar('error', $app->functions->htmlentities($error));

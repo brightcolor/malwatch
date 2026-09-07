@@ -299,33 +299,47 @@ function malwatch_queue_job($app, $domain_id, $kind, array $options)
  *
  * restore and delete both end in a full-list resync of the store
  * (malwatch_ingest::sync_quarantine), so several ids from the same server
- * are safe to queue as one job. export is different: the runner writes one
- * zip per job, named after options['token'], and malwatch_ingest::
- * finish_export() only ever files that token onto the FIRST id of the job's
- * list - a second id quietly never leaves "wird vorbereitet". So every
- * export gets its own job and its own token, one entry at a time, the same
- * one-id shape internal/quarantine.Export() already has below the CLI.
+ * are safe to queue as one job. So is an export: one job writes one ZIP for
+ * the whole selection, and malwatch_ingest::finish_export() files that one
+ * token onto every id of the job's list, so whichever row the operator
+ * clicks hands back the same archive. A job runs alone per server, so twenty
+ * single exports would be nineteen refusals and one download - and the
+ * operator asked for twenty files, not for twenty waits.
  *
- * Returns the number of ids queued, or a German message explaining why
- * nothing was queued.
+ * Every id arrives as "<server_id>:<entry_id>", the pair the quarantine list
+ * puts into its checkboxes. Not because the panel can act on a second server
+ * yet, but because entry_id on its own is not a key: malwatch_quarantine is
+ * unique on (server_id, entry_id), since the store lives on one server's
+ * disk and the same id can occur once per machine (see schema.sql).
+ *
+ * Returns the number of ids queued, or the language key of a message
+ * explaining why nothing was queued - this file has no $wb of its own, and
+ * anything an operator reads belongs in a language file.
  */
 function malwatch_queue_quarantine_action($app, array $ids, $action)
 {
 	if (!in_array($action, array('restore', 'delete', 'export'), true)) {
-		return 'Unbekannte Aktion.';
+		return 'err_unknown_action_txt';
 	}
 
 	$valid = array();
 	foreach ($ids as $id) {
 		$id = (string) $id;
-		if ($id === '') {
+		$separator = strpos($id, ':');
+		if ($separator === false) {
 			continue;
 		}
-		// Only an id actually in the store may be queued - it came back from
+		$server_part = substr($id, 0, $separator);
+		$entry_id = substr($id, $separator + 1);
+		if ($server_part === '' || !ctype_digit($server_part) || $entry_id === '') {
+			continue;
+		}
+		// Only a pair actually in the store may be queued - it came back from
 		// a form field, and a stale or tampered value must not reach the
 		// binary as if it named a real entry.
 		$row = $app->db->queryOneRecord(
-			'SELECT entry_id, server_id FROM malwatch_quarantine WHERE entry_id = ?', $id);
+			'SELECT entry_id, server_id FROM malwatch_quarantine WHERE server_id = ? AND entry_id = ?',
+			$app->functions->intval($server_part), $entry_id);
 		if (!is_array($row)) {
 			continue;
 		}
@@ -335,7 +349,7 @@ function malwatch_queue_quarantine_action($app, array $ids, $action)
 		);
 	}
 	if (count($valid) === 0) {
-		return 'Keiner der ausgewählten Einträge wurde gefunden.';
+		return 'err_none_found_txt';
 	}
 
 	$by_server = array();
@@ -349,10 +363,6 @@ function malwatch_queue_quarantine_action($app, array $ids, $action)
 	foreach ($by_server as $server_id => $group_ids) {
 		$options = array('action' => $action, 'ids' => $group_ids);
 		if ($action === 'export') {
-			// One ZIP for the whole selection, not one per entry. A job runs
-			// alone per server, so twenty single exports would be nineteen
-			// refusals and one download - and the operator asked for twenty
-			// files, not for twenty waits.
 			$options['token'] = bin2hex(random_bytes(20));
 		}
 		malwatch_insert_quarantine_job($app, $server_id, $options);

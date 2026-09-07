@@ -20,6 +20,17 @@ if (!$app->auth->is_admin()) {
 $app->uses('functions');
 require_once 'lib/malwatch_lib.inc.php';
 
+// Included rather than fetched through $app->load_language_file(), and out of
+// the quarantine list's file rather than one of its own: the three sentences
+// below belong to the same screen the link was clicked on. See
+// malwatch_quarantine_list.php for why the include has to be here and not in
+// that method.
+$lng_file = 'lib/lang/' . $app->functions->check_language($_SESSION['s']['language']) . '_malwatch_quarantine.lng';
+if (!file_exists($lng_file)) {
+	$lng_file = 'lib/lang/en_malwatch_quarantine.lng';
+}
+include $lng_file;
+
 $token = isset($_REQUEST['token']) ? (string) $_REQUEST['token'] : '';
 
 // The token only ever matches a row if it is exactly what the server wrote,
@@ -28,15 +39,22 @@ $token = isset($_REQUEST['token']) ? (string) $_REQUEST['token'] : '';
 // itself uses for entry ids: a value from a request must not be trusted to
 // name a path just because it happened not to match anything.
 if ($token === '' || !preg_match('/^[A-Za-z0-9_-]+$/', $token)) {
-	die('Kein gültiger Verweis.');
+	die($wb['err_dl_bad_link_txt']);
 }
 
 $row = $app->db->queryOneRecord(
-	'SELECT quarantine_id, entry_id FROM malwatch_quarantine WHERE export_token = ? '
+	'SELECT quarantine_id, entry_id, export_token FROM malwatch_quarantine WHERE export_token = ? '
 	. 'AND export_ready_at IS NOT NULL AND export_ready_at > DATE_SUB(NOW(), INTERVAL 24 HOUR)',
 	$token);
-if (!is_array($row)) {
-	die('Der Verweis ist ungültig oder abgelaufen.');
+
+// MySQL compares under the table's own collation, which does not care about
+// case, so an upper-cased copy of a valid token finds the row - and the row
+// would then be burned below over a file name that no longer matches, losing
+// the export for nothing. The comparison that decides is this one, in PHP,
+// and it happens before anything is written. The = above stays as it is so
+// the query keeps using the index on export_token.
+if (!is_array($row) || !hash_equals((string) $row['export_token'], $token)) {
+	die($wb['err_dl_expired_txt']);
 }
 
 $config = malwatch_get_config($app);
@@ -50,7 +68,7 @@ $app->db->query(
 	$app->functions->intval($row['quarantine_id']));
 
 if (!is_file($file)) {
-	die('Die Datei liegt nicht mehr vor.');
+	die($wb['err_dl_gone_txt']);
 }
 
 $name = 'malwatch-quarantine-' . preg_replace('/[^A-Za-z0-9_-]/', '_', (string) $row['entry_id']) . '.zip';

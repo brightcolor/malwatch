@@ -30,6 +30,9 @@
 #mw-quarantine .mw-quiet strong{color:var(--cic-text,#bac3ca)}
 #mw-quarantine .mw-quiet + .mw-quiet{margin-top:9px}
 #mw-quarantine input[type=checkbox]{accent-color:var(--cic-accent,#dd630d)}
+#mw-quarantine .mw-pager{display:flex;flex-wrap:wrap;gap:9px;align-items:center;margin-top:12px}
+#mw-quarantine .mw-pager .mw-range{font-size:13px;color:var(--cic-text-dim,#8b9298);font-variant-numeric:tabular-nums}
+#mw-quarantine .mw-pager .mw-hint{font-size:12.5px;color:var(--cic-text-dim,#8b9298)}
 </style>
 
 <div id="mw-quarantine">
@@ -67,7 +70,7 @@
 <table class="table">
 	<thead class="dark">
 		<tr>
-			<th style="width:28px">&nbsp;</th>
+			<th style="width:28px"><input type="checkbox" id="mw-check-all" title="{tmpl_var name='select_all_txt'}" aria-label="{tmpl_var name='select_all_txt'}" /></th>
 			<th>{tmpl_var name='col_what_txt'}</th>
 			<th>{tmpl_var name='col_website_txt'}</th>
 			<th>{tmpl_var name='col_why_txt'}</th>
@@ -79,7 +82,7 @@
 	<tbody>
 		<tmpl_loop name="entries">
 		<tr>
-			<td><input type="checkbox" class="mw-check" name="ids[]" value="{tmpl_var name='entry_id'}" /></td>
+			<td><input type="checkbox" class="mw-check" name="ids[]" value="{tmpl_var name='row_key'}" /></td>
 			<td>
 				<span class="mw-kind">{tmpl_var name='kind_label'}</span>
 				<span class="mw-mono">{tmpl_var name='path'}</span>
@@ -100,7 +103,7 @@
 			<td>
 				<div class="mw-qacts">
 					<button class="btn btn-default formbutton-default formbutton-narrow" type="button"
-						onclick="if(!confirm('{tmpl_var name='confirm_restore_one_txt'}')){event.stopPropagation();return false;} document.getElementById('mw-entry-id').value='{tmpl_var name='entry_id'}';document.getElementById('mw-action').value='restore';"
+						onclick="if(!confirm('{tmpl_var name='confirm_restore_one_txt'}')){event.stopPropagation();return false;} document.getElementById('mw-entry-id').value='{tmpl_var name='row_key'}';document.getElementById('mw-action').value='restore';"
 						data-submit-form="pageForm" data-form-action="security/malwatch_quarantine_list.php">{tmpl_var name='btn_restore_txt'}</button>
 					<tmpl_if name="dl_ready">
 						<a class="btn btn-default formbutton-default formbutton-narrow" href="security/malwatch_quarantine_download.php?token={tmpl_var name='dl_token'}">{tmpl_var name='dl_ready_label'}</a>
@@ -110,11 +113,11 @@
 					</tmpl_if>
 					<tmpl_if name="dl_normal">
 						<button class="btn btn-default formbutton-default formbutton-narrow" type="button"
-							onclick="document.getElementById('mw-entry-id').value='{tmpl_var name='entry_id'}';document.getElementById('mw-action').value='download';"
+							onclick="document.getElementById('mw-entry-id').value='{tmpl_var name='row_key'}';document.getElementById('mw-action').value='download';"
 							data-submit-form="pageForm" data-form-action="security/malwatch_quarantine_list.php">{tmpl_var name='btn_download_txt'}</button>
 					</tmpl_if>
 					<button class="btn btn-danger btn-xs" type="button"
-						onclick="if(!confirm('{tmpl_var name='confirm_delete_one_txt'}')){event.stopPropagation();return false;} document.getElementById('mw-entry-id').value='{tmpl_var name='entry_id'}';document.getElementById('mw-action').value='delete';"
+						onclick="if(!confirm('{tmpl_var name='confirm_delete_one_txt'}')){event.stopPropagation();return false;} document.getElementById('mw-entry-id').value='{tmpl_var name='row_key'}';document.getElementById('mw-action').value='delete';"
 						data-submit-form="pageForm" data-form-action="security/malwatch_quarantine_list.php">{tmpl_var name='btn_delete_txt'}</button>
 				</div>
 			</td>
@@ -124,11 +127,30 @@
 </table>
 </div>
 
+<tmpl_if name="has_pager">
+<div class="mw-pager">
+	<tmpl_if name="has_prev_page">
+		<a class="btn btn-default formbutton-default formbutton-narrow" href="#"
+			data-load-content="security/malwatch_quarantine_list.php?page={tmpl_var name='prev_page'}">{tmpl_var name='btn_prev_page_txt'}</a>
+	</tmpl_if>
+	<tmpl_if name="has_next_page">
+		<a class="btn btn-default formbutton-default formbutton-narrow" href="#"
+			data-load-content="security/malwatch_quarantine_list.php?page={tmpl_var name='next_page'}">{tmpl_var name='btn_next_page_txt'}</a>
+	</tmpl_if>
+	<span class="mw-range">{tmpl_var name='pager_range'}</span>
+	<span class="mw-hint">{tmpl_var name='pager_hint_txt'}</span>
+</div>
+</tmpl_if>
+
 </tmpl_if>
 
 <div class="mw-quiet">
 	<strong>{tmpl_var name='footnote_zip_txt'}</strong>
 	{tmpl_var name='footnote_zip_body'}
+</div>
+<div class="mw-quiet">
+	<strong>{tmpl_var name='footnote_size_txt'}</strong>
+	{tmpl_var name='footnote_size_body_txt'}
 </div>
 <div class="mw-quiet">
 	<strong>{tmpl_var name='footnote_where_txt'}</strong>
@@ -158,13 +180,28 @@
 	// it - "von 51 ausgewaehlt", the size in use - came from the language
 	// file already filled in and does not need to travel over again.
 	var template = span.getAttribute('data-template') || '';
+	var all = document.getElementById('mw-check-all');
 
 	function update() {
-		span.textContent = template.replace('{n}', String(root.querySelectorAll('.mw-check:checked').length));
+		var checked = root.querySelectorAll('.mw-check:checked').length;
+		span.textContent = template.replace('{n}', String(checked));
+		// The header box follows the rows as well as leading them: unticking
+		// one row must not leave a ticked box on top claiming all of them.
+		if (all) {
+			all.checked = (checked === boxes.length);
+			all.indeterminate = (checked > 0 && checked < boxes.length);
+		}
 	}
 
 	for (var i = 0; i < boxes.length; i++) {
 		boxes[i].addEventListener('change', update);
+	}
+
+	if (all) {
+		all.addEventListener('change', function () {
+			for (var j = 0; j < boxes.length; j++) { boxes[j].checked = all.checked; }
+			update();
+		});
 	}
 })();
 </script>

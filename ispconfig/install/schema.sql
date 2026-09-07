@@ -379,8 +379,23 @@ CREATE TABLE IF NOT EXISTS `malwatch_quarantine` (
   `export_ready_at` datetime DEFAULT NULL,
   PRIMARY KEY (`quarantine_id`),
   UNIQUE KEY `identity` (`server_id`,`entry_id`),
-  KEY `parent_domain_id` (`parent_domain_id`)
+  KEY `parent_domain_id` (`parent_domain_id`),
+  -- Der Downloadweg sucht ausschliesslich hierueber
+  -- (malwatch_quarantine_download.php): ein Token, eine Zeile, waehrend der
+  -- Bediener wartet. Ohne Index ist das ein voller Tabellendurchlauf je Klick.
+  KEY `export_token` (`export_token`)
 ) DEFAULT CHARSET=utf8mb4 AUTO_INCREMENT=1 ;
+
+-- Der Index oben erreicht keine bestehende Installation: CREATE TABLE IF NOT
+-- EXISTS laesst eine vorhandene Tabelle unberuehrt (siehe den Hinweis weiter
+-- oben). Deshalb dieselbe selbstpruefende Huelle wie fuer die Spalten, nur
+-- gegen information_schema.STATISTICS statt COLUMNS.
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_quarantine` ADD INDEX `export_token` (`export_token`)',
+  'DO 0')
+  FROM information_schema.STATISTICS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_quarantine' AND INDEX_NAME = 'export_token');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 --
 -- Mirror of the scanner's rule catalogue, refreshed once a day by cron from
