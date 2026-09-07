@@ -42,7 +42,7 @@ func TestQuarantineOldStyleCallWithoutAnActionStoresTheFile(t *testing.T) {
 		t.Error("the file is still there")
 	}
 
-	entries, err := quarantine.List(store)
+	entries, _, err := quarantine.List(store)
 	if err != nil {
 		t.Fatalf("List failed: %v", err)
 	}
@@ -160,7 +160,7 @@ func TestQuarantineRestoreThenDeleteEmptiesTheStore(t *testing.T) {
 		t.Fatalf("delete exit code %d, want 0", code)
 	}
 
-	entries, err := quarantine.List(store)
+	entries, _, err := quarantine.List(store)
 	if err != nil {
 		t.Fatalf("List failed: %v", err)
 	}

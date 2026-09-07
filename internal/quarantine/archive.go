@@ -3,10 +3,13 @@ package quarantine
 import (
 	"archive/tar"
 	"compress/gzip"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/brightcolor/malwatch/internal/safepath"
 )
 
 // writeArchive packs whatever sits at root+rel - a single file or a whole
@@ -96,6 +99,12 @@ type pendingDir struct {
 // writeArchive named them - so destRoot is the root an entry was packed
 // with, not the entry's own target path.
 func readArchive(src string, destRoot string) error {
+	// The boundary check below resolves destRoot, which means it has to exist
+	// first. It does for a real restore - it is the web root - but not for
+	// the scratch directory StoreCopy verifies a fresh archive through.
+	if err := os.MkdirAll(destRoot, 0o750); err != nil {
+		return err
+	}
 	fh, err := os.Open(src)
 	if err != nil {
 		return err
@@ -118,7 +127,16 @@ func readArchive(src string, destRoot string) error {
 		if err != nil {
 			return err
 		}
+		// filepath.Join cleans the path, so a name like ../../etc/cron.d/x
+		// lands outside destRoot with no complaint from anyone. The names in
+		// here come off a website that was compromised often enough to end up
+		// in quarantine; treating them as trustworthy because we wrote the
+		// tar ourselves is exactly the assumption that gets a root process to
+		// write into /etc.
 		target := filepath.Join(destRoot, filepath.FromSlash(hdr.Name))
+		if err := safepath.InsideRoot(destRoot, target); err != nil {
+			return fmt.Errorf("archiveintrag %q zeigt aus %s heraus: %w", hdr.Name, destRoot, err)
+		}
 		mode := hdr.FileInfo().Mode()
 
 		switch hdr.Typeflag {

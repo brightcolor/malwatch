@@ -352,9 +352,18 @@ class malwatch_actions
 	{
 		global $app;
 
-		$inherit = $site['auto_action'] === 'inherit';
-		$mode = $inherit ? $config['auto_action'] : $site['auto_action'];
-		if ($mode === 'none') {
+		$inherit = !isset($site['auto_action']) || $site['auto_action'] === '' || $site['auto_action'] === 'inherit';
+		$mode = (string) ($inherit
+			? (isset($config['auto_action']) ? $config['auto_action'] : '')
+			: $site['auto_action']);
+
+		// Nur was ausdruecklich dasteht, handelt. Die Umkehrung - alles ausser
+		// 'none' laeuft weiter - hat einen teuren Ausgang: es gibt Wege, auf
+		// denen hier ein leerer Wert ankommt (eine malwatch_config-Zeile, die
+		// noch nie durch die Einstellungsseite ging, ein Feld, das eine
+		// aeltere Abfrage nicht mitliest), und ohne Regelfilter waere die
+		// Folge, dass in dieser Nacht JEDER neue Fund verschwindet.
+		if (!in_array($mode, array('safe', 'critical', 'preset'), true)) {
 			return array();
 		}
 

@@ -1,6 +1,7 @@
 package repair
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"os"
@@ -330,6 +331,15 @@ func repairCore(opts Options, mode string, stagedDir string) (int, []string, err
 		if _, err := os.Lstat(target); err != nil {
 			continue // nothing there yet to archive
 		}
+		// Only archive what the staged tree can actually put back. Without
+		// this, a core archive missing wp-admin - a truncated download, a
+		// vendor layout that changed - would have wp-admin filed away and
+		// then silently not replaced, and the run would report success while
+		// the website had lost its administration area.
+		if _, err := os.Stat(filepath.Join(stagedDir, dir)); err != nil {
+			return 0, ids, fmt.Errorf("das geladene Original enthält kein %s - "+
+				"der Kern wird nicht angefasst", dir)
+		}
 		if err := InsideRoot(opts.Root, target); err != nil {
 			return 0, ids, err
 		}
@@ -353,6 +363,12 @@ func repairCore(opts Options, mode string, stagedDir string) (int, []string, err
 		ids = append(ids, qEntry.ID)
 	}
 
+	looseIDs, err := quarantineLooseRootFiles(opts, stagedDir)
+	if err != nil {
+		return 0, ids, err
+	}
+	ids = append(ids, looseIDs...)
+
 	if mode == "overlay" {
 		n, err := overlayCore(opts.Root, stagedDir)
 		return n, ids, err
@@ -361,6 +377,83 @@ func repairCore(opts Options, mode string, stagedDir string) (int, []string, err
 	// finds them missing and puts the staged tree straight in their place.
 	n, err := SwapCore(opts.Root, stagedDir)
 	return n, ids, err
+}
+
+// quarantineLooseRootFiles archives the loose files in the web root that the
+// staged core is about to write over, one entry each, and only where the file
+// on disk actually differs from the vendor's.
+//
+// wp-admin and wp-includes go into quarantine as whole directories, but the
+// files beside them - index.php, wp-login.php, wp-settings.php and the rest -
+// were simply overwritten, in both modes. Nothing said so, and the interface
+// promises that nothing is lost. A root index.php edited the way WordPress's
+// own documentation describes, for a site served from a subdirectory, would
+// have been gone for good.
+//
+// Identical files are skipped rather than archived: a copy of a file the
+// vendor is about to write back byte for byte is not a rescue, it is a row in
+// a list someone has to read. One entry per file rather than one bundle is
+// deliberate too - whoever wants their index.php back finds it by name.
+func quarantineLooseRootFiles(opts Options, stagedDir string) ([]string, error) {
+	staged, err := os.ReadDir(stagedDir)
+	if err != nil {
+		return nil, err
+	}
+
+	var ids []string
+	for _, entry := range staged {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		target := filepath.Join(opts.Root, name)
+		if err := InsideRoot(opts.Root, target); err != nil {
+			return ids, err
+		}
+		info, err := os.Lstat(target)
+		if err != nil {
+			continue // not there yet; nothing to lose
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			// SwapCore and overlayCore both refuse to write through a link.
+			// Archiving it here would only hide that refusal behind an entry
+			// nobody asked for.
+			continue
+		}
+
+		same, err := sameContent(target, filepath.Join(stagedDir, name))
+		if err != nil {
+			return ids, err
+		}
+		if same {
+			continue
+		}
+
+		qEntry, err := quarantine.StoreCopy(opts.QuarantineDir, quarantine.Source{
+			Root: opts.Root, RelPath: name, Domain: opts.Domain,
+			Origin: "repair",
+			Reason: "Vom Original abweichende Kerndatei, vor dem Überschreiben abgelegt",
+		})
+		if err != nil {
+			return ids, err
+		}
+		ids = append(ids, qEntry.ID)
+	}
+	return ids, nil
+}
+
+// sameContent reports whether two files hold the same bytes. Loose core files
+// are a few kilobytes each, so reading both beats hashing them.
+func sameContent(a, b string) (bool, error) {
+	rawA, err := os.ReadFile(a)
+	if err != nil {
+		return false, err
+	}
+	rawB, err := os.ReadFile(b)
+	if err != nil {
+		return false, err
+	}
+	return bytes.Equal(rawA, rawB), nil
 }
 
 // overlayCore is Overlay's counterpart to SwapCore: wp-admin and wp-includes

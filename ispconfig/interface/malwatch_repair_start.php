@@ -128,16 +128,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 		if (count($only) === 0) {
 			$error = $wb['err_no_selection_txt'];
 		} else {
-			// The website goes off for the duration: an installation that is
-			// half exchanged has no business being served, and a backdoor
-			// that is still reachable would write again while it happens.
+			// Erst einreihen, dann abschalten. Andersherum bliebe die Website
+			// aus, wenn das Einreihen scheitert - und es scheitert
+			// regelmäßig, weil für die Website gerade eine Prüfung läuft.
+			// Genau nach einer Prüfung will man reparieren, also war das der
+			// wahrscheinlichste Weg zu einer Website, die aus ist und deren
+			// Reparatur nie stattfand.
 			$was_active = (string) $web['active'];
-			if ($action === 'repair' && $was_active === 'y') {
-				$app->db->datalogUpdate('web_domain', array('active' => 'n'), 'domain_id', $domain_id);
-			}
 			$result = malwatch_queue_repair($app, $domain_id, $action === 'repair_dry', $was_active,
 				$mode, $no_original, $only);
 			if ($result === true) {
+				// Die Website geht für die Dauer aus: eine halb getauschte
+				// Installation hat nichts im Netz verloren, und eine
+				// Hintertür, die noch erreichbar ist, schreibt währenddessen
+				// weiter. Der Auftrag schaltet sie danach wieder ein.
+				if ($action === 'repair' && $was_active === 'y') {
+					$app->db->datalogUpdate('web_domain', array('active' => 'n'), 'domain_id', $domain_id);
+				}
 				$message = $action === 'repair_dry' ? $wb['msg_repair_dry_txt'] : $wb['msg_repair_txt'];
 			} else {
 				$error = $result;

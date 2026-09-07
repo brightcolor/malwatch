@@ -6,8 +6,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
+	"regexp"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/brightcolor/malwatch/internal/safepath"
@@ -42,6 +45,36 @@ func entryDir(storeRoot, id string) (string, error) {
 	return filepath.Join(storeRoot, id), nil
 }
 
+// entryIDPattern is the shape newID produces: a UTC timestamp, a dash, and
+// eight hex digits.
+var entryIDPattern = regexp.MustCompile(`^\d{8}T\d{6}Z-[0-9a-f]{8}$`)
+
+func isEntryID(name string) bool { return entryIDPattern.MatchString(name) }
+
+// validRel refuses a relative path that does not name something inside the
+// web root.
+//
+// An empty path and "." both resolve to the root itself: Store would then
+// archive the whole website and delete it, which is not a thing any caller
+// ever means to ask for. ".." and an absolute path leave the root outright.
+// The callers are all ours, but "the caller is ours" is a property that stops
+// holding the first time someone adds one.
+func validRel(rel string) error {
+	clean := path.Clean("/" + strings.ReplaceAll(rel, "\\", "/"))
+	if rel == "" || clean == "/" {
+		return fmt.Errorf("leerer Pfad: die Quarantäne nimmt einzelne Dateien und Verzeichnisse, nicht den ganzen Webstamm")
+	}
+	if path.IsAbs(rel) || filepath.IsAbs(rel) {
+		return fmt.Errorf("absoluter Pfad %q: erwartet wird ein Pfad unterhalb des Webstamms", rel)
+	}
+	for _, part := range strings.Split(strings.Trim(clean, "/"), "/") {
+		if part == ".." {
+			return fmt.Errorf("%q führt aus dem Webstamm heraus", rel)
+		}
+	}
+	return nil
+}
+
 // StoreCopy archives src below storeRoot without touching src itself.
 //
 // The archive is read back once, in full, before meta.json is written: a
@@ -52,6 +85,9 @@ func entryDir(storeRoot, id string) (string, error) {
 func StoreCopy(storeRoot string, src Source) (Entry, error) {
 	id, err := newID()
 	if err != nil {
+		return Entry{}, err
+	}
+	if err := validRel(src.RelPath); err != nil {
 		return Entry{}, err
 	}
 	dir := filepath.Join(storeRoot, id)
@@ -146,32 +182,48 @@ func readMeta(dir string) (Entry, error) {
 	return entry, nil
 }
 
-// List reads every entry in storeRoot, newest first. A directory without a
-// readable meta.json - an entry half-written when a run was interrupted, or
-// the scratch directory StoreCopy verifies through - is skipped rather than
-// failing the whole listing.
-func List(storeRoot string) ([]Entry, error) {
+// List reads every entry in storeRoot, newest first, and reports how many
+// directories it had to skip.
+//
+// A directory without a readable meta.json - an entry half-written when a run
+// was interrupted, or the scratch directory StoreCopy verifies through - is
+// skipped rather than failing the whole listing. The count travels with the
+// result because the caller that matters, the panel's index, deletes every
+// row this listing does not name: a silently short list would take entries
+// out of the index that are still very much on disk.
+//
+// A missing storeRoot is an error and not an empty store. The only caller
+// passes a directory the installer creates; if it is gone, "there is nothing
+// in quarantine" is the one answer that must not be given.
+func List(storeRoot string) ([]Entry, int, error) {
 	dirEntries, err := os.ReadDir(storeRoot)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
-		return nil, err
+		return nil, 0, err
 	}
 
+	skipped := 0
 	var entries []Entry
 	for _, de := range dirEntries {
 		if !de.IsDir() {
 			continue
 		}
+		// Scratch directories - <id>.verify while StoreCopy checks itself,
+		// <id>.restore while Restore checks a payload before removing the
+		// target - are not entries and are not damage either. They only look
+		// like both, and one left behind by a killed process would otherwise
+		// keep the panel's index from ever tidying itself again.
+		if !isEntryID(de.Name()) {
+			continue
+		}
 		entry, err := readMeta(filepath.Join(storeRoot, de.Name()))
 		if err != nil {
+			skipped++
 			continue
 		}
 		entries = append(entries, entry)
 	}
 	sort.Slice(entries, func(i, j int) bool { return entries[i].ID > entries[j].ID })
-	return entries, nil
+	return entries, skipped, nil
 }
 
 // Get reads one entry by id.
@@ -210,16 +262,29 @@ func Restore(storeRoot, id string, force bool) error {
 	if statErr != nil && !os.IsNotExist(statErr) {
 		return statErr
 	}
+
+	payload := filepath.Join(storeRoot, id, payloadName)
+
 	if exists {
 		if !force {
 			return fmt.Errorf("%s ist bereits vorhanden; zum Überschreiben --force verwenden", target)
+		}
+		// The payload is unpacked into a scratch directory first, because
+		// --force removes what is at the target. A payload that turns out to
+		// be unreadable after the removal would leave the website with
+		// neither the old directory nor the restored one - the one outcome
+		// quarantine exists to make impossible.
+		scratch := filepath.Join(storeRoot, id) + ".restore"
+		defer os.RemoveAll(scratch)
+		if err := readArchive(payload, scratch); err != nil {
+			return fmt.Errorf("quarantäne-archiv %s ist unlesbar, %s bleibt unangetastet: %w",
+				payload, target, err)
 		}
 		if err := os.RemoveAll(target); err != nil {
 			return err
 		}
 	}
 
-	payload := filepath.Join(storeRoot, id, payloadName)
 	return readArchive(payload, entry.Root)
 }
 

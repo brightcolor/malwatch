@@ -227,7 +227,16 @@ class malwatch_installer extends extension_installer_base
 			@chgrp($dir, 'root');
 		}
 
-		$group = '';
+		// Das Elternverzeichnis zuerst: ohne x-Bit fuer die Gruppe kommt der
+		// Panel-Benutzer gar nicht erst nach runs hinein, und aller Aufwand mit
+		// Setgid darunter ist wirkungslos. r-x heisst: er darf hindurchgehen
+		// und die Namen sehen - an quarantine kommt er damit nicht, das bleibt
+		// 0750 root:root.
+		$group = $this->find_group(self::STATE_DIR);
+		if ($group !== '') {
+			@chmod(self::STATE_DIR, 0750);
+		}
+
 		foreach (array('/runs', '/spool') as $sub) {
 			$dir = self::STATE_DIR . $sub;
 			if (!is_dir($dir)) {
@@ -239,20 +248,18 @@ class malwatch_installer extends extension_installer_base
 			// Setgid-Bit sonst gleich wieder herausfiltern.
 			@chmod($dir, 02750);
 			@chown($dir, 'root');
-			if ($sub === '/runs') {
-				$group = $this->find_group($dir);
-			} else {
-				@chgrp($dir, $group !== '' ? $group : 'root');
-			}
+			@chgrp($dir, $group !== '' ? $group : 'root');
 		}
 
 		if ($group === '') {
-			// find_group() hat auf /runs schon jeden Kandidaten probiert und
-			// keinen gefunden - explizit zuruecksetzen, falls einer der
-			// Versuche die Gruppe trotz false-Rueckgabe veraendert haben sollte.
-			@chgrp(self::STATE_DIR . '/runs', 'root');
+			// find_group() hat auf dem Zustandsverzeichnis jeden Kandidaten
+			// probiert und keinen gefunden - explizit zuruecksetzen, falls
+			// einer der Versuche die Gruppe trotz false-Rueckgabe veraendert
+			// haben sollte.
+			@chgrp(self::STATE_DIR, 'root');
 			$app->log('malwatch: keine der Gruppen ispconfig, ispapps oder www-data gefunden; '
-				. 'runs und spool bleiben root:root, der Fortschrittszaehler im Panel bleibt leer.', LOGLEVEL_WARN);
+				. 'runs und spool bleiben root:root, der Fortschrittszaehler im Panel bleibt leer '
+				. 'und der Download aus der Quarantaene funktioniert nicht.', LOGLEVEL_WARN);
 			return;
 		}
 

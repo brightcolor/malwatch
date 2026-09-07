@@ -208,8 +208,9 @@ class malwatch_ingest
 		}
 
 		$entries = isset($report['entries']) && is_array($report['entries']) ? $report['entries'] : array();
+		$skipped = isset($report['skipped']) ? intval($report['skipped']) : 0;
 		$server_id = intval($job['server_id']);
-		$this->sync_quarantine($server_id, $entries);
+		$this->sync_quarantine($server_id, $entries, $skipped);
 
 		$options = json_decode((string) $job['options'], true);
 		if (!is_array($options)) {
@@ -255,11 +256,12 @@ class malwatch_ingest
 	 * row already on file is left untouched: rewriting it here would throw
 	 * away an export_token a download link may still be waiting on.
 	 */
-	public function sync_quarantine($server_id, $entries)
+	public function sync_quarantine($server_id, $entries, $skipped = 0)
 	{
 		global $app;
 
 		$server_id = intval($server_id);
+		$skipped = intval($skipped);
 
 		$known = array();
 		$rows = $app->dbmaster->queryAllRecords(
@@ -288,6 +290,17 @@ class malwatch_ingest
 				continue;
 			}
 			$this->insert_quarantine_row($server_id, $entry);
+		}
+
+		// Aufräumen nur, wenn die Liste vollständig ist. Sie ist es nicht,
+		// wenn der Scanner Einträge überspringen musste - dann hieße "steht
+		// nicht in der Liste" nicht "ist weg", sondern "war gerade nicht
+		// lesbar", und die Zeile verschwände aus dem Panel, während der
+		// Eintrag samt Schadcode auf der Platte liegen bleibt.
+		if ($skipped > 0) {
+			$app->log('malwatch: ' . $skipped . ' Quarantäneeintrag/-einträge waren nicht lesbar; '
+				. 'der Index wird diesmal nur ergänzt, nicht bereinigt.', LOGLEVEL_WARN);
+			return;
 		}
 
 		foreach (array_keys($known) as $entry_id) {

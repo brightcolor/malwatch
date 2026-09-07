@@ -1,6 +1,7 @@
 package repair
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 )
@@ -41,6 +42,21 @@ func Overlay(root, oldDir, newDir string) (int, error) {
 			return err
 		}
 		target := filepath.Join(oldDir, rel)
+
+		// Overlay mode is the one that leaves the old tree standing, so
+		// whatever the attacker put there is still there while this writes -
+		// including a symlink. os.WriteFile and os.MkdirAll follow one, and
+		// this runs as root: plugins/akismet/assets pointed at /etc/cron.d
+		// would have vendor files, and a chown, land outside the web root.
+		// A link at this position is not something to write through and fix
+		// up afterwards; it is a finding, and the repair says so and stops.
+		if lst, err := os.Lstat(target); err == nil && lst.Mode()&os.ModeSymlink != 0 {
+			return fmt.Errorf("%s ist eine Verknüpfung und wird nicht überschrieben - "+
+				"sie gehört nicht in ein Herstellerverzeichnis", target)
+		}
+		if err := InsideRoot(root, target); err != nil {
+			return err
+		}
 
 		if info.IsDir() {
 			if err := os.MkdirAll(target, dirMode); err != nil {

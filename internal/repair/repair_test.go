@@ -299,7 +299,7 @@ func TestOverlayLeavesAForeignFileReplaceDoesNotBothQuarantine(t *testing.T) {
 			if len(rep.Elements) != 1 || rep.Elements[0].QuarantineID == "" {
 				t.Fatalf("mode %s: no quarantine entry recorded: %+v", tc.mode, rep.Elements)
 			}
-			entries, err := quarantine.List(qdir)
+			entries, _, err := quarantine.List(qdir)
 			if err != nil {
 				t.Fatal(err)
 			}

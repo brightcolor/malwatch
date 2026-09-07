@@ -42,7 +42,7 @@ func TestStoreArchivesListsAndRestoresAFile(t *testing.T) {
 		t.Fatalf("source survived Store: %v", err)
 	}
 
-	entries, err := List(storeRoot)
+	entries, _, err := List(storeRoot)
 	if err != nil {
 		t.Fatalf("List failed: %v", err)
 	}
@@ -207,7 +207,7 @@ func TestListSkipsADirectoryWithoutReadableMeta(t *testing.T) {
 		t.Fatalf("Store failed: %v", err)
 	}
 
-	entries, err := List(storeRoot)
+	entries, _, err := List(storeRoot)
 	if err != nil {
 		t.Fatalf("List failed: %v", err)
 	}
@@ -234,7 +234,7 @@ func TestListSortsDescendingByID(t *testing.T) {
 		t.Fatal("two Store calls produced the same id")
 	}
 
-	entries, err := List(storeRoot)
+	entries, _, err := List(storeRoot)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -316,13 +316,18 @@ func appendExportEntry(zw *zip.Writer, quarantineDir, id, tmpDir, password strin
 type quarantineIndex struct {
 	Schema      int                `json:"schema"`
 	GeneratedAt string             `json:"generated_at"`
-	Entries     []quarantine.Entry `json:"entries"`
+	// Skipped counts the entry directories this listing could not read. The
+	// panel rebuilds its index from the array below and removes what is not
+	// in it, so a listing that is short of something has to say so - it is
+	// the difference between "that entry is gone" and "I could not see it".
+	Skipped int                `json:"skipped"`
+	Entries []quarantine.Entry `json:"entries"`
 }
 
 // writeQuarantineIndex writes the current contents of quarantineDir to out,
 // or to stdout when out is empty.
 func writeQuarantineIndex(quarantineDir, out string) error {
-	entries, err := quarantine.List(quarantineDir)
+	entries, skipped, err := quarantine.List(quarantineDir)
 	if err != nil {
 		return err
 	}
@@ -334,6 +339,7 @@ func writeQuarantineIndex(quarantineDir, out string) error {
 	idx := quarantineIndex{
 		Schema:      1,
 		GeneratedAt: time.Now().UTC().Format(time.RFC3339),
+		Skipped:     skipped,
 		Entries:     entries,
 	}
 
