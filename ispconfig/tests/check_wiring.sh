@@ -9,6 +9,15 @@ set -eu
 root="$(cd "$(dirname "$0")/.." && pwd)"
 status=0
 
+# Ein Verzeichnis fuer die Zwischendateien, die einige Pruefungen brauchen.
+# mktemp statt eines vorhersagbaren /tmp/check_wiring_$$_...: die PID ist zu
+# erraten, und eine der drei Stellen legte ihre Datei ohne vorheriges rm -f an,
+# war also auf einem geteilten System wirklich angreifbar. Der trap raeumt auf,
+# auch wenn das Skript vorzeitig endet - und er aendert den Rueckgabewert
+# nicht, weil er selbst kein exit aufruft.
+tmpdir=$(mktemp -d "${TMPDIR:-/tmp}/check_wiring.XXXXXX")
+trap 'rm -rf "$tmpdir"' EXIT INT TERM HUP
+
 fail() {
 	printf 'FAIL: %s\n' "$1" >&2
 	status=1
@@ -257,7 +266,7 @@ if grep -q 'scan_state' "$runner"; then
 	# Extrahiere jeden quoted Wert nach scan_state aus dem Runner.
 	# Speichere die Zeilen in eine temporäre Datei und lese aus der Datei,
 	# nicht aus einer Pipe — so läuft fail() in der Hauptshell.
-	tmp="/tmp/check_wiring_$$_scan_state"
+	tmp="$tmpdir/scan_state"
 	grep 'scan_state' "$runner" > "$tmp" 2>/dev/null || true
 
 	while read line; do
@@ -281,7 +290,6 @@ if grep -q 'scan_state' "$runner"; then
 			esac
 		fi
 	done < "$tmp"
-	rm -f "$tmp"
 fi
 
 # 23. Das Modul braucht eine module.conf.php mit Namen und Startseite, sonst
@@ -321,14 +329,21 @@ fi
 #     web/sites/ noch in Meldungen wie "Websites > malwatch". Historische
 #     Kommentare, die erklären WARUM es früher so war, sind ok - sie helfen,
 #     den Kontext zu verstehen, nennen aber keinem Benutzer einen Weg zum Gehen.
+#     Was eine Erklärung ist, entscheidet dieselbe Regel wie in Prüfung 28 und
+#     32: eine Zeile, die nach führenden Leerzeichen mit einem Kommentarzeichen
+#     beginnt. Vorher galt eine Liste von Schlüsselwörtern ("früher", "alt",
+#     "historisch", "previously", "before") für die GANZE Zeile - womit
+#     $app->auth->check_module_permissions('sites'); // wie früher
+#     mit Rückgabewert 0 durchlief: eine Prüfung, die aussieht, als hielte sie.
+#     Mit der Kommentarregel entfällt die Liste und die bekannte Umlautlücke
+#     ("Frueher" ohne Umlaut) gleich mit.
 #
 #     Diese Prüfung sucht den GANZEN Erweiterungsbaum (install/, interface/,
 #     server/, tests/, auch README.md), nicht nur interface/. Deshalb schreiben
 #     wir potenzielle Fehler erst in eine Datei und lesen aus der Datei (wie in
 #     Prüfung 22), um sicherzustellen, dass fail() in der Hauptshell läuft.
 
-old_refs_file="/tmp/check_wiring_$$_old_refs"
-rm -f "$old_refs_file"
+old_refs_file="$tmpdir/old_refs"
 
 # Suchmuster, die auf den alten Ort zeigen:
 # 1. check_module_permissions mit 'sites' oder "sites"
@@ -342,8 +357,19 @@ rm -f "$old_refs_file"
 #    oder als Zuweisung ($x['modules'] = '...sites...')
 # 4. 'sites' im startmodule-Wert, als Array-Literal ('startmodule' => 'sites')
 #    oder als Zuweisung ($x['startmodule'] = 'sites')
-# 5. Benutzer-lesbarer Text "Websites > malwatch" oder "web/sites/"
-# 6. Direkter Pfad sites/malwatch oder web/sites/
+# 5. Benutzer-lesbarer Text, der den alten Ort nennt: "Websites > malwatch",
+#    "Websites-Modul", "Modul Websites", "Websites module". Frueher stand hier
+#    "Websites.*module" - ein Muster, das jede Zeile traf, die irgendwo das Wort
+#    Websites und irgendwo spaeter "module" enthaelt, also auch reine
+#    Codezeilen ohne jeden Rueckfall.
+# 6. Direkter Pfad sites/malwatch, interface/web/sites oder ein
+#    panelrelatives web/sites/ - letzteres nur, wenn ihm KEIN Schrägstrich
+#    vorausgeht. Sonst schlaegt jeder Dateipfad an, den malwatch selbst meldet:
+#    /var/www/clients/client1/web7/web/sites/default/files/shell.php ist ein
+#    Fund auf einer Drupal-Installation, kein Rueckfall. Der Rueckfall sieht
+#    anders aus - load_language_file('web/sites/lib/lang/...') oder
+#    'web/sites/lib/menu.d/...' -, dort steht am Anfang ein Anfuehrungszeichen
+#    oder eine Klammer, kein Schrägstrich.
 #
 # Schließe die check_wiring.sh Datei selbst aus (sie beschreibt in Kommentaren,
 # was sie sucht, und würde sich selbst finden).
@@ -371,43 +397,28 @@ grep -rn \
 	-e "\['startmodule'\] *= *'sites'" \
 	-e '\["startmodule"\] *= *"sites"' \
 	-e "Websites > malwatch" \
-	-e "Websites.*module" \
+	-e "Websites-Modul" \
+	-e "Modul Websites" \
+	-e "Websites module" \
 	-e "interface/web/sites" \
-	-e "web/sites/" \
+	-e "^web/sites/" \
+	-e "[^/]web/sites/" \
 	-e "sites/malwatch" \
 	"$root" \
 	2>/dev/null | grep -v "^Binary" | grep -v "check_wiring.sh" > "$old_refs_file" || true
 
 # Lese die Treffer und prüfe, ob sie Benutzertexte oder aktiven Code sind.
-# Kommentare und historische Erklärungen sind ok - Benutzertexte nicht.
+# Eine Kommentarzeile erklärt, eine Codezeile handelt - dieselbe Regel wie in
+# Prüfung 28 und 32, und dieselbe Definition ($comment_start).
 while read line; do
 	file=$(printf "%s" "$line" | cut -d: -f1)
 	linenum=$(printf "%s" "$line" | cut -d: -f2)
 	content=$(printf "%s" "$line" | cut -d: -f3-)
 
-	# Trimme führende Whitespaces
-	stripped=$(printf "%s" "$content" | sed 's/^[[:space:]]*//g')
-
-	# Ein Treffer ist ok, wenn die Zeile historischen Kontext gibt.
-	# Das tut sie, wenn sie GANZE WÖRTER wie "früher", "alt", "historisch",
-	# "before", "previously" enthält (keine Teilstrings wie "alt" in "Verwaltung").
-	# Nutze Wort-Grenzen (\b ist in grep -E verfügbar).
-	case "$content" in
-		*" früher "*|*" Früher "*|*" alt "*|*" Alt "*|*" historisch "*|*" previously "*|*" before "*)
-			# Historischer Kontext - ok
-			continue
-			;;
-	esac
-
-	# Zusätzlich: prüfe mit grep auf Wort-Grenzen für diese Wörter
-	if printf "%s" "$content" | grep -qE '(^|[^a-zA-Z])(früher|Früher|historisch|previously|before)([^a-zA-Z]|$)'; then
-		# Historischer Kontext mit Wort-Grenzen - ok
-		continue
-	fi
-
-	# Prüfe auch auf "alt" oder "Alt" als GANZES WORT (z.B. nicht in "Verwaltung")
-	if printf "%s" "$content" | grep -qE '(^|[^a-zA-ZäöüßÄÖÜ])(alt|Alt)([^a-zA-ZäöüßÄÖÜ]|$)'; then
-		# Historisches "alt" als ganzes Wort - ok
+	# Eine Zeile, die nach führenden Leerzeichen mit einem Kommentarzeichen
+	# beginnt, gibt historischen Kontext. Sie ruft nichts auf und nennt
+	# niemandem einen Weg zum Gehen.
+	if printf "%s" "$content" | grep -qE "^$comment_start"; then
 		continue
 	fi
 
@@ -415,8 +426,6 @@ while read line; do
 	# Ort nennt - unerlaubt.
 	fail "$(basename "$file"):$linenum: $content"
 done < "$old_refs_file"
-
-rm -f "$old_refs_file"
 
 # 27. Der Endpunkt muss den Prozentwert deckeln. Der Erwartungswert ist die
 #     Dateizahl des letzten Laufs, und eine Website waechst dazwischen - ein
@@ -441,8 +450,7 @@ fi
 #     Pruefung 26 schreiben wir Treffer erst in eine temporaere Datei und
 #     lesen daraus, damit fail() in der Hauptshell laeuft statt in einer
 #     Subshell der Pipe.
-dom_refs_file="/tmp/check_wiring_$$_dom_refs"
-rm -f "$dom_refs_file"
+dom_refs_file="$tmpdir/dom_refs"
 grep -rn 'DOMNodeRemoved' "$root/interface" 2>/dev/null | grep -v "^Binary" > "$dom_refs_file" || true
 
 while read line; do
@@ -456,7 +464,6 @@ while read line; do
 
 	fail "DOMNodeRemoved wird noch benutzt, der Abbruch greift nicht ($(basename "$file"):$linenum)"
 done < "$dom_refs_file"
-rm -f "$dom_refs_file"
 
 # 29. Ein loadContent im Takt laedt die ganze Seite neu und reisst den
 #     Bediener aus dem, was er gerade ansieht.

@@ -110,8 +110,9 @@ server/           Modul, Plugin, Dienstklassen, Cron-Klasse, Mailvorlagen
 Die Oberfläche läuft in einem eigenen Modul namens **security** unter
 `interface/web/security/`. Der Modulname ist in `sys_user.modules`
 eingetragen und in `interface/module.conf.php` konfiguriert, so dass der Punkt
-in der oberen Leiste erscheint. (Früher: über `interface/web/sites/lib/menu.d/`
-ins Modul **Websites**.)
+in der oberen Leiste erscheint. (Früher hing die Oberfläche als
+Navigationsgruppe in der Seitenleiste eines fremden Moduls, eingetragen über
+eine Menüdatei; beides entfällt.)
 
 Interface-Dateien werden kopiert, nicht verlinkt: die Seiten binden über
 relative Pfade ein, und hinter einem Symlink zeigen die ins Leere.
