@@ -14,6 +14,13 @@ fail() {
 	status=1
 }
 
+# Eine Zeile, die nach fuehrenden Leerzeichen mit einem Kommentarzeichen
+# beginnt, erklaert etwas - sie ruft nichts auf und zeigt niemandem einen Weg
+# zum Gehen. Eine Erklaerung muss den Fehler, vor dem sie warnt, beim Namen
+# nennen duerfen, sonst verbietet die Pruefung ihre eigene Begruendung.
+# Benutzt von Pruefung 28 und 32.
+comment_start='[[:space:]]*(//|#|\*|/\*|<!--)'
+
 # 1. A page using tform_actions must set $tform_def_file. tform_actions reads
 #    it from the global scope and dies without it.
 for page in "$root"/interface/*.php; do
@@ -442,14 +449,10 @@ while read line; do
 	file=$(printf "%s" "$line" | cut -d: -f1)
 	linenum=$(printf "%s" "$line" | cut -d: -f2)
 	content=$(printf "%s" "$line" | cut -d: -f3-)
-	stripped=$(printf "%s" "$content" | sed 's/^[[:space:]]*//g')
-
 	# Ein Kommentarzeichen am Zeilenanfang ist Erklaerung, kein Aufruf.
-	case "$stripped" in
-		"//"*|"#"*|"*"*|"/*"*|"<!--"*)
-			continue
-			;;
-	esac
+	if printf "%s" "$content" | grep -qE "^$comment_start"; then
+		continue
+	fi
 
 	fail "DOMNodeRemoved wird noch benutzt, der Abbruch greift nicht ($(basename "$file"):$linenum)"
 done < "$dom_refs_file"
@@ -492,6 +495,33 @@ for dir in $(awk -F: '/^c:/ { print $3 }' "$root/install/file.list" | sed 's:/[^
 	else
 		grep -q "'$sub'" "$inst" || fail "file.list kopiert nach $dir, aber der Installer legt das Verzeichnis nicht an ('$sub' fehlt in prepare_interface_dirs)"
 	fi
+done
+
+# 32. Eine Seite, die $wb liest, muss ihre Sprachdatei per include holen.
+#
+#     $app->load_language_file() inkludiert die Datei INNERHALB der Methode und
+#     legt das Ergebnis in der privaten Eigenschaft _wb ab. Ein include in einer
+#     Methode erbt deren Geltungsbereich: im Aufrufer bleibt $wb ungesetzt.
+#     setVar(null) setzt dann nichts, und die Seite rendert ohne einen einzigen
+#     Text - keine Ueberschrift, kein Schild, kein Knopf. php -l sieht davon
+#     nichts, die Seite liefert HTML, nur eben leeres.
+#
+#     Dazu der Rueckfall: ein Administrator mit einer Sprache, fuer die es keine
+#     eigene Datei gibt, bekommt sonst ebenfalls nichts. check_language() haelt
+#     ausserdem den Wert aus der Sitzung von der Pfadangabe fern.
+for page in "$root"/interface/*.php; do
+	grep -q '\$wb\[' "$page" || continue
+	# Wie in Pruefung 28: eine Kommentarzeile, die den Namen der Methode nennt,
+	# um vor ihr zu warnen, ist keine Benutzung.
+	if grep -n 'load_language_file' "$page" | grep -qvE "^[0-9]+:$comment_start"; then
+		fail "$(basename "$page") liest \$wb, holt die Sprachdatei aber ueber load_language_file - im Aufrufer bleibt \$wb leer"
+	fi
+	grep -qE '^[[:space:]]*include[[:space:]]+\$lng_file' "$page" \
+		|| fail "$(basename "$page") liest \$wb, bindet aber keine Sprachdatei per include ein"
+	grep -q 'check_language' "$page" \
+		|| fail "$(basename "$page") baut den Namen der Sprachdatei ohne check_language()"
+	grep -q "= 'lib/lang/en_" "$page" \
+		|| fail "$(basename "$page") hat keinen en_-Rueckfall; eine Sprache ohne eigene Datei zeigt sonst gar nichts"
 done
 
 if [ "$status" -eq 0 ]; then

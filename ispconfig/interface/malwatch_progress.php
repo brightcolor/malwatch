@@ -21,7 +21,19 @@ if (!$app->auth->is_admin()) {
 
 $app->uses('functions');
 require_once 'lib/malwatch_lib.inc.php';
-$app->load_language_file('web/security/lib/lang/' . $_SESSION['s']['language'] . '_status.lng');
+
+// Eingebunden statt ueber $app->load_language_file() geholt: die Methode
+// inkludiert die Datei in ihrem eigenen Geltungsbereich und behaelt das
+// Ergebnis fuer sich - $wb bliebe hier ungesetzt, und 'label' im JSON waere
+// eine leere Zeichenkette. Der Zaehler im Panel haette dann keine
+// Beschriftung. check_language() haelt den Wert aus der Sitzung von der
+// Pfadangabe fern, der en_-Rueckfall gilt fuer jede Sprache ohne eigene
+// Datei. Derselbe Weg wie in status.php und malwatch_site_show.php.
+$lng_file = 'lib/lang/' . $app->functions->check_language($_SESSION['s']['language']) . '_status.lng';
+if (!file_exists($lng_file)) {
+	$lng_file = 'lib/lang/en_status.lng';
+}
+include $lng_file;
 
 $job_id = $app->functions->intval(isset($_GET['job_id']) ? $_GET['job_id'] : 0);
 $domain_id = $app->functions->intval(isset($_GET['domain_id']) ? $_GET['domain_id'] : 0);

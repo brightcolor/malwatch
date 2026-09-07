@@ -22,7 +22,22 @@ require_once 'lib/malwatch_lib.inc.php';
 
 $app->tpl->newTemplate('form.tpl.htm');
 $app->tpl->setInclude('content_tpl', 'templates/status.htm');
-$app->load_language_file('web/security/lib/lang/' . $_SESSION['s']['language'] . '_status.lng');
+
+// Die Sprachdatei wird hier eingebunden und nicht ueber
+// $app->load_language_file() geholt: die Methode inkludiert die Datei in
+// ihrem eigenen Geltungsbereich und legt das Ergebnis in ihrer privaten
+// Eigenschaft ab. $wb erreicht den Aufrufer dabei nie - setVar(null) setzt
+// nichts, und die Seite rendert ohne einen einzigen Text: keine Ueberschrift,
+// kein Zustandsschild, kein "Ansehen". check_language() haelt den Wert aus
+// der Sitzung von der Pfadangabe fern, und wer eine Sprache ohne eigene Datei
+// eingestellt hat, bekommt die englische statt gar keiner. Denselben Weg geht
+// malwatch_site_show.php.
+$lng_file = 'lib/lang/' . $app->functions->check_language($_SESSION['s']['language']) . '_status.lng';
+if (!file_exists($lng_file)) {
+	$lng_file = 'lib/lang/en_status.lng';
+}
+include $lng_file;
+$app->tpl->setVar($wb);
 
 $rows = malwatch_status_rows($app);
 
@@ -40,7 +55,6 @@ unset($row);
 $app->tpl->setLoop('sites', $rows['attention']);
 $app->tpl->setVar('attention_count', count($rows['attention']));
 $app->tpl->setVar('quiet_count', $rows['quiet_count']);
-$app->tpl->setVar($wb);
 
 // Dieselbe Regel wie fuer die Fundzeile: der Platzhalter wird erst hier
 // gefuellt, und die Kopfzeile unterscheidet - wie oben im Titel - zwischen
