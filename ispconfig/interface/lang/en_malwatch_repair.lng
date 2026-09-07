@@ -1,0 +1,55 @@
+<?php
+$wb['back_txt'] = '← %s';
+$wb['lede_txt'] = 'Restore the vendor files';
+$wb['intro_txt'] = 'WordPress, plugins and themes are replaced with the originals, version for version. Whatever is left afterwards belongs to none of these components - and that is exactly what the following scan shows.';
+
+$wb['mode_head_txt'] = 'How should files be replaced?';
+$wb['mode_replace_name_txt'] = 'Replace completely';
+$wb['mode_replace_tag_txt'] = 'recommended';
+$wb['mode_replace_desc_txt'] = 'The current content moves <b>entirely into quarantine</b>, then the original is put in its place. Planted files are gone with it - including ones no scan ever found.<br>Nothing is deleted: anything you miss can be pulled back out of quarantine or downloaded.';
+$wb['mode_overlay_name_txt'] = 'Overlay, move nothing';
+$wb['mode_overlay_tag_txt'] = 'gentle';
+$wb['mode_overlay_desc_txt'] = 'The original files are laid over the existing ones. Everything else in the directory stays put - customised templates, uploaded files, your own additions.<br><b>Price:</b> a planted file stays active until the next scan reports it and you move it yourself. Two steps instead of one - and it keeps running in between.';
+
+$wb['no_original_head_txt'] = 'What if there is no original?';
+$wb['no_original_intro_txt'] = 'Paid plugins and custom-built themes are not published anywhere. Nothing can be downloaded for them.';
+$wb['no_original_keep_name_txt'] = 'Leave it and report it';
+$wb['no_original_keep_desc_txt'] = 'The element is left untouched. You are told its name and version and decide for yourself - usually that means downloading it fresh from the vendor.';
+$wb['no_original_quarantine_name_txt'] = 'Move to quarantine';
+$wb['no_original_quarantine_tag_txt'] = 'caution';
+$wb['no_original_quarantine_desc_txt'] = 'The element moves into quarantine. The website loses this feature until you reinstall the plugin by hand - or pull it back out of quarantine.';
+
+$wb['elements_head_txt'] = 'What gets touched?';
+$wb['col_element_txt'] = 'Element';
+$wb['col_version_txt'] = 'Version';
+$wb['col_original_txt'] = 'Original';
+$wb['col_what_happens_txt'] = 'What happens';
+$wb['original_available_txt'] = 'available';
+$wb['original_none_txt'] = 'none';
+$wb['no_elements_txt'] = 'The last scan did not detect any web software on this website. Only what it knows about can be repaired - scan again first.';
+
+$wb['kind_core_txt'] = 'Core';
+$wb['kind_plugin_txt'] = 'Plugin';
+$wb['kind_theme_txt'] = 'Theme';
+
+$wb['what_untouched_txt'] = 'left untouched';
+$wb['what_replace_txt'] = 'replaced with the original';
+$wb['what_overlay_txt'] = 'original laid over it';
+$wb['what_keep_txt'] = 'left in place, reported';
+$wb['what_quarantine_txt'] = 'moved to quarantine';
+
+$wb['quiet_head_txt'] = 'Nothing is deleted.';
+$wb['quiet_body_txt'] = 'Every directory that gets touched ends up complete in the %s - with a name, a date and a size, recoverable one at a time. The website is switched off for the duration of the repair and reachable again afterwards.';
+$wb['quiet_quarantine_link_txt'] = 'quarantine';
+
+$wb['selected_template_txt'] = '{n} of %s elements selected';
+
+$wb['btn_dry_run_txt'] = 'Dry run - only show what would happen';
+$wb['btn_start_txt'] = 'Start the repair';
+$wb['confirm_start_txt'] = 'Replace core, plugins and themes with the originals? The website is switched off for the duration, everything replaced is backed up first, and elements without an original are handled the way you chose above.';
+
+$wb['msg_repair_txt'] = 'The restore was queued. The website is switched off in the meantime.';
+$wb['msg_repair_dry_txt'] = 'The dry run was queued. Nothing is changed.';
+$wb['err_no_selection_txt'] = 'No element was selected.';
+$wb['err_invalid_site_txt'] = 'Invalid website.';
+$wb['err_site_not_found_txt'] = 'The website was not found.';

@@ -37,6 +37,7 @@ $pages = array(
 	'malwatch_scan_list.php',
 	'malwatch_config_edit.php',
 	'malwatch_quarantine_list.php',
+	'malwatch_repair_start.php',
 );
 
 // Parent process: pick a website, then run each page as a child.

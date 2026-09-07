@@ -93,14 +93,24 @@ function malwatch_queue_scan($app, $domain_id)
  * The website is switched off for the duration by the caller, not here: an
  * installation that is half exchanged has no business being served, and a
  * backdoor that is still reachable would write again while it happens.
+ *
+ * $mode, $no_original and $only travel straight into options under the exact
+ * keys malwatch_runner::build_arguments() reads for a 'repair' job - see
+ * that method before renaming any of them. Defaults match its own fallback
+ * ("unset or empty means the default"), so a caller that skips them gets the
+ * same behaviour a job queued before these options existed would.
  */
-function malwatch_queue_repair($app, $domain_id, $dry_run = false, $previous_active = 'y')
+function malwatch_queue_repair($app, $domain_id, $dry_run = false, $previous_active = 'y',
+	$mode = 'replace', $no_original = 'keep', array $only = array())
 {
 	// The state before the run travels with the job: switching back has to
 	// restore what was, not guess that every website was online.
 	return malwatch_queue_job($app, $domain_id, 'repair', array(
 		'dry_run' => $dry_run ? 1 : 0,
 		'previous_active' => $previous_active === 'y' ? 'y' : 'n',
+		'mode' => $mode === 'overlay' ? 'overlay' : 'replace',
+		'no_original' => $no_original === 'quarantine' ? 'quarantine' : 'keep',
+		'only' => array_values($only),
 	));
 }
 
@@ -144,6 +154,94 @@ function malwatch_queue_quarantine($app, $domain_id, array $paths)
 
 	$queued = malwatch_queue_job($app, $domain_id, 'quarantine', array('files' => $accepted));
 	return $queued === true ? count($accepted) : $queued;
+}
+
+/**
+ * The WHERE fragment and bind params one automatic-action mode filters open
+ * findings by, or null for a mode that covers nothing ('none', or 'preset'
+ * with no rule to go by).
+ *
+ * Mirrors malwatch_actions::auto_paths() on the server side exactly - 'safe'
+ * goes by malwatch_rule.auto_safe, 'critical' by the finding's own severity,
+ * never the rule catalogue's. The two are not one a subset of the other; a
+ * measurement against real findings found 767 files under 'safe' and 472
+ * under 'critical' out of 1511 open ones, so keeping both queries faithful
+ * to auto_paths() rather than approximating one from the other matters.
+ */
+function malwatch_auto_mode_filter($app, $mode, array $rule_ids = array())
+{
+	if ($mode === 'critical') {
+		return array("severity = 'critical'", array());
+	}
+	if ($mode === 'safe') {
+		return array("rule_id IN (SELECT rule_id FROM malwatch_rule WHERE auto_safe = 'y')", array());
+	}
+	if ($mode === 'preset' && count($rule_ids) > 0) {
+		$placeholders = implode(',', array_fill(0, count($rule_ids), '?'));
+		return array("rule_id IN ($placeholders)", array_values($rule_ids));
+	}
+	return null;
+}
+
+/**
+ * How many currently open findings - counted as distinct files, the way a
+ * human reads "how many files", not as raw rule hits - a mode would cover
+ * right now. The only honest preview for a setting that moves files on its
+ * own: a rule count from the catalogue says nothing about what is actually
+ * sitting on real websites today.
+ */
+function malwatch_auto_mode_finding_count($app, $mode, array $rule_ids = array())
+{
+	$filter = malwatch_auto_mode_filter($app, $mode, $rule_ids);
+	if ($filter === null) {
+		return 0;
+	}
+	list($where, $params) = $filter;
+	$row = call_user_func_array(array($app->db, 'queryOneRecord'), array_merge(
+		array('SELECT COUNT(DISTINCT parent_domain_id, file_path) AS n FROM malwatch_finding '
+			. "WHERE finding_state = 'open' AND $where"),
+		$params));
+	return is_array($row) ? $app->functions->intval($row['n']) : 0;
+}
+
+/**
+ * Open finding paths a mode currently covers, grouped by website - the
+ * shape malwatch_queue_quarantine() wants, one call per parent_domain_id.
+ *
+ * Only 'open' findings qualify, never 'ignored': an ignored finding was a
+ * person's own call that this file is not a problem, and a sweep like this
+ * has no business overriding that on its own.
+ */
+function malwatch_auto_mode_paths_by_domain($app, $mode, array $rule_ids = array())
+{
+	$filter = malwatch_auto_mode_filter($app, $mode, $rule_ids);
+	if ($filter === null) {
+		return array();
+	}
+	list($where, $params) = $filter;
+	$rows = call_user_func_array(array($app->db, 'queryAllRecords'), array_merge(
+		array('SELECT parent_domain_id, file_path FROM malwatch_finding '
+			. "WHERE finding_state = 'open' AND $where"),
+		$params));
+
+	// Keyed by path first, so a file two different rules both hit (a real
+	// case for 'preset', which can name several rule_ids at once) ends up
+	// in the job's file list once, not once per matching rule.
+	$by_domain = array();
+	foreach ((array) $rows as $row) {
+		$domain_id = $app->functions->intval($row['parent_domain_id']);
+		if ($domain_id < 1) {
+			continue;
+		}
+		if (!isset($by_domain[$domain_id])) {
+			$by_domain[$domain_id] = array();
+		}
+		$by_domain[$domain_id][(string) $row['file_path']] = true;
+	}
+	foreach ($by_domain as $domain_id => $paths) {
+		$by_domain[$domain_id] = array_keys($paths);
+	}
+	return $by_domain;
 }
 
 /** Puts one job of any kind into the queue. */

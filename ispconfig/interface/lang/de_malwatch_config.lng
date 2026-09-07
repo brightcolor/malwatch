@@ -34,6 +34,45 @@ $wb['count_scans_txt'] = 'Prüfläufe';
 $wb['count_findings_txt'] = 'Offene Funde';
 $wb['last_signature_update_txt'] = 'Signaturen';
 
+$wb['auto_head_txt'] = 'Was soll bei den nächtlichen Prüfungen automatisch passieren?';
+$wb['auto_intro_txt'] = 'Alles, was automatisch verschoben wird, wird vorher gesichert und lässt sich jederzeit zurückholen. Sie bekommen eine E-Mail mit der Liste.';
+$wb['auto_scope_txt'] = 'Gilt für Funde, die neu hinzukommen. Was schon in der Liste steht, bleibt liegen — das haben Sie gesehen und stehen gelassen.';
+
+$wb['auto_none_name_txt'] = 'Nichts anfassen';
+$wb['auto_none_desc_txt'] = 'Nur melden. Jede Datei wartet darauf, dass Sie entscheiden. Die sicherste Einstellung — und die, bei der eine Hintertür so lange erreichbar bleibt, bis Sie hinsehen.';
+$wb['auto_safe_name_txt'] = 'Eindeutige Schädlinge entfernen';
+$wb['auto_safe_tag_txt'] = 'empfohlen';
+$wb['auto_safe_desc_txt'] = 'Nur die Funde, bei denen es nichts zu entscheiden gibt: Hintertüren, Nachlader, verschleierte Funktionsnamen. Diese Prüfungen haben in über 200.000 unbescholtenen Dateien keinen einzigen Fehlalarm erzeugt.';
+$wb['auto_critical_name_txt'] = 'Alles Kritische entfernen';
+// Frueher stand hier "erwischt mehr [als eindeutige Schaedlinge]" - eine
+// Messung gegen echte Funde widerlegt das (siehe progress.md): auto_safe ist
+// keine Teilmenge von critical, keins der beiden Merkmale enthaelt das
+// andere. Der Text beschreibt jetzt nur noch, was "kritisch" bedeutet, ohne
+// die beiden Mengen zu vergleichen.
+$wb['auto_critical_desc_txt'] = 'Jeder Fund der höchsten Stufe — unabhängig davon, welche Prüfung ihn gemeldet hat. Das kann auch eine Datei treffen, die ein Plugin zum Laufen braucht.';
+$wb['auto_preset_name_txt'] = 'Eigene Auswahl';
+$wb['auto_preset_desc_txt'] = 'Sie legen fest, welche Prüfungen automatisch handeln dürfen — und speichern die Zusammenstellung unter einem Namen, damit Sie sie nicht jedes Mal neu treffen müssen.';
+
+$wb['rule_count_txt'] = '%s von %s Prüfungen · träfe zurzeit %s offene Funddateien';
+$wb['ownlist_head_txt'] = 'Welche Prüfungen dürfen automatisch handeln?';
+$wb['preset_new_hint_txt'] = 'Speichern Sie die Auswahl unter einem Namen — erst dann kann eine nächtliche Prüfung sie verwenden.';
+$wb['rule_finding_count_txt'] = '%s Funde';
+$wb['show_all_rules_txt'] = 'Alle %s anzeigen';
+$wb['preset_name_label_txt'] = 'Name der Zusammenstellung';
+$wb['btn_save_preset_txt'] = 'Speichern';
+$wb['btn_apply_txt'] = 'Übernehmen';
+$wb['apply_hint_txt'] = 'Gilt ab dem nächsten nächtlichen Lauf.';
+$wb['err_preset_name_empty_txt'] = 'Bitte geben Sie einen Namen für die Zusammenstellung an.';
+$wb['err_preset_no_rules_txt'] = 'Bitte wählen Sie mindestens eine Prüfung aus.';
+$wb['msg_preset_saved_txt'] = 'Die Zusammenstellung „%s" wurde gespeichert und erscheint jetzt als eigene Möglichkeit.';
+
+$wb['btn_apply_existing_txt'] = 'Auf die bestehenden Funde anwenden';
+$wb['apply_existing_intro_txt'] = '%s offene Funde entsprechen der Regel, die gerade gilt.';
+$wb['confirm_apply_existing_txt'] = '%s offene Funde in Quarantäne verschieben? Jede lässt sich von dort zurückholen.';
+$wb['err_apply_existing_none_txt'] = 'Es gibt derzeit keine offenen Funde, auf die die aktuelle Regel zuträfe.';
+$wb['msg_apply_existing_txt'] = '%s Datei(en) auf %s Website(n) wurden zur Quarantäne eingereiht.';
+$wb['msg_apply_existing_skipped_txt'] = 'Bei %s Website(n) lief bereits ein Auftrag; dort wurde nichts eingereiht.';
+
 $wb['binary_path_error_empty'] = 'Der Pfad zum Scanner darf nicht leer sein.';
 $wb['binary_path_error_regex'] = 'Der Pfad zum Scanner muss ein absoluter Pfad sein.';
 $wb['state_dir_error_empty'] = 'Das Arbeitsverzeichnis darf nicht leer sein.';

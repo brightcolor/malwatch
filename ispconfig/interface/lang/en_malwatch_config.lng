@@ -34,6 +34,44 @@ $wb['count_scans_txt'] = 'Scans';
 $wb['count_findings_txt'] = 'Open findings';
 $wb['last_signature_update_txt'] = 'Signatures';
 
+$wb['auto_head_txt'] = 'What should the nightly scans do on their own?';
+$wb['auto_intro_txt'] = 'Anything moved automatically is backed up first and can be restored at any time. You get an email with the list.';
+$wb['auto_scope_txt'] = 'Applies to findings that are newly added. What is already on the list stays put - you have seen it and left it there.';
+
+$wb['auto_none_name_txt'] = 'Leave everything alone';
+$wb['auto_none_desc_txt'] = 'Only report. Every file waits for you to decide. The safest setting - and the one where a backdoor stays reachable for as long as it takes you to look.';
+$wb['auto_safe_name_txt'] = 'Remove unambiguous malware';
+$wb['auto_safe_tag_txt'] = 'recommended';
+$wb['auto_safe_desc_txt'] = 'Only the findings that leave nothing to decide: backdoors, downloaders, obfuscated function names. These checks have not produced a single false positive across more than 200,000 clean files.';
+$wb['auto_critical_name_txt'] = 'Remove everything critical';
+// Used to say "catches more [than unambiguous malware]" - a measurement
+// against real findings disproves that (see progress.md): auto_safe is not
+// a subset of critical, and neither trait contains the other. The text now
+// only describes what "critical" means, without comparing the two sets.
+$wb['auto_critical_desc_txt'] = 'Every finding of the highest severity - no matter which check reported it. This can also hit a file a plugin needs to run.';
+$wb['auto_preset_name_txt'] = 'Custom selection';
+$wb['auto_preset_desc_txt'] = 'You decide which checks are allowed to act on their own - and save the selection under a name, so you do not have to make the same choice every time.';
+
+$wb['rule_count_txt'] = '%s of %s checks · would currently affect %s open found files';
+$wb['ownlist_head_txt'] = 'Which checks may act on their own?';
+$wb['preset_new_hint_txt'] = 'Save the selection under a name first - only then can a nightly scan use it.';
+$wb['rule_finding_count_txt'] = '%s findings';
+$wb['show_all_rules_txt'] = 'Show all %s';
+$wb['preset_name_label_txt'] = 'Name of the selection';
+$wb['btn_save_preset_txt'] = 'Save';
+$wb['btn_apply_txt'] = 'Apply';
+$wb['apply_hint_txt'] = 'Takes effect from the next nightly run onward.';
+$wb['err_preset_name_empty_txt'] = 'Please give the selection a name.';
+$wb['err_preset_no_rules_txt'] = 'Please choose at least one check.';
+$wb['msg_preset_saved_txt'] = 'The selection "%s" was saved and now appears as its own choice.';
+
+$wb['btn_apply_existing_txt'] = 'Apply to the existing findings';
+$wb['apply_existing_intro_txt'] = '%s open findings match the rule that currently applies.';
+$wb['confirm_apply_existing_txt'] = 'Move %s open findings to quarantine? Each one can be restored from there.';
+$wb['err_apply_existing_none_txt'] = 'There are currently no open findings the active rule would apply to.';
+$wb['msg_apply_existing_txt'] = '%s file(s) across %s website(s) were queued for quarantine.';
+$wb['msg_apply_existing_skipped_txt'] = '%s website(s) already had a job running; nothing was queued there.';
+
 $wb['binary_path_error_empty'] = 'The path to the scanner may not be empty.';
 $wb['binary_path_error_regex'] = 'The path to the scanner must be an absolute path.';
 $wb['state_dir_error_empty'] = 'The working directory may not be empty.';

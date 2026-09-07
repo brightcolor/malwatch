@@ -53,23 +53,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 				? 'Die Datei wurde freigegeben.'
 				: 'Die Datei wird wieder gemeldet.';
 		}
-	} elseif ($action === 'repair' || $action === 'repair_dry') {
-		// The website goes off for the duration: an installation that is half
-		// exchanged has no business being served, and a backdoor that is still
-		// reachable would write again while it happens.
-		$was_active = (string) $web['active'];
-		if ($action === 'repair' && $was_active === 'y') {
-			$app->db->datalogUpdate('web_domain', array('active' => 'n'), 'domain_id', $domain_id);
-		}
-		$result = malwatch_queue_repair($app, $domain_id, $action === 'repair_dry', $was_active);
-		if ($result === true) {
-			$message = $action === 'repair_dry'
-				? 'Der Probelauf wurde eingeplant. Es wird nichts geändert.'
-				: 'Die Wiederherstellung wurde eingeplant. Die Website ist währenddessen abgeschaltet.';
-		} else {
-			$error = $result;
-		}
 	} elseif ($action === 'delete_one' || $action === 'delete_all') {
+		// Despite the field names below (kept as they are so the confirm
+		// dialogs and hidden fields below did not all need renaming too),
+		// this has never deleted anything - it queues the same quarantine
+		// job malwatch_repair_start.php and the quarantine list use, which
+		// is why the message says so.
 		$paths = array();
 		if ($action === 'delete_one') {
 			$one = isset($_POST['finding_path']) ? (string) $_POST['finding_path'] : '';
@@ -89,7 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 		} else {
 			$result = malwatch_queue_quarantine($app, $domain_id, $paths);
 			if (is_int($result)) {
-				$message = $result . ' Datei(en) werden entfernt. Kopien bleiben unter der Sicherung.';
+				$message = $result . ' Datei(en) werden in Quarantäne verschoben. Sie lassen sich von dort zurückholen oder herunterladen.';
 			} else {
 				$error = $result;
 			}
@@ -123,6 +112,12 @@ $last_scan = $app->db->queryOneRecord(
 $job = $app->db->queryOneRecord(
 	"SELECT * FROM malwatch_job WHERE parent_domain_id = ? AND job_status IN ('pending','running') "
 	. 'ORDER BY job_id DESC LIMIT 1', $domain_id);
+// Told about here so the hint below can point at the quarantine list instead
+// of the operator having to go looking for what a past "In Quarantäne
+// verschieben" click actually did with the files.
+$quarantine_count = $app->db->queryOneRecord(
+	'SELECT COUNT(*) AS n FROM malwatch_quarantine WHERE parent_domain_id = ?', $domain_id);
+$quarantine_count = is_array($quarantine_count) ? $app->functions->intval($quarantine_count['n']) : 0;
 
 $app->tpl->setVar('domain_id', $domain_id);
 $app->tpl->setVar('domain', $app->functions->htmlentities($web['domain']));
@@ -131,6 +126,10 @@ $app->tpl->setVar('site_active', $web['active'] === 'y' ? 1 : 0);
 $app->tpl->setVar('configured', is_array($site) ? 1 : 0);
 $app->tpl->setVar('busy', is_array($job) ? 1 : 0);
 $app->tpl->setVar('busy_status', is_array($job) ? $app->functions->htmlentities($job['job_status']) : '');
+$app->tpl->setVar('has_quarantine', $quarantine_count > 0 ? 1 : 0);
+$app->tpl->setVar('quarantine_hint', $quarantine_count === 1
+	? $wb['quarantine_hint_one_txt']
+	: sprintf($wb['quarantine_hint_many_txt'], number_format($quarantine_count, 0, ',', '.')));
 
 if (is_array($last_scan)) {
 	$app->tpl->setVar('has_scan', 1);

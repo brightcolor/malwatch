@@ -1,0 +1,231 @@
+<div class='page-header'>
+	<h1>{tmpl_var name='lede_txt'}</h1>
+</div>
+<p class="mw-back"><a href="#" data-load-content="security/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='back_label'}</a></p>
+
+<tmpl_if name="message">
+	<div class="alert alert-success">{tmpl_var name='message'}</div>
+</tmpl_if>
+<tmpl_if name="error">
+	<div class="alert alert-danger">{tmpl_var name='error'}</div>
+</tmpl_if>
+
+<style>
+/* Farben ausschliesslich aus den Theme-Variablen, mit Rueckfallwert - siehe
+   malwatch_quarantine_list.htm/malwatch_site_show.htm fuer denselben Grund.
+   Radius 3px fest, das Theme kennt genau einen. ".mw-choice" gibt es sonst
+   nirgends im Bestand (der Rest der Oberflaeche kommt mit Bootstrap-Labels
+   und -Buttons aus); hier braucht es eigenes CSS, weil eine Entscheidung
+   mit Preis und Beschreibung kein Standardelement des Panels ist. */
+#mw-repair .mw-back{margin:0 0 10px}
+#mw-repair .mw-sub{margin:6px 0 16px;color:var(--cic-text-dim,#8b9298);font-size:13px;max-width:76ch}
+#mw-repair .mw-sec{font-size:15px;font-weight:600;margin:20px 0 4px;color:var(--cic-text-loud,#fff)}
+#mw-repair .mw-choices{display:flex;flex-direction:column;gap:9px;margin-top:10px;max-width:82ch}
+#mw-repair .mw-choice{
+	display:grid;grid-template-columns:auto 1fr;gap:11px;padding:12px 14px;
+	border:1px solid var(--cic-line-soft,#3c3c3b);border-radius:3px;
+	background:var(--cic-raised,#292929);cursor:pointer;
+}
+#mw-repair .mw-choice:hover{border-color:var(--cic-line-loud,#5a5a5a)}
+#mw-repair .mw-choice:has(input:checked){border-color:var(--cic-accent,#dd630d);background:var(--cic-hover,#2d2d2d)}
+#mw-repair .mw-choice input{margin-top:4px;accent-color:var(--cic-accent,#dd630d)}
+#mw-repair .mw-choice .mw-name{font-weight:600;font-size:14px;color:var(--cic-text-loud,#fff);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+#mw-repair .mw-choice .mw-desc{margin:4px 0 0;font-size:13px;color:var(--cic-text,#bac3ca)}
+#mw-repair .mw-tag{
+	font-size:10.5px;font-weight:600;padding:1px 6px;border-radius:3px;
+	background:var(--cic-sunken,#151515);color:var(--cic-accent-text,#ef7d21);
+	border:1px solid var(--cic-accent-deep,#a84c0b);
+}
+#mw-repair .mw-tag.mw-caution{color:var(--cic-warn-lift,#ef8a2b);border-color:var(--cic-warn-lift,#ef8a2b)}
+#mw-repair .mw-kind{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--cic-text-dim,#8b9298);margin-right:6px}
+#mw-repair td.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+#mw-repair .mw-mono{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:12px}
+#mw-repair .mw-quiet{margin-top:16px;padding:12px 15px;border:1px solid var(--cic-line-soft,#3c3c3b);border-radius:3px;color:var(--cic-text-dim,#8b9298);font-size:13px;background:var(--cic-head,#202020)}
+#mw-repair .mw-quiet strong{color:var(--cic-text,#bac3ca)}
+#mw-repair .mw-savebar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:14px}
+#mw-repair .mw-selcount{font-size:13px;color:var(--cic-text-dim,#8b9298);font-variant-numeric:tabular-nums}
+#mw-repair input[type=checkbox]{accent-color:var(--cic-accent,#dd630d)}
+</style>
+
+<div id="mw-repair">
+
+<p class="mw-sub">{tmpl_var name='intro_txt'}</p>
+
+<!--
+	No form of our own: the panel wraps the whole content area in one form
+	called pageForm and posts it by AJAX (see malwatch_site_show.htm for the
+	same note). id names the website, malwatch_action the button that was
+	pressed; mode, no_original and only[] are read straight off the inputs
+	below by name.
+-->
+<input type="hidden" name="id" value="{tmpl_var name='domain_id'}" />
+<input type="hidden" name="malwatch_action" id="mw-action" value="" />
+
+<p class="mw-sec">{tmpl_var name='mode_head_txt'}</p>
+<div class="mw-choices">
+	<label class="mw-choice">
+		<input type="radio" name="mode" value="replace" checked>
+		<div>
+			<div class="mw-name">{tmpl_var name='mode_replace_name_txt'} <span class="mw-tag">{tmpl_var name='mode_replace_tag_txt'}</span></div>
+			<p class="mw-desc">{tmpl_var name='mode_replace_desc_txt'}</p>
+		</div>
+	</label>
+	<label class="mw-choice">
+		<input type="radio" name="mode" value="overlay">
+		<div>
+			<div class="mw-name">{tmpl_var name='mode_overlay_name_txt'} <span class="mw-tag">{tmpl_var name='mode_overlay_tag_txt'}</span></div>
+			<p class="mw-desc">{tmpl_var name='mode_overlay_desc_txt'}</p>
+		</div>
+	</label>
+</div>
+
+<p class="mw-sec">{tmpl_var name='no_original_head_txt'}</p>
+<p class="mw-sub" style="margin-top:0">{tmpl_var name='no_original_intro_txt'}</p>
+<div class="mw-choices">
+	<label class="mw-choice">
+		<input type="radio" name="no_original" value="keep" checked>
+		<div>
+			<div class="mw-name">{tmpl_var name='no_original_keep_name_txt'}</div>
+			<p class="mw-desc">{tmpl_var name='no_original_keep_desc_txt'}</p>
+		</div>
+	</label>
+	<label class="mw-choice">
+		<input type="radio" name="no_original" value="quarantine">
+		<div>
+			<div class="mw-name">{tmpl_var name='no_original_quarantine_name_txt'} <span class="mw-tag mw-caution">{tmpl_var name='no_original_quarantine_tag_txt'}</span></div>
+			<p class="mw-desc">{tmpl_var name='no_original_quarantine_desc_txt'}</p>
+		</div>
+	</label>
+</div>
+
+<p class="mw-sec">{tmpl_var name='elements_head_txt'}</p>
+<tmpl_if name="has_elements">
+<div class="table-wrapper marginTop15" id="mw-elements">
+<table class="table">
+	<thead class="dark">
+		<tr>
+			<th style="width:28px">&nbsp;</th>
+			<th>{tmpl_var name='col_element_txt'}</th>
+			<th>{tmpl_var name='col_version_txt'}</th>
+			<th>{tmpl_var name='col_original_txt'}</th>
+			<th>{tmpl_var name='col_what_happens_txt'}</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tmpl_loop name="elements">
+		<tr data-has-original="{tmpl_var name='has_original'}">
+			<td><input type="checkbox" class="mw-el-check" name="only[]" value="{tmpl_var name='only_value'}" <tmpl_if name="is_checked">checked</tmpl_if> /></td>
+			<td><span class="mw-kind">{tmpl_var name='kind_label'}</span><b>{tmpl_var name='name'}</b></td>
+			<td class="num"><span class="mw-mono">{tmpl_var name='installed_version'}</span></td>
+			<td>
+				<tmpl_if name="has_original">
+					<span class="label label-success">{tmpl_var name='original_available_txt'}</span>
+				<tmpl_else>
+					<span class="label label-warning">{tmpl_var name='original_none_txt'}</span>
+				</tmpl_if>
+			</td>
+			<td class="mw-what">{tmpl_var name='what_label'}</td>
+		</tr>
+		</tmpl_loop>
+	</tbody>
+</table>
+</div>
+<tmpl_else>
+<p class="mw-sub">{tmpl_var name='no_elements_txt'}</p>
+</tmpl_if>
+
+<div class="mw-quiet">
+	<strong>{tmpl_var name='quiet_head_txt'}</strong>
+	{tmpl_var name='quiet_body'}
+</div>
+
+<tmpl_if name="has_elements">
+<div class="mw-savebar">
+	<button class="btn btn-default formbutton-default" type="button"
+		onclick="if(!mwRepairSelected()){alert('{tmpl_var name='err_no_selection_txt'}');event.stopPropagation();return false;} document.getElementById('mw-action').value='repair_dry';"
+		data-submit-form="pageForm" data-form-action="security/malwatch_repair_start.php?id={tmpl_var name='domain_id'}">{tmpl_var name='btn_dry_run_txt'}</button>
+	<button class="btn btn-danger" type="button"
+		onclick="if(!mwRepairSelected()){alert('{tmpl_var name='err_no_selection_txt'}');event.stopPropagation();return false;} if(!confirm('{tmpl_var name='confirm_start_txt'}')){event.stopPropagation();return false;} document.getElementById('mw-action').value='repair';"
+		data-submit-form="pageForm" data-form-action="security/malwatch_repair_start.php?id={tmpl_var name='domain_id'}">{tmpl_var name='btn_start_txt'}</button>
+	<span class="mw-selcount" id="mw-selcount" data-template="{tmpl_var name='selected_template'}">{tmpl_var name='selected_line'}</span>
+</div>
+</tmpl_if>
+
+</div>
+
+<script>
+(function () {
+	var root = document.getElementById('mw-repair');
+	if (!root) { return; }
+
+	var labels = {
+		untouched: '{tmpl_var name="what_untouched_txt"}',
+		replace: '{tmpl_var name="what_replace_txt"}',
+		overlay: '{tmpl_var name="what_overlay_txt"}',
+		keep: '{tmpl_var name="what_keep_txt"}',
+		quarantine: '{tmpl_var name="what_quarantine_txt"}'
+	};
+
+	var rows = root.querySelectorAll('#mw-elements tbody tr');
+	var selCount = document.getElementById('mw-selcount');
+	var selTemplate = selCount ? (selCount.getAttribute('data-template') || '') : '';
+
+	// Counts checked elements for the two buttons' own guard, the same
+	// reason malwatch_quarantine_list.htm has mwQuarantineSelected(): a
+	// click with nothing checked would otherwise post an empty --only list
+	// and land on the server's generic "kein Element ausgewaehlt" error
+	// instead of catching it before the request goes out.
+	window.mwRepairSelected = function () {
+		return root.querySelectorAll('.mw-el-check:checked').length;
+	};
+
+	function currentMode() {
+		var el = root.querySelector('input[name="mode"]:checked');
+		return el ? el.value : 'replace';
+	}
+	function currentNoOriginal() {
+		var el = root.querySelector('input[name="no_original"]:checked');
+		return el ? el.value : 'keep';
+	}
+
+	// What a row's own checkbox plus the two mode choices above actually
+	// mean for it is not fixed content - it depends on all three at once,
+	// so the column is recomputed from data the server already sent down
+	// (data-has-original) rather than fabricating a file count nobody has
+	// before a repair has actually run.
+	function updateRow(tr) {
+		var box = tr.querySelector('.mw-el-check');
+		var cell = tr.querySelector('.mw-what');
+		if (!box || !cell) { return; }
+		var hasOriginal = tr.getAttribute('data-has-original') === '1';
+		if (!box.checked) {
+			cell.textContent = labels.untouched;
+		} else if (hasOriginal) {
+			cell.textContent = (currentMode() === 'overlay') ? labels.overlay : labels.replace;
+		} else {
+			cell.textContent = (currentNoOriginal() === 'quarantine') ? labels.quarantine : labels.keep;
+		}
+	}
+
+	function updateAll() {
+		for (var i = 0; i < rows.length; i++) {
+			updateRow(rows[i]);
+		}
+		if (selCount) {
+			var n = root.querySelectorAll('.mw-el-check:checked').length;
+			selCount.textContent = selTemplate.replace('{n}', String(n));
+		}
+	}
+
+	var modeInputs = root.querySelectorAll('input[name="mode"], input[name="no_original"]');
+	for (var i = 0; i < modeInputs.length; i++) {
+		modeInputs[i].addEventListener('change', updateAll);
+	}
+	for (var i = 0; i < rows.length; i++) {
+		var box = rows[i].querySelector('.mw-el-check');
+		if (box) { box.addEventListener('change', updateAll); }
+	}
+
+	updateAll();
+})();
+</script>
