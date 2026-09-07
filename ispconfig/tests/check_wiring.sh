@@ -422,9 +422,38 @@ fi
 # 28. DOMNodeRemoved ist ein Mutation Event, das Chrome seit Version 127
 #     abgeschaltet hat. Ein Abbruch, der daran haengt, greift nie - der Timer
 #     ueberlebt jede Navigation und zieht den Bediener aus jeder Seite zurueck.
-if grep -rn 'DOMNodeRemoved' "$root/interface" >/dev/null 2>&1; then
-	fail "DOMNodeRemoved wird noch benutzt, der Abbruch greift nicht"
-fi
+#
+#     Dieselbe Unterscheidung wie Pruefung 26: ein Kommentar, der den
+#     historischen Grund erklaert, ist erlaubt - eine echte Benutzung nicht.
+#     Ohne diese Ausnahme wuerde die Pruefung ihre eigene Erklaerung
+#     verbieten: status.htm dokumentiert genau diesen Fehler in einem
+#     Kommentar, und der Kommentar muss den Namen des Ereignisses nennen, um
+#     ihn zu erklaeren. addEventListener('DOMNodeRemoved' und Verwandtes in
+#     einer Codezeile ist eine Benutzung; eine Zeile, die (nach fuehrenden
+#     Leerzeichen) mit einem Kommentarzeichen beginnt, ist Erklaerung. Wie in
+#     Pruefung 26 schreiben wir Treffer erst in eine temporaere Datei und
+#     lesen daraus, damit fail() in der Hauptshell laeuft statt in einer
+#     Subshell der Pipe.
+dom_refs_file="/tmp/check_wiring_$$_dom_refs"
+rm -f "$dom_refs_file"
+grep -rn 'DOMNodeRemoved' "$root/interface" 2>/dev/null | grep -v "^Binary" > "$dom_refs_file" || true
+
+while read line; do
+	file=$(printf "%s" "$line" | cut -d: -f1)
+	linenum=$(printf "%s" "$line" | cut -d: -f2)
+	content=$(printf "%s" "$line" | cut -d: -f3-)
+	stripped=$(printf "%s" "$content" | sed 's/^[[:space:]]*//g')
+
+	# Ein Kommentarzeichen am Zeilenanfang ist Erklaerung, kein Aufruf.
+	case "$stripped" in
+		"//"*|"#"*|"*"*|"/*"*|"<!--"*)
+			continue
+			;;
+	esac
+
+	fail "DOMNodeRemoved wird noch benutzt, der Abbruch greift nicht ($(basename "$file"):$linenum)"
+done < "$dom_refs_file"
+rm -f "$dom_refs_file"
 
 # 29. Ein loadContent im Takt laedt die ganze Seite neu und reisst den
 #     Bediener aus dem, was er gerade ansieht.

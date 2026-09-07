@@ -65,6 +65,11 @@
 </div>
 <script>
 (function () {
+	// Frueher lud diese Seite sich bei laufender Pruefung staendig neu, weil
+	// der Abbruch an DOMNodeRemoved haengte - einem Mutation Event, das
+	// Chrome seit Version 127 abgeschaltet hat. Der Timer ueberlebte deshalb
+	// jede Navigation und riss den Bediener aus jedem einzelnen Fund
+	// zurueck in die Liste.
 	var jobId = {tmpl_var name='running_job_id'};
 	var domainId = {tmpl_var name='domain_id'};
 	var names = ['Erkennen', 'Holen', 'Prüfen', 'Sichern', 'Tauschen'];
@@ -72,6 +77,15 @@
 	var timer = null;
 
 	function stop() { if (timer) { clearInterval(timer); timer = null; } }
+
+	// MutationObserver statt DOMNodeRemoved: das Panel tauscht #pageContent
+	// aus, statt die Seite neu zu laden.
+	var host = document.getElementById('pageContent');
+	if (host && window.MutationObserver) {
+		new MutationObserver(function () {
+			if (!document.contains(box)) { stop(); }
+		}).observe(host, { childList: true, subtree: true });
+	}
 
 	function draw(d) {
 		var p = d.progress || {};
@@ -96,7 +110,9 @@
 	}
 
 	function poll() {
-		if (!document.body.contains(box)) { stop(); return; }
+		// Der zweite Schutz: auch wenn der Beobachter versagt, schreibt der
+		// Takt nur noch, solange die Seite wirklich da ist.
+		if (!document.contains(box)) { stop(); return; }
 		var xhr = new XMLHttpRequest();
 		xhr.open('GET', 'security/malwatch_progress.php?job_id=' + jobId, true);
 		xhr.onload = function () {
@@ -114,9 +130,6 @@
 		xhr.send();
 	}
 
-	// The panel swaps #pageContent without reloading the page, so a timer left
-	// behind would keep polling behind whatever the user opens next.
-	document.addEventListener('DOMNodeRemoved', function (e) { if (e.target === box) { stop(); } });
 	poll();
 	timer = setInterval(poll, 2000);
 })();
