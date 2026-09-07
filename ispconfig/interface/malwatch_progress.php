@@ -13,7 +13,7 @@ require_once '../../lib/app.inc.php';
 header('Content-Type: application/json');
 header('Cache-Control: no-store');
 
-$app->auth->check_module_permissions('sites');
+$app->auth->check_module_permissions('security');
 if (!$app->auth->is_admin()) {
 	echo json_encode(array('state' => 'denied'));
 	exit;

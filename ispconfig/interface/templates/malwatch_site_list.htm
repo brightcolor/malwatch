@@ -42,7 +42,7 @@
 <p class="fieldset-legend">{tmpl_var name='toolsarea_head_txt'}</p>
 <button class="btn btn-default formbutton-default" type="button"
 	onclick="if(!confirm('{tmpl_var name='confirm_scan_all_txt'}')){event.stopPropagation();return false;} document.getElementById('malwatch_action').value='scan_all';"
-	data-submit-form="pageForm" data-form-action="sites/malwatch_site_list.php">{tmpl_var name='scan_all_txt'}</button>
+	data-submit-form="pageForm" data-form-action="security/malwatch_site_list.php">{tmpl_var name='scan_all_txt'}</button>
 
 <p class="fieldset-legend marginTop15">{tmpl_var name='list_head_txt'}</p>
 <tmpl_if name="running_jobs">
@@ -63,7 +63,7 @@
 	}, 500);
 	var reload = setTimeout(function () {
 		clearInterval(tick);
-		ISPConfig.loadContent('sites/malwatch_site_list.php');
+		ISPConfig.loadContent('security/malwatch_site_list.php');
 	}, 5000);
 	// The panel swaps #pageContent without reloading, so a timer left behind
 	// would drag the user back to this list from wherever they went next.
@@ -107,7 +107,7 @@
 		<tmpl_loop name="records">
 		<tr class="{tmpl_var name='row_class'}">
 			<td class="mw-domain">
-				<a href="#" data-load-content="sites/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name="domain"}</a>
+				<a href="#" data-load-content="security/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name="domain"}</a>
 				<tmpl_unless name="site_active"><span class="label label-default">{tmpl_var name='site_inactive_txt'}</span></tmpl_unless>
 			</td>
 			<td>
@@ -124,9 +124,9 @@
 			<td class="text-right">
 				<button class="btn btn-default btn-xs" type="button"
 					onclick="document.getElementById('malwatch_action').value='scan_one';document.getElementById('malwatch_domain_id').value='{tmpl_var name='domain_id'}';"
-					data-submit-form="pageForm" data-form-action="sites/malwatch_site_list.php">{tmpl_var name='scan_now_txt'}</button>
+					data-submit-form="pageForm" data-form-action="security/malwatch_site_list.php">{tmpl_var name='scan_now_txt'}</button>
 				<a class="btn btn-default btn-xs" href="#"
-					data-load-content="sites/malwatch_site_edit.php?domain_id={tmpl_var name='domain_id'}">{tmpl_var name='settings_txt'}</a>
+					data-load-content="security/malwatch_site_edit.php?domain_id={tmpl_var name='domain_id'}">{tmpl_var name='settings_txt'}</a>
 			</td>
 		</tr>
 		</tmpl_loop>

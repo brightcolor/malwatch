@@ -308,6 +308,19 @@ if grep -q 'menu.d/malwatch.menu.php' "$root/install/file.list"; then
 	fail "file.list installiert noch die alte Menuedatei"
 fi
 
+# 26. Nach dem Umzug darf nirgends mehr ein Pfad auf sites/ zeigen - weder in
+#     einem loadContent-Aufruf, noch in einem Formularziel, noch in
+#     check_module_permissions.
+if grep -rn "sites/malwatch" "$root/interface" >/dev/null 2>&1; then
+	fail "es zeigt noch etwas auf sites/malwatch_*, der Umzug ist unvollstaendig"
+fi
+if grep -rn "check_module_permissions('sites')" "$root/interface" >/dev/null 2>&1; then
+	fail "eine Seite prueft noch die Rechte des Sites-Moduls"
+fi
+if grep -q 'interface/web/sites/' "$root/install/file.list"; then
+	fail "file.list legt noch Dateien in das Sites-Modul"
+fi
+
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'
 fi
