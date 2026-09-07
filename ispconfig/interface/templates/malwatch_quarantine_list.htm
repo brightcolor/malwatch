@@ -8,6 +8,11 @@
 <tmpl_if name="error">
 	<div class="alert alert-danger">{tmpl_var name='error'}</div>
 </tmpl_if>
+<tmpl_loop name="job_errors">
+	<div class="alert alert-danger">
+		<strong>{tmpl_var name='job_error_head_txt'}</strong> {tmpl_var name='job_log'}
+	</div>
+</tmpl_loop>
 
 <style>
 /* Farben ausschliesslich aus den Theme-Variablen, mit Rueckfallwert - siehe

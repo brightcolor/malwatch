@@ -143,6 +143,21 @@ if (is_array($pending_jobs)) {
 	}
 }
 
+// A quarantine job that ended badly says so here, on the page it was started
+// from. malwatch_job.parent_domain_id is 0 for this kind - a batch can span
+// several websites - so no website page ever shows one, and a restore that
+// silently did not happen used to leave nothing on any screen at all.
+$job_errors = array();
+$failed_jobs = $app->db->queryAllRecords(
+	"SELECT job_log FROM malwatch_job WHERE job_kind = 'quarantine' AND job_status = 'error' "
+	. 'AND finished_at > DATE_SUB(NOW(), INTERVAL 24 HOUR) ORDER BY job_id DESC LIMIT 3');
+if (is_array($failed_jobs)) {
+	foreach ($failed_jobs as $failed_job) {
+		$job_errors[] = array('job_log' => $app->functions->htmlentities((string) $failed_job['job_log']));
+	}
+}
+$app->tpl->setLoop('job_errors', $job_errors);
+
 // One export job packs one ZIP for the whole selection, so several rows can
 // carry the same token. Counted once here instead of per row, so the link in
 // each of them can say how many entries the archive holds - the size on its

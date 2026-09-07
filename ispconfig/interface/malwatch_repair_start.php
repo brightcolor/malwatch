@@ -23,26 +23,28 @@ if (!$app->auth->is_admin()) {
 $app->uses('tpl,functions');
 require_once 'lib/malwatch_lib.inc.php';
 
-$domain_id = $app->functions->intval(isset($_REQUEST['id']) ? $_REQUEST['id'] : 0);
-if ($domain_id < 1) {
-	die('Ungültige Website.');
-}
-
-$web = $app->db->queryOneRecord('SELECT * FROM web_domain WHERE domain_id = ?', $domain_id);
-if (!is_array($web)) {
-	die('Die Website wurde nicht gefunden.');
-}
-
 // Included rather than fetched through $app->load_language_file() - that
 // method keeps its result in a private property of its own, so $wb would
 // stay unset here (see malwatch_quarantine_list.php / malwatch_site_show.php
-// for the same reasoning). Loaded before the actions, since the messages
-// below read from $wb.
+// for the same reasoning). Loaded first of all, ahead of the two checks
+// below as well as the actions further down: both used to answer with a
+// German sentence written into the code, while the two keys meant for them
+// sat in de_/en_malwatch_repair.lng and were read by nothing.
 $lng_file = 'lib/lang/' . $app->functions->check_language($_SESSION['s']['language']) . '_malwatch_repair.lng';
 if (!file_exists($lng_file)) {
 	$lng_file = 'lib/lang/en_malwatch_repair.lng';
 }
 include $lng_file;
+
+$domain_id = $app->functions->intval(isset($_REQUEST['id']) ? $_REQUEST['id'] : 0);
+if ($domain_id < 1) {
+	die($wb['err_invalid_site_txt']);
+}
+
+$web = $app->db->queryOneRecord('SELECT * FROM web_domain WHERE domain_id = ?', $domain_id);
+if (!is_array($web)) {
+	die($wb['err_site_not_found_txt']);
+}
 
 // --- Elements of the last scan ----------------------------------------------
 // The element list is malwatch_software as of the last run, not a fresh

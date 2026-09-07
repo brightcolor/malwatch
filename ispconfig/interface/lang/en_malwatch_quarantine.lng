@@ -65,6 +65,7 @@ $wb['msg_delete_one_txt'] = 'The entry is being deleted for good.';
 $wb['msg_delete_many_txt'] = '%s entries are being deleted for good.';
 $wb['msg_download_one_txt'] = 'The ZIP is being prepared. Once it is ready, a link with its size appears next to this entry.';
 $wb['msg_download_many_txt'] = 'One single ZIP holding all the selected entries is being prepared. Once it is ready, the link to it appears in each of the selected rows — the same archive everywhere.';
+$wb['job_error_head_txt'] = 'A quarantine job from the last 24 hours failed.';
 $wb['err_no_selection_txt'] = 'No entry was selected.';
 $wb['err_unknown_action_txt'] = 'There is no such action. Please reload the page.';
 $wb['err_none_found_txt'] = 'None of the selected entries was found. The list in front of you is most likely older than the quarantine itself — please reload the page.';

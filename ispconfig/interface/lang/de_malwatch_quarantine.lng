@@ -66,6 +66,7 @@ $wb['msg_delete_one_txt'] = 'Der Eintrag wird endgültig gelöscht.';
 $wb['msg_delete_many_txt'] = '%s Einträge werden endgültig gelöscht.';
 $wb['msg_download_one_txt'] = 'Das ZIP wird vorbereitet. Sobald es bereitliegt, erscheint bei diesem Eintrag ein Verweis mit der Größe.';
 $wb['msg_download_many_txt'] = 'Ein einziges ZIP mit allen ausgewählten Einträgen wird vorbereitet. Sobald es bereitliegt, steht der Verweis darauf in jeder der ausgewählten Zeilen — überall dasselbe Archiv.';
+$wb['job_error_head_txt'] = 'Ein Quarantäneauftrag der letzten 24 Stunden ist gescheitert.';
 $wb['err_no_selection_txt'] = 'Es wurde kein Eintrag ausgewählt.';
 $wb['err_unknown_action_txt'] = 'Diese Aktion gibt es nicht. Bitte laden Sie die Seite neu.';
 $wb['err_none_found_txt'] = 'Keiner der ausgewählten Einträge wurde gefunden. Wahrscheinlich ist die Liste vor Ihnen älter als die Quarantäne — bitte laden Sie die Seite neu.';
