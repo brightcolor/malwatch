@@ -26,14 +26,14 @@
 			<td class="text-right">
 				<button type="button" class="btn btn-default formbutton-default formbutton-narrow" name="Filter" id="Filter"
 					value="{tmpl_var name='filter_txt'}" data-submit-form="pageForm"
-					data-form-action="sites/malwatch_scan_list.php"><span class="icon icon-filter"></span></button>
+					data-form-action="security/malwatch_scan_list.php"><span class="icon icon-filter"></span></button>
 			</td>
 		</tr>
 	</thead>
 	<tbody>
 		<tmpl_loop name="records">
 		<tr>
-			<td><a href="#" data-load-content="sites/malwatch_site_show.php?id={tmpl_var name='parent_domain_id'}">{tmpl_var name="domain"}</a></td>
+			<td><a href="#" data-load-content="security/malwatch_site_show.php?id={tmpl_var name='parent_domain_id'}">{tmpl_var name="domain"}</a></td>
 			<td>{tmpl_var name="scan_state"}</td>
 			<td>{tmpl_var name="finished_at"}</td>
 			<td>{tmpl_var name="files_scanned"}</td>
@@ -42,7 +42,7 @@
 			<td class="text-right">
 				<div class="buttons icons16">
 					<a class="btn btn-default formbutton-default formbutton-narrow" href="#"
-						data-load-content="sites/malwatch_site_show.php?id={tmpl_var name='parent_domain_id'}">{tmpl_var name="open_txt"}</a>
+						data-load-content="security/malwatch_site_show.php?id={tmpl_var name='parent_domain_id'}">{tmpl_var name="open_txt"}</a>
 				</div>
 			</td>
 		</tr>

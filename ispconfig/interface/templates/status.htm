@@ -1,0 +1,190 @@
+<style>
+/* Farben ausschliesslich aus dem Theme, mit Rueckfallwert - ein Teil der
+   Bediener sitzt auf default oder ispc-clean, wo es die Variablen nicht
+   gibt. --cic-warn ist bewusst nicht dabei: es ist fast identisch mit
+   --cic-accent, und dann waere Zustand von Bedienbarkeit nicht zu
+   unterscheiden. Fuer Warnungen steht --cic-warn-lift. */
+#mw-status .mw-lede{font-size:21px;line-height:1.3;font-weight:600;color:var(--cic-text-loud,#fff)}
+#mw-status .mw-sub{margin:6px 0 0;color:var(--cic-text-dim,#8b9298);font-size:13px}
+#mw-status .mw-sites{display:flex;flex-direction:column;gap:9px;margin-top:16px}
+#mw-status .mw-site{display:grid;grid-template-columns:1fr auto;gap:14px;align-items:start;
+  padding:13px 15px;border:1px solid var(--cic-line-soft,#3c3c3b);border-radius:3px;
+  background:var(--cic-raised,#292929)}
+#mw-status .mw-site.bad{border-left:3px solid var(--cic-bad,#d13f22)}
+#mw-status .mw-site.warn{border-left:3px solid var(--cic-warn-lift,#ef8a2b)}
+#mw-status .mw-site.busy{border-left:3px solid var(--cic-accent,#dd630d)}
+#mw-status .mw-site h3{margin:0;font-size:15px;font-weight:600;display:flex;align-items:center;
+  gap:8px;flex-wrap:wrap;color:var(--cic-text-loud,#fff)}
+#mw-status .mw-site p{margin:5px 0 0;font-size:13.5px;max-width:62ch}
+#mw-status .mw-chip{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+  padding:2px 7px;border-radius:3px}
+#mw-status .mw-chip.bad{background:var(--cic-bad-deep,#b13116);color:var(--cic-bad-text,#fff)}
+#mw-status .mw-chip.warn{background:var(--cic-warn-lift,#ef8a2b);color:var(--cic-on-accent,#1c1c1c)}
+#mw-status .mw-chip.busy{background:var(--cic-sunken,#151515);color:var(--cic-accent-text,#ef7d21);
+  border:1px solid var(--cic-accent-deep,#a84c0b)}
+#mw-status .mw-acts{display:flex;flex-direction:column;gap:6px}
+#mw-status .mw-track{height:6px;border-radius:3px;background:var(--cic-line-soft,#3c3c3b);
+  overflow:hidden;margin-top:10px}
+#mw-status .mw-fill{height:100%;background:var(--cic-accent,#dd630d);border-radius:3px;
+  transition:width .5s linear;width:0}
+#mw-status .mw-meta{display:flex;justify-content:space-between;gap:12px;margin-top:6px;
+  font-size:12px;color:var(--cic-text-dim,#8b9298);font-variant-numeric:tabular-nums}
+#mw-status .mw-quiet{margin-top:18px;padding:12px 15px;border:1px solid var(--cic-line-soft,#3c3c3b);
+  border-radius:3px;color:var(--cic-text-dim,#8b9298);font-size:13px;background:var(--cic-head,#202020)}
+@media (prefers-reduced-motion:reduce){#mw-status *{transition:none !important}}
+</style>
+
+<div id="mw-status">
+
+  <tmpl_if name="attention_count" op="==" value="0">
+    <h1 class="mw-lede">{tmpl_var name='all_clear_txt'}</h1>
+  </tmpl_if>
+  <tmpl_if name="attention_count" op="==" value="1">
+    <h1 class="mw-lede">{tmpl_var name='attention_one_txt'}</h1>
+  </tmpl_if>
+  <tmpl_if name="attention_count" op=">" value="1">
+    <h1 class="mw-lede">{tmpl_var name='attention_many_txt'}</h1>
+  </tmpl_if>
+  <p class="mw-sub">{tmpl_var name='as_of_txt'}</p>
+
+  <div class="mw-sites">
+    <tmpl_loop name="sites">
+      <article class="mw-site {tmpl_var name='state_class'}" data-domain="{tmpl_var name='domain_id'}">
+        <div>
+          <h3>
+            {tmpl_var name='domain'}
+            <tmpl_if name="is_running" op="==" value="y">
+              <span class="mw-chip busy">{tmpl_var name='state_running_txt'}</span>
+            <tmpl_else>
+              <tmpl_if name="urgent" op=">" value="0">
+                <span class="mw-chip bad">{tmpl_var name='state_infected_txt'}</span>
+              <tmpl_else>
+                <span class="mw-chip warn">{tmpl_var name='state_attention_txt'}</span>
+              </tmpl_if>
+            </tmpl_if>
+          </h3>
+          <p class="mw-line">{tmpl_var name='findings_line'}</p>
+          <tmpl_if name="is_running" op="==" value="y">
+            <div class="mw-prog">
+              <div class="mw-track"><div class="mw-fill"></div></div>
+              <div class="mw-meta">
+                <span class="mw-count">{tmpl_var name='waiting_txt'}</span>
+                <span class="mw-pct"></span>
+              </div>
+            </div>
+          </tmpl_if>
+        </div>
+        <div class="mw-acts">
+          <a class="btn btn-default formbutton-default"
+             href="javascript:ISPConfig.loadContent('security/malwatch_site_show.php?domain_id={tmpl_var name='domain_id'}');">{tmpl_var name='view_txt'}</a>
+        </div>
+      </article>
+    </tmpl_loop>
+  </div>
+
+  <tmpl_if name="quiet_count" op=">" value="0">
+    <div class="mw-quiet">{tmpl_var name='quiet_txt'}</div>
+  </tmpl_if>
+
+</div>
+
+<script>
+(function () {
+	// Frueher lud diese Seite sich bei laufender Pruefung alle fuenf Sekunden
+	// komplett neu. Der Abbruch hing an DOMNodeRemoved - einem Mutation Event,
+	// das Chrome seit Version 127 abgeschaltet hat. Der Timer ueberlebte also
+	// jede Navigation und zog den Bediener aus den Einstellungen und aus jedem
+	// Fund zurueck in die Liste.
+	//
+	// Jetzt wird nichts mehr nachgeladen: ein JSON-Endpunkt liefert den Stand,
+	// und nur die betroffenen Zellen werden umgeschrieben. Selbst ein
+	// vergessener Timer koennte dann nur noch ins Leere schreiben.
+	var root = document.getElementById('mw-status');
+	if (!root) { return; }
+
+	var running = root.querySelectorAll('.mw-site.busy');
+	if (!running.length) { return; }
+
+	var timer = null;
+	function stop() { if (timer) { clearInterval(timer); timer = null; } }
+
+	// MutationObserver statt DOMNodeRemoved: das Panel tauscht #pageContent
+	// aus, statt die Seite neu zu laden.
+	var host = document.getElementById('pageContent');
+	if (host && window.MutationObserver) {
+		new MutationObserver(function () {
+			if (!document.contains(root)) { stop(); }
+		}).observe(host, { childList: true, subtree: true });
+	}
+
+	function draw(box, d) {
+		var fill = box.querySelector('.mw-fill');
+		var count = box.querySelector('.mw-count');
+		var pct = box.querySelector('.mw-pct');
+		if (!fill) { return; }
+		if (d.percent === null || typeof d.percent === 'undefined') {
+			fill.style.width = '100%';
+			fill.style.opacity = '.35';
+			if (pct) { pct.textContent = ''; }
+		} else {
+			fill.style.width = d.percent + '%';
+			fill.style.opacity = '1';
+			if (pct) { pct.textContent = d.percent + ' %'; }
+		}
+		if (count && d.label) { count.textContent = d.label; }
+	}
+
+	function poll() {
+		// Der zweite Schutz: auch wenn der Beobachter versagt, schreibt der
+		// Takt nur noch, solange die Seite wirklich da ist.
+		if (!document.contains(root)) { stop(); return; }
+
+		// xhr.send() ist hier immer async (dritter Parameter true an open()),
+		// also feuert onload nie innerhalb von send() selbst - eine Pruefung
+		// direkt nach der Schleife saehe deshalb IMMER null offene Antworten,
+		// ganz gleich was die Websites tatsaechlich tun. Die Entscheidung
+		// faellt deshalb erst, wenn die letzte Antwort eingetroffen ist:
+		// pending zaehlt die noch ausstehenden Anfragen herunter,
+		// stillRunning merkt sich, ob mindestens eine Website noch laeuft.
+		var pending = running.length;
+		var stillRunning = false;
+
+		function settle() {
+			pending--;
+			if (pending > 0) { return; }
+			if (!document.contains(root)) { stop(); return; }
+			if (!stillRunning) {
+				// Nichts laeuft mehr. Einmal die Seite holen, damit die Ergebnisse
+				// erscheinen - und danach nie wieder von allein.
+				stop();
+				ISPConfig.loadContent('security/status.php');
+			}
+		}
+
+		running.forEach(function (box) {
+			var id = box.getAttribute('data-domain');
+			var xhr = new XMLHttpRequest();
+			xhr.open('GET', 'security/malwatch_progress.php?domain_id=' + encodeURIComponent(id), true);
+			xhr.onload = function () {
+				if (!document.contains(root)) { stop(); return; }
+				var d;
+				try { d = JSON.parse(xhr.responseText); } catch (e) { stillRunning = true; settle(); return; }
+				if (d.state === 'running' || d.state === 'pending') { stillRunning = true; }
+				draw(box, d);
+				settle();
+			};
+			xhr.onerror = function () {
+				if (!document.contains(root)) { stop(); return; }
+				// Ein Ausfall zaehlt als "laeuft noch": eine einzelne
+				// fehlgeschlagene Anfrage darf kein Neuladen ausloesen.
+				stillRunning = true;
+				settle();
+			};
+			xhr.send();
+		});
+	}
+
+	timer = setInterval(poll, 3000);
+	poll();
+})();
+</script>

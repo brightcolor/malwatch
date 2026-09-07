@@ -71,6 +71,7 @@ func cmdScan(args []string) int {
 	cacheFile := fs.String("cache", "", "")
 	whitelistPath := fs.String("whitelist-path", "", "")
 	progressFile := fs.String("progress", "", "")
+	expect := fs.Int("expect", 0, "")
 
 	if err := fs.Parse(args); err != nil {
 		return report.ExitError
@@ -138,20 +139,31 @@ func cmdScan(args []string) int {
 	pw.Phase(1, 1, "scan")
 
 	onTerminal := !*quiet && *out == "" && !*asJSON
+	// Der Erwartungswert kommt vom Panel und ist die Zahl der Dateien, die der
+	// letzte Lauf derselben Website angesehen hat - geprüfte und übersprungene
+	// zusammen, dasselbe, was n hier zählt. Er kann danebenliegen - eine
+	// Website wächst -, und deshalb ist er eine Schätzung und keine Zusage.
+	// Wer ihn auswertet, deckelt bei 99 Prozent, bis der Lauf fertig meldet.
 	opts.Progress = func(n int64) {
-		pw.File("", int(n), 0)
+		pw.File("", int(n), *expect)
 		if onTerminal {
-			fmt.Fprintf(os.Stderr, "\r%d Dateien geprüft …", n)
+			fmt.Fprintf(os.Stderr, "\r%d Dateien durchgesehen …", n)
 		}
 	}
 
 	rep, err := scanner.Run(opts)
-	if onTerminal {
-		fmt.Fprint(os.Stderr, "\r                                   \r")
-	}
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Der Lauf ist gescheitert: %v\n", err)
 		return report.ExitError
+	}
+	// Der Scanner meldet nur alle 500 Dateien; am Ende eines Laufs fehlt deshalb
+	// der letzte Teilstapel. Bei kleinen Dateilisten ist das der ganze Lauf,
+	// und die Fortschrittsanzeige bleibt stehen, obwohl der Scan längst fertig ist.
+	if opts.Progress != nil {
+		opts.Progress(rep.Stats.FilesScanned + rep.Stats.FilesSkipped)
+	}
+	if onTerminal {
+		fmt.Fprint(os.Stderr, "\r                                   \r")
 	}
 
 	if err := writeReport(rep, *out, *asJSON, *showAll); err != nil {

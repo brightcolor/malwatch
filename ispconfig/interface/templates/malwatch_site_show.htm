@@ -65,6 +65,11 @@
 </div>
 <script>
 (function () {
+	// Frueher lud diese Seite sich bei laufender Pruefung staendig neu, weil
+	// der Abbruch an DOMNodeRemoved haengte - einem Mutation Event, das
+	// Chrome seit Version 127 abgeschaltet hat. Der Timer ueberlebte deshalb
+	// jede Navigation und riss den Bediener aus jedem einzelnen Fund
+	// zurueck in die Liste.
 	var jobId = {tmpl_var name='running_job_id'};
 	var domainId = {tmpl_var name='domain_id'};
 	var names = ['Erkennen', 'Holen', 'Prüfen', 'Sichern', 'Tauschen'];
@@ -72,6 +77,15 @@
 	var timer = null;
 
 	function stop() { if (timer) { clearInterval(timer); timer = null; } }
+
+	// MutationObserver statt DOMNodeRemoved: das Panel tauscht #pageContent
+	// aus, statt die Seite neu zu laden.
+	var host = document.getElementById('pageContent');
+	if (host && window.MutationObserver) {
+		new MutationObserver(function () {
+			if (!document.contains(box)) { stop(); }
+		}).observe(host, { childList: true, subtree: true });
+	}
 
 	function draw(d) {
 		var p = d.progress || {};
@@ -96,10 +110,19 @@
 	}
 
 	function poll() {
-		if (!document.body.contains(box)) { stop(); return; }
+		// Der zweite Schutz: auch wenn der Beobachter versagt, schreibt der
+		// Takt nur noch, solange die Seite wirklich da ist.
+		if (!document.contains(box)) { stop(); return; }
 		var xhr = new XMLHttpRequest();
-		xhr.open('GET', 'sites/malwatch_progress.php?job_id=' + jobId, true);
+		xhr.open('GET', 'security/malwatch_progress.php?job_id=' + jobId, true);
 		xhr.onload = function () {
+			// Dieselbe Zeile wie in poll() und wie in status.htm, und hier die
+			// wichtigste: zwischen dem Absenden und der Antwort kann der
+			// Bediener laengst weitergeklickt haben. Ohne die Pruefung ruft der
+			// Rueckruf unbedingt loadContent() auf, die spaeter aufloesende
+			// Navigation gewinnt, und er sitzt wieder auf der Detailseite -
+			// genau die Beschwerde, um die es hier geht.
+			if (!document.contains(box)) { stop(); return; }
 			var d;
 			try { d = JSON.parse(xhr.responseText); } catch (e) { stop(); return; }
 			draw(d);
@@ -107,16 +130,13 @@
 			// findings and report only exist after the cron read them in.
 			if (d.state === 'done' || d.state === 'error' || d.state === 'none') {
 				stop();
-				ISPConfig.loadContent('sites/malwatch_site_show.php?id=' + domainId);
+				ISPConfig.loadContent('security/malwatch_site_show.php?id=' + domainId);
 			}
 		};
 		xhr.onerror = stop;
 		xhr.send();
 	}
 
-	// The panel swaps #pageContent without reloading the page, so a timer left
-	// behind would keep polling behind whatever the user opens next.
-	document.addEventListener('DOMNodeRemoved', function (e) { if (e.target === box) { stop(); } });
 	poll();
 	timer = setInterval(poll, 2000);
 })();
@@ -125,23 +145,23 @@
 
 	<button class="btn btn-default formbutton-default" type="button"
 		onclick="document.getElementById('malwatch_action').value='scan';"
-		data-submit-form="pageForm" data-form-action="sites/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='scan_now_txt'}</button>
+		data-submit-form="pageForm" data-form-action="security/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='scan_now_txt'}</button>
 <button class="btn btn-default formbutton-default" type="button"
 		onclick="if(!confirm('{tmpl_var name='confirm_repair_txt'}')){event.stopPropagation();return false;} document.getElementById('malwatch_action').value='repair';"
-		data-submit-form="pageForm" data-form-action="sites/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='repair_txt'}</button>
+		data-submit-form="pageForm" data-form-action="security/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='repair_txt'}</button>
 	<button class="btn btn-default formbutton-default" type="button"
 		onclick="document.getElementById('malwatch_action').value='repair_dry';"
-		data-submit-form="pageForm" data-form-action="sites/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='repair_dry_txt'}</button>
+		data-submit-form="pageForm" data-form-action="security/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='repair_dry_txt'}</button>
 	<tmpl_if name="has_findings">
 	<button class="btn btn-danger formbutton-default" type="button"
 		onclick="if(!confirm('{tmpl_var name='confirm_delete_all_txt'}')){event.stopPropagation();return false;} document.getElementById('malwatch_action').value='delete_all';"
-		data-submit-form="pageForm" data-form-action="sites/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='delete_all_txt'}</button>
+		data-submit-form="pageForm" data-form-action="security/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='delete_all_txt'}</button>
 	</tmpl_if>
-	<a class="btn btn-default formbutton-default" href="#" data-load-content="sites/malwatch_site_edit.php?domain_id={tmpl_var name='domain_id'}">{tmpl_var name='settings_txt'}</a>
+	<a class="btn btn-default formbutton-default" href="#" data-load-content="security/malwatch_site_edit.php?domain_id={tmpl_var name='domain_id'}">{tmpl_var name='settings_txt'}</a>
 	<tmpl_unless name="site_active">
 		<button class="btn btn-default formbutton-success" type="button"
 			onclick="if(!confirm('{tmpl_var name='confirm_enable_txt'}')){event.stopPropagation();return false;} document.getElementById('malwatch_action').value='enable_site';"
-			data-submit-form="pageForm" data-form-action="sites/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='enable_site_txt'}</button>
+			data-submit-form="pageForm" data-form-action="security/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='enable_site_txt'}</button>
 	</tmpl_unless>
 </div>
 
@@ -192,14 +212,14 @@
 				<tmpl_if name="is_ignored">
 				<button class="btn btn-default formbutton-default formbutton-narrow" type="button"
 					onclick="document.getElementById('malwatch_action').value='reopen';document.getElementById('malwatch_finding_id').value='{tmpl_var name='full_path'}';"
-					data-submit-form="pageForm" data-form-action="sites/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='reopen_txt'}</button>
+					data-submit-form="pageForm" data-form-action="security/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='reopen_txt'}</button>
 				<tmpl_else>
 				<button class="btn btn-default formbutton-default formbutton-narrow" type="button"
 					onclick="document.getElementById('malwatch_action').value='ignore';document.getElementById('malwatch_finding_id').value='{tmpl_var name='full_path'}';"
-					data-submit-form="pageForm" data-form-action="sites/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='ignore_txt'}</button>
+					data-submit-form="pageForm" data-form-action="security/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='ignore_txt'}</button>
 <button class="btn btn-danger btn-xs" type="button"
 					onclick="if(!confirm('{tmpl_var name='confirm_delete_one_txt'}')){event.stopPropagation();return false;} document.getElementById('malwatch_action').value='delete_one';document.getElementById('malwatch_finding_id').value='{tmpl_var name='full_path'}';"
-					data-submit-form="pageForm" data-form-action="sites/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='delete_one_txt'}</button>
+					data-submit-form="pageForm" data-form-action="security/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='delete_one_txt'}</button>
 				</tmpl_if>
 			</td>
 		</tr>
@@ -304,5 +324,5 @@
 </div>
 
 <div class="clear"><div class="right">
-	<button class="btn btn-default formbutton-default" type="button" data-load-content="sites/malwatch_site_list.php">{tmpl_var name='btn_back_txt'}</button>
+	<button class="btn btn-default formbutton-default" type="button" data-load-content="security/status.php">{tmpl_var name='btn_back_txt'}</button>
 </div></div>

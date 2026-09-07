@@ -141,6 +141,39 @@ class malwatch_runner
 			'--whitelist-path=' . $state_dir . '/whitelist',
 		);
 
+		// Der Nenner ist die Zahl der Dateien, die der juengste abgeschlossene
+		// Lauf derselben Website ANGESEHEN hat: files_scanned + files_skipped.
+		// Nicht files_scanned allein - der Scanner erhoeht diesen Zaehler nur
+		// fuer Dateien, die den Cache verfehlen; ein Cache-Treffer geht auf
+		// files_skipped (internal/scanner/scanner.go, festgehalten in
+		// scanner_test.go: zweiter Lauf -> FilesScanned == 0). Nach einem
+		// kalten Lauf ueber 193.888 Dateien bekam der naechste, warme Lauf
+		// --expect=193888 und stand bei 0 Prozent, bis er auf 100 sprang.
+		//
+		// Zaehler und Nenner zaehlen jetzt dasselbe: der Scanner meldet ueber
+		// --progress ebenfalls geprueft + uebersprungen. Der Weg ueber die
+		// betrachteten Dateien und nicht ueber die geprueften ist der einzig
+		// moegliche - wie viele Dateien ein Lauf tatsaechlich pruefen wird,
+		// haengt am Cache und weiss vorher niemand, waehrend die Zahl der
+		// betrachteten Dateien von Lauf zu Lauf nahezu gleich bleibt. Genau
+		// das macht sie zu einem brauchbaren Nenner.
+		//
+		// Beim ersten Lauf einer Website gibt es keinen Vorlauf, dann entfaellt
+		// der Schalter und die Anzeige zaehlt ohne Prozentangabe.
+		$last = $app->db->queryOneRecord(
+			'SELECT files_scanned, files_skipped FROM malwatch_scan WHERE parent_domain_id = ? '
+			. "AND scan_state IN ('clean','findings','outdated') "
+			. 'AND (files_scanned + files_skipped) > 0 '
+			. 'ORDER BY scan_id DESC LIMIT 1',
+			intval($job['parent_domain_id'])
+		);
+		if (is_array($last)) {
+			$expect = intval($last['files_scanned']) + intval($last['files_skipped']);
+			if ($expect > 0) {
+				$args[] = '--expect=' . $expect;
+			}
+		}
+
 		foreach ($this->exclude_patterns($options, $config) as $pattern) {
 			$args[] = '--exclude=' . $pattern;
 		}

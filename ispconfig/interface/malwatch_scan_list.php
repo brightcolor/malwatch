@@ -3,7 +3,7 @@
 require_once '../../lib/config.inc.php';
 require_once '../../lib/app.inc.php';
 
-$app->auth->check_module_permissions('sites');
+$app->auth->check_module_permissions('security');
 if (!$app->auth->is_admin()) {
 	die('Nur für Administratoren.');
 }

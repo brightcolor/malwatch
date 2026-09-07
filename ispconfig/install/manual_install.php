@@ -92,8 +92,8 @@ $app->extension_installer->scan_extensions();
 
 echo "\nExtension installed and enabled.\n\n";
 echo "Next steps:\n";
-echo " - Log out and back in, then open Websites > malwatch in the panel.\n";
-echo " - Check the paths under Websites > malwatch > Einstellungen.\n";
+echo " - Log out and back in, then open Security > Einstellungen in the panel.\n";
+echo " - Check the paths under Security > Einstellungen.\n";
 echo " - The first scan starts within a minute of pressing 'Jetzt prüfen'.\n\n";
 
 exit(0);

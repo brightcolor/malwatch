@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Shared helpers for the malwatch pages in the Websites module.
+ * Shared helpers for the malwatch pages in the Security module.
  *
  * Plain functions rather than a class: ISPConfig loads interface pages
  * directly, and a class would have to be registered with $app->uses(), which
@@ -416,4 +416,203 @@ function malwatch_duration($seconds)
 		return floor($seconds / 60) . ' min ' . ($seconds % 60) . ' s';
 	}
 	return floor($seconds / 3600) . ' h ' . floor(($seconds % 3600) / 60) . ' min';
+}
+
+/**
+ * Liefert die Websites, die etwas brauchen, und die Zahl der uebrigen.
+ *
+ * Reihenfolge: kritische Funde, dann laufende Pruefungen, dann hohe Funde.
+ * Wer morgens hinsieht, soll die dringendste Website oben finden und nicht
+ * suchen muessen.
+ */
+function malwatch_status_rows($app)
+{
+	$sql = "SELECT w.domain_id, w.domain,
+			COALESCE(f.total, 0) AS findings,
+			COALESCE(f.urgent, 0) AS urgent,
+			s.finished_at, s.files_scanned,
+			j.job_id AS running_job
+		FROM web_domain w
+		LEFT JOIN (
+			SELECT parent_domain_id,
+				COUNT(*) AS total,
+				SUM(severity = 'critical') AS urgent
+			FROM malwatch_finding
+			WHERE finding_state = 'open'
+			GROUP BY parent_domain_id
+		) f ON f.parent_domain_id = w.domain_id
+		LEFT JOIN malwatch_scan s ON s.scan_id = (
+			SELECT scan_id FROM malwatch_scan
+			WHERE parent_domain_id = w.domain_id
+				AND scan_state IN ('clean','findings','outdated')
+			ORDER BY scan_id DESC LIMIT 1
+		)
+		LEFT JOIN malwatch_job j ON j.job_id = (
+			SELECT job_id FROM malwatch_job
+			WHERE parent_domain_id = w.domain_id
+				AND job_status IN ('pending','running')
+			ORDER BY job_id DESC LIMIT 1
+		)
+		WHERE w.type IN ('vhost','vhostsubdomain','vhostalias') AND w.active = 'y'
+		ORDER BY COALESCE(f.urgent, 0) DESC, j.job_id DESC,
+			COALESCE(f.total, 0) DESC, w.domain ASC";
+
+	$all = $app->db->queryAllRecords($sql);
+	if (!is_array($all)) {
+		$all = array();
+	}
+
+	$attention = array();
+	$quiet = 0;
+	$newest = 0;
+
+	foreach ($all as $row) {
+		if (!empty($row['finished_at'])) {
+			$stamp = strtotime($row['finished_at']);
+			if ($stamp > $newest) {
+				$newest = $stamp;
+			}
+		}
+		$running  = intval($row['running_job']) > 0;
+		$findings = intval($row['findings']);
+		if (!$running && $findings < 1) {
+			$quiet++;
+			continue;
+		}
+		$row['is_running']  = $running ? 'y' : 'n';
+		$row['urgent']      = intval($row['urgent']);
+		$row['findings']    = $findings;
+		$row['state_class'] = $running ? 'busy' : ($row['urgent'] > 0 ? 'bad' : 'warn');
+		$attention[] = $row;
+	}
+
+	$next = malwatch_next_run($app);
+
+	return array(
+		'attention'      => $attention,
+		'quiet_count'    => $quiet,
+		'as_of'          => $newest ? malwatch_when($newest) : '—',
+		'next_run_state' => $next['state'],
+		'next_run'       => $next['when'],
+	);
+}
+
+/**
+ * Ein Zeitpunkt so, wie ein Mensch ihn sagt: "heute 03:14 Uhr", "gestern
+ * 21:12 Uhr", sonst "6. September, 21:12 Uhr".
+ *
+ * Gilt fuer Zeitpunkte in der Vergangenheit (as_of - ein Scan-Ende) genauso
+ * wie in der Zukunft (next_run - ein geplanter Lauf): "heute" und "gestern"
+ * brauchen dafuer beide eine obere Grenze. Ohne sie prueft "heute" nur
+ * "$stamp >= Mitternacht heute", was fuer einen ausschliesslich in der
+ * Vergangenheit liegenden Zeitpunkt (der nie nach "jetzt" liegen kann)
+ * zufaellig richtig war, aber jeden kuenftigen Zeitpunkt - auch naechste
+ * Woche oder naechsten Monat - ebenfalls "heute" nennen wuerde.
+ *
+ * Bleibt absichtlich bei deutschen Wortbestandteilen ("heute", "gestern",
+ * den Monatsnamen, "Uhr"), unabhaengig von der Sprache des Bedieners - das
+ * ist kein Versehen. Der Rueckgabewert dieser Funktion steckt bereits seit
+ * dem vorigen Bündel unveraendert in as_of_txt und erscheint dort auch auf
+ * der englischen Oberflaeche; next_run tritt dieser bestehenden Abweichung
+ * lediglich bei, statt eine neue zu schaffen. Eine echte Uebersetzung ist
+ * kein Ersetzen einzelner Woerter: die Monatsnamen muessten in beide
+ * Sprachdateien wandern, "Uhr" hat im Englischen keine Entsprechung
+ * ("3:14 PM", nicht "3:14 PM o'clock"), und die dritte Form dreht die
+ * Reihenfolge von Tag/Monat auf Monat/Tag um ("6. September" gegenueber
+ * "September 6") - das ist ein Umbau der Funktionslogik, nicht nur ihrer
+ * Zeichenketten, und damit ausserhalb dessen, was diese Aenderung beheben
+ * soll: next_run war falsch (ein erfundenes 03:00 Uhr), nicht unuebersetzt.
+ * Wer das fuer die englische Oberflaeche vervollstaendigen will, sollte
+ * as_of gleich mit erledigen - beide teilen sich diese Funktion.
+ */
+function malwatch_when($stamp)
+{
+	$monate = array('', 'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
+		'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember');
+	$heute  = strtotime('today');
+	$zeit   = date('H:i', $stamp) . ' Uhr';
+	if ($stamp >= $heute && $stamp < $heute + 86400) {
+		return 'heute ' . $zeit;
+	}
+	if ($stamp >= $heute - 86400 && $stamp < $heute) {
+		return 'gestern ' . $zeit;
+	}
+	return intval(date('j', $stamp)) . '. ' . $monate[intval(date('n', $stamp))] . ', ' . $zeit;
+}
+
+/**
+ * Der naechste anstehende Lauf ueber alle Websites - oder der Grund, warum
+ * es keinen gibt.
+ *
+ * Es gibt keine feste Uhrzeit: next_run gehoert der einzelnen Website
+ * (malwatch_site.next_run), jede hat ihren eigenen schedule, und der Cron
+ * (server/lib/classes/cron.d/560-malwatch.inc.php, '* * * * *') greift jede
+ * Minute auf, was faellig ist. Der richtige Wert ist deshalb das Minimum von
+ * next_run ueber alle Websites, deren schedule nicht 'off' ist - aber nur
+ * unter denen, die tatsaechlich noch in der Zukunft liegen.
+ *
+ * Liefert ein Array mit 'state' und 'when':
+ *   - 'scheduled': 'when' ist ein mit malwatch_when() formatierter Zeitpunkt.
+ *   - 'due': ein Zeitplan ist eingeschaltet, aber sein faelliger Zeitpunkt
+ *     liegt nicht (mehr) in der Zukunft. Das deckt zwei Faelle ab, die von
+ *     hier aus nicht zu unterscheiden sind: eine Website, die gerade erst
+ *     eingeschaltet wurde (next_run steht auf NOW(), siehe scheduleNextRun()
+ *     in malwatch_site_edit.php) und binnen einer Minute vom naechsten
+ *     Cron-Tick abgeholt wird - der Normalfall - oder ein Cron, der laenger
+ *     nicht lief. Eine erfundene Uhrzeit waere in beiden Faellen falsch
+ *     ("gestern 03:00 Uhr" fuer etwas, das die Seite als kuenftig
+ *     ankuendigt); 'due' behauptet nur, dass eine Pruefung ansteht, nicht
+ *     wann - keine Diagnose, nur eine ehrliche Aussage ueber die Tabelle.
+ *   - 'none': keine Website hat ueberhaupt einen Zeitplan (alle 'off', oder
+ *     die Tabelle ist leer). Anders als 'due' behauptet das nicht, dass
+ *     gleich etwas passiert.
+ *
+ * Gezaehlt werden nur Websites, deren angekuendigter Lauf auch stattfinden
+ * kann. Zwei Faelle, in denen er das nicht tut, und beide stehen in
+ * queue_due_scans() (server/lib/classes/cron.d/560-malwatch.inc.php):
+ *
+ *   - Eine abgeschaltete Website (web_domain.active = 'n'). Der Cron liest die
+ *     Zeile, sieht active != 'y' und schiebt next_run nur weiter, ohne einen
+ *     Auftrag anzulegen. Die Seite haette einen Lauf angekuendigt, der nie
+ *     kommt. malwatch_status_rows() blendet abgeschaltete Websites ohnehin
+ *     aus - die Kopfzeile darf nicht ueber eine Website sprechen, die
+ *     darunter nicht steht.
+ *   - Eine Zeile, deren server_id nicht die der Website ist. Der Cron holt
+ *     sich seine Zeilen ueber malwatch_site.server_id = eigene ID: der dort
+ *     genannte Server findet das Verzeichnis der Website bei sich nicht
+ *     (create_job() bricht mit "no scan path" ab), und der Server, auf dem
+ *     die Website wirklich liegt, sieht die Zeile nie. Auf einer
+ *     Mehrserver-Installation kuendigte die Seite so den Lauf eines fremden
+ *     Servers an, den es nicht geben wird.
+ *
+ * Der Typfilter ist derselbe wie in malwatch_status_rows(): worueber die
+ * Kopfzeile spricht, muss darunter auch auftauchen koennen.
+ */
+function malwatch_next_run($app)
+{
+	// Beide Abfragen sehen dieselbe Menge an Websites an. Sonst koennte die
+	// zweite 'due' melden fuer eine Website, die die erste zu Recht nicht
+	// mitzaehlt - und die Seite behauptete, gleich passiere etwas.
+	$scope = ' FROM malwatch_site s'
+		. ' JOIN web_domain w ON w.domain_id = s.parent_domain_id'
+		. " WHERE s.schedule != 'off'"
+		. " AND w.active = 'y'"
+		. " AND w.type IN ('vhost','vhostsubdomain','vhostalias')"
+		. ' AND s.server_id = w.server_id';
+
+	$upcoming = $app->db->queryOneRecord(
+		'SELECT MIN(s.next_run) AS next_run' . $scope . ' AND s.next_run > NOW()');
+	if (is_array($upcoming) && !empty($upcoming['next_run'])) {
+		$stamp = strtotime($upcoming['next_run']);
+		if ($stamp !== false && $stamp > 0) {
+			return array('state' => 'scheduled', 'when' => malwatch_when($stamp));
+		}
+	}
+
+	$any = $app->db->queryOneRecord('SELECT s.site_id' . $scope . ' LIMIT 1');
+	if (is_array($any)) {
+		return array('state' => 'due', 'when' => '');
+	}
+
+	return array('state' => 'none', 'when' => '');
 }

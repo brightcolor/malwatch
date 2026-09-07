@@ -9,10 +9,26 @@ set -eu
 root="$(cd "$(dirname "$0")/.." && pwd)"
 status=0
 
+# Ein Verzeichnis fuer die Zwischendateien, die einige Pruefungen brauchen.
+# mktemp statt eines vorhersagbaren /tmp/check_wiring_$$_...: die PID ist zu
+# erraten, und eine der drei Stellen legte ihre Datei ohne vorheriges rm -f an,
+# war also auf einem geteilten System wirklich angreifbar. Der trap raeumt auf,
+# auch wenn das Skript vorzeitig endet - und er aendert den Rueckgabewert
+# nicht, weil er selbst kein exit aufruft.
+tmpdir=$(mktemp -d "${TMPDIR:-/tmp}/check_wiring.XXXXXX")
+trap 'rm -rf "$tmpdir"' EXIT INT TERM HUP
+
 fail() {
 	printf 'FAIL: %s\n' "$1" >&2
 	status=1
 }
+
+# Eine Zeile, die nach fuehrenden Leerzeichen mit einem Kommentarzeichen
+# beginnt, erklaert etwas - sie ruft nichts auf und zeigt niemandem einen Weg
+# zum Gehen. Eine Erklaerung muss den Fehler, vor dem sie warnt, beim Namen
+# nennen duerfen, sonst verbietet die Pruefung ihre eigene Begruendung.
+# Benutzt von Pruefung 26, 28 und 32.
+comment_start='[[:space:]]*(//|#|\*|/\*|<!--)'
 
 # 1. A page using tform_actions must set $tform_def_file. tform_actions reads
 #    it from the global scope and dies without it.
@@ -216,6 +232,322 @@ fi
 #     Rückweg hängt am Rückgabecode, nicht am blossen Ende des Laufs.
 if grep -q 'function finish_repair' "$root/server/lib/classes/cron.d/560-malwatch.inc.php"; then
 	sed -n '/function finish_repair/,/^	}/p' "$root/server/lib/classes/cron.d/560-malwatch.inc.php" 		| grep -q 'exit_code' 		|| fail "das Zurückschalten sieht den Rückgabecode nicht an"
+fi
+
+# 22. Der Fortschrittsbalken braucht einen Nenner. Ohne --expect meldet der
+#     Scanner nur einen Zaehler, und die Anzeige faellt auf feste fuenf
+#     Prozent zurueck - was ein Lauf ist, der aussieht wie ein Absturz.
+#     Ein Filter auf einen Wert aus der falschen Tabelle (z.B. scan_state = 'done',
+#     ein Wert aus malwatch_job.job_status) lässt die Abfrage stillschweigend
+#     leer laufen und kein --expect wird je angehängt.
+#     WICHTIG: Die nachfolgende Prüfung darf nicht in einer Pipe stehen, weil
+#     fail() dann in einer Subshell läuft und status=1 in der Hauptshell nicht
+#     wirkt. Das würde dazu führen, dass die Prüfung die Fehler zwar druckt, aber
+#     das Skript trotzdem mit Rückgabewert 0 endet — genau die Sorte Fehler,
+#     die sie fangen soll. Deshalb schreiben wir die Zeilen in eine temporäre
+#     Datei und lesen daraus.
+runner="$root/server/lib/classes/malwatch_runner.inc.php"
+if ! grep -q -- "--expect=" "$runner"; then
+	fail "der Runner reicht kein --expect durch, der Balken bleibt stehen"
+fi
+if ! grep -q 'files_scanned' "$runner"; then
+	fail "der Runner liest die Dateizahl des letzten Laufs nicht"
+fi
+# Prüfe, dass der scan_state-Filter des Runners nur gültige Enum-Werte nutzt.
+# Die gültigen Werte liest der Test aus schema.sql, nicht aus dem Runner.
+schema="$root/install/schema.sql"
+if grep -q 'scan_state' "$runner"; then
+	# Extrahiere die gültigen Enum-Werte aus schema.sql
+	# Beispiel: `scan_state` enum('clean','findings','outdated','error') NOT NULL
+	valid_enum=$(grep '`scan_state` enum' "$schema" | sed "s/.*enum(\([^)]*\)).*/\1/")
+	# Entferne Anführungszeichen und erstelle eine Liste der gültigen Werte
+	valid_list=$(printf "%s" "$valid_enum" | sed "s/'//g" | sed "s/,/ /g")
+
+	# Extrahiere jeden quoted Wert nach scan_state aus dem Runner.
+	# Speichere die Zeilen in eine temporäre Datei und lese aus der Datei,
+	# nicht aus einer Pipe — so läuft fail() in der Hauptshell.
+	tmp="$tmpdir/scan_state"
+	grep 'scan_state' "$runner" > "$tmp" 2>/dev/null || true
+
+	while read line; do
+		# Entferne alles bis scan_state
+		after=$(printf "%s" "$line" | sed 's/^.*scan_state//')
+		# Extrahiere den ersten quoted Wert
+		first_val=$(printf "%s" "$after" | sed "s/[^']*'\([^']*\).*/\1/")
+
+		if [ -n "$first_val" ]; then
+			# Prüfe ob dieser Wert in der gültigen Liste ist.
+			# Die Leerzeichen ringsum verhindern, dass „clean" als Treffer
+			# für „cleanX" zählt.
+			case " $valid_list " in
+				*" $first_val "*)
+					# Wert ist gültig
+					;;
+				*)
+					# Wert ist ungültig
+					fail "der Runner nutzt scan_state-Wert '$first_val', aber schema.sql kennt ihn nicht (gültig: $valid_list)"
+					;;
+			esac
+		fi
+	done < "$tmp"
+fi
+
+# 23. Das Modul braucht eine module.conf.php mit Namen und Startseite, sonst
+#     erscheint der Punkt in der oberen Leiste ohne Inhalt.
+conf="$root/interface/module.conf.php"
+if [ ! -f "$conf" ]; then
+	fail "interface/module.conf.php fehlt, das Modul erscheint nicht"
+else
+	for key in "name" "title" "startpage"; do
+		if ! grep -qE "\\\$module\['$key'\]" "$conf"; then
+			fail "module.conf.php setzt \$module['$key'] nicht"
+		fi
+	done
+fi
+
+# 24. Der Installer muss das Modul in sys_user.modules eintragen und beim
+#     Deinstallieren wieder entfernen. Ohne den Eintrag sieht niemand den
+#     neuen Punkt, mit einem verwaisten Eintrag zeigt das Panel einen
+#     Menuepunkt ohne Ziel.
+inst="$root/install/installer.php"
+if ! grep -q 'sys_user' "$inst"; then
+	fail "der Installer traegt das Modul nicht in sys_user.modules ein"
+fi
+
+# 25. Die alte Menuedatei darf nicht mehr existieren, sonst steht das Addon
+#     doppelt im Panel - einmal oben und einmal in der Seitenleiste der Sites.
+if [ -f "$root/interface/malwatch.menu.php" ]; then
+	fail "interface/malwatch.menu.php ist noch da, das Addon stuende doppelt"
+fi
+if grep -q 'menu.d/malwatch.menu.php' "$root/install/file.list"; then
+	fail "file.list installiert noch die alte Menuedatei"
+fi
+
+# 26. Nach dem Umzug darf nirgends mehr Code oder Benutzertexte auf sites/
+#     zeigen: weder in check_module_permissions('sites') noch in Modulnamen
+#     wie $_SESSION['s']['module']['name'] = 'sites', noch in Pfaden wie
+#     web/sites/ noch in Meldungen wie "Websites > malwatch". Historische
+#     Kommentare, die erklären WARUM es früher so war, sind ok - sie helfen,
+#     den Kontext zu verstehen, nennen aber keinem Benutzer einen Weg zum Gehen.
+#     Was eine Erklärung ist, entscheidet dieselbe Regel wie in Prüfung 28 und
+#     32: eine Zeile, die nach führenden Leerzeichen mit einem Kommentarzeichen
+#     beginnt. Vorher galt eine Liste von Schlüsselwörtern ("früher", "alt",
+#     "historisch", "previously", "before") für die GANZE Zeile - womit
+#     $app->auth->check_module_permissions('sites'); // wie früher
+#     mit Rückgabewert 0 durchlief: eine Prüfung, die aussieht, als hielte sie.
+#     Mit der Kommentarregel entfällt die Liste und die bekannte Umlautlücke
+#     ("Frueher" ohne Umlaut) gleich mit.
+#
+#     Diese Prüfung sucht den GANZEN Erweiterungsbaum (install/, interface/,
+#     server/, tests/, auch README.md), nicht nur interface/. Deshalb schreiben
+#     wir potenzielle Fehler erst in eine Datei und lesen aus der Datei (wie in
+#     Prüfung 22), um sicherzustellen, dass fail() in der Hauptshell läuft.
+
+old_refs_file="$tmpdir/old_refs"
+
+# Suchmuster, die auf den alten Ort zeigen:
+# 1. check_module_permissions mit 'sites' oder "sites"
+# 2. Modulnamens-Wert als 'sites' oder "sites" in $_SESSION['s']['module']['name']
+#    oder $module['name'] - sowohl als Array-Literal ('name' => 'sites') als
+#    auch als direkte Zuweisung ($module['name'] = 'sites'). Die Zuweisungsform
+#    ist die, die interface/module.conf.php tatsaechlich benutzt
+#    ($module['name'] = 'security';); sie fehlte hier drei Runden lang, obwohl
+#    der Absatz oben sie schon immer als Beispiel nannte.
+# 3. 'sites' in der modules-Liste, als Array-Literal ('modules' => '...sites...')
+#    oder als Zuweisung ($x['modules'] = '...sites...')
+# 4. 'sites' im startmodule-Wert, als Array-Literal ('startmodule' => 'sites')
+#    oder als Zuweisung ($x['startmodule'] = 'sites')
+# 5. Benutzer-lesbarer Text, der den alten Ort nennt: "Websites > malwatch",
+#    "Websites-Modul", "Modul Websites", "Websites module". Frueher stand hier
+#    "Websites.*module" - ein Muster, das jede Zeile traf, die irgendwo das Wort
+#    Websites und irgendwo spaeter "module" enthaelt, also auch reine
+#    Codezeilen ohne jeden Rueckfall.
+# 6. Direkter Pfad sites/malwatch, interface/web/sites oder ein
+#    panelrelatives web/sites/ - letzteres nur, wenn ihm KEIN Schrägstrich
+#    vorausgeht. Sonst schlaegt jeder Dateipfad an, den malwatch selbst meldet:
+#    /var/www/clients/client1/web7/web/sites/default/files/shell.php ist ein
+#    Fund auf einer Drupal-Installation, kein Rueckfall. Der Rueckfall sieht
+#    anders aus - load_language_file('web/sites/lib/lang/...') oder
+#    'web/sites/lib/menu.d/...' -, dort steht am Anfang ein Anfuehrungszeichen
+#    oder eine Klammer, kein Schrägstrich.
+#
+# Schließe die check_wiring.sh Datei selbst aus (sie beschreibt in Kommentaren,
+# was sie sucht, und würde sich selbst finden).
+#
+# KEIN Ausschluss mehr fuer SQL-Kontexte wie "AS sites": der Fehlalarm, den er
+# vermeiden sollte (COUNT(*) FROM malwatch_site AS sites in
+# malwatch_config_edit.php), trifft auf keines der obigen Muster - ohne den
+# Filter bleibt diese Zeile schon unentdeckt (kein Treffer, grep endet mit 1).
+# Der Filter fing also nie den Fehlalarm, den es geben sollte, sondern nur
+# noch echte Treffer, die zufaellig auf derselben Zeile wie "AS sites" standen.
+
+grep -rn \
+	-e "check_module_permissions('sites')" \
+	-e 'check_module_permissions("sites")' \
+	-e "'name' *=> *'sites'" \
+	-e '"name" *=> *"sites"' \
+	-e "\['name'\] *= *'sites'" \
+	-e '\["name"\] *= *"sites"' \
+	-e "'modules' *=> *'[^']*sites" \
+	-e '"modules" *=> *"[^"]*sites' \
+	-e "\['modules'\] *= *'[^']*sites" \
+	-e '\["modules"\] *= *"[^"]*sites' \
+	-e "'startmodule' *=> *'sites'" \
+	-e '"startmodule" *=> *"sites"' \
+	-e "\['startmodule'\] *= *'sites'" \
+	-e '\["startmodule"\] *= *"sites"' \
+	-e "Websites > malwatch" \
+	-e "Websites-Modul" \
+	-e "Modul Websites" \
+	-e "Websites module" \
+	-e "interface/web/sites" \
+	-e "^web/sites/" \
+	-e "[^/]web/sites/" \
+	-e "sites/malwatch" \
+	"$root" \
+	2>/dev/null | grep -v "^Binary" | grep -v "check_wiring.sh" > "$old_refs_file" || true
+
+# Lese die Treffer und prüfe, ob sie Benutzertexte oder aktiven Code sind.
+# Eine Kommentarzeile erklärt, eine Codezeile handelt - dieselbe Regel wie in
+# Prüfung 28 und 32, und dieselbe Definition ($comment_start).
+while read line; do
+	file=$(printf "%s" "$line" | cut -d: -f1)
+	linenum=$(printf "%s" "$line" | cut -d: -f2)
+	content=$(printf "%s" "$line" | cut -d: -f3-)
+
+	# Eine Zeile, die nach führenden Leerzeichen mit einem Kommentarzeichen
+	# beginnt, gibt historischen Kontext. Sie ruft nichts auf und nennt
+	# niemandem einen Weg zum Gehen.
+	if printf "%s" "$content" | grep -qE "^$comment_start"; then
+		continue
+	fi
+
+	# Ansonsten: Das ist aktiver Code oder ein Benutzertext, der einen alten
+	# Ort nennt - unerlaubt.
+	fail "$(basename "$file"):$linenum: $content"
+done < "$old_refs_file"
+
+# 27. Der Endpunkt muss den Prozentwert deckeln. Der Erwartungswert ist die
+#     Dateizahl des letzten Laufs, und eine Website waechst dazwischen - ein
+#     Balken bei 140 Prozent ist schlimmer als einer ohne Prozentangabe.
+prog="$root/interface/malwatch_progress.php"
+if ! grep -q '99' "$prog"; then
+	fail "malwatch_progress.php deckelt den Prozentwert nicht bei 99"
+fi
+
+# 28. DOMNodeRemoved ist ein Mutation Event, das Chrome seit Version 127
+#     abgeschaltet hat. Ein Abbruch, der daran haengt, greift nie - der Timer
+#     ueberlebt jede Navigation und zieht den Bediener aus jeder Seite zurueck.
+#
+#     Dieselbe Unterscheidung wie Pruefung 26: ein Kommentar, der den
+#     historischen Grund erklaert, ist erlaubt - eine echte Benutzung nicht.
+#     Ohne diese Ausnahme wuerde die Pruefung ihre eigene Erklaerung
+#     verbieten: status.htm dokumentiert genau diesen Fehler in einem
+#     Kommentar, und der Kommentar muss den Namen des Ereignisses nennen, um
+#     ihn zu erklaeren. addEventListener('DOMNodeRemoved' und Verwandtes in
+#     einer Codezeile ist eine Benutzung; eine Zeile, die (nach fuehrenden
+#     Leerzeichen) mit einem Kommentarzeichen beginnt, ist Erklaerung. Wie in
+#     Pruefung 26 schreiben wir Treffer erst in eine temporaere Datei und
+#     lesen daraus, damit fail() in der Hauptshell laeuft statt in einer
+#     Subshell der Pipe.
+dom_refs_file="$tmpdir/dom_refs"
+grep -rn 'DOMNodeRemoved' "$root/interface" 2>/dev/null | grep -v "^Binary" > "$dom_refs_file" || true
+
+while read line; do
+	file=$(printf "%s" "$line" | cut -d: -f1)
+	linenum=$(printf "%s" "$line" | cut -d: -f2)
+	content=$(printf "%s" "$line" | cut -d: -f3-)
+	# Ein Kommentarzeichen am Zeilenanfang ist Erklaerung, kein Aufruf.
+	if printf "%s" "$content" | grep -qE "^$comment_start"; then
+		continue
+	fi
+
+	fail "DOMNodeRemoved wird noch benutzt, der Abbruch greift nicht ($(basename "$file"):$linenum)"
+done < "$dom_refs_file"
+
+# 29. Ein loadContent im Takt laedt die ganze Seite neu und reisst den
+#     Bediener aus dem, was er gerade ansieht.
+if grep -rnE 'set(Timeout|Interval)[^;]*loadContent' "$root/interface" >/dev/null 2>&1; then
+	fail "eine Seite laedt sich im Takt selbst neu"
+fi
+
+# 30. Die Statusseite ist die Startseite des Moduls und muss existieren.
+if [ ! -f "$root/interface/status.php" ]; then
+	fail "interface/status.php fehlt, das Modul startet ins Leere"
+fi
+
+# 31. Jedes Kopierziel unter interface/web/security/ braucht ein Verzeichnis,
+#     das der Installer selbst anlegt.
+#
+#     enable_files() im Kern legt kein Elternverzeichnis an und prueft den
+#     Rueckgabewert von copy() nicht: fehlt das Verzeichnis, scheitert jede
+#     einzelne Kopie STILL, enable_files() liefert trotzdem true, der Installer
+#     schreibt "malwatch installed." - und die Seite ist nicht da. Genau das
+#     traefe jede Erstinstallation. Vor dem Umzug fiel es nicht auf, weil das
+#     damalige Zielverzeichnis zu ISPConfig gehoert; security/ gehoert niemandem.
+#
+#     Ueber 'd:'-Zeilen in file.list ist es nicht zu loesen: enable_files()
+#     setzt auf ein so angelegtes Verzeichnis chmod 640 und nimmt ihm das x-Bit.
+web_root="interface/web/security"
+inst="$root/install/installer.php"
+grep -q 'mkdir' "$inst" || fail "installer.php legt kein Verzeichnis an; die Kopien der Oberflaeche gingen ins Leere"
+for dir in $(awk -F: '/^c:/ { print $3 }' "$root/install/file.list" | sed 's:/[^/]*$::' | sort -u); do
+	case "$dir" in
+		"$web_root"|"$web_root"/*) ;;
+		*) continue ;;
+	esac
+	sub=${dir#$web_root}
+	if [ -z "$sub" ]; then
+		grep -q "$web_root" "$inst" || fail "file.list kopiert nach $dir, aber der Installer legt das Verzeichnis nicht an"
+	else
+		grep -q "'$sub'" "$inst" || fail "file.list kopiert nach $dir, aber der Installer legt das Verzeichnis nicht an ('$sub' fehlt in prepare_interface_dirs)"
+	fi
+done
+
+# 32. Eine Seite, die $wb liest, muss ihre Sprachdatei per include holen.
+#
+#     $app->load_language_file() inkludiert die Datei INNERHALB der Methode und
+#     legt das Ergebnis in der privaten Eigenschaft _wb ab. Ein include in einer
+#     Methode erbt deren Geltungsbereich: im Aufrufer bleibt $wb ungesetzt.
+#     setVar(null) setzt dann nichts, und die Seite rendert ohne einen einzigen
+#     Text - keine Ueberschrift, kein Schild, kein Knopf. php -l sieht davon
+#     nichts, die Seite liefert HTML, nur eben leeres.
+#
+#     Dazu der Rueckfall: ein Administrator mit einer Sprache, fuer die es keine
+#     eigene Datei gibt, bekommt sonst ebenfalls nichts. check_language() haelt
+#     ausserdem den Wert aus der Sitzung von der Pfadangabe fern.
+for page in "$root"/interface/*.php; do
+	grep -q '\$wb\[' "$page" || continue
+	# Wie in Pruefung 28: eine Kommentarzeile, die den Namen der Methode nennt,
+	# um vor ihr zu warnen, ist keine Benutzung.
+	if grep -n 'load_language_file' "$page" | grep -qvE "^[0-9]+:$comment_start"; then
+		fail "$(basename "$page") liest \$wb, holt die Sprachdatei aber ueber load_language_file - im Aufrufer bleibt \$wb leer"
+	fi
+	grep -qE '^[[:space:]]*include[[:space:]]+\$lng_file' "$page" \
+		|| fail "$(basename "$page") liest \$wb, bindet aber keine Sprachdatei per include ein"
+	grep -q 'check_language' "$page" \
+		|| fail "$(basename "$page") baut den Namen der Sprachdatei ohne check_language()"
+	grep -q "= 'lib/lang/en_" "$page" \
+		|| fail "$(basename "$page") hat keinen en_-Rueckfall; eine Sprache ohne eigene Datei zeigt sonst gar nichts"
+done
+
+# 33. Jede Seite, die die Modulkonfiguration nennt - Startseite wie
+#     Seitenleiste -, muss es geben und muss installiert werden. Ein
+#     Menuepunkt ohne Ziel ist schlimmer als gar keiner; umgekehrt ist eine
+#     Seite, die installiert wird und die nichts verlinkt, unerreichbar. Genau
+#     das war malwatch_finding_list.php, seit die alte Menuedatei entfiel.
+#     Gelesen werden nur die Zeilen, die 'link' oder 'startpage' setzen. Ein
+#     Kommentar, der eine Seite nennt, die es noch nicht gibt - etwa als
+#     Hinweis auf eine spaetere Stufe -, ist kein Menuepunkt und soll hier
+#     nicht anschlagen.
+conf="$root/interface/module.conf.php"
+if [ -f "$conf" ]; then
+	for link in $(grep -E "'(link|startpage)'" "$conf" | grep -oE "security/[a-z_]+\.php" | sed 's|^security/||' | sort -u); do
+		[ -f "$root/interface/$link" ] \
+			|| fail "module.conf.php verlinkt security/$link, die Datei gibt es nicht"
+		grep -q ":interface/web/security/$link\$" "$root/install/file.list" \
+			|| fail "module.conf.php verlinkt security/$link, file.list installiert die Seite aber nicht"
+	done
 fi
 
 if [ "$status" -eq 0 ]; then

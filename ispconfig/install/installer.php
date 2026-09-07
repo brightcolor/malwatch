@@ -15,6 +15,19 @@ class malwatch_installer extends extension_installer_base
 	/** Where signatures, run results and caches live. */
 	const STATE_DIR = '/var/lib/malwatch';
 
+	/**
+	 * Where the interface pages are copied to. ISPConfig does not ship this
+	 * directory - unlike the module the pages used to live in - so it has to
+	 * be created before anything is copied into it.
+	 */
+	const INTERFACE_DIR = '/usr/local/ispconfig/interface/web/security';
+
+	/**
+	 * One copy target that lands in a directory ISPConfig does ship. Its
+	 * presence tells install() whether the framework has already copied.
+	 */
+	const SERVER_CLASS = '/usr/local/ispconfig/server/lib/classes/malwatch_helper.inc.php';
+
 	/** GitHub project the binary is downloaded from. */
 	const REPO = 'brightcolor/malwatch';
 
@@ -23,6 +36,25 @@ class malwatch_installer extends extension_installer_base
 		global $app;
 
 		$app->log('malwatch: install step started.', LOGLEVEL_DEBUG);
+
+		// Erst die Zielverzeichnisse, dann die Dateien - siehe
+		// prepare_interface_dirs(). Deshalb steht der Aufruf ganz oben.
+		$this->prepare_interface_dirs();
+
+		// Kopiert wird von enable_files() im Kern, nicht von diesem Haken. Lief
+		// das schon, bevor der Haken an die Reihe kam, sind die Kopien der
+		// Oberflaeche ins Leere gegangen und muessen nachgeholt werden: die
+		// Dienstklasse liegt dann bereits an ihrem Platz - ihr Zielverzeichnis
+		// bringt ISPConfig mit -, waehrend die Startseite der Oberflaeche
+		// fehlt. Ist noch gar nichts kopiert, gibt es nichts nachzuholen; der
+		// Kern kopiert dann gleich, und die Verzeichnisse stehen bereit.
+		if (!is_file(self::INTERFACE_DIR . '/status.php') && is_file(self::SERVER_CLASS)) {
+			$app->log('malwatch: die Oberflaeche wurde vor dem Anlegen ihrer Verzeichnisse '
+				. 'kopiert, das wird nachgeholt.', LOGLEVEL_DEBUG);
+			$app->uses('extension_installer');
+			$app->extension_installer->enable_files($name);
+		}
+
 		$this->prepare_state_dir();
 
 		if (!$this->install_binary()) {
@@ -31,15 +63,17 @@ class malwatch_installer extends extension_installer_base
 			// the operator what to do. Failing hard here would leave a half
 			// installed extension behind.
 			$app->log('malwatch: the scanner binary could not be installed automatically. '
-				. 'Install it by hand and check the path under Websites > malwatch > Settings.', LOGLEVEL_WARN);
+				. 'Install it by hand and check the path in Security.', LOGLEVEL_WARN);
 		} else {
 			$this->update_signatures();
 		}
 
+		$this->grant_module();
+
 		echo "\nmalwatch installed.\n\n";
 		echo "- The scanner is at " . self::BINARY_PATH . "\n";
 		echo "- Signatures and results are kept in " . self::STATE_DIR . "\n";
-		echo "- Open Websites > malwatch in the panel to configure it\n\n";
+		echo "- Open Security in the panel to configure it\n\n";
 
 		return true;
 	}
@@ -50,6 +84,10 @@ class malwatch_installer extends extension_installer_base
 
 		$app->uses('extension_installer');
 		$app->extension_installer->disable_files($name);
+		// Auch hier zuerst: disable_files() raeumt die Dateien weg, nicht die
+		// Verzeichnisse - aber ein Update kommt auch von einer Version, die
+		// noch unter dem alten Ort lag und security/ nie angelegt hat.
+		$this->prepare_interface_dirs();
 		$app->extension_installer->enable_files($name);
 
 		// The schema is not touched here. load_install_sql() cannot work on a
@@ -70,6 +108,7 @@ class malwatch_installer extends extension_installer_base
 	{
 		global $app;
 		$app->uses('extension_installer');
+		$this->prepare_interface_dirs();
 		$app->extension_installer->enable_files($name);
 		$app->log('malwatch: extension enabled.', LOGLEVEL_DEBUG);
 		return true;
@@ -90,6 +129,7 @@ class malwatch_installer extends extension_installer_base
 
 		$app->log('malwatch: uninstall step started.', LOGLEVEL_DEBUG);
 		$this->disable($name);
+		$this->revoke_module();
 
 		// The tables are dropped here rather than through the framework.
 		// run_uninstall_sql() carries the same defect as its install
@@ -122,6 +162,47 @@ class malwatch_installer extends extension_installer_base
 		echo "\nmalwatch removed. " . self::STATE_DIR . " was kept; delete it by hand if you no longer need the scan results.\n\n";
 
 		return true;
+	}
+
+	/**
+	 * Legt die Zielverzeichnisse der Oberflaeche an.
+	 *
+	 * enable_files() im Kern kopiert nur. Es legt kein Elternverzeichnis an
+	 * und sieht sich den Rueckgabewert von copy() nicht an: fehlt
+	 * interface/web/security, scheitert jede einzelne Kopie still,
+	 * enable_files() liefert trotzdem true, der Installer schreibt
+	 * "malwatch installed." - und security/status.php gibt es nicht. Das trifft
+	 * jede Erstinstallation, seit die Seiten ihr eigenes Modul haben: das
+	 * frueher benutzte Zielverzeichnis brachte ISPConfig mit, dieses nicht.
+	 *
+	 * Nicht ueber 'd:'-Zeilen in file.list geloest: enable_files() setzt auf
+	 * ein so angelegtes Verzeichnis anschliessend chmod 640 und nimmt ihm
+	 * damit das x-Bit - betreten koennte es danach niemand mehr.
+	 *
+	 * Die Liste ist genau die Menge der Zielverzeichnisse aus
+	 * install/file.list; check_wiring.sh haelt beide aneinander. Eltern stehen
+	 * vor ihren Kindern, damit chown auch das Elternverzeichnis erwischt.
+	 */
+	private function prepare_interface_dirs()
+	{
+		global $app;
+
+		foreach (array('', '/lib', '/lib/lang', '/templates', '/list', '/form') as $sub) {
+			$dir = self::INTERFACE_DIR . $sub;
+			if (!is_dir($dir) && !@mkdir($dir, 0755, true)) {
+				// Weiterlaufen: der Rest der Installation - Tabellen, Binary,
+				// Modulrecht - ist ohne dieses eine Verzeichnis noch nuetzlich,
+				// und die Meldung sagt, was fehlt.
+				$app->log('malwatch: das Verzeichnis ' . $dir . ' konnte nicht angelegt werden, '
+					. 'die Oberflaeche bleibt unvollstaendig.', LOGLEVEL_WARN);
+				continue;
+			}
+			// 0755 und nicht 0750: das x-Bit muss bleiben, und die Dateien
+			// darin sind ohnehin 0640 fuer ispconfig.
+			@chmod($dir, 0755);
+			@chown($dir, 'ispconfig');
+			@chgrp($dir, 'ispconfig');
+		}
 	}
 
 	/** Creates the state directory tree, readable by root only. */
@@ -279,5 +360,65 @@ class malwatch_installer extends extension_installer_base
 			}
 		}
 		return '';
+	}
+
+	/**
+	 * Traegt das Modul bei jedem Administrator ein.
+	 *
+	 * Idempotent: ein zweiter Lauf schreibt nichts doppelt. Ohne diesen
+	 * Eintrag erscheint der Punkt in der oberen Leiste bei niemandem, weil
+	 * ISPConfig die Leiste aus sys_user.modules baut und nicht aus den
+	 * vorhandenen Verzeichnissen.
+	 */
+	private function grant_module()
+	{
+		global $app;
+
+		$rows = $app->db->queryAllRecords(
+			"SELECT userid, modules FROM sys_user WHERE typ = 'admin'"
+		);
+		if (!is_array($rows)) {
+			return;
+		}
+		foreach ($rows as $row) {
+			$modules = array_filter(explode(',', (string) $row['modules']));
+			if (in_array('security', $modules, true)) {
+				continue;
+			}
+			$modules[] = 'security';
+			$app->db->query(
+				'UPDATE sys_user SET modules = ? WHERE userid = ?',
+				implode(',', $modules), intval($row['userid'])
+			);
+			$app->log('malwatch: Modul security fuer Benutzer '
+				. intval($row['userid']) . ' eingetragen.', LOGLEVEL_DEBUG);
+		}
+	}
+
+	/**
+	 * Nimmt das Modul wieder heraus.
+	 *
+	 * Ein verwaister Eintrag zeigt einen Menuepunkt ohne Ziel, und der ist
+	 * schlimmer als gar keiner.
+	 */
+	private function revoke_module()
+	{
+		global $app;
+
+		$rows = $app->db->queryAllRecords('SELECT userid, modules FROM sys_user');
+		if (!is_array($rows)) {
+			return;
+		}
+		foreach ($rows as $row) {
+			$modules = array_filter(explode(',', (string) $row['modules']));
+			if (!in_array('security', $modules, true)) {
+				continue;
+			}
+			$modules = array_values(array_diff($modules, array('security')));
+			$app->db->query(
+				'UPDATE sys_user SET modules = ? WHERE userid = ?',
+				implode(',', $modules), intval($row['userid'])
+			);
+		}
 	}
 }
