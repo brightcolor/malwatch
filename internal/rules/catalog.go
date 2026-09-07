@@ -23,6 +23,7 @@ var catalog = []*Rule{
 	{
 		ID:          "php.eval.encoded",
 		Severity:    report.SeverityCritical,
+		AutoSafe:    true,
 		Description: "eval auf entschlüsseltem Inhalt",
 		Exts:        phpExts,
 		Match:       rx(`(?is)\b(?:eval|assert)\s*\(\s*(?:@\s*)?(?:base64_decode|gzinflate|gzuncompress|gzdecode|str_rot13|hex2bin|convert_uudecode|rawurldecode|urldecode|strrev|pack)\s*\(`),
@@ -30,6 +31,7 @@ var catalog = []*Rule{
 	{
 		ID:          "php.eval.request",
 		Severity:    report.SeverityCritical,
+		AutoSafe:    true,
 		Description: "eval auf Daten aus der Anfrage",
 		Exts:        phpExts,
 		Match:       rx(`(?is)\b(?:eval|assert)\s*\(\s*(?:@\s*)?(?:stripslashes\s*\(\s*)?\$(?:_GET|_POST|_REQUEST|_COOKIE|_SERVER|_FILES|GLOBALS)\b`),
@@ -37,6 +39,7 @@ var catalog = []*Rule{
 	{
 		ID:          "php.eval.hexname",
 		Severity:    report.SeverityCritical,
+		AutoSafe:    true,
 		Description: "Funktionsname in Hex-Schreibweise verschleiert",
 		Exts:        phpExts,
 		// \x65\x76\x61\x6c spells "eval"; the same trick hides system and assert.
@@ -52,6 +55,7 @@ var catalog = []*Rule{
 	{
 		ID:          "php.callback.request",
 		Severity:    report.SeverityCritical,
+		AutoSafe:    true,
 		Description: "Rückruffunktion direkt aus der Anfrage",
 		Exts:        phpExts,
 		Match:       rx(`(?is)\bcall_user_func(?:_array)?\s*\(\s*(?:@\s*)?\$(?:_GET|_POST|_REQUEST|_COOKIE)\b`),
@@ -59,6 +63,7 @@ var catalog = []*Rule{
 	{
 		ID:          "php.dynamic.request_call",
 		Severity:    report.SeverityCritical,
+		AutoSafe:    true,
 		Description: "Funktionsname kommt aus der Anfrage",
 		Exts:        phpExts,
 		Match:       rx(`(?is)\$(?:_GET|_POST|_REQUEST|_COOKIE)\s*\[\s*(?:'[^'\n]{0,60}'|"[^"\n]{0,60}"|\$[a-zA-Z_]\w{0,40})\s*\]\s*\(`),
@@ -73,6 +78,7 @@ var catalog = []*Rule{
 	{
 		ID:          "php.eval.variable_call",
 		Severity:    report.SeverityCritical,
+		AutoSafe:    true,
 		Description: "eval auf dem Ergebnis eines Variablenaufrufs",
 		// Every dropped payload on the first real infection looked like
 		// eval($a($b('...'))): the function names sit in variables, so no rule
@@ -109,6 +115,7 @@ var catalog = []*Rule{
 	{
 		ID:          "php.include.decoy_guard",
 		Severity:    report.SeverityCritical,
+		AutoSafe:    true,
 		Description: "Einbindung hinter einer Schein-Abfrage",
 		Exts:        phpExts,
 		// A loader found 43 times on one site, always the same shape:
@@ -146,6 +153,7 @@ var catalog = []*Rule{
 	{
 		ID:          "php.obfuscation.name_in_variable",
 		Severity:    report.SeverityHigh,
+		AutoSafe:    true,
 		Description: "gewöhnliche Funktionsnamen in Variablen geparkt",
 		Exts:        phpExts,
 		// The family that spells its names with chr() calls them through
@@ -197,6 +205,7 @@ var catalog = []*Rule{
 	{
 		ID:          "php.obfuscation.xor_literal",
 		Severity:    report.SeverityHigh,
+		AutoSafe:    true,
 		Description: "Funktionsname aus zwei Literalen verrechnet",
 		Exts:        phpExts,
 		// A payload writes the word chr without writing it:
@@ -246,6 +255,7 @@ var catalog = []*Rule{
 	{
 		ID:          "php.obfuscation.chr_arithmetic",
 		Severity:    report.SeverityHigh,
+		AutoSafe:    true,
 		Description: "Zeichencodes als Rechnung geschrieben",
 		Exts:        phpExts,
 		// chr(187-73) is the letter r. There is one reason to write it that
@@ -316,6 +326,7 @@ var catalog = []*Rule{
 	{
 		ID:          "php.obfuscation.split_open_tag",
 		Severity:    report.SeverityCritical,
+		AutoSafe:    true,
 		Description: "PHP-Eröffnungstag aus Bruchstücken zusammengesetzt",
 		// '<' . '?' . 'php' is written by somebody who does not want the tag to
 		// be found in their own file. On its own that says nothing: TCPDF
@@ -334,6 +345,7 @@ var catalog = []*Rule{
 	{
 		ID:          "php.obfuscation.chr_chain",
 		Severity:    report.SeverityHigh,
+		AutoSafe:    true,
 		Description: "Zeichenkette aus aneinandergehängten chr()-Aufrufen",
 		Exts:        webExts,
 		// Only codes 32 to 126 count, so the chain spells readable text -
@@ -346,6 +358,7 @@ var catalog = []*Rule{
 	{
 		ID:          "php.obfuscation.hex_call",
 		Severity:    report.SeverityHigh,
+		AutoSafe:    true,
 		Description: "Funktionsname in Hex-Schreibweise wird aufgerufen",
 		Exts:        phpExts,
 		// A plain hex string says nothing: crypto constants and character
@@ -356,6 +369,7 @@ var catalog = []*Rule{
 	{
 		ID:          "php.obfuscation.variable_function",
 		Severity:    report.SeverityHigh,
+		AutoSafe:    true,
 		Description: "Funktionsaufruf über eine zusammengesetzte Variable",
 		Exts:        phpExts,
 		Match:       rx(`(?is)\$\{\s*(?:'|")(?:\\x[0-9a-fA-F]{2}|[A-Za-z0-9_]){1,60}(?:'|")\s*\}\s*\[`),
@@ -363,6 +377,7 @@ var catalog = []*Rule{
 	{
 		ID:          "php.stream.archive_url",
 		Severity:    report.SeverityCritical,
+		AutoSafe:    true,
 		Description: "Adresse, die in ein Archiv hineinzeigt",
 		// zip://payload.zip#inner.tmp names a file inside an archive. That is
 		// what a loader reads its body from, whether it includes the address
@@ -409,6 +424,7 @@ var catalog = []*Rule{
 	{
 		ID:          "php.include.assembled_path",
 		Severity:    report.SeverityCritical,
+		AutoSafe:    true,
 		Description: "Pfad einer Einbindung aus Array-Zugriffen zusammengesetzt",
 		// require_once $T[9+1].$T[43+2].$T[7] spells a filename one character at
 		// a time out of an array the file built itself, so the name appears
@@ -421,6 +437,7 @@ var catalog = []*Rule{
 	{
 		ID:          "php.include.stream_wrapper",
 		Severity:    report.SeverityCritical,
+		AutoSafe:    true,
 		Description: "Code wird aus einem Archiv oder Datenstrom nachgeladen",
 		// require "zip://payload.zip#file" is how a loader keeps its body out
 		// of the file that gets scanned. Honest code includes files, not
@@ -432,6 +449,7 @@ var catalog = []*Rule{
 	{
 		ID:          "php.tool.leaf_mailer",
 		Severity:    report.SeverityCritical,
+		AutoSafe:    true,
 		Description: "Leaf PHP Mailer, ein Werkzeug für den Massenversand",
 		// A named tool rather than a shape. It comes in variants that share no
 		// obfuscation and no gate, so nothing structural covers them all - but
@@ -444,6 +462,7 @@ var catalog = []*Rule{
 	{
 		ID:          "php.include.remote",
 		Severity:    report.SeverityHigh,
+		AutoSafe:    true,
 		Description: "bindet eine Datei von einer fremden Adresse ein",
 		Exts:        phpExts,
 		Match:       rx(`(?is)\b(?:include|require)(?:_once)?\s*\(?\s*(?:'https?://|"https?://)`),
@@ -451,6 +470,7 @@ var catalog = []*Rule{
 	{
 		ID:          "php.remote.fetch_eval",
 		Severity:    report.SeverityHigh,
+		AutoSafe:    true,
 		Description: "führt aus, was von einer fremden Adresse geladen wurde",
 		Exts:        phpExts,
 		Match:       rx(`(?is)\b(?:eval|assert)\s*\(\s*(?:@\s*)?(?:file_get_contents|curl_exec|fopen)\s*\(`),
@@ -460,6 +480,7 @@ var catalog = []*Rule{
 	{
 		ID:          "php.webshell.known",
 		Severity:    report.SeverityCritical,
+		AutoSafe:    true,
 		Description: "Kennzeichen einer bekannten Webshell",
 		Exts:        webExts,
 		Match:       rx(`(?i)(?:c99shell|r57shell|wso\s?shell|b374k|weevely|IndoXploit|AnonymousFox|SyRiAn\s?Sh3ll|MiniShell|Mini\s?Shell|priv8\s?shell|FilesMan|by\s+Orb|IndoSec|Alfa\s?Team\s?Shell|Sh3ll\s?Uploader)`),
@@ -467,6 +488,7 @@ var catalog = []*Rule{
 	{
 		ID:          "php.webshell.password_gate",
 		Severity:    report.SeverityCritical,
+		AutoSafe:    true,
 		Description: "Kennwortabfrage, die anschließend Code ausführt",
 		Exts:        phpExts,
 		Match:       rx(`(?is)\b(?:md5|sha1|crypt|password_verify)\s*\(\s*\$(?:_GET|_POST|_REQUEST|_COOKIE)\s*\[[^\]]{0,40}\]\s*\)\s*(?:==|===|!=|!==)`),
@@ -475,6 +497,7 @@ var catalog = []*Rule{
 	{
 		ID:          "php.webshell.hardcoded_gate",
 		Severity:    report.SeverityCritical,
+		AutoSafe:    true,
 		Description: "Kennwortabfrage gegen einen fest eingetragenen Hash",
 		// The same gate as above, but the hash it compares against stands in
 		// the file itself. That is the difference between a tool that carries
@@ -510,6 +533,7 @@ var catalog = []*Rule{
 	{
 		ID:          "php.upload.traversal",
 		Severity:    report.SeverityCritical,
+		AutoSafe:    true,
 		Description: "Hochgeladene Datei wird in ein übergeordnetes Verzeichnis gelegt",
 		// '../' . $_FILES[...]['name'] puts a file the client named wherever the
 		// client wants it. The rule above wants the move and the request data in
@@ -557,6 +581,7 @@ var catalog = []*Rule{
 	{
 		ID:          "js.miner",
 		Severity:    report.SeverityHigh,
+		AutoSafe:    true,
 		Description: "Skript zum Schürfen von Kryptowährung",
 		Exts:        webExts,
 		Match:       rx(`(?i)(?:coinhive|coin-hive|cryptonight|crypto-loot|cryptoloot|deepminer|webminepool|jsecoin|minero\.cc|coinimp)`),

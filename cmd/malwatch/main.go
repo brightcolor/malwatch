@@ -25,6 +25,8 @@ func run(args []string) int {
 		return cmdQuarantine(args[1:])
 	case "update":
 		return cmdUpdate(args[1:])
+	case "rules":
+		return cmdRules(args[1:])
 	case "whitelist":
 		return cmdWhitelist(args[1:])
 	case "version", "--version", "-v":

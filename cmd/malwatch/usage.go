@@ -15,6 +15,7 @@ Aufruf:
   malwatch quarantine --path=… --file=… --backup-dir=… [Optionen]
   malwatch update [--sig-dir=…]
   malwatch whitelist --file=/pfad/zur/datei.php [--whitelist-path=…]
+  malwatch rules --json [--out=…]
   malwatch version
 
 Prüfumfang:
@@ -67,6 +68,11 @@ Einzelne Dateien entfernen (quarantine):
   --file=PFAD              zu entfernende Datei, relativ zum Webstamm,
                            mehrfach angebbar
   --backup-dir=PFAD        wohin die Datei vorher gesichert wird
+
+Regelkatalog ausgeben (rules):
+  --json                   Katalog als JSON ausgeben (derzeit erforderlich)
+  --out=DATEI              Katalog in eine Datei schreiben statt auf die
+                           Standardausgabe
 
 Ablagen:
   --sig-dir=PFAD           Signaturverzeichnis (Vorgabe: /var/lib/malwatch/signatures)

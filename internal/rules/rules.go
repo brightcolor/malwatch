@@ -15,6 +15,15 @@ type Rule struct {
 	ID string
 	// Severity is how certain the rule is that this is malicious.
 	Severity report.Severity
+	// AutoSafe marks a rule whose match by itself is grounds to move the
+	// file without a human looking at it first: the pattern only matches
+	// code that cannot serve a legitimate purpose, such as a webshell
+	// signature or code that runs decoded or remote data. A rule that keys
+	// on where a file sits or how it is packaged - an upload directory, an
+	// image extension, an .htaccess directive - is never AutoSafe, because
+	// a legitimate file can still trigger it. AutoSafe never sits below
+	// report.SeverityHigh; see catalog_test.go.
+	AutoSafe bool
 	// Description is a short German explanation for the report.
 	Description string
 	// Match is the pattern. Rules are written to work on the raw bytes.
