@@ -14,4 +14,4 @@ Neue Funde:
 
 {findings}
 
-Die vollständige Liste steht im ISPConfig-Panel unter Websites > malwatch.
+Die vollständige Liste steht im ISPConfig-Panel unter Security.

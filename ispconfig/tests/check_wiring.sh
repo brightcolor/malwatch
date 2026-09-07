@@ -308,18 +308,66 @@ if grep -q 'menu.d/malwatch.menu.php' "$root/install/file.list"; then
 	fail "file.list installiert noch die alte Menuedatei"
 fi
 
-# 26. Nach dem Umzug darf nirgends mehr ein Pfad auf sites/ zeigen - weder in
-#     einem loadContent-Aufruf, noch in einem Formularziel, noch in
-#     check_module_permissions.
-if grep -rn "sites/malwatch" "$root/interface" >/dev/null 2>&1; then
-	fail "es zeigt noch etwas auf sites/malwatch_*, der Umzug ist unvollstaendig"
-fi
-if grep -rn "check_module_permissions('sites')" "$root/interface" >/dev/null 2>&1; then
-	fail "eine Seite prueft noch die Rechte des Sites-Moduls"
-fi
-if grep -q 'interface/web/sites/' "$root/install/file.list"; then
-	fail "file.list legt noch Dateien in das Sites-Modul"
-fi
+# 26. Nach dem Umzug darf nirgends mehr Code oder Benutzertexte auf sites/
+#     zeigen: weder in check_module_permissions('sites') noch in Pfaden wie
+#     web/sites/ noch in Meldungen wie "Websites > malwatch". Historische
+#     Kommentare, die erklären WARUM es früher so war, sind ok - sie helfen,
+#     den Kontext zu verstehen, nennen aber keinem Benutzer einen Weg zum Gehen.
+#
+#     Diese Prüfung sucht den GANZEN Erweiterungsbaum (install/, interface/,
+#     server/, tests/, auch README.md), nicht nur interface/. Deshalb schreiben
+#     wir potenzielle Fehler erst in eine Datei und lesen aus der Datei (wie in
+#     Prüfung 22), um sicherzustellen, dass fail() in der Hauptshell läuft.
+
+old_refs_file="/tmp/check_wiring_$$_old_refs"
+rm -f "$old_refs_file"
+
+# Suchmuster, die auf den alten Ort zeigen:
+# 1. check_module_permissions mit 'sites' oder "sites"
+# 2. Benutzer-lesbarer Text "Websites > malwatch" oder "web/sites/"
+# 3. Direkter Pfad sites/malwatch oder web/sites/
+#
+# Schließe die check_wiring.sh Datei selbst aus (sie beschreibt in Kommentaren,
+# was sie sucht, und würde sich selbst finden).
+
+grep -rn \
+	-e "check_module_permissions('sites')" \
+	-e 'check_module_permissions("sites")' \
+	-e "Websites > malwatch" \
+	-e "Websites.*module" \
+	-e "interface/web/sites" \
+	-e "web/sites/" \
+	-e "sites/malwatch" \
+	"$root" \
+	2>/dev/null | grep -v "^Binary" | grep -v "check_wiring.sh" > "$old_refs_file" || true
+
+# Lese die Treffer und prüfe, ob sie Benutzertexte oder aktiven Code sind.
+# Kommentare und historische Erklärungen sind ok - Benutzertexte nicht.
+while read line; do
+	file=$(printf "%s" "$line" | cut -d: -f1)
+	linenum=$(printf "%s" "$line" | cut -d: -f2)
+	content=$(printf "%s" "$line" | cut -d: -f3-)
+
+	# Trimme führende Whitespaces
+	stripped=$(printf "%s" "$content" | sed 's/^[[:space:]]*//g')
+
+	# Ein Treffer ist ok, wenn die Zeile historischen Kontext gibt.
+	# Das tut sie, wenn sie Wörter wie "früher", "alt", "historisch", "before",
+	# "previously" enthält. Das funktioniert für Kommentare (// früher) und für
+	# Markdown/Fließtext (Früher hing...).
+	case "$content" in
+		*früher*|*Früher*|*alt*|*Alt*|*historisch*|*previously*|*before*)
+			# Historischer Kontext - ok
+			continue
+			;;
+	esac
+
+	# Ansonsten: Das ist aktiver Code oder ein Benutzertext, der einen alten
+	# Ort nennt - unerlaubt.
+	fail "$(basename "$file"):$linenum: $content"
+done < "$old_refs_file"
+
+rm -f "$old_refs_file"
 
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'

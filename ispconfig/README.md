@@ -24,11 +24,11 @@ php /usr/local/ispconfig/extensions/malwatch/install/manual_install.php
 
 Das Skript legt die Tabellen an, verlinkt beziehungsweise kopiert die Dateien
 nach `/usr/local/ispconfig` und lädt Scanner und Signaturen nach. Danach einmal
-ab- und wieder anmelden, dann steht **Websites > malwatch** im Menü.
+ab- und wieder anmelden, dann steht **Security** in der oberen Leiste.
 
 Auf einem Server ohne Netzzugang scheitert nur der Download des Scanners; die
 Erweiterung ist trotzdem installiert. Den Scanner dann von Hand ablegen und den
-Pfad unter **Einstellungen** prüfen.
+Pfad unter **Security > Einstellungen** prüfen.
 
 ## Was wo passiert
 
@@ -107,10 +107,11 @@ interface/        Seiten, Listen, Formulare, Vorlagen, Sprachdateien
 server/           Modul, Plugin, Dienstklassen, Cron-Klasse, Mailvorlagen
 ```
 
-Die Oberfläche hängt sich über `interface/web/sites/lib/menu.d/` in das
-vorhandene Modul **Websites**. Ein eigener Modulname müsste in
-`sys_user.modules` eingetragen werden, also in Kerndaten; der Weg über
-`menu.d` kommt ohne diesen Eingriff aus.
+Die Oberfläche läuft in einem eigenen Modul namens **security** unter
+`interface/web/security/`. Der Modulname ist in `sys_user.modules`
+eingetragen und in `interface/module.conf.php` konfiguriert, so dass der Punkt
+in der oberen Leiste erscheint. (Früher: über `interface/web/sites/lib/menu.d/`
+ins Modul **Websites**.)
 
 Interface-Dateien werden kopiert, nicht verlinkt: die Seiten binden über
 relative Pfade ein, und hinter einem Symlink zeigen die ins Leere.

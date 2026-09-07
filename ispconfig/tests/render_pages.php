@@ -58,7 +58,7 @@ if ($mw_page === '') {
 
 // Child process: render one page.
 error_reporting(E_ALL & ~E_NOTICE & ~E_DEPRECATED);
-chdir('/usr/local/ispconfig/interface/web/sites');
+chdir('/usr/local/ispconfig/interface/web/security');
 
 require '/usr/local/ispconfig/interface/lib/config.inc.php';
 require '/usr/local/ispconfig/interface/lib/app.inc.php';
@@ -70,17 +70,17 @@ if ($domain_id < 1) {
 
 $_SESSION['s']['user'] = array(
 	'userid' => 1, 'typ' => 'admin', 'active' => 1, 'default_group' => 1,
-	'groups' => '1', 'modules' => 'dashboard,sites,admin', 'language' => 'de',
-	'startmodule' => 'sites', 'theme' => 'default',
+	'groups' => '1', 'modules' => 'dashboard,security,admin', 'language' => 'de',
+	'startmodule' => 'security', 'theme' => 'default',
 );
-$_SESSION['s']['module'] = array('name' => 'sites');
+$_SESSION['s']['module'] = array('name' => 'security');
 $_SESSION['s']['language'] = 'de';
 $_SESSION['s']['theme'] = 'default';
 
 $_SERVER['REQUEST_METHOD'] = 'GET';
-$_SERVER['SCRIPT_FILENAME'] = '/usr/local/ispconfig/interface/web/sites/' . $mw_page;
-$_SERVER['SCRIPT_NAME'] = '/sites/' . $mw_page;
-$_SERVER['REQUEST_URI'] = '/sites/' . $mw_page;
+$_SERVER['SCRIPT_FILENAME'] = '/usr/local/ispconfig/interface/web/security/' . $mw_page;
+$_SERVER['SCRIPT_NAME'] = '/security/' . $mw_page;
+$_SERVER['REQUEST_URI'] = '/security/' . $mw_page;
 $_GET = $_REQUEST = array('id' => $domain_id, 'domain_id' => $domain_id);
 $_POST = array();
 
