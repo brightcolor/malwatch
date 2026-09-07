@@ -115,9 +115,9 @@ Die Abfrage läuft einmal je Lauf, das Ergebnis wird 24 Stunden
 zwischengespeichert. Ohne Netz meldet der Bericht die gefundenen Versionen
 ohne Bewertung, statt still nichts zu sagen.
 
-Schwachstellen zu WordPress-Plugins nur, wenn ein Zugangsschlüssel zur Schwachstellendatenbank
-gesetzt ist; die frei zugängliche Schnittstelle verlangt seit der Ablösung von
-Version 2 einen Schlüssel.
+Schwachstellen zu WordPress-Plugins nur, wenn ein Zugangsschlüssel zur
+Schwachstellendatenbank gesetzt ist; die frei zugängliche Schnittstelle
+verlangt seit der Ablösung von Version 2 einen Schlüssel.
 
 ### Ausgabe
 
