@@ -2,6 +2,60 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.9.0] – 2026-09-07
+
+### Neu
+
+**Ein eigener Bereich „Security" in der oberen Leiste.** Bisher hing das Addon als
+Navigationsgruppe in der Seitenleiste des fremden Sites-Moduls. Der Installer trägt
+das Modul jetzt selbst in `sys_user.modules` der Administratoren ein, der
+Deinstaller nimmt es wieder heraus; alle Seiten liegen unter `security/`.
+
+**Eine Statusseite, die eine Frage beantwortet.** Nicht 61 Zeilen mit Spalten,
+sondern ein Satz — „Drei Websites brauchen Ihre Aufmerksamkeit." — und darunter
+nur diese drei, die dringendste oben. Die unauffälligen stehen als ruhige Zeile
+darunter und sind kein Standardinhalt.
+
+**Ein Fortschrittsbalken, der sich bewegt.** Der Scan meldete bisher einen Zähler
+ohne Nenner, weshalb die Anzeige auf feste fünf Prozent zurückfiel und ein Lauf
+minutenlang aussah wie ein Absturz. Der Scanner nimmt jetzt `--expect` entgegen,
+der Runner reicht die Dateizahl des letzten Laufs derselben Website durch, und die
+Anzeige deckelt bei 99 Prozent, bis der Lauf fertig meldet.
+
+### Behoben
+
+**Die Oberfläche reißt den Bediener nicht mehr aus jeder Seite zurück.** Die alte
+Übersicht lud sich bei laufender Prüfung alle fünf Sekunden komplett neu. Ihr
+Abbruch hing an `DOMNodeRemoved` — einem Mutation Event, das Chrome seit Version
+127 abgeschaltet hat. Der Timer überlebte deshalb jede Navigation und holte den
+Bediener aus den Einstellungen und aus jedem einzelnen Fund zurück in die Liste.
+
+Ersetzt durch punktuelles Umschreiben einzelner Zellen aus einem JSON-Endpunkt,
+abgebrochen über `MutationObserver` und zusätzlich über `document.contains` in
+jedem Durchlauf — damit auch ein vergessener Timer nur noch ins Leere schreiben
+kann. Dieselbe Korrektur auf der Detailseite, wo derselbe Fehler stand.
+
+**Der Erwartungswert zählt jetzt dasselbe wie der Zähler.** `files_scanned` zählt
+nur Dateien, die den Zwischenspeicher verfehlen; ein warmer Lauf über 193.888
+Dateien hätte die ganze Zeit auf 0 Prozent gestanden. Beide Seiten rechnen jetzt
+mit den angesehenen Dateien.
+
+**Der Installer legt die Verzeichnisse an, in die er kopiert.** ISPConfigs
+`enable_files()` erzeugt keine Elternverzeichnisse und prüft den Rückgabewert von
+`copy()` nicht — jede Kopie wäre still fehlgeschlagen, und der Installer hätte
+trotzdem Erfolg gemeldet.
+
+**Die Sprachdatei erreicht die neuen Seiten.** `load_language_file()` bindet die
+Datei im eigenen Geltungsbereich ein; `$wb` kam beim Aufrufer nie an, und die
+Statusseite hätte ohne einen einzigen Text gerendert.
+
+### Geändert
+
+Elf neue Verdrahtungsprüfungen halten fest, was in dieser Runde schiefging: keine
+`DOMNodeRemoved`-Benutzung, kein Neuladen im Takt, Zustandswerte gegen das Schema
+statt gegen eine wiederholte Liste, jedes Kopierziel mit erzeugtem Verzeichnis,
+und keine Seite, die `$wb` liest, ohne die Sprachdatei einzubinden.
+
 ## [0.8.2] – 2026-09-07
 
 ### Neu
