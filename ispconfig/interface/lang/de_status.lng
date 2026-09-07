@@ -1,21 +1,16 @@
 <?php
-$wb['page_head_txt'] = 'Status';
 $wb['attention_one_txt'] = 'Eine Website braucht Ihre Aufmerksamkeit.';
 $wb['attention_many_txt'] = '%s Websites brauchen Ihre Aufmerksamkeit.';
 $wb['all_clear_txt'] = 'Alle Websites sind unauffällig.';
 $wb['as_of_txt'] = 'Stand %s. Die nächste Prüfung läuft %s.';
 $wb['quiet_txt'] = '%s weitere Websites sind unauffällig.';
 $wb['quiet_one_txt'] = 'Eine weitere Website ist unauffällig.';
-$wb['show_all_txt'] = 'Alle anzeigen';
 $wb['view_txt'] = 'Ansehen';
-$wb['scan_now_txt'] = 'Jetzt prüfen';
-$wb['cancel_txt'] = 'Abbrechen';
 $wb['state_infected_txt'] = 'Befallen';
 $wb['state_attention_txt'] = 'Nachsehen';
 $wb['state_running_txt'] = 'Wird geprüft';
-$wb['state_clean_txt'] = 'Unauffällig';
-$wb['never_scanned_txt'] = 'Noch nie geprüft.';
 $wb['findings_txt'] = '%s auffällige Dateien, davon %s dringend.';
 $wb['findings_one_txt'] = 'Eine auffällige Datei.';
-$wb['last_scan_txt'] = 'Zuletzt geprüft %s.';
 $wb['waiting_txt'] = 'Startet gleich …';
+$wb['progress_scanned_txt'] = '%s Dateien geprüft';
+$wb['progress_of_total_txt'] = '%s von %s Dateien';

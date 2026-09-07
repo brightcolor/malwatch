@@ -40,8 +40,6 @@ unset($row);
 $app->tpl->setLoop('sites', $rows['attention']);
 $app->tpl->setVar('attention_count', count($rows['attention']));
 $app->tpl->setVar('quiet_count', $rows['quiet_count']);
-$app->tpl->setVar('as_of', $rows['as_of']);
-$app->tpl->setVar('next_run', $rows['next_run']);
 $app->tpl->setVar($wb);
 
 // Dieselbe Regel wie fuer die Fundzeile: der Platzhalter wird erst hier
@@ -56,6 +54,12 @@ if ($rows['quiet_count'] === 1) {
 } elseif ($rows['quiet_count'] > 1) {
 	$app->tpl->setVar('quiet_txt', sprintf($wb['quiet_txt'], number_format($rows['quiet_count'], 0, ',', '.')));
 }
+
+// as_of_txt traegt zwei Platzhalter: den Stand und den naechsten Lauf. Beide
+// kamen bisher als eigene, unformatierte tmpl_var an - die Vorlage zeigte
+// "as_of" roh an, "next_run" ueberhaupt nicht. Jetzt liefert eine einzige
+// sprintf-Zeile den ganzen Satz, wie bei findings_line oben.
+$app->tpl->setVar('as_of_txt', sprintf($wb['as_of_txt'], $rows['as_of'], $rows['next_run']));
 
 $app->tpl_defaults();
 $app->tpl->pparse();

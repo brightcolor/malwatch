@@ -18,7 +18,7 @@
 #mw-status .mw-site p{margin:5px 0 0;font-size:13.5px;max-width:62ch}
 #mw-status .mw-chip{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
   padding:2px 7px;border-radius:3px}
-#mw-status .mw-chip.bad{background:var(--cic-bad-deep,#b13116);color:#fff}
+#mw-status .mw-chip.bad{background:var(--cic-bad-deep,#b13116);color:var(--cic-bad-text,#fff)}
 #mw-status .mw-chip.warn{background:var(--cic-warn-lift,#ef8a2b);color:var(--cic-on-accent,#1c1c1c)}
 #mw-status .mw-chip.busy{background:var(--cic-sunken,#151515);color:var(--cic-accent-text,#ef7d21);
   border:1px solid var(--cic-accent-deep,#a84c0b)}
@@ -45,7 +45,7 @@
   <tmpl_if name="attention_count" op=">" value="1">
     <h1 class="mw-lede">{tmpl_var name='attention_many_txt'}</h1>
   </tmpl_if>
-  <p class="mw-sub">{tmpl_var name='as_of'}</p>
+  <p class="mw-sub">{tmpl_var name='as_of_txt'}</p>
 
   <div class="mw-sites">
     <tmpl_loop name="sites">
@@ -139,7 +139,28 @@
 		// Takt nur noch, solange die Seite wirklich da ist.
 		if (!document.contains(root)) { stop(); return; }
 
-		var open = 0;
+		// xhr.send() ist hier immer async (dritter Parameter true an open()),
+		// also feuert onload nie innerhalb von send() selbst - eine Pruefung
+		// direkt nach der Schleife saehe deshalb IMMER null offene Antworten,
+		// ganz gleich was die Websites tatsaechlich tun. Die Entscheidung
+		// faellt deshalb erst, wenn die letzte Antwort eingetroffen ist:
+		// pending zaehlt die noch ausstehenden Anfragen herunter,
+		// stillRunning merkt sich, ob mindestens eine Website noch laeuft.
+		var pending = running.length;
+		var stillRunning = false;
+
+		function settle() {
+			pending--;
+			if (pending > 0) { return; }
+			if (!document.contains(root)) { stop(); return; }
+			if (!stillRunning) {
+				// Nichts laeuft mehr. Einmal die Seite holen, damit die Ergebnisse
+				// erscheinen - und danach nie wieder von allein.
+				stop();
+				ISPConfig.loadContent('security/status.php');
+			}
+		}
+
 		running.forEach(function (box) {
 			var id = box.getAttribute('data-domain');
 			var xhr = new XMLHttpRequest();
@@ -147,18 +168,20 @@
 			xhr.onload = function () {
 				if (!document.contains(root)) { stop(); return; }
 				var d;
-				try { d = JSON.parse(xhr.responseText); } catch (e) { return; }
-				if (d.state === 'running' || d.state === 'pending') { open++; }
+				try { d = JSON.parse(xhr.responseText); } catch (e) { stillRunning = true; settle(); return; }
+				if (d.state === 'running' || d.state === 'pending') { stillRunning = true; }
 				draw(box, d);
+				settle();
+			};
+			xhr.onerror = function () {
+				if (!document.contains(root)) { stop(); return; }
+				// Ein Ausfall zaehlt als "laeuft noch": eine einzelne
+				// fehlgeschlagene Anfrage darf kein Neuladen ausloesen.
+				stillRunning = true;
+				settle();
 			};
 			xhr.send();
 		});
-		if (open === 0) {
-			// Nichts laeuft mehr. Einmal die Seite holen, damit die Ergebnisse
-			// erscheinen - und danach nie wieder von allein.
-			stop();
-			ISPConfig.loadContent('security/status.php');
-		}
 	}
 
 	timer = setInterval(poll, 3000);

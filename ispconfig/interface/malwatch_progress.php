@@ -21,6 +21,7 @@ if (!$app->auth->is_admin()) {
 
 $app->uses('functions');
 require_once 'lib/malwatch_lib.inc.php';
+$app->load_language_file('web/security/lib/lang/' . $_SESSION['s']['language'] . '_status.lng');
 
 $job_id = $app->functions->intval(isset($_GET['job_id']) ? $_GET['job_id'] : 0);
 $domain_id = $app->functions->intval(isset($_GET['domain_id']) ? $_GET['domain_id'] : 0);
@@ -85,11 +86,14 @@ if ($state === 'done') {
 }
 
 // Ohne Nenner zaehlt die Anzeige nur - "71.240 Dateien geprueft" ist eine
-// ehrliche Aussage, eine erfundene Prozentzahl waere keine.
+// ehrliche Aussage, eine erfundene Prozentzahl waere keine. Die Formulierung
+// kommt aus der Sprachdatei des angemeldeten Bedieners, nicht fest aus dem
+// Code - status.htm zeigt d.label unveraendert an.
 $label = ($percent === null)
-	? number_format($files_done, 0, ',', '.') . ' Dateien geprüft'
-	: number_format($files_done, 0, ',', '.') . ' von '
-		. number_format($files_total, 0, ',', '.') . ' Dateien';
+	? sprintf($wb['progress_scanned_txt'], number_format($files_done, 0, ',', '.'))
+	: sprintf($wb['progress_of_total_txt'],
+		number_format($files_done, 0, ',', '.'),
+		number_format($files_total, 0, ',', '.'));
 
 $out = array(
 	'state' => $state,
