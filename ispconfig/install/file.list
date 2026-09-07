@@ -24,6 +24,9 @@ c:interface/malwatch_site_edit.php:interface/web/security/malwatch_site_edit.php
 c:interface/malwatch_finding_list.php:interface/web/security/malwatch_finding_list.php
 c:interface/malwatch_scan_list.php:interface/web/security/malwatch_scan_list.php
 c:interface/malwatch_config_edit.php:interface/web/security/malwatch_config_edit.php
+c:interface/malwatch_quarantine_list.php:interface/web/security/malwatch_quarantine_list.php
+c:interface/malwatch_quarantine_download.php:interface/web/security/malwatch_quarantine_download.php
+c:interface/malwatch_repair_start.php:interface/web/security/malwatch_repair_start.php
 
 c:interface/list/malwatch_finding.list.php:interface/web/security/list/malwatch_finding.list.php
 c:interface/list/malwatch_scan.list.php:interface/web/security/list/malwatch_scan.list.php
@@ -36,6 +39,8 @@ c:interface/templates/malwatch_site_edit.htm:interface/web/security/templates/ma
 c:interface/templates/malwatch_config_edit.htm:interface/web/security/templates/malwatch_config_edit.htm
 c:interface/templates/malwatch_finding_list.htm:interface/web/security/templates/malwatch_finding_list.htm
 c:interface/templates/malwatch_scan_list.htm:interface/web/security/templates/malwatch_scan_list.htm
+c:interface/templates/malwatch_quarantine_list.htm:interface/web/security/templates/malwatch_quarantine_list.htm
+c:interface/templates/malwatch_repair_start.htm:interface/web/security/templates/malwatch_repair_start.htm
 
 c:interface/lang/de_malwatch.lng:interface/web/security/lib/lang/de_malwatch.lng
 c:interface/lang/en_malwatch.lng:interface/web/security/lib/lang/en_malwatch.lng
@@ -49,6 +54,10 @@ c:interface/lang/de_malwatch_scan_list.lng:interface/web/security/lib/lang/de_ma
 c:interface/lang/en_malwatch_scan_list.lng:interface/web/security/lib/lang/en_malwatch_scan_list.lng
 c:interface/lang/de_status.lng:interface/web/security/lib/lang/de_status.lng
 c:interface/lang/en_status.lng:interface/web/security/lib/lang/en_status.lng
+c:interface/lang/de_malwatch_quarantine.lng:interface/web/security/lib/lang/de_malwatch_quarantine.lng
+c:interface/lang/en_malwatch_quarantine.lng:interface/web/security/lib/lang/en_malwatch_quarantine.lng
+c:interface/lang/de_malwatch_repair.lng:interface/web/security/lib/lang/de_malwatch_repair.lng
+c:interface/lang/en_malwatch_repair.lng:interface/web/security/lib/lang/en_malwatch_repair.lng
 
 # --- Server ----------------------------------------------------------------
 # Module and plugin are symlinked so an update replaces them atomically.

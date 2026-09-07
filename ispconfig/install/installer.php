@@ -205,10 +205,19 @@ class malwatch_installer extends extension_installer_base
 		}
 	}
 
-	/** Creates the state directory tree, readable by root only. */
+	/**
+	 * Legt den Zustandsbaum an.
+	 *
+	 * quarantine bleibt root-only: dort liegt Schadcode.
+	 * runs und spool bekommen die Gruppe der Oberflaeche und das Setgid-Bit, damit
+	 * neue Dateien die Gruppe erben. Ohne das konnte das Panel die Fortschrittsdatei
+	 * nicht lesen und der Balken zaehlte bei jedem Lauf bis null.
+	 */
 	private function prepare_state_dir()
 	{
-		foreach (array('', '/signatures', '/state', '/runs') as $sub) {
+		global $app;
+
+		foreach (array('', '/signatures', '/state', '/quarantine') as $sub) {
 			$dir = self::STATE_DIR . $sub;
 			if (!is_dir($dir)) {
 				@mkdir($dir, 0750, true);
@@ -217,6 +226,74 @@ class malwatch_installer extends extension_installer_base
 			@chown($dir, 'root');
 			@chgrp($dir, 'root');
 		}
+
+		$group = '';
+		foreach (array('/runs', '/spool') as $sub) {
+			$dir = self::STATE_DIR . $sub;
+			if (!is_dir($dir)) {
+				// mkdir() setzt das Setgid-Bit nur mit einer vierstelligen
+				// Oktalzahl.
+				@mkdir($dir, 02750, true);
+			}
+			// chmod erst nach mkdir: die umask des Prozesses wuerde das
+			// Setgid-Bit sonst gleich wieder herausfiltern.
+			@chmod($dir, 02750);
+			@chown($dir, 'root');
+			if ($sub === '/runs') {
+				$group = $this->find_group($dir);
+			} else {
+				@chgrp($dir, $group !== '' ? $group : 'root');
+			}
+		}
+
+		if ($group === '') {
+			// find_group() hat auf /runs schon jeden Kandidaten probiert und
+			// keinen gefunden - explizit zuruecksetzen, falls einer der
+			// Versuche die Gruppe trotz false-Rueckgabe veraendert haben sollte.
+			@chgrp(self::STATE_DIR . '/runs', 'root');
+			$app->log('malwatch: keine der Gruppen ispconfig, ispapps oder www-data gefunden; '
+				. 'runs und spool bleiben root:root, der Fortschrittszaehler im Panel bleibt leer.', LOGLEVEL_WARN);
+			return;
+		}
+
+		// Vorhandene Dateien aus einem laufenden Auftrag bekommen die Gruppe
+		// nachtraeglich - das Setgid-Bit wirkt nur auf neu angelegte Dateien,
+		// und ohne diese Nachbesserung bliebe der gerade laufende Auftrag
+		// unlesbar.
+		$runs = self::STATE_DIR . '/runs';
+		foreach ((array) @scandir($runs) as $entry) {
+			if ($entry === '.' || $entry === '..') {
+				continue;
+			}
+			@chgrp($runs . '/' . $entry, $group);
+		}
+	}
+
+	/**
+	 * Findet die erste vorhandene Gruppe aus ispconfig, ispapps, www-data und
+	 * setzt $dir gleich darauf; liefert '', wenn keine davon existiert.
+	 *
+	 * posix_getgrnam() ist der saubere Weg, eine Gruppe nachzuschlagen, aber
+	 * die POSIX-Erweiterung ist nicht auf jedem System an - function_exists()
+	 * prueft das vorher ab. Ohne sie bleibt nur der Versuch selbst: chgrp()
+	 * auf $dir meldet per Rueckgabewert, ob die Gruppe existiert.
+	 */
+	private function find_group($dir)
+	{
+		$posix = function_exists('posix_getgrnam');
+		foreach (array('ispconfig', 'ispapps', 'www-data') as $candidate) {
+			if ($posix) {
+				if (posix_getgrnam($candidate) === false) {
+					continue;
+				}
+				@chgrp($dir, $candidate);
+				return $candidate;
+			}
+			if (@chgrp($dir, $candidate)) {
+				return $candidate;
+			}
+		}
+		return '';
 	}
 
 	/**
