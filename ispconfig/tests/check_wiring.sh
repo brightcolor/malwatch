@@ -668,6 +668,72 @@ if [ -f "$runner" ] && [ -f "$usage_go" ]; then
 	done < "$tmp"
 fi
 
+# 38. Dieselbe Technik wie Pruefung 22, aber fuer die Aufzaehlungswerte, die
+#     malwatch_ingest.inc.php schreibt. Zwei davon kommen aus dem JSON des
+#     Scanners (entry_kind, origin) und werden dort gegen eine Liste geprueft;
+#     zwei schreibt die Datei selbst als Literal (malwatch_site.last_state,
+#     nach einem Zurueckholen). Beide Sorten muessen zu schema.sql passen -
+#     eine Liste, die einen Wert zu wenig kennt, wirft eine gueltige Zeile weg;
+#     eine, die einen zu viel kennt, laesst die INSERT-Anweisung im
+#     Strict-Modus scheitern. Treffer wieder erst in eine Datei, damit fail()
+#     in der Hauptshell laeuft statt in einer Subshell der Pipe.
+ingest="$root/server/lib/classes/malwatch_ingest.inc.php"
+if [ -f "$ingest" ]; then
+	# Die drei Paare: PHP-Fundstelle, Tabelle, Spalte. Die ersten beiden sind
+	# je eine einzeilige Liste, die dritte ein Methodenrumpf.
+	tmp="$tmpdir/ingest_enums"
+	: > "$tmp"
+	sed -n 's/.*\$entry_kinds *= *array(\(.*\));.*/malwatch_quarantine entry_kind \1/p' "$ingest" >> "$tmp"
+	sed -n 's/.*\$origins *= *array(\(.*\));.*/malwatch_quarantine origin \1/p' "$ingest" >> "$tmp"
+	sed -n '/function restored_site_state/,/^	}/p' "$ingest" \
+		| grep -oE "return '[a-z]+';" | sed "s/return \('[a-z]*'\);/malwatch_site last_state \1/" >> "$tmp"
+
+	# Ohne diese drei Zeilen waere die Pruefung still wirkungslos, sobald
+	# jemand eine der Fundstellen umbenennt: kein Treffer, keine Meldung.
+	for expect in 'entry_kind' 'origin' 'last_state'; do
+		grep -q " $expect " "$tmp" || fail "check_wiring 38 findet in malwatch_ingest.inc.php nichts zu $expect mehr; die Pruefung liefe ins Leere"
+	done
+
+	while read table column values; do
+		[ -n "$values" ] || continue
+		# Anders als bei action_type (Pruefung 22, dort ein MODIFY COLUMN auf
+		# einer Zeile) stehen Tabelle und Spalte hier auf verschiedenen Zeilen:
+		# erst den CREATE-TABLE-Block der Tabelle ausschneiden, dann darin die
+		# Spalte suchen. Sonst faende der Ausdruck nie etwas und die Pruefung
+		# meldete jede Spalte als fehlend.
+		valid_enum=$(sed -n "/CREATE TABLE IF NOT EXISTS \`$table\`/,/^)/p" "$schema" \
+			| grep -E "^[[:space:]]*\`$column\` enum" | sed "s/.*enum(\([^)]*\)).*/\1/")
+		if [ -z "$valid_enum" ]; then
+			fail "schema.sql hat keine Spalte $table.$column, malwatch_ingest.inc.php schreibt sie aber"
+			continue
+		fi
+		valid_list=$(printf "%s" "$valid_enum" | sed "s/'//g" | sed "s/,/ /g")
+		for val in $(printf "%s" "$values" | sed "s/'//g" | sed "s/,/ /g"); do
+			case " $valid_list " in
+				*" $val "*) ;;
+				*) fail "malwatch_ingest.inc.php schreibt $table.$column='$val', aber schema.sql kennt ihn nicht (gültig: $valid_list)" ;;
+			esac
+		done
+	done < "$tmp"
+fi
+
+# 39. Dieselbe Pruefung wie 9 und 36, aber fuer die Seiten statt der Vorlagen.
+#     Ein $wb['...'], das keine Sprachdatei setzt, faellt in einer Vorlage als
+#     leeres Etikett auf; in einer Seite wird daraus eine leere Fehlermeldung
+#     oder ein sprintf() ueber null - eine Meldung, die nichts sagt, an genau
+#     der Stelle, an der etwas schiefgegangen ist. Geprueft werden beide
+#     Sprachen: eine fehlende englische Zeile sieht man auf der deutschen
+#     Oberflaeche nie.
+for page in "$root"/interface/*.php "$root"/interface/lib/*.php; do
+	[ -f "$page" ] || continue
+	for key in $(grep -ohE "\\\$wb\['[a-z_]+'\]" "$page" | sed -E "s/.*\['([a-z_]+)'\].*/\1/" | sort -u); do
+		for lang in de en; do
+			grep -qhE "\\\$wb\['$key'\]" "$root"/interface/lang/${lang}_*.lng \
+				|| fail "$(basename "$page") liest {$key}, was keine ${lang}_-Sprachdatei definiert"
+		done
+	done
+done
+
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'
 fi
