@@ -1,0 +1,170 @@
+<div class='page-header'>
+	<h1>{tmpl_var name='lede'}</h1>
+</div>
+
+<tmpl_if name="message">
+	<div class="alert alert-success">{tmpl_var name='message'}</div>
+</tmpl_if>
+<tmpl_if name="error">
+	<div class="alert alert-danger">{tmpl_var name='error'}</div>
+</tmpl_if>
+
+<style>
+/* Farben ausschliesslich aus den Theme-Variablen, mit Rueckfallwert - siehe
+   status.htm/malwatch_site_show.htm fuer denselben Grund: ein Teil der
+   Bediener sitzt auf einem Theme ohne --cic-*. Radius 3px fest, das Theme
+   kennt genau einen. Buttons und Tabelle selbst bleiben die echten
+   ISPConfig-Klassen (btn/table/label) - eigenes CSS gibt es nur fuer das,
+   was es dort nicht schon gibt. */
+#mw-quarantine .mw-sub{margin:6px 0 16px;color:var(--cic-text-dim,#8b9298);font-size:13px;max-width:76ch}
+#mw-quarantine .mw-actbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 4px}
+#mw-quarantine .mw-actbar .mw-grow{flex:1 1 auto}
+#mw-quarantine .mw-selcount{font-size:13px;color:var(--cic-text-dim,#8b9298);font-variant-numeric:tabular-nums;white-space:nowrap}
+#mw-quarantine .mw-kind{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--cic-text-dim,#8b9298);display:block;margin-bottom:2px}
+#mw-quarantine .mw-mono{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:12px;word-break:break-all}
+#mw-quarantine .mw-origin{display:block;font-size:11.5px;color:var(--cic-text-dim,#8b9298);margin-top:2px}
+#mw-quarantine td.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+#mw-quarantine .mw-dl-preparing{font-size:12px;color:var(--cic-text-dim,#8b9298);white-space:nowrap}
+#mw-quarantine .mw-qacts{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}
+#mw-quarantine .mw-quiet{margin-top:14px;padding:12px 15px;border:1px solid var(--cic-line-soft,#3c3c3b);border-radius:3px;color:var(--cic-text-dim,#8b9298);font-size:13px;background:var(--cic-head,#202020)}
+#mw-quarantine .mw-quiet strong{color:var(--cic-text,#bac3ca)}
+#mw-quarantine .mw-quiet + .mw-quiet{margin-top:9px}
+#mw-quarantine input[type=checkbox]{accent-color:var(--cic-accent,#dd630d)}
+</style>
+
+<div id="mw-quarantine">
+
+<p class="mw-sub">{tmpl_var name='sub_txt'}</p>
+
+<tmpl_if name="has_entries">
+
+<!--
+	No form of our own: the panel wraps the whole content area in one form
+	called pageForm and posts it by AJAX. entry_id carries the single row a
+	row button targets; the checkboxes below feed ids[] for the toolbar
+	buttons, and the action page prefers entry_id over ids[] whenever a row
+	button set it, so a box left checked from an earlier click never rides
+	along with a single-row action.
+-->
+<input type="hidden" name="entry_id" id="mw-entry-id" value="" />
+<input type="hidden" name="malwatch_action" id="mw-action" value="" />
+
+<div class="mw-actbar">
+	<button class="btn btn-default formbutton-default" type="button"
+		onclick="if(!mwQuarantineSelected()){alert('{tmpl_var name='confirm_none_selected_txt'}');event.stopPropagation();return false;} if(!confirm('{tmpl_var name='confirm_restore_selected_txt'}')){event.stopPropagation();return false;} document.getElementById('mw-entry-id').value='';document.getElementById('mw-action').value='restore';"
+		data-submit-form="pageForm" data-form-action="security/malwatch_quarantine_list.php">{tmpl_var name='btn_restore_selected_txt'}</button>
+	<button class="btn btn-default formbutton-default" type="button"
+		onclick="if(!mwQuarantineSelected()){alert('{tmpl_var name='confirm_none_selected_txt'}');event.stopPropagation();return false;} document.getElementById('mw-entry-id').value='';document.getElementById('mw-action').value='download';"
+		data-submit-form="pageForm" data-form-action="security/malwatch_quarantine_list.php">{tmpl_var name='btn_download_selected_txt'}</button>
+	<button class="btn btn-danger" type="button"
+		onclick="if(!mwQuarantineSelected()){alert('{tmpl_var name='confirm_none_selected_txt'}');event.stopPropagation();return false;} if(!confirm('{tmpl_var name='confirm_delete_selected_txt'}')){event.stopPropagation();return false;} document.getElementById('mw-entry-id').value='';document.getElementById('mw-action').value='delete';"
+		data-submit-form="pageForm" data-form-action="security/malwatch_quarantine_list.php">{tmpl_var name='btn_delete_selected_txt'}</button>
+	<span class="mw-grow"></span>
+	<span class="mw-selcount" id="mw-selcount" data-template="{tmpl_var name='selected_template'}">{tmpl_var name='selected_line'}</span>
+</div>
+
+<div class="table-wrapper marginTop15">
+<table class="table">
+	<thead class="dark">
+		<tr>
+			<th style="width:28px">&nbsp;</th>
+			<th>{tmpl_var name='col_what_txt'}</th>
+			<th>{tmpl_var name='col_website_txt'}</th>
+			<th>{tmpl_var name='col_why_txt'}</th>
+			<th>{tmpl_var name='col_moved_txt'}</th>
+			<th>{tmpl_var name='col_size_txt'}</th>
+			<th style="width:1%">&nbsp;</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tmpl_loop name="entries">
+		<tr>
+			<td><input type="checkbox" class="mw-check" name="ids[]" value="{tmpl_var name='entry_id'}" /></td>
+			<td>
+				<span class="mw-kind">{tmpl_var name='kind_label'}</span>
+				<span class="mw-mono">{tmpl_var name='path'}</span>
+			</td>
+			<td>
+				<tmpl_if name="has_domain_link">
+					<a href="#" data-load-content="security/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='domain'}</a>
+				<tmpl_else>
+					{tmpl_var name='domain'}
+				</tmpl_if>
+			</td>
+			<td>{tmpl_var name='reason'}</td>
+			<td class="num">
+				{tmpl_var name='moved_when'}
+				<span class="mw-origin">{tmpl_var name='origin_label'}</span>
+			</td>
+			<td class="num">{tmpl_var name='size_label'}</td>
+			<td>
+				<div class="mw-qacts">
+					<button class="btn btn-default formbutton-default formbutton-narrow" type="button"
+						onclick="if(!confirm('{tmpl_var name='confirm_restore_one_txt'}')){event.stopPropagation();return false;} document.getElementById('mw-entry-id').value='{tmpl_var name='entry_id'}';document.getElementById('mw-action').value='restore';"
+						data-submit-form="pageForm" data-form-action="security/malwatch_quarantine_list.php">{tmpl_var name='btn_restore_txt'}</button>
+					<tmpl_if name="dl_ready">
+						<a class="btn btn-default formbutton-default formbutton-narrow" href="security/malwatch_quarantine_download.php?token={tmpl_var name='dl_token'}">{tmpl_var name='dl_ready_label'}</a>
+					</tmpl_if>
+					<tmpl_if name="dl_preparing">
+						<span class="mw-dl-preparing">{tmpl_var name='dl_preparing_txt'}</span>
+					</tmpl_if>
+					<tmpl_if name="dl_normal">
+						<button class="btn btn-default formbutton-default formbutton-narrow" type="button"
+							onclick="document.getElementById('mw-entry-id').value='{tmpl_var name='entry_id'}';document.getElementById('mw-action').value='download';"
+							data-submit-form="pageForm" data-form-action="security/malwatch_quarantine_list.php">{tmpl_var name='btn_download_txt'}</button>
+					</tmpl_if>
+					<button class="btn btn-danger btn-xs" type="button"
+						onclick="if(!confirm('{tmpl_var name='confirm_delete_one_txt'}')){event.stopPropagation();return false;} document.getElementById('mw-entry-id').value='{tmpl_var name='entry_id'}';document.getElementById('mw-action').value='delete';"
+						data-submit-form="pageForm" data-form-action="security/malwatch_quarantine_list.php">{tmpl_var name='btn_delete_txt'}</button>
+				</div>
+			</td>
+		</tr>
+		</tmpl_loop>
+	</tbody>
+</table>
+</div>
+
+</tmpl_if>
+
+<div class="mw-quiet">
+	<strong>{tmpl_var name='footnote_zip_txt'}</strong>
+	{tmpl_var name='footnote_zip_body'}
+</div>
+<div class="mw-quiet">
+	<strong>{tmpl_var name='footnote_where_txt'}</strong>
+	{tmpl_var name='footnote_where_body'}
+</div>
+
+</div>
+
+<script>
+(function () {
+	var root = document.getElementById('mw-quarantine');
+	if (!root) { return; }
+
+	// Counts checked boxes for the toolbar buttons' own guard - a click on
+	// "Ausgewaehlte loeschen" with nothing checked would otherwise post an
+	// empty action and land on the server's generic "nothing selected" error.
+	window.mwQuarantineSelected = function () {
+		return root.querySelectorAll('.mw-check:checked').length;
+	};
+
+	var span = document.getElementById('mw-selcount');
+	var boxes = root.querySelectorAll('.mw-check');
+	if (!span || !boxes.length) { return; }
+
+	// The template renders this once with {n} still in place; only the
+	// count ever changes while the page sits on screen; everything around
+	// it - "von 51 ausgewaehlt", the size in use - came from the language
+	// file already filled in and does not need to travel over again.
+	var template = span.getAttribute('data-template') || '';
+
+	function update() {
+		span.textContent = template.replace('{n}', String(root.querySelectorAll('.mw-check:checked').length));
+	}
+
+	for (var i = 0; i < boxes.length; i++) {
+		boxes[i].addEventListener('change', update);
+	}
+})();
+</script>

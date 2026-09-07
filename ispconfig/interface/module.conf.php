@@ -41,6 +41,13 @@ $items[] = array(
 );
 
 $items[] = array(
+	'title'   => 'Quarantäne',
+	'target'  => 'content',
+	'link'    => 'security/malwatch_quarantine_list.php',
+	'html_id' => 'security_quarantine'
+);
+
+$items[] = array(
 	'title'   => 'Prüfläufe',
 	'target'  => 'content',
 	'link'    => 'security/malwatch_scan_list.php',

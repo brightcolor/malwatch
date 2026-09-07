@@ -188,6 +188,111 @@ function malwatch_queue_job($app, $domain_id, $kind, array $options)
 	return true;
 }
 
+/**
+ * Queues a restore, download or permanent delete for one or more quarantine
+ * entries.
+ *
+ * The quarantine list spans every website on the server, so a batch of ids
+ * can belong to more than one domain at once - unlike malwatch_queue_job,
+ * which is always about a single site. What ties a job to one machine is
+ * server_id, not parent_domain_id: the store the CLI opens with
+ * --quarantine-dir lives on one server's disk, and that is what its cron
+ * uses to find its own work.
+ *
+ * restore and delete both end in a full-list resync of the store
+ * (malwatch_ingest::sync_quarantine), so several ids from the same server
+ * are safe to queue as one job. export is different: the runner writes one
+ * zip per job, named after options['token'], and malwatch_ingest::
+ * finish_export() only ever files that token onto the FIRST id of the job's
+ * list - a second id quietly never leaves "wird vorbereitet". So every
+ * export gets its own job and its own token, one entry at a time, the same
+ * one-id shape internal/quarantine.Export() already has below the CLI.
+ *
+ * Returns the number of ids queued, or a German message explaining why
+ * nothing was queued.
+ */
+function malwatch_queue_quarantine_action($app, array $ids, $action)
+{
+	if (!in_array($action, array('restore', 'delete', 'export'), true)) {
+		return 'Unbekannte Aktion.';
+	}
+
+	$valid = array();
+	foreach ($ids as $id) {
+		$id = (string) $id;
+		if ($id === '') {
+			continue;
+		}
+		// Only an id actually in the store may be queued - it came back from
+		// a form field, and a stale or tampered value must not reach the
+		// binary as if it named a real entry.
+		$row = $app->db->queryOneRecord(
+			'SELECT entry_id, server_id FROM malwatch_quarantine WHERE entry_id = ?', $id);
+		if (!is_array($row)) {
+			continue;
+		}
+		$valid[] = array(
+			'entry_id' => (string) $row['entry_id'],
+			'server_id' => $app->functions->intval($row['server_id']),
+		);
+	}
+	if (count($valid) === 0) {
+		return 'Keiner der ausgewählten Einträge wurde gefunden.';
+	}
+
+	if ($action === 'export') {
+		foreach ($valid as $entry) {
+			$options = array(
+				'action' => 'export',
+				'ids' => array($entry['entry_id']),
+				'token' => bin2hex(random_bytes(20)),
+			);
+			malwatch_insert_quarantine_job($app, $entry['server_id'], $options);
+		}
+		return count($valid);
+	}
+
+	$by_server = array();
+	foreach ($valid as $entry) {
+		if (!isset($by_server[$entry['server_id']])) {
+			$by_server[$entry['server_id']] = array();
+		}
+		$by_server[$entry['server_id']][] = $entry['entry_id'];
+	}
+	foreach ($by_server as $server_id => $group_ids) {
+		malwatch_insert_quarantine_job($app, $server_id, array('action' => $action, 'ids' => $group_ids));
+	}
+	return count($valid);
+}
+
+/**
+ * Inserts one malwatch_job row of kind 'quarantine'.
+ *
+ * parent_domain_id and domain stay empty on purpose: nothing reads them for
+ * this job kind once options['action'] is not 'add' - the runner works
+ * entirely from --id, and a job's ids can span more than one website anyway,
+ * so neither field could name a single one honestly.
+ */
+function malwatch_insert_quarantine_job($app, $server_id, array $options)
+{
+	$app->db->datalogInsert('malwatch_job', array(
+		'sys_userid' => $_SESSION['s']['user']['userid'],
+		'sys_groupid' => $app->functions->intval($_SESSION['s']['user']['default_group']),
+		'sys_perm_user' => 'riud',
+		'sys_perm_group' => 'r',
+		'sys_perm_other' => '',
+		'server_id' => $server_id,
+		'parent_domain_id' => 0,
+		'domain' => '',
+		'scan_path' => '',
+		'job_source' => 'manual',
+		'job_kind' => 'quarantine',
+		'job_status' => 'pending',
+		'options' => json_encode($options),
+		'created_at' => date('Y-m-d H:i:s'),
+	), 'job_id');
+}
+
 /** The directory of a website that actually holds the customer's files. */
 function malwatch_scan_path($web)
 {
@@ -226,6 +331,13 @@ function malwatch_schedule_label($wb, $schedule)
 	}
 	$key = 'schedule_' . (string) $schedule . '_txt';
 	return isset($wb[$key]) ? $wb[$key] : (string) $schedule;
+}
+
+/** How a quarantine entry got there: manual, auto or repair. */
+function malwatch_origin_label($wb, $origin)
+{
+	$key = 'origin_' . (string) $origin . '_txt';
+	return isset($wb[$key]) ? $wb[$key] : (string) $origin;
 }
 
 /** Bootstrap label class for a website state. */
@@ -416,6 +528,26 @@ function malwatch_duration($seconds)
 		return floor($seconds / 60) . ' min ' . ($seconds % 60) . ' s';
 	}
 	return floor($seconds / 3600) . ' h ' . floor(($seconds % 3600) / 60) . ' min';
+}
+
+/**
+ * Formats a byte count the way a human reads it: "169 B", "5,4 kB",
+ * "41,8 MB" - decimal units and a German comma, not the binary kind an
+ * administrator's tools would show.
+ */
+function malwatch_bytes($n)
+{
+	$n = (float) $n;
+	$units = array('B', 'kB', 'MB', 'GB', 'TB');
+	$i = 0;
+	while ($n >= 1000 && $i < count($units) - 1) {
+		$n /= 1000;
+		$i++;
+	}
+	if ($i === 0) {
+		return number_format($n, 0, ',', '.') . ' B';
+	}
+	return number_format($n, 1, ',', '.') . ' ' . $units[$i];
 }
 
 /**

@@ -1,0 +1,51 @@
+<?php
+$wb['lede_none_txt'] = 'Quarantine is empty.';
+$wb['lede_one_txt'] = 'One entry is in quarantine.';
+$wb['lede_many_txt'] = '%s entries are in quarantine.';
+$wb['sub_txt'] = 'Everything here is out of the website directory and no longer reachable — single files as well as whole directories a repair replaced. Nothing disappears on its own.';
+
+$wb['btn_restore_selected_txt'] = 'Restore selected';
+$wb['btn_download_selected_txt'] = 'Download selected';
+$wb['btn_delete_selected_txt'] = 'Delete selected for good';
+// {n} is left for the script, which only replaces this token when the
+// selection changes - the two %s are site-wide numbers that do not change as
+// boxes are checked, so PHP fills them in once.
+$wb['toolbar_selected_txt'] = '{n} of %s selected · %s used';
+
+$wb['col_what_txt'] = 'What';
+$wb['col_website_txt'] = 'Website';
+$wb['col_why_txt'] = 'Why';
+$wb['col_moved_txt'] = 'Moved';
+$wb['col_size_txt'] = 'Size';
+
+$wb['kind_file_txt'] = 'File';
+$wb['kind_dir_txt'] = 'Directory';
+
+$wb['origin_manual_txt'] = 'by you';
+$wb['origin_auto_txt'] = 'automatic';
+$wb['origin_repair_txt'] = 'repair';
+
+$wb['btn_restore_txt'] = 'Restore';
+$wb['btn_download_txt'] = 'Download';
+$wb['btn_delete_txt'] = 'Delete';
+$wb['dl_preparing_txt'] = 'preparing';
+$wb['dl_ready_txt'] = 'Download (%s)';
+
+$wb['footnote_zip_txt'] = 'Downloading gives you a password-protected ZIP.';
+$wb['footnote_zip_body_txt'] = 'Password %s — the convention security people use to send samples around. It keeps every virus scanner from grabbing the file in transit, and stops it from running anywhere by accident. Your own computer would otherwise pick it up exactly the way this server found it.';
+$wb['footnote_where_txt'] = 'Where does all this live?';
+$wb['footnote_where_body_txt'] = 'Under %s, readable only by root, outside every website directory. After 90 days the report reminds you to clean up — nothing gets deleted except what you delete here.';
+
+$wb['confirm_restore_selected_txt'] = 'Restore the selected entries onto the website? They may still hold malicious code that endangers the website again.';
+$wb['confirm_restore_one_txt'] = 'Restore this entry onto the website? It may still hold malicious code that endangers the website again.';
+$wb['confirm_delete_selected_txt'] = 'Permanently delete the selected entries from quarantine? This cannot be undone.';
+$wb['confirm_delete_one_txt'] = 'Permanently delete this entry from quarantine? This cannot be undone.';
+$wb['confirm_none_selected_txt'] = 'No entry was selected.';
+
+$wb['msg_restore_one_txt'] = 'The entry is being restored.';
+$wb['msg_restore_many_txt'] = '%s entries are being restored.';
+$wb['msg_delete_one_txt'] = 'The entry is being deleted for good.';
+$wb['msg_delete_many_txt'] = '%s entries are being deleted for good.';
+$wb['msg_download_one_txt'] = 'The ZIP is being prepared. Once it is ready, a link with its size appears next to this entry.';
+$wb['msg_download_many_txt'] = 'Each selected entry gets its own ZIP. As each one is ready, a link with its size appears next to it.';
+$wb['err_no_selection_txt'] = 'No entry was selected.';

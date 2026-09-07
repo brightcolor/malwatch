@@ -1,0 +1,51 @@
+<?php
+$wb['lede_none_txt'] = 'Die Quarantäne ist leer.';
+$wb['lede_one_txt'] = 'Ein Eintrag liegt in Quarantäne.';
+$wb['lede_many_txt'] = '%s Einträge liegen in Quarantäne.';
+$wb['sub_txt'] = 'Alles hier ist aus dem Webverzeichnis heraus und nicht mehr erreichbar — einzelne Dateien ebenso wie ganze Verzeichnisse, die eine Reparatur ersetzt hat. Von allein verschwindet nichts.';
+
+$wb['btn_restore_selected_txt'] = 'Ausgewählte zurückholen';
+$wb['btn_download_selected_txt'] = 'Ausgewählte herunterladen';
+$wb['btn_delete_selected_txt'] = 'Ausgewählte endgültig löschen';
+// {n} bleibt fuer das Skript stehen, das nur diesen Platzhalter ersetzt, wenn
+// sich die Auswahl aendert - die beiden %s sind Website-weite Zahlen, die
+// sich beim Anhaken nicht aendern, und werden deshalb einmalig von PHP gefuellt.
+$wb['toolbar_selected_txt'] = '{n} von %s ausgewählt · %s belegt';
+
+$wb['col_what_txt'] = 'Was';
+$wb['col_website_txt'] = 'Website';
+$wb['col_why_txt'] = 'Warum';
+$wb['col_moved_txt'] = 'Verschoben';
+$wb['col_size_txt'] = 'Größe';
+
+$wb['kind_file_txt'] = 'Datei';
+$wb['kind_dir_txt'] = 'Verzeichnis';
+
+$wb['origin_manual_txt'] = 'von Ihnen';
+$wb['origin_auto_txt'] = 'automatisch';
+$wb['origin_repair_txt'] = 'Reparatur';
+
+$wb['btn_restore_txt'] = 'Zurückholen';
+$wb['btn_download_txt'] = 'Herunterladen';
+$wb['btn_delete_txt'] = 'Löschen';
+$wb['dl_preparing_txt'] = 'wird vorbereitet';
+$wb['dl_ready_txt'] = 'Herunterladen (%s)';
+
+$wb['footnote_zip_txt'] = 'Herunterladen gibt ein passwortgeschütztes ZIP.';
+$wb['footnote_zip_body_txt'] = 'Passwort %s — die Übereinkunft, mit der Sicherheitsleute Proben verschicken. Das hält jeden Virenscanner davon ab, die Datei unterwegs wegzunehmen, und verhindert, dass sie irgendwo aus Versehen läuft. Ihr eigener Rechner wird sie sonst genauso einsammeln wie dieser Server sie gefunden hat.';
+$wb['footnote_where_txt'] = 'Wo liegt das alles?';
+$wb['footnote_where_body_txt'] = 'Unter %s, nur für root lesbar, außerhalb jedes Webverzeichnisses. Nach 90 Tagen erinnert der Bericht ans Aufräumen — gelöscht wird nur, was Sie hier löschen.';
+
+$wb['confirm_restore_selected_txt'] = 'Ausgewählte Einträge auf der Website wiederherstellen? Dort liegt möglicherweise Schadcode, der die Website erneut gefährdet.';
+$wb['confirm_restore_one_txt'] = 'Diesen Eintrag auf der Website wiederherstellen? Dort liegt möglicherweise Schadcode, der die Website erneut gefährdet.';
+$wb['confirm_delete_selected_txt'] = 'Ausgewählte Einträge endgültig aus der Quarantäne löschen? Das kann nicht rückgängig gemacht werden.';
+$wb['confirm_delete_one_txt'] = 'Diesen Eintrag endgültig aus der Quarantäne löschen? Das kann nicht rückgängig gemacht werden.';
+$wb['confirm_none_selected_txt'] = 'Es wurde kein Eintrag ausgewählt.';
+
+$wb['msg_restore_one_txt'] = 'Der Eintrag wird zurückgeholt.';
+$wb['msg_restore_many_txt'] = '%s Einträge werden zurückgeholt.';
+$wb['msg_delete_one_txt'] = 'Der Eintrag wird endgültig gelöscht.';
+$wb['msg_delete_many_txt'] = '%s Einträge werden endgültig gelöscht.';
+$wb['msg_download_one_txt'] = 'Das ZIP wird vorbereitet. Sobald es bereitliegt, erscheint bei diesem Eintrag ein Verweis mit der Größe.';
+$wb['msg_download_many_txt'] = 'Für jeden ausgewählten Eintrag entsteht ein eigenes ZIP. Sobald eines bereitliegt, erscheint bei ihm ein Verweis mit der Größe.';
+$wb['err_no_selection_txt'] = 'Es wurde kein Eintrag ausgewählt.';
