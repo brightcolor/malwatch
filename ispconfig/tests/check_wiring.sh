@@ -419,6 +419,24 @@ if ! grep -q '99' "$prog"; then
 	fail "malwatch_progress.php deckelt den Prozentwert nicht bei 99"
 fi
 
+# 28. DOMNodeRemoved ist ein Mutation Event, das Chrome seit Version 127
+#     abgeschaltet hat. Ein Abbruch, der daran haengt, greift nie - der Timer
+#     ueberlebt jede Navigation und zieht den Bediener aus jeder Seite zurueck.
+if grep -rn 'DOMNodeRemoved' "$root/interface" >/dev/null 2>&1; then
+	fail "DOMNodeRemoved wird noch benutzt, der Abbruch greift nicht"
+fi
+
+# 29. Ein loadContent im Takt laedt die ganze Seite neu und reisst den
+#     Bediener aus dem, was er gerade ansieht.
+if grep -rnE 'set(Timeout|Interval)[^;]*loadContent' "$root/interface" >/dev/null 2>&1; then
+	fail "eine Seite laedt sich im Takt selbst neu"
+fi
+
+# 30. Die Statusseite ist die Startseite des Moduls und muss existieren.
+if [ ! -f "$root/interface/status.php" ]; then
+	fail "interface/status.php fehlt, das Modul startet ins Leere"
+fi
+
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'
 fi

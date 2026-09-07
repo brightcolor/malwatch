@@ -1,0 +1,21 @@
+<?php
+$wb['page_head_txt'] = 'Status';
+$wb['attention_one_txt'] = 'One website needs your attention.';
+$wb['attention_many_txt'] = '%s websites need your attention.';
+$wb['all_clear_txt'] = 'All websites are clean.';
+$wb['as_of_txt'] = 'As of %s. The next check runs %s.';
+$wb['quiet_txt'] = '%s more websites are clean.';
+$wb['quiet_one_txt'] = 'One more website is clean.';
+$wb['show_all_txt'] = 'Show all';
+$wb['view_txt'] = 'View';
+$wb['scan_now_txt'] = 'Scan now';
+$wb['cancel_txt'] = 'Cancel';
+$wb['state_infected_txt'] = 'Infected';
+$wb['state_attention_txt'] = 'Needs review';
+$wb['state_running_txt'] = 'Being checked';
+$wb['state_clean_txt'] = 'Clean';
+$wb['never_scanned_txt'] = 'Never scanned.';
+$wb['findings_txt'] = '%s affected files, %s of them urgent.';
+$wb['findings_one_txt'] = 'One affected file.';
+$wb['last_scan_txt'] = 'Last scanned %s.';
+$wb['waiting_txt'] = 'Starting soon …';

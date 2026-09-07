@@ -30,7 +30,7 @@ $domain_id = isset($argv[1]) ? (int) $argv[1] : 0;
 $mw_page = isset($argv[2]) ? $argv[2] : '';
 
 $pages = array(
-	'malwatch_site_list.php',
+	'status.php',
 	'malwatch_site_show.php',
 	'malwatch_site_edit.php',
 	'malwatch_finding_list.php',

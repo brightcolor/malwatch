@@ -12,7 +12,7 @@ $form['db_table'] = 'malwatch_config';
 $form['db_table_idx'] = 'config_id';
 $form['db_history'] = 'no';
 $form['tab_default'] = 'settings';
-$form['list_default'] = 'malwatch_site_list.php';
+$form['list_default'] = 'status.php';
 $form['auth'] = 'no';
 
 $form['tabs']['settings'] = array(

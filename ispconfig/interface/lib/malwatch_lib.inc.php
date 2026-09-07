@@ -417,3 +417,98 @@ function malwatch_duration($seconds)
 	}
 	return floor($seconds / 3600) . ' h ' . floor(($seconds % 3600) / 60) . ' min';
 }
+
+/**
+ * Liefert die Websites, die etwas brauchen, und die Zahl der uebrigen.
+ *
+ * Reihenfolge: kritische Funde, dann laufende Pruefungen, dann hohe Funde.
+ * Wer morgens hinsieht, soll die dringendste Website oben finden und nicht
+ * suchen muessen.
+ */
+function malwatch_status_rows($app)
+{
+	$sql = "SELECT w.domain_id, w.domain,
+			COALESCE(f.total, 0) AS findings,
+			COALESCE(f.urgent, 0) AS urgent,
+			s.finished_at, s.files_scanned,
+			j.job_id AS running_job
+		FROM web_domain w
+		LEFT JOIN (
+			SELECT parent_domain_id,
+				COUNT(*) AS total,
+				SUM(severity = 'critical') AS urgent
+			FROM malwatch_finding
+			WHERE finding_state = 'open'
+			GROUP BY parent_domain_id
+		) f ON f.parent_domain_id = w.domain_id
+		LEFT JOIN malwatch_scan s ON s.scan_id = (
+			SELECT scan_id FROM malwatch_scan
+			WHERE parent_domain_id = w.domain_id
+				AND scan_state IN ('clean','findings','outdated')
+			ORDER BY scan_id DESC LIMIT 1
+		)
+		LEFT JOIN malwatch_job j ON j.job_id = (
+			SELECT job_id FROM malwatch_job
+			WHERE parent_domain_id = w.domain_id
+				AND job_status IN ('pending','running')
+			ORDER BY job_id DESC LIMIT 1
+		)
+		WHERE w.type IN ('vhost','vhostsubdomain','vhostalias') AND w.active = 'y'
+		ORDER BY COALESCE(f.urgent, 0) DESC, j.job_id DESC,
+			COALESCE(f.total, 0) DESC, w.domain ASC";
+
+	$all = $app->db->queryAllRecords($sql);
+	if (!is_array($all)) {
+		$all = array();
+	}
+
+	$attention = array();
+	$quiet = 0;
+	$newest = 0;
+
+	foreach ($all as $row) {
+		if (!empty($row['finished_at'])) {
+			$stamp = strtotime($row['finished_at']);
+			if ($stamp > $newest) {
+				$newest = $stamp;
+			}
+		}
+		$running  = intval($row['running_job']) > 0;
+		$findings = intval($row['findings']);
+		if (!$running && $findings < 1) {
+			$quiet++;
+			continue;
+		}
+		$row['is_running']  = $running ? 'y' : 'n';
+		$row['urgent']      = intval($row['urgent']);
+		$row['findings']    = $findings;
+		$row['state_class'] = $running ? 'busy' : ($row['urgent'] > 0 ? 'bad' : 'warn');
+		$attention[] = $row;
+	}
+
+	return array(
+		'attention'   => $attention,
+		'quiet_count' => $quiet,
+		'as_of'       => $newest ? malwatch_when($newest) : '—',
+		'next_run'    => 'heute Nacht um 03:00 Uhr',
+	);
+}
+
+/**
+ * Ein Zeitpunkt so, wie ein Mensch ihn sagt: "heute 03:14 Uhr", "gestern
+ * 21:12 Uhr", sonst "6. September, 21:12 Uhr".
+ */
+function malwatch_when($stamp)
+{
+	$monate = array('', 'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
+		'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember');
+	$heute  = strtotime('today');
+	$zeit   = date('H:i', $stamp) . ' Uhr';
+	if ($stamp >= $heute) {
+		return 'heute ' . $zeit;
+	}
+	if ($stamp >= $heute - 86400) {
+		return 'gestern ' . $zeit;
+	}
+	return intval(date('j', $stamp)) . '. ' . $monate[intval(date('n', $stamp))] . ', ' . $zeit;
+}
