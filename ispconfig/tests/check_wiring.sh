@@ -326,31 +326,50 @@ rm -f "$old_refs_file"
 # Suchmuster, die auf den alten Ort zeigen:
 # 1. check_module_permissions mit 'sites' oder "sites"
 # 2. Modulnamens-Wert als 'sites' oder "sites" in $_SESSION['s']['module']['name']
-# 3. 'sites' in der modules-Liste (z.B. 'modules' => '...sites...')
-# 4. 'sites' in startmodule-Wert (z.B. 'startmodule' => 'sites')
+#    oder $module['name'] - sowohl als Array-Literal ('name' => 'sites') als
+#    auch als direkte Zuweisung ($module['name'] = 'sites'). Die Zuweisungsform
+#    ist die, die interface/module.conf.php tatsaechlich benutzt
+#    ($module['name'] = 'security';); sie fehlte hier drei Runden lang, obwohl
+#    der Absatz oben sie schon immer als Beispiel nannte.
+# 3. 'sites' in der modules-Liste, als Array-Literal ('modules' => '...sites...')
+#    oder als Zuweisung ($x['modules'] = '...sites...')
+# 4. 'sites' im startmodule-Wert, als Array-Literal ('startmodule' => 'sites')
+#    oder als Zuweisung ($x['startmodule'] = 'sites')
 # 5. Benutzer-lesbarer Text "Websites > malwatch" oder "web/sites/"
 # 6. Direkter Pfad sites/malwatch oder web/sites/
 #
 # Schließe die check_wiring.sh Datei selbst aus (sie beschreibt in Kommentaren,
 # was sie sucht, und würde sich selbst finden).
-# Schließe auch SQL-Kontexte aus wie "COUNT(*) FROM malwatch_site AS sites".
+#
+# KEIN Ausschluss mehr fuer SQL-Kontexte wie "AS sites": der Fehlalarm, den er
+# vermeiden sollte (COUNT(*) FROM malwatch_site AS sites in
+# malwatch_config_edit.php), trifft auf keines der obigen Muster - ohne den
+# Filter bleibt diese Zeile schon unentdeckt (kein Treffer, grep endet mit 1).
+# Der Filter fing also nie den Fehlalarm, den es geben sollte, sondern nur
+# noch echte Treffer, die zufaellig auf derselben Zeile wie "AS sites" standen.
 
 grep -rn \
 	-e "check_module_permissions('sites')" \
 	-e 'check_module_permissions("sites")' \
 	-e "'name' *=> *'sites'" \
 	-e '"name" *=> *"sites"' \
+	-e "\['name'\] *= *'sites'" \
+	-e '\["name"\] *= *"sites"' \
 	-e "'modules' *=> *'[^']*sites" \
 	-e '"modules" *=> *"[^"]*sites' \
+	-e "\['modules'\] *= *'[^']*sites" \
+	-e '\["modules"\] *= *"[^"]*sites' \
 	-e "'startmodule' *=> *'sites'" \
 	-e '"startmodule" *=> *"sites"' \
+	-e "\['startmodule'\] *= *'sites'" \
+	-e '\["startmodule"\] *= *"sites"' \
 	-e "Websites > malwatch" \
 	-e "Websites.*module" \
 	-e "interface/web/sites" \
 	-e "web/sites/" \
 	-e "sites/malwatch" \
 	"$root" \
-	2>/dev/null | grep -v "^Binary" | grep -v "check_wiring.sh" | grep -v "AS sites" > "$old_refs_file" || true
+	2>/dev/null | grep -v "^Binary" | grep -v "check_wiring.sh" > "$old_refs_file" || true
 
 # Lese die Treffer und prüfe, ob sie Benutzertexte oder aktiven Code sind.
 # Kommentare und historische Erklärungen sind ok - Benutzertexte nicht.
