@@ -14,7 +14,7 @@
 # convention of relative includes (require_once '../../lib/config.inc.php'),
 # and behind a symlink PHP resolves those against the extension directory,
 # where interface/lib does not exist.
-c:interface/malwatch.menu.php:interface/web/sites/lib/menu.d/malwatch.menu.php
+c:interface/module.conf.php:interface/web/security/lib/module.conf.php
 
 c:interface/malwatch_site_list.php:interface/web/sites/malwatch_site_list.php
 c:interface/malwatch_progress.php:interface/web/sites/malwatch_progress.php

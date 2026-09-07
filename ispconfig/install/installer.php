@@ -36,10 +36,12 @@ class malwatch_installer extends extension_installer_base
 			$this->update_signatures();
 		}
 
+		$this->grant_module();
+
 		echo "\nmalwatch installed.\n\n";
 		echo "- The scanner is at " . self::BINARY_PATH . "\n";
 		echo "- Signatures and results are kept in " . self::STATE_DIR . "\n";
-		echo "- Open Websites > malwatch in the panel to configure it\n\n";
+		echo "- Open Security in the panel to configure it\n\n";
 
 		return true;
 	}
@@ -90,6 +92,7 @@ class malwatch_installer extends extension_installer_base
 
 		$app->log('malwatch: uninstall step started.', LOGLEVEL_DEBUG);
 		$this->disable($name);
+		$this->revoke_module();
 
 		// The tables are dropped here rather than through the framework.
 		// run_uninstall_sql() carries the same defect as its install
@@ -279,5 +282,65 @@ class malwatch_installer extends extension_installer_base
 			}
 		}
 		return '';
+	}
+
+	/**
+	 * Traegt das Modul bei jedem Administrator ein.
+	 *
+	 * Idempotent: ein zweiter Lauf schreibt nichts doppelt. Ohne diesen
+	 * Eintrag erscheint der Punkt in der oberen Leiste bei niemandem, weil
+	 * ISPConfig die Leiste aus sys_user.modules baut und nicht aus den
+	 * vorhandenen Verzeichnissen.
+	 */
+	private function grant_module()
+	{
+		global $app;
+
+		$rows = $app->db->queryAllRecords(
+			"SELECT userid, modules FROM sys_user WHERE typ = 'admin'"
+		);
+		if (!is_array($rows)) {
+			return;
+		}
+		foreach ($rows as $row) {
+			$modules = array_filter(explode(',', (string) $row['modules']));
+			if (in_array('security', $modules, true)) {
+				continue;
+			}
+			$modules[] = 'security';
+			$app->db->query(
+				'UPDATE sys_user SET modules = ? WHERE userid = ?',
+				implode(',', $modules), intval($row['userid'])
+			);
+			$app->log('malwatch: Modul security fuer Benutzer '
+				. intval($row['userid']) . ' eingetragen.', LOGLEVEL_DEBUG);
+		}
+	}
+
+	/**
+	 * Nimmt das Modul wieder heraus.
+	 *
+	 * Ein verwaister Eintrag zeigt einen Menuepunkt ohne Ziel, und der ist
+	 * schlimmer als gar keiner.
+	 */
+	private function revoke_module()
+	{
+		global $app;
+
+		$rows = $app->db->queryAllRecords('SELECT userid, modules FROM sys_user');
+		if (!is_array($rows)) {
+			return;
+		}
+		foreach ($rows as $row) {
+			$modules = array_filter(explode(',', (string) $row['modules']));
+			if (!in_array('security', $modules, true)) {
+				continue;
+			}
+			$modules = array_values(array_diff($modules, array('security')));
+			$app->db->query(
+				'UPDATE sys_user SET modules = ? WHERE userid = ?',
+				implode(',', $modules), intval($row['userid'])
+			);
+		}
 	}
 }

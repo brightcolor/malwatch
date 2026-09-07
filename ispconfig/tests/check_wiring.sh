@@ -277,6 +277,37 @@ if grep -q 'scan_state' "$runner"; then
 	rm -f "$tmp"
 fi
 
+# 23. Das Modul braucht eine module.conf.php mit Namen und Startseite, sonst
+#     erscheint der Punkt in der oberen Leiste ohne Inhalt.
+conf="$root/interface/module.conf.php"
+if [ ! -f "$conf" ]; then
+	fail "interface/module.conf.php fehlt, das Modul erscheint nicht"
+else
+	for key in "module\['name'\]" "module\['title'\]" "module\['startpage'\]"; do
+		if ! grep -qE "\\\$$key" "$conf"; then
+			fail "module.conf.php setzt \$$key nicht"
+		fi
+	done
+fi
+
+# 24. Der Installer muss das Modul in sys_user.modules eintragen und beim
+#     Deinstallieren wieder entfernen. Ohne den Eintrag sieht niemand den
+#     neuen Punkt, mit einem verwaisten Eintrag zeigt das Panel einen
+#     Menuepunkt ohne Ziel.
+inst="$root/install/installer.php"
+if ! grep -q 'sys_user' "$inst"; then
+	fail "der Installer traegt das Modul nicht in sys_user.modules ein"
+fi
+
+# 25. Die alte Menuedatei darf nicht mehr existieren, sonst steht das Addon
+#     doppelt im Panel - einmal oben und einmal in der Seitenleiste der Sites.
+if [ -f "$root/interface/malwatch.menu.php" ]; then
+	fail "interface/malwatch.menu.php ist noch da, das Addon stuende doppelt"
+fi
+if grep -q 'menu.d/malwatch.menu.php' "$root/install/file.list"; then
+	fail "file.list installiert noch die alte Menuedatei"
+fi
+
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'
 fi
