@@ -2,6 +2,43 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.8.2] – 2026-09-07
+
+### Neu
+
+Zwei Verschleierungsfamilien, die den Funktionsnamen auf Wegen verstecken, für
+die der Katalog keine Antwort hatte.
+
+**`php.obfuscation.xor_literal`** – das Wort `chr` schreiben, ohne es zu
+schreiben:
+
+```php
+$gdigop = 'gdigop' ^ "\x04\x0c\x1b";        // 'chr'
+$name   = "a"."r"."r".$gdigop(97)."\171";   // array_map
+```
+
+PHPs `^` verknüpft zwei Zeichenketten byteweise bis zur kürzeren, also lässt
+sich jedes Wort aus einer Attrappe und einer Maske bauen. Verräterisch ist die
+Maske: um auf druckbaren Buchstaben zu landen, muss sie Bytes unterhalb des
+Leerzeichens tragen. Tabulator, Zeilenumbruch und Wagenrücklauf sind
+ausgenommen — ohne diese Ausnahme meldete die Regel 58 Dateien eines frischen
+WordPress und 213 einer Installation mit 193.888 Dateien.
+
+**`php.obfuscation.substr_of_nothing`** – `substr("", 0)` ist der Leerstring,
+umständlich geschrieben. Er steht am Kopf eines Dekodierers, der Namen aus einem
+verwürfelten Alphabet liest. Die Tabelle selbst ist kein Muster, und der
+doppelte Index, der sie liest, steht in 723 Dateien einer ehrlichen
+Installation. Dieser Tick nicht.
+
+### Gemessen
+
+Beide vor dem Bauen gegen ein frisches WordPress, ein frisches Joomla, drei
+Kundensites und 193.888 Dateien einer vierten: null. Auf der befallenen Site 6
+und 7, und der siebte liegt in einem Plugin-Verzeichnis, abgelegt acht Tage
+nachdem der Ordner drumherum geschrieben wurde.
+
+Gemeldete Dateien dort: 392 auf 403. Saubere Mengen unverändert.
+
 ## [0.8.1] – 2026-09-07
 
 ### Behoben
