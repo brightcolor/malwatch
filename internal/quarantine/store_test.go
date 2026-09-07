@@ -302,6 +302,96 @@ func TestDeleteOfAnUnknownIDIsAnErrorNotASilentSuccess(t *testing.T) {
 	}
 }
 
+// TestStoreAndStoreCopyRejectARelPathOutsideTheRoot guards W2: RelPath went
+// straight into filepath.Join(src.Root, RelPath) with no check of its own,
+// so "" or "." resolved to src.Root itself - StoreCopy would archive the
+// entire web root, and Store would then os.RemoveAll it on top - while
+// "../.." walked out of the root entirely, packing and then deleting
+// whatever sat there instead. Every caller today happens to validate its own
+// input first, but the one function whose entire job is "do not lose a
+// file" must not depend on that staying true for whatever calls it next.
+func TestStoreAndStoreCopyRejectARelPathOutsideTheRoot(t *testing.T) {
+	funcs := []struct {
+		name string
+		call func(storeRoot string, src Source) (Entry, error)
+	}{
+		{"Store", Store},
+		{"StoreCopy", StoreCopy},
+	}
+	cases := []struct {
+		label string
+		rel   string
+	}{
+		{"empty", ""},
+		{"dot", "."},
+		{"dotdot", "../.."},
+	}
+	for _, fn := range funcs {
+		t.Run(fn.name, func(t *testing.T) {
+			for _, c := range cases {
+				t.Run(c.label, func(t *testing.T) {
+					root := t.TempDir()
+					marker := filepath.Join(root, "wp-content", "uploads", "keep.txt")
+					writeTestFile(t, marker, []byte("keep me"), 0o644)
+					storeRoot := t.TempDir()
+
+					if _, err := fn.call(storeRoot, Source{Root: root, RelPath: c.rel}); err == nil {
+						t.Fatalf("%s accepted RelPath=%q", fn.name, c.rel)
+					}
+					// The root, and what is in it, must still be exactly
+					// where it was - not archived, and certainly not removed.
+					if _, err := os.Stat(marker); err != nil {
+						t.Errorf("%s: a file inside the root is gone after a rejected RelPath=%q: %v", fn.name, c.rel, err)
+					}
+				})
+			}
+		})
+	}
+}
+
+// TestRestoreForceLeavesTheTargetAloneWhenThePayloadIsUnreadable guards W3:
+// Restore --force removed whatever occupied the target and only afterwards
+// tried to read the payload back, so a payload that turned out unreadable
+// after Store had already verified it once - a damaged disk, a half-copied
+// store - left the site with neither the live content nor the archived one.
+// The live content force is about to overwrite must survive a restore that
+// cannot complete.
+func TestRestoreForceLeavesTheTargetAloneWhenThePayloadIsUnreadable(t *testing.T) {
+	root := t.TempDir()
+	rel := "wp-content/uploads/note.txt"
+	full := filepath.Join(root, filepath.FromSlash(rel))
+	writeTestFile(t, full, []byte("QUARANTINED"), 0o644)
+	storeRoot := t.TempDir()
+
+	entry, err := Store(storeRoot, Source{Root: root, RelPath: rel})
+	if err != nil {
+		t.Fatalf("Store failed: %v", err)
+	}
+
+	// Something occupies the spot again by the time the operator reaches for
+	// --force - exactly the content Restore must not throw away on a whim.
+	live := []byte("LIVE CONTENT")
+	writeTestFile(t, full, live, 0o644)
+
+	// The payload turns unreadable after Store already verified it once;
+	// Store's own read-back could never have caught this.
+	if err := os.WriteFile(filepath.Join(storeRoot, entry.ID, payloadName), []byte("nicht mehr gzip"), 0o640); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := Restore(storeRoot, entry.ID, true); err == nil {
+		t.Fatal("Restore --force reported success although the payload was unreadable")
+	}
+
+	got, err := os.ReadFile(full)
+	if err != nil {
+		t.Fatalf("Restore --force removed the live target although the payload could not be read: %v", err)
+	}
+	if string(got) != string(live) {
+		t.Errorf("live content changed after a failed Restore --force: %q, want %q", got, live)
+	}
+}
+
 func TestTotalBytesSumsTheEntries(t *testing.T) {
 	entries := []Entry{{Bytes: 10}, {Bytes: 32}, {Bytes: 0}}
 	if got := TotalBytes(entries); got != 42 {

@@ -1,6 +1,8 @@
 package quarantine
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -149,5 +151,63 @@ func TestReadArchiveRestoresTheOriginalMode(t *testing.T) {
 	}
 	if info.Mode().Perm() != 0o600 {
 		t.Errorf("mode = %o, want 600", info.Mode().Perm())
+	}
+}
+
+// writeEvilTar builds a gzipped tar by hand, bypassing writeArchive - a
+// payload this package produced itself never contains a name like these, but
+// readArchive is the one place such a name has to be refused regardless of
+// how the tar came to exist. The payloads it reads back come off a website
+// that was compromised often enough to end up in quarantine in the first
+// place; nothing guarantees every one was written by this package's own
+// writeArchive.
+func writeEvilTar(t *testing.T, dst string, entries map[string]string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(dst), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	fh, err := os.Create(dst)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer fh.Close()
+	gz := gzip.NewWriter(fh)
+	tw := tar.NewWriter(gz)
+	for name, body := range entries {
+		if err := tw.WriteHeader(&tar.Header{
+			Typeflag: tar.TypeReg, Name: name, Mode: 0o644, Size: int64(len(body)),
+		}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := tw.Write([]byte(body)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := tw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := gz.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestReadArchiveRefusesAnEntryThatEscapesDestRoot guards W1: readArchive
+// joined a tar entry's name onto destRoot with filepath.Join, which cleans a
+// ".." away rather than refusing it, so an entry named "../escaped.txt"
+// landed one directory above destRoot with no error at all. Restore checked
+// only the nominal target built from meta.json, one path that is never the
+// one actually written to, so this was the only line of defence on the
+// unpack side - and it did not defend anything.
+func TestReadArchiveRefusesAnEntryThatEscapesDestRoot(t *testing.T) {
+	base := t.TempDir()
+	dest := filepath.Join(base, "web")
+	payload := filepath.Join(base, "payload.tar.gz")
+	writeEvilTar(t, payload, map[string]string{"../escaped.txt": "PWNED"})
+
+	if err := readArchive(payload, dest); err == nil {
+		t.Fatal("readArchive accepted a tar entry that climbs out of destRoot")
+	}
+	if _, err := os.Stat(filepath.Join(base, "escaped.txt")); !os.IsNotExist(err) {
+		t.Errorf("readArchive wrote outside destRoot despite refusing: stat err = %v", err)
 	}
 }
