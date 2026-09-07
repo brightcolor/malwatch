@@ -2,6 +2,30 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.9.2] – 2026-09-07
+
+### Geändert
+
+**Schaltflächen und Fortschritt stehen jetzt oben.** Beide lagen zwischen der
+Tabelle des letzten Laufs und der Fundliste und gingen dort unter. Die Aktionen
+stehen nun direkt unter der Überschrift, der Fortschritt darunter — beides das
+Erste, was man sieht.
+
+**Der Fortschritt zeigt die Phasen des Laufs, der wirklich läuft.** Ein Scan hat
+keine Reparaturphasen; „Erkennen · Holen · Prüfen · Sichern · Tauschen" während
+einer Prüfung anzuzeigen ließ sie aussehen wie eine Reparatur, die bei „Erkennen"
+hängt. Ein Scan zeigt jetzt „Dateien werden geprüft" mit Zähler und Prozentzahl,
+eine Reparatur ihre fünf Phasen mit der aktuellen hervorgehoben.
+
+**Der Balken bewegt sich auch bei einem Scan.** Er rechnete seine Breite nur aus
+`elements_done/elements_total` — Werte, die es nur bei einer Reparatur gibt — und
+fiel sonst auf feste fünf Prozent zurück. Jetzt nimmt er bei einem Scan
+`files_done/files_total`, gedeckelt bei 99 Prozent bis zur Fertigmeldung.
+
+Farben durchgehend aus den Theme-Variablen mit Rückfallwert, Radius 3px, das
+Laufprotokoll scrollt in eigenem Rahmen statt die Seite zu strecken. Die
+Phasennamen liegen in den Sprachdateien statt fest im Code.
+
 ## [0.9.1] – 2026-09-07
 
 ### Behoben

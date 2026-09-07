@@ -17,6 +17,207 @@
 	<div class="alert alert-info">{tmpl_var name='busy_hint_txt'}</div>
 </tmpl_if>
 
+<style>
+/* Alle Farben aus den Theme-Variablen, mit Rückfallwert: ein Teil der
+   Bediener sitzt auf default oder ispc-clean, die --cic-* nicht kennen.
+   --cic-warn ist bewusst nicht dabei, es ist fast identisch mit
+   --cic-accent; für den Warnzustand steht --cic-warn-lift. Radius 3px,
+   das Theme kennt genau einen. */
+#mw-actions{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin:0 0 14px}
+#mw-actions .mw-sep{flex:1 1 auto}
+#mw-run{
+	border:1px solid var(--cic-line-soft,#3c3c3b);border-left:3px solid var(--cic-accent,#dd630d);
+	border-radius:3px;background:var(--cic-raised,#292929);padding:13px 15px;margin:0 0 16px;
+}
+#mw-run .mw-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+#mw-run .mw-what{font-weight:600;font-size:14px;color:var(--cic-text-loud,#fff)}
+#mw-run .mw-pct{
+	margin-left:auto;font-size:13px;font-variant-numeric:tabular-nums;
+	color:var(--cic-accent-text,#ef7d21);font-weight:600;
+}
+#mw-run .mw-track{height:6px;border-radius:3px;background:var(--cic-line-soft,#3c3c3b);overflow:hidden}
+#mw-run .mw-fill{
+	height:100%;width:0;border-radius:3px;background:var(--cic-accent,#dd630d);
+	transition:width .5s linear;
+}
+#mw-run .mw-fill.mw-idle{width:100%;opacity:.3}
+#mw-run .mw-line{
+	margin:8px 0 0;font-size:12.5px;color:var(--cic-text-dim,#8b9298);
+	word-break:break-all;font-variant-numeric:tabular-nums;
+}
+#mw-run .mw-phases{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}
+#mw-run .mw-ph{
+	font-size:10.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;
+	padding:2px 7px;border-radius:3px;background:var(--cic-sunken,#151515);
+	color:var(--cic-text-dim,#8b9298);border:1px solid var(--cic-line-soft,#3c3c3b);
+}
+#mw-run .mw-ph.done{color:var(--cic-ok-text,#6cc82e);border-color:var(--cic-ok-mid,#2f8a0d)}
+#mw-run .mw-ph.now{background:var(--cic-accent,#dd630d);color:var(--cic-on-accent,#1c1c1c);border-color:var(--cic-accent,#dd630d)}
+#mw-run .mw-log{margin-top:10px;max-height:180px;overflow-y:auto}
+#mw-run .mw-log table{width:100%;font-size:12px}
+#mw-run .mw-log td{padding:2px 0;border:0;color:var(--cic-text-dim,#8b9298)}
+#mw-run .mw-log td.err{color:var(--cic-bad-text,#f0674a)}
+#mw-run .mw-log td.warn{color:var(--cic-warn-lift,#ef8a2b)}
+@media (prefers-reduced-motion:reduce){#mw-run .mw-fill{transition:none}}
+</style>
+
+<div id="mw-actions">
+	<button class="btn btn-default formbutton-default" type="button"
+		onclick="document.getElementById('malwatch_action').value='scan';"
+		data-submit-form="pageForm" data-form-action="security/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='scan_now_txt'}</button>
+	<button class="btn btn-default formbutton-default" type="button"
+		onclick="if(!confirm('{tmpl_var name='confirm_repair_txt'}')){event.stopPropagation();return false;} document.getElementById('malwatch_action').value='repair';"
+		data-submit-form="pageForm" data-form-action="security/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='repair_txt'}</button>
+	<button class="btn btn-default formbutton-default" type="button"
+		onclick="document.getElementById('malwatch_action').value='repair_dry';"
+		data-submit-form="pageForm" data-form-action="security/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='repair_dry_txt'}</button>
+	<tmpl_if name="has_findings">
+	<button class="btn btn-danger formbutton-default" type="button"
+		onclick="if(!confirm('{tmpl_var name='confirm_delete_all_txt'}')){event.stopPropagation();return false;} document.getElementById('malwatch_action').value='delete_all';"
+		data-submit-form="pageForm" data-form-action="security/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='delete_all_txt'}</button>
+	</tmpl_if>
+	<span class="mw-sep"></span>
+	<a class="btn btn-default formbutton-default" href="#" data-load-content="security/malwatch_site_edit.php?domain_id={tmpl_var name='domain_id'}">{tmpl_var name='settings_txt'}</a>
+	<tmpl_unless name="site_active">
+		<button class="btn btn-default formbutton-success" type="button"
+			onclick="if(!confirm('{tmpl_var name='confirm_enable_txt'}')){event.stopPropagation();return false;} document.getElementById('malwatch_action').value='enable_site';"
+			data-submit-form="pageForm" data-form-action="security/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='enable_site_txt'}</button>
+	</tmpl_unless>
+</div>
+
+<tmpl_if name="running_job_id">
+<div id="mw-run">
+	<div class="mw-head">
+		<span class="mw-what" id="mw-what">{tmpl_var name='progress_waiting_txt'}</span>
+		<span class="mw-pct" id="mw-pct"></span>
+	</div>
+	<div class="mw-phases" id="mw-phases"></div>
+	<div class="mw-track"><div class="mw-fill mw-idle" id="mw-bar"></div></div>
+	<p class="mw-line" id="mw-line">…</p>
+	<div class="mw-log" id="mw-logwrap"><table id="mw-log"><tbody></tbody></table></div>
+</div>
+<script>
+(function () {
+	// Frueher lud diese Seite sich bei laufender Pruefung staendig neu, weil
+	// der Abbruch an DOMNodeRemoved haengte - einem Mutation Event, das
+	// Chrome seit Version 127 abgeschaltet hat. Der Timer ueberlebte deshalb
+	// jede Navigation und riss den Bediener aus jedem einzelnen Fund zurueck.
+	var jobId = {tmpl_var name='running_job_id'};
+	var domainId = {tmpl_var name='domain_id'};
+	// Die fuenf Phasen gehoeren zur Reparatur. Ein Scan hat sie nicht, und sie
+	// trotzdem anzuzeigen hat einen laufenden Scan aussehen lassen wie eine
+	// Reparatur, die bei "Erkennen" haengt.
+	var repairPhases = ['{tmpl_var name="phase_detect_txt"}', '{tmpl_var name="phase_fetch_txt"}',
+		'{tmpl_var name="phase_verify_txt"}', '{tmpl_var name="phase_backup_txt"}',
+		'{tmpl_var name="phase_swap_txt"}'];
+	var scanningTxt = '{tmpl_var name="phase_scanning_txt"}';
+	var box = document.getElementById('mw-run');
+	var timer = null;
+
+	function stop() { if (timer) { clearInterval(timer); timer = null; } }
+
+	// MutationObserver statt DOMNodeRemoved: das Panel tauscht #pageContent
+	// aus, statt die Seite neu zu laden.
+	var host = document.getElementById('pageContent');
+	if (host && window.MutationObserver) {
+		new MutationObserver(function () {
+			if (!document.contains(box)) { stop(); }
+		}).observe(host, { childList: true, subtree: true });
+	}
+
+	function draw(d) {
+		var p = d.progress || {};
+		var isRepair = (d.kind === 'repair');
+		var bar = document.getElementById('mw-bar');
+		var pct = null;
+
+		if (isRepair && p.elements_total) {
+			pct = Math.round((p.elements_done || 0) * 100 / p.elements_total);
+		} else if (!isRepair && p.files_total) {
+			pct = Math.round((p.files_done || 0) * 100 / p.files_total);
+		}
+		if (pct !== null) {
+			// Der Erwartungswert ist eine Schaetzung aus dem letzten Lauf; eine
+			// Website waechst dazwischen. Bei 99 deckeln, bis der Lauf fertig
+			// meldet - ein Balken bei 140 Prozent ist schlimmer als keiner.
+			if (pct > 99) { pct = 99; }
+			if (pct < 0) { pct = 0; }
+			if (d.state === 'done') { pct = 100; }
+			bar.className = 'mw-fill';
+			bar.style.width = pct + '%';
+			document.getElementById('mw-pct').textContent = pct + ' %';
+		} else {
+			bar.className = 'mw-fill mw-idle';
+			document.getElementById('mw-pct').textContent = '';
+		}
+
+		var ph = document.getElementById('mw-phases');
+		if (isRepair) {
+			ph.innerHTML = repairPhases.map(function (n, i) {
+				var c = (i + 1) < (p.phase_index || 0) ? 'done'
+					: (i + 1) === (p.phase_index || 0) ? 'now' : '';
+				return '<span class="mw-ph ' + c + '">' + n + '</span>';
+			}).join('');
+			document.getElementById('mw-what').textContent =
+				repairPhases[(p.phase_index || 1) - 1] || repairPhases[0];
+		} else {
+			ph.innerHTML = '';
+			document.getElementById('mw-what').textContent = scanningTxt;
+		}
+
+		var parts = [];
+		var el = p.element || {};
+		if (el.slug) { parts.push(el.kind + ' ' + el.slug + ' ' + el.version); }
+		if (p.files_total) {
+			parts.push(p.files_done.toLocaleString('de-DE') + ' von ' + p.files_total.toLocaleString('de-DE'));
+		} else if (p.files_done) {
+			parts.push(p.files_done.toLocaleString('de-DE'));
+		}
+		if (p.elements_total) { parts.push(p.elements_done + '/' + p.elements_total); }
+		if (p.file) { parts.push(p.file); }
+		document.getElementById('mw-line').textContent = parts.join(' · ') || '…';
+
+		var rows = (p.log || []).slice(-12).reverse().map(function (l) {
+			var c = l.level === 'error' ? 'err' : l.level === 'warn' ? 'warn' : '';
+			return '<tr><td class="' + c + '">' + l.text + '</td></tr>';
+		}).join('');
+		document.getElementById('mw-log').getElementsByTagName('tbody')[0].innerHTML = rows;
+		document.getElementById('mw-logwrap').style.display = rows ? '' : 'none';
+	}
+
+	function poll() {
+		// Der zweite Schutz: auch wenn der Beobachter versagt, schreibt der
+		// Takt nur noch, solange die Seite wirklich da ist.
+		if (!document.contains(box)) { stop(); return; }
+		var xhr = new XMLHttpRequest();
+		xhr.open('GET', 'security/malwatch_progress.php?job_id=' + jobId, true);
+		xhr.onload = function () {
+			// Zwischen dem Absenden und der Antwort kann der Bediener laengst
+			// weitergeklickt haben. Ohne diese Pruefung ruft der Rueckruf
+			// unbedingt loadContent() auf, die spaeter aufloesende Navigation
+			// gewinnt, und er sitzt wieder auf der Detailseite - genau die
+			// Beschwerde, um die es hier geht.
+			if (!document.contains(box)) { stop(); return; }
+			var d;
+			try { d = JSON.parse(xhr.responseText); } catch (e) { stop(); return; }
+			draw(d);
+			// Ist der Lauf vorbei, muss die Seite ohnehin neu geholt werden:
+			// Funde und Bericht entstehen erst, wenn der Cron sie eingelesen hat.
+			if (d.state === 'done' || d.state === 'error' || d.state === 'none') {
+				stop();
+				ISPConfig.loadContent('security/malwatch_site_show.php?id=' + domainId);
+			}
+		};
+		xhr.onerror = stop;
+		xhr.send();
+	}
+
+	poll();
+	timer = setInterval(poll, 2000);
+})();
+</script>
+</tmpl_if>
+
 <p class="fieldset-legend">{tmpl_var name='last_scan_txt'}</p>
 <div class="table-wrapper marginTop15">
 <table class="table">
@@ -53,117 +254,6 @@
 -->
 <input type="hidden" name="malwatch_action" id="malwatch_action" value="" />
 
-<div class="marginTop15 marginBottom15">
-<tmpl_if name="running_job_id">
-<div id="mw-progress" class="marginTop15 marginBottom15">
-	<div id="mw-phases" class="marginBottom5"></div>
-	<div class="progress" style="height:16px;margin-bottom:6px">
-		<div id="mw-bar" class="progress-bar progress-bar-striped active" style="width:0%"></div>
-	</div>
-	<p id="mw-line"><small>{tmpl_var name='progress_waiting_txt'}</small></p>
-	<div class="table-wrapper"><table class="table" id="mw-log"><tbody></tbody></table></div>
-</div>
-<script>
-(function () {
-	// Frueher lud diese Seite sich bei laufender Pruefung staendig neu, weil
-	// der Abbruch an DOMNodeRemoved haengte - einem Mutation Event, das
-	// Chrome seit Version 127 abgeschaltet hat. Der Timer ueberlebte deshalb
-	// jede Navigation und riss den Bediener aus jedem einzelnen Fund
-	// zurueck in die Liste.
-	var jobId = {tmpl_var name='running_job_id'};
-	var domainId = {tmpl_var name='domain_id'};
-	var names = ['Erkennen', 'Holen', 'Prüfen', 'Sichern', 'Tauschen'];
-	var box = document.getElementById('mw-progress');
-	var timer = null;
-
-	function stop() { if (timer) { clearInterval(timer); timer = null; } }
-
-	// MutationObserver statt DOMNodeRemoved: das Panel tauscht #pageContent
-	// aus, statt die Seite neu zu laden.
-	var host = document.getElementById('pageContent');
-	if (host && window.MutationObserver) {
-		new MutationObserver(function () {
-			if (!document.contains(box)) { stop(); }
-		}).observe(host, { childList: true, subtree: true });
-	}
-
-	function draw(d) {
-		var p = d.progress || {};
-		var done = p.elements_done || 0, total = p.elements_total || 0;
-		document.getElementById('mw-bar').style.width = (total ? Math.round(done * 100 / total) : 5) + '%';
-		document.getElementById('mw-phases').innerHTML = names.map(function (n, i) {
-			var c = (i + 1) < (p.phase_index || 0) ? 'label-success'
-				: (i + 1) === (p.phase_index || 0) ? 'label-primary' : 'label-default';
-			return '<span class="label ' + c + '">' + n + '</span> ';
-		}).join('');
-		var el = p.element || {};
-		var line = el.slug ? el.kind + ' ' + el.slug + ' ' + el.version : (el.kind || '');
-		if (p.files_total) { line += ' · Datei ' + p.files_done + ' von ' + p.files_total; }
-		if (total) { line += ' · Element ' + done + ' von ' + total; }
-		if (p.file) { line += ' · ' + p.file; }
-		document.getElementById('mw-line').innerHTML = '<small>' + (line || '…') + '</small>';
-		var rows = (p.log || []).slice(-12).reverse().map(function (l) {
-			var c = l.level === 'error' ? 'text-danger' : l.level === 'warn' ? 'text-warning' : '';
-			return '<tr><td class="' + c + '" style="padding:2px 8px"><small>' + l.text + '</small></td></tr>';
-		}).join('');
-		document.getElementById('mw-log').getElementsByTagName('tbody')[0].innerHTML = rows;
-	}
-
-	function poll() {
-		// Der zweite Schutz: auch wenn der Beobachter versagt, schreibt der
-		// Takt nur noch, solange die Seite wirklich da ist.
-		if (!document.contains(box)) { stop(); return; }
-		var xhr = new XMLHttpRequest();
-		xhr.open('GET', 'security/malwatch_progress.php?job_id=' + jobId, true);
-		xhr.onload = function () {
-			// Dieselbe Zeile wie in poll() und wie in status.htm, und hier die
-			// wichtigste: zwischen dem Absenden und der Antwort kann der
-			// Bediener laengst weitergeklickt haben. Ohne die Pruefung ruft der
-			// Rueckruf unbedingt loadContent() auf, die spaeter aufloesende
-			// Navigation gewinnt, und er sitzt wieder auf der Detailseite -
-			// genau die Beschwerde, um die es hier geht.
-			if (!document.contains(box)) { stop(); return; }
-			var d;
-			try { d = JSON.parse(xhr.responseText); } catch (e) { stop(); return; }
-			draw(d);
-			// Once the job is over the page has to be fetched again anyway:
-			// findings and report only exist after the cron read them in.
-			if (d.state === 'done' || d.state === 'error' || d.state === 'none') {
-				stop();
-				ISPConfig.loadContent('security/malwatch_site_show.php?id=' + domainId);
-			}
-		};
-		xhr.onerror = stop;
-		xhr.send();
-	}
-
-	poll();
-	timer = setInterval(poll, 2000);
-})();
-</script>
-</tmpl_if>
-
-	<button class="btn btn-default formbutton-default" type="button"
-		onclick="document.getElementById('malwatch_action').value='scan';"
-		data-submit-form="pageForm" data-form-action="security/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='scan_now_txt'}</button>
-<button class="btn btn-default formbutton-default" type="button"
-		onclick="if(!confirm('{tmpl_var name='confirm_repair_txt'}')){event.stopPropagation();return false;} document.getElementById('malwatch_action').value='repair';"
-		data-submit-form="pageForm" data-form-action="security/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='repair_txt'}</button>
-	<button class="btn btn-default formbutton-default" type="button"
-		onclick="document.getElementById('malwatch_action').value='repair_dry';"
-		data-submit-form="pageForm" data-form-action="security/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='repair_dry_txt'}</button>
-	<tmpl_if name="has_findings">
-	<button class="btn btn-danger formbutton-default" type="button"
-		onclick="if(!confirm('{tmpl_var name='confirm_delete_all_txt'}')){event.stopPropagation();return false;} document.getElementById('malwatch_action').value='delete_all';"
-		data-submit-form="pageForm" data-form-action="security/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='delete_all_txt'}</button>
-	</tmpl_if>
-	<a class="btn btn-default formbutton-default" href="#" data-load-content="security/malwatch_site_edit.php?domain_id={tmpl_var name='domain_id'}">{tmpl_var name='settings_txt'}</a>
-	<tmpl_unless name="site_active">
-		<button class="btn btn-default formbutton-success" type="button"
-			onclick="if(!confirm('{tmpl_var name='confirm_enable_txt'}')){event.stopPropagation();return false;} document.getElementById('malwatch_action').value='enable_site';"
-			data-submit-form="pageForm" data-form-action="security/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='enable_site_txt'}</button>
-	</tmpl_unless>
-</div>
 
 <p class="fieldset-legend">{tmpl_var name='findings_txt'}</p>
 <tmpl_if name="has_findings">
