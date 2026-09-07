@@ -279,7 +279,12 @@ class malwatch_ingest
 			$seen[$entry_id] = true;
 
 			if (isset($known[$entry_id])) {
-				// Already indexed - left alone on purpose, see above.
+				// Refreshed, not left alone: a row inserted from a repair
+				// report knows only the entry id, so its size and reason stay
+				// at zero until a listing fills them in - and those rows are
+				// the big ones. What must survive an update is the export
+				// state, because a download may be waiting on that token.
+				$this->update_quarantine_row($server_id, $entry);
 				continue;
 			}
 			$this->insert_quarantine_row($server_id, $entry);
@@ -292,6 +297,32 @@ class malwatch_ingest
 					$server_id, $entry_id);
 			}
 		}
+	}
+
+	/**
+	 * Brings an indexed row up to date with the store's own listing.
+	 *
+	 * Everything the store knows is authoritative; export_token, export_bytes
+	 * and export_ready_at are not its business and stay where they are.
+	 */
+	private function update_quarantine_row($server_id, $entry)
+	{
+		global $app;
+
+		$app->dbmaster->query(
+			'UPDATE malwatch_quarantine SET entry_kind = ?, rel_path = ?, origin = ?, reason = ?, '
+			. 'rule_id = ?, severity = ?, files = ?, bytes = ?, archive_bytes = ? '
+			. 'WHERE server_id = ? AND entry_id = ?',
+			(string) (isset($entry['entry_kind']) ? $entry['entry_kind'] : 'file'),
+			substr((string) (isset($entry['rel_path']) ? $entry['rel_path'] : ''), 0, 1024),
+			(string) (isset($entry['origin']) ? $entry['origin'] : 'manual'),
+			substr((string) (isset($entry['reason']) ? $entry['reason'] : ''), 0, 255),
+			(string) (isset($entry['rule_id']) ? $entry['rule_id'] : ''),
+			substr((string) (isset($entry['severity']) ? $entry['severity'] : ''), 0, 10),
+			intval(isset($entry['files']) ? $entry['files'] : 0),
+			intval(isset($entry['bytes']) ? $entry['bytes'] : 0),
+			intval(isset($entry['archive_bytes']) ? $entry['archive_bytes'] : 0),
+			intval($server_id), (string) $entry['id']);
 	}
 
 	/** Inserts one row from a store entry, as the scanner's report describes it. */
@@ -310,8 +341,8 @@ class malwatch_ingest
 		$app->dbmaster->query(
 			'INSERT INTO malwatch_quarantine (sys_userid, sys_groupid, sys_perm_user, sys_perm_group, '
 			. 'sys_perm_other, server_id, parent_domain_id, domain, entry_id, entry_kind, rel_path, '
-			. 'origin, reason, rule_id, severity, files, bytes, created_at) '
-			. "VALUES (1, ?, 'riud', 'r', '', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+			. 'origin, reason, rule_id, severity, files, bytes, archive_bytes, created_at) '
+			. "VALUES (1, ?, 'riud', 'r', '', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 			$sys_groupid, $server_id, $parent_domain_id, $domain,
 			(string) (isset($entry['id']) ? $entry['id'] : ''),
 			(string) (isset($entry['entry_kind']) ? $entry['entry_kind'] : 'file'),
@@ -322,6 +353,7 @@ class malwatch_ingest
 			substr((string) (isset($entry['severity']) ? $entry['severity'] : ''), 0, 10),
 			intval(isset($entry['files']) ? $entry['files'] : 0),
 			intval(isset($entry['bytes']) ? $entry['bytes'] : 0),
+			intval(isset($entry['archive_bytes']) ? $entry['archive_bytes'] : 0),
 			$this->to_datetime(isset($entry['created_at']) ? $entry['created_at'] : ''));
 	}
 
@@ -338,8 +370,7 @@ class malwatch_ingest
 
 		$token = isset($options['token']) ? (string) $options['token'] : '';
 		$ids = isset($options['ids']) && is_array($options['ids']) ? $options['ids'] : array();
-		$entry_id = isset($ids[0]) ? (string) $ids[0] : '';
-		if ($token === '' || $entry_id === '') {
+		if ($token === '' || count($ids) === 0) {
 			return;
 		}
 
@@ -351,10 +382,21 @@ class malwatch_ingest
 			return;
 		}
 
-		$app->dbmaster->query(
-			'UPDATE malwatch_quarantine SET export_token = ?, export_bytes = ?, export_ready_at = NOW() '
-			. 'WHERE server_id = ? AND entry_id = ?',
-			$token, filesize($zip), $server_id, $entry_id);
+		// One ZIP holds the whole selection, so every row of that selection
+		// carries the same token: whichever row the operator clicks, the same
+		// file comes back, and clearing one token after the download clears
+		// the offer everywhere it was shown.
+		$bytes = filesize($zip);
+		foreach ($ids as $entry_id) {
+			$entry_id = (string) $entry_id;
+			if ($entry_id === '') {
+				continue;
+			}
+			$app->dbmaster->query(
+				'UPDATE malwatch_quarantine SET export_token = ?, export_bytes = ?, export_ready_at = NOW() '
+				. 'WHERE server_id = ? AND entry_id = ?',
+				$token, $bytes, $server_id, $entry_id);
+		}
 	}
 
 	private function store_scan($job, $report, $sys_groupid)

@@ -35,9 +35,8 @@ class malwatch_runner
 
 		$state_dir = rtrim((string) $config['state_dir'], '/');
 		$runs_dir = $state_dir . '/runs';
-		if (!is_dir($runs_dir)) {
-			@mkdir($runs_dir, 0750, true);
-		}
+		$this->ensure_shared_dir($runs_dir);
+		$this->ensure_shared_dir($state_dir . '/spool');
 		$result_file = $runs_dir . '/job-' . intval($job['job_id']) . '.json';
 		$log_file = $runs_dir . '/job-' . intval($job['job_id']) . '.log';
 		$done_file = $this->done_file($result_file);
@@ -82,6 +81,31 @@ class malwatch_runner
 
 		$helper->log('scan started for ' . $job['domain'] . ' (job ' . $job['job_id'] . ', pid ' . $pid . ')', LOGLEVEL_DEBUG);
 		return true;
+	}
+
+	/**
+	 * Creates a directory the interface has to be able to read.
+	 *
+	 * The installer sets these up, but a job may arrive before an upgrade has
+	 * run, and a directory created here with the plain 0750 the old code used
+	 * would be root-only - which is exactly how the progress counter came to
+	 * show zero files on a live install for a whole release. Setgid so new
+	 * files inherit the group instead of being root:root one by one.
+	 */
+	private function ensure_shared_dir($dir)
+	{
+		if (is_dir($dir)) {
+			return;
+		}
+		if (!@mkdir($dir, 02750, true)) {
+			return;
+		}
+		@chmod($dir, 02750);
+		foreach (array('ispconfig', 'ispapps', 'www-data') as $group) {
+			if (@chgrp($dir, $group)) {
+				break;
+			}
+		}
 	}
 
 	/** Assembles the scanner arguments for one job. */

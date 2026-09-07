@@ -368,6 +368,11 @@ CREATE TABLE IF NOT EXISTS `malwatch_quarantine` (
   `severity` varchar(10) NOT NULL DEFAULT '',
   `files` int(11) unsigned NOT NULL DEFAULT '0',
   `bytes` bigint(20) unsigned NOT NULL DEFAULT '0',
+  -- Zwei Größen, weil zwei Fragen: `bytes` ist, was der Eintrag im
+  -- Webverzeichnis gewogen hat - die Zahl, die ein Mensch wiedererkennt -,
+  -- `archive_bytes` ist, was er gepackt auf der Platte belegt. Wer aufräumt,
+  -- braucht die zweite; wer entscheidet, ob er etwas zurückholt, die erste.
+  `archive_bytes` bigint(20) unsigned NOT NULL DEFAULT '0',
   `created_at` datetime DEFAULT NULL,
   `export_token` varchar(64) NOT NULL DEFAULT '',
   `export_bytes` bigint(20) unsigned NOT NULL DEFAULT '0',
