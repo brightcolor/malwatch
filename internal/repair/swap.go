@@ -10,21 +10,28 @@ import (
 // Owner, group and mode are read off the tree being replaced rather than set
 // to a default: a tree owned by root leaves the site on 500 or hands it the
 // wrong write rights, and a fixed default would soften a hardened install.
+//
+// oldDir missing outright is not an error: a repair now quarantines it first,
+// which already removed it, and there is simply nothing left to read a mode
+// from or to remove before the new tree goes in its place.
 func Swap(root, oldDir, newDir string) error {
 	if err := InsideRoot(root, oldDir); err != nil {
 		return err
 	}
 
-	info, err := os.Stat(oldDir)
-	if err != nil {
+	mode := os.FileMode(0o755)
+	uid, gid := -1, -1
+	switch info, err := os.Stat(oldDir); {
+	case err == nil:
+		mode = info.Mode().Perm()
+		uid, gid = ownerOf(info)
+		if err := os.RemoveAll(oldDir); err != nil {
+			return err
+		}
+	case !os.IsNotExist(err):
 		return err
 	}
-	mode := info.Mode().Perm()
-	uid, gid := ownerOf(info)
 
-	if err := os.RemoveAll(oldDir); err != nil {
-		return err
-	}
 	if err := os.Rename(newDir, oldDir); err != nil {
 		// Rename fails across devices, and the staging area may well live on
 		// another filesystem than the customer tree.

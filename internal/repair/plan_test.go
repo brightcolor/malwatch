@@ -96,3 +96,41 @@ func TestBuildPlanReportsAProductItCannotRestore(t *testing.T) {
 		t.Errorf("joomla is not reported: %v", plan.Untouched)
 	}
 }
+
+func TestPlanFilterNarrowsToTheNamedKindAndSlug(t *testing.T) {
+	plan, err := BuildPlan(fakeWordPress(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	filtered, err := plan.Filter([]string{"plugin:akismet"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(filtered.Elements) != 1 || filtered.Elements[0].Slug != "akismet" {
+		t.Errorf("Filter did not narrow to plugin:akismet: %+v", filtered.Elements)
+	}
+}
+
+func TestPlanFilterWithoutOnlyKeepsEverything(t *testing.T) {
+	plan, err := BuildPlan(fakeWordPress(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	filtered, err := plan.Filter(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(filtered.Elements) != len(plan.Elements) {
+		t.Errorf("an empty Only changed the element count: %d vs %d", len(filtered.Elements), len(plan.Elements))
+	}
+}
+
+func TestPlanFilterRefusesANameThatMatchesNothing(t *testing.T) {
+	plan, err := BuildPlan(fakeWordPress(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := plan.Filter([]string{"plugin:tippfehler"}); err == nil {
+		t.Fatal("a name matching no element was accepted silently")
+	}
+}

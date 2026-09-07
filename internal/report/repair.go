@@ -17,9 +17,16 @@ type RepairOutcome string
 const (
 	// OutcomeReplaced means the vendor's own files are back in place.
 	OutcomeReplaced RepairOutcome = "replaced"
+	// OutcomeOverlaid means the vendor's files were copied over the existing
+	// tree without removing what was already there.
+	OutcomeOverlaid RepairOutcome = "overlaid"
 	// OutcomeDeleted means the directory went without a replacement, because
-	// the vendor does not publish that version.
+	// the vendor does not publish that version, and --no-original=quarantine
+	// was in effect.
 	OutcomeDeleted RepairOutcome = "deleted-no-origin"
+	// OutcomeKept means the vendor does not publish that version and
+	// --no-original=keep left the element exactly as it was.
+	OutcomeKept RepairOutcome = "kept"
 	// OutcomeFailed means the exchange broke off part way.
 	OutcomeFailed RepairOutcome = "failed"
 	// OutcomeSkipped means the element was left as it was.
@@ -28,15 +35,16 @@ const (
 
 // RepairElement is what happened to one core, plugin or theme.
 type RepairElement struct {
-	Kind    string        `json:"kind"`
-	Slug    string        `json:"slug,omitempty"`
-	Version string        `json:"version"`
-	Locale  string        `json:"locale,omitempty"`
-	Path    string        `json:"path"`
-	Outcome RepairOutcome `json:"outcome"`
-	Files   int           `json:"files"`
-	Backup  string        `json:"backup,omitempty"`
-	Message string        `json:"message,omitempty"`
+	Kind         string        `json:"kind"`
+	Slug         string        `json:"slug,omitempty"`
+	Version      string        `json:"version"`
+	Locale       string        `json:"locale,omitempty"`
+	Path         string        `json:"path"`
+	Outcome      RepairOutcome `json:"outcome"`
+	Files        int           `json:"files"`
+	QuarantineID string        `json:"quarantine_id,omitempty"`
+	Backup       string        `json:"backup,omitempty"`
+	Message      string        `json:"message,omitempty"`
 }
 
 // Repair is the report of one run.
@@ -47,6 +55,7 @@ type Repair struct {
 	FinishedAt time.Time           `json:"finished_at"`
 	Root       string              `json:"root"`
 	DryRun     bool                `json:"dry_run"`
+	Mode       string              `json:"mode"`
 	BackupDir  string              `json:"backup_dir,omitempty"`
 	Elements   []RepairElement     `json:"elements"`
 	Untouched  []string            `json:"untouched"`
@@ -68,8 +77,8 @@ func NewRepair(root string) *Repair {
 	}
 }
 
-// ExitCode is 0 when everything came back, 2 when something was deleted
-// without a replacement, and 3 when the run itself failed.
+// ExitCode is 0 when everything came back, 2 when something was deleted or
+// left in place without a replacement, and 3 when the run itself failed.
 func (r *Repair) ExitCode() int {
 	if len(r.Errors) > 0 {
 		return 3
@@ -80,7 +89,7 @@ func (r *Repair) ExitCode() int {
 		}
 	}
 	for _, e := range r.Elements {
-		if e.Outcome == OutcomeDeleted {
+		if e.Outcome == OutcomeDeleted || e.Outcome == OutcomeKept {
 			return 2
 		}
 	}
@@ -115,8 +124,12 @@ func (r *Repair) WriteText(w io.Writer) error {
 			switch e.Outcome {
 			case OutcomeReplaced:
 				fmt.Fprintf(&b, "  würde ersetzen  %s %s\n", name, e.Version)
+			case OutcomeOverlaid:
+				fmt.Fprintf(&b, "  würde überlagern %s %s\n", name, e.Version)
 			case OutcomeDeleted:
 				fmt.Fprintf(&b, "  WÜRDE LÖSCHEN   %s %s - kein Original verfügbar\n", name, e.Version)
+			case OutcomeKept:
+				fmt.Fprintf(&b, "  bliebe stehen   %s %s - kein Original verfügbar\n", name, e.Version)
 			default:
 				fmt.Fprintf(&b, "  unverändert     %s %s - %s\n", name, e.Version, e.Message)
 			}
@@ -126,18 +139,25 @@ func (r *Repair) WriteText(w io.Writer) error {
 		switch e.Outcome {
 		case OutcomeReplaced:
 			fmt.Fprintf(&b, "  ersetzt       %s %s (%d Dateien)\n", name, e.Version, e.Files)
+		case OutcomeOverlaid:
+			fmt.Fprintf(&b, "  überlagert    %s %s (%d Dateien)\n", name, e.Version, e.Files)
 		case OutcomeDeleted:
 			fmt.Fprintf(&b, "  GELÖSCHT      %s %s - kein Original verfügbar\n", name, e.Version)
-			if e.Backup != "" {
-				fmt.Fprintf(&b, "                Sicherung: %s\n", e.Backup)
-			}
+		case OutcomeKept:
+			fmt.Fprintf(&b, "  BEHALTEN      %s %s - kein Original verfügbar\n", name, e.Version)
 		case OutcomeFailed:
 			fmt.Fprintf(&b, "  FEHLER        %s %s - %s\n", name, e.Version, e.Message)
-			if e.Backup != "" {
-				fmt.Fprintf(&b, "                Sicherung: %s\n", e.Backup)
-			}
 		case OutcomeSkipped:
 			fmt.Fprintf(&b, "  übersprungen  %s %s - %s\n", name, e.Version, e.Message)
+		}
+		// Whatever was archived is named regardless of outcome: a failed swap
+		// still quarantined the tree it was about to replace, and that is
+		// exactly the run where the operator most needs to find it again.
+		if e.QuarantineID != "" {
+			fmt.Fprintf(&b, "                Quarantäne: %s\n", e.QuarantineID)
+		}
+		if e.Backup != "" {
+			fmt.Fprintf(&b, "                Sicherung: %s\n", e.Backup)
 		}
 	}
 

@@ -10,7 +10,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/brightcolor/malwatch/internal/repair"
+	"github.com/brightcolor/malwatch/internal/safepath"
 )
 
 const entrySchema = 1
@@ -189,7 +189,7 @@ func Get(storeRoot, id string) (Entry, error) {
 
 // Restore puts an entry's content back at Root+RelPath.
 //
-// The target is checked with repair.InsideRoot before anything is written:
+// The target is checked with safepath.InsideRoot before anything is written:
 // RelPath ultimately comes from a scan finding, and a symlink planted at
 // that spot must not be able to steer the restore anywhere outside Root.
 // Without force, an occupied target is left alone; with force, it is
@@ -201,7 +201,7 @@ func Restore(storeRoot, id string, force bool) error {
 		return err
 	}
 	target := filepath.Join(entry.Root, filepath.FromSlash(entry.RelPath))
-	if err := repair.InsideRoot(entry.Root, target); err != nil {
+	if err := safepath.InsideRoot(entry.Root, target); err != nil {
 		return err
 	}
 
