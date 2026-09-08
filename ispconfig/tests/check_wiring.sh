@@ -734,8 +734,8 @@ for page in "$root"/interface/*.php "$root"/interface/lib/*.php; do
 	done
 done
 
-# 40. Jede Argumentliste, die der Runner baut, faengt mit einem Befehl an, den
-#     der Scanner kennt.
+# 40. Jeder Scanneraufruf des Addons faengt mit einem Befehl an, den der
+#     Scanner kennt.
 #
 #     Pruefung 37 vergleicht die Schalter und sah deshalb nicht, dass die
 #     Quarantaeneliste mit ihrem Aktionswort statt mit "quarantine" begann: der
@@ -743,29 +743,97 @@ done
 #     mit seiner Hilfe und Rueckgabecode 3, und im Panel stand "Die Quarantaene
 #     hat keinen Bericht hinterlassen". Ein Schalter fehlt sichtbar, ein
 #     fehlendes erstes Wort nicht.
-runner="$root/server/lib/classes/malwatch_runner.inc.php"
+#
+#     Es gibt zwei Bauweisen, und beide werden hier geprueft. Der Runner baut
+#     eine Argumentliste; Cron und Installer setzen ihre Befehlszeile als
+#     Zeichenkette zusammen. Die zweite fasste vorher keine Pruefung an -
+#     dieselbe Fehlerklasse, anderer Ort.
 usage="$root/../cmd/malwatch/usage.go"
+
+# Meldet, wenn $1 kein Befehlswort ist, das usage.go kennt. Als Funktion, weil
+# beide Bauweisen unten dieselbe Frage stellen - und in der Hauptshell
+# aufgerufen, damit das fail() darin den Rueckgabewert wirklich setzt.
+check_command_word() {
+	if [ -z "$1" ]; then
+		fail "$2 ruft den Scanner ohne Befehlswort auf"
+		return
+	fi
+	grep -qE "^  malwatch $1( |\$)" "$usage" \
+		|| fail "$2 ruft den Scanner mit '$1' auf, usage.go kennt den Befehl nicht"
+}
+
+runner="$root/server/lib/classes/malwatch_runner.inc.php"
 if [ -f "$runner" ] && [ -f "$usage" ]; then
 	# Jede Argumentliste des Runners ist eine array(…)-Zuweisung. Das erste
-	# Element danach - Kommentarzeilen uebersprungen - muss ein Befehlswort
-	# sein, das usage.go kennt. Geprueft wird nicht, ob irgendwo ein gueltiger
-	# Befehl vorkommt, sondern ob jede Liste mit einem anfaengt: der Fehler
-	# war, dass eine Liste mit ihrem Aktionswort begann statt mit dem Befehl.
+	# Element steht entweder gleich hinter der oeffnenden Klammer - eine
+	# einzeilige Liste, die das frueherer Muster /= *array\($/ stillschweigend
+	# uebersprang - oder auf der naechsten Zeile, die kein Kommentar ist. Eine
+	# leere Liste ($output = array()) baut keinen Aufruf und faellt heraus.
+	# Geprueft wird nicht, ob irgendwo ein gueltiger Befehl vorkommt, sondern
+	# ob jede Liste mit einem anfaengt: der Fehler war, dass eine Liste mit
+	# ihrem Aktionswort begann statt mit dem Befehl.
 	awk '
-		/= *array\($/ { want = 1; next }
+		/= *array *\(/ {
+			rest = $0
+			sub(/^.*= *array *\(/, "", rest)
+			sub(/^[[:space:]]+/, "", rest)
+			if (rest ~ /^\)/) { next }
+			if (rest != "") { print rest; next }
+			want = 1
+			next
+		}
 		want && /^[[:space:]]*(\/\/|#|\*)/ { next }
 		want { print; want = 0 }
 	' "$runner" > "$tmpdir/firstargs"
 
+	# Ohne diese Zeile waere die Pruefung still wirkungslos, sobald der Runner
+	# seine Listen anders baut: keine Fundstelle, keine Meldung.
+	[ -s "$tmpdir/firstargs" ] \
+		|| fail "check_wiring 40 findet in malwatch_runner.inc.php keine Argumentliste mehr; die Pruefung liefe ins Leere"
+
 	while IFS= read -r first; do
-		word=$(printf '%s' "$first" | sed -nE "s/^[[:space:]]*'([a-z]+)',?[[:space:]]*$/\1/p")
+		word=$(printf '%s' "$first" | sed -nE "s/^[[:space:]]*'([a-z]+)'[[:space:]]*[,)].*/\1/p")
 		if [ -z "$word" ]; then
 			fail "malwatch_runner.inc.php baut eine Argumentliste, die nicht mit einem Befehlswort beginnt: ${first# }"
 			continue
 		fi
-		grep -qE "^  malwatch $word( |\$)" "$usage" \
-			|| fail "malwatch_runner.inc.php ruft den Scanner mit '$word' auf, usage.go kennt den Befehl nicht"
+		check_command_word "$word" "malwatch_runner.inc.php"
 	done < "$tmpdir/firstargs"
+fi
+
+# Die andere Bauweise: escapeshellcmd(<binaerdatei>) . ' <befehl> …'. Gesucht
+# wird nur dort, wo die Klammer die Binaerdatei nennt - der SQL-Lader setzt auf
+# demselben Weg einen mysql-Aufruf zusammen, und der gehoert nicht hierher.
+if [ -f "$usage" ]; then
+	: > "$tmpdir/cmdstrings"
+	find "$root" -name '*.php' -type f > "$tmpdir/phpfiles"
+	while IFS= read -r php; do
+		grep -ohE "escapeshellcmd\([^)]*[Bb][Ii][Nn][Aa][Rr][Yy][^)]*\)[[:space:]]*\.[[:space:]]*'[[:space:]]*[a-z]+([[:space:]]+[a-z]+)?" \
+			"$php" >> "$tmpdir/cmdstrings" || true
+	done < "$tmpdir/phpfiles"
+	sed -E "s/.*'[[:space:]]*//" "$tmpdir/cmdstrings" | sort -u > "$tmpdir/cmdwords"
+
+	[ -s "$tmpdir/cmdwords" ] \
+		|| fail "check_wiring 40 findet keinen als Zeichenkette gebauten Scanneraufruf mehr; die Pruefung liefe ins Leere"
+
+	while IFS= read -r line; do
+		[ -n "$line" ] || continue
+		word=${line%% *}
+		check_command_word "$word" "ein Aufruf als Zeichenkette (\"$line …\")"
+
+		# Bei quarantine steht hinter dem Befehl noch die Aktion, und genau da
+		# ist der Fehler oben entstanden: die Aktion stand, wo der Befehl
+		# hingehoert. Ein "quarantine" ohne Aktion ruft add auf, ohne dass es
+		# jemand so gemeint haette.
+		[ "$word" = "quarantine" ] || continue
+		action=${line#* }
+		if [ "$action" = "$line" ]; then
+			fail "ein Aufruf als Zeichenkette ruft 'quarantine' ohne Aktionswort auf"
+			continue
+		fi
+		grep -qE "^  malwatch quarantine $action( |\$)" "$usage" \
+			|| fail "ein Aufruf als Zeichenkette ruft 'quarantine $action' auf, usage.go kennt die Aktion nicht"
+	done < "$tmpdir/cmdwords"
 fi
 
 if [ "$status" -eq 0 ]; then
