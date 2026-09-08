@@ -2,6 +2,48 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.12.2] – 2026-09-09
+
+### Behoben
+
+**Die Tabellenüberschriften fielen ineinander, die Schaltflächen wurden zu
+Strichen — die eigentliche Ursache stand nicht in unserem Blatt.** ISPConfig
+setzt in `ispconfig.css`:
+
+```css
+.table { table-layout: fixed; }
+```
+
+Bei `table-layout: fixed` kommen die Spaltenbreiten ausschließlich aus den
+Angaben der ersten Zeile. `width:1%` heißt dann wörtlich *ein Prozent* — bei
+1082 Pixeln Tabellenbreite also elf Pixel — statt „so schmal wie der Inhalt".
+Der Inhalt wird gar nicht erst gemessen und läuft aus der Zelle heraus. So
+wurde aus „Stufe" und „Datei" in der Überschrift „SDatei", und die beiden
+Schaltflächen jeder Fundzeile standen als farbige Striche am Rand.
+
+ISPConfig hält dafür `.table-auto` bereit; für die drei Seiten dieses Bereichs
+gilt es jetzt durchgehend.
+
+Warum es drei Anläufe gebraucht hat: geprüft wurde bis dahin gegen einen
+Nachbau der Vorlage. Der zeigt den Fehler nie, weil er die Stylesheets des
+Panels nicht lädt — und genau dort stand die Zeile. Jetzt wird die echte Seite
+gerendert und mit `bootstrap.min.css`, `ispconfig.css`, `responsive.min.css`
+und `cicada.css` zusammen gemessen. Darin ließ sich der Screenshot des
+Auftraggebers auf den Pixel nachstellen: Stufe 11, Datei 1050, Datum 11,
+Schaltflächen 11.
+
+Danach, an derselben Seite:
+
+| Inhaltsbreite | Stufe | Datei | Zuerst gesehen | Aktionen | scrollt |
+|---|---|---|---|---|---|
+| 1084 | 53 | 727 | 117 | 185 | nein |
+| 900 | 53 | 543 | 117 | 185 | nein |
+| 760 | 53 | 403 | 117 | 185 | nein |
+
+Nebenbei behoben: der Block mit den Regeltreffern hatte keine Breitengrenze und
+zog die Dateispalte auf 1050 Pixel. Er ist jetzt wie der Dateiname auf 60
+Zeichen gedeckelt.
+
 ## [0.12.1] – 2026-09-09
 
 ### Behoben

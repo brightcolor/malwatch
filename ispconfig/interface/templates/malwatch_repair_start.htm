@@ -55,6 +55,10 @@
 /* Dichter als die Vorlage des Themes: die Elementtabelle einer WordPress-
    Installation hat leicht dreissig Zeilen, und bei der Polsterung des Themes
    sieht man davon fuenf. */
+/* Das Panel setzt .table auf table-layout:fixed - dann heisst width:1%
+   woertlich ein Prozent statt "so schmal wie der Inhalt", der Inhalt wird
+   ignoriert und laeuft aus der Zelle heraus. Siehe malwatch_site_show.htm. */
+#mw-repair .table{table-layout:auto}
 #mw-repair .table > thead > tr > th,
 #mw-repair .table > tbody > tr > td{padding:6px 10px;vertical-align:middle}
 /* Art des Elements als kleines Etikett neben dem Namen statt als eigene

@@ -28,6 +28,10 @@
 
 /* Dichter als die Vorlage des Themes: bei zwoelf Zeilen mit je 140 Pixeln
    sieht man vier Eintraege und scrollt fuer den Rest. */
+/* Das Panel setzt .table auf table-layout:fixed - dann heisst width:1%
+   woertlich ein Prozent statt "so schmal wie der Inhalt", der Inhalt wird
+   ignoriert und laeuft aus der Zelle heraus. Siehe malwatch_site_show.htm. */
+#mw-quarantine .table{table-layout:auto}
 #mw-quarantine .table > thead > tr > th,
 #mw-quarantine .table > tbody > tr > td{padding:6px 10px;vertical-align:middle}
 

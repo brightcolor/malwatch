@@ -79,6 +79,17 @@
    zeile ueber hundert Pixel: der Pfad brach um, die Art und jede Regel
    standen darunter je auf einer eigenen Zeile. Man sah vier Funde und
    scrollte fuer den Rest. */
+/* Das Panel setzt .table auf table-layout:fixed. Dann kommen die
+   Spaltenbreiten allein aus den Angaben der ersten Zeile, und width:1% heisst
+   woertlich ein Prozent - elf Pixel - statt "so schmal wie der Inhalt". Der
+   Inhalt wird ignoriert und laeuft aus der Zelle heraus: aus "Stufe" und
+   "Datei" wurde in der Ueberschrift "SDatei", die Schaltflaechen standen als
+   farbige Striche am Rand. ISPConfig haelt dafuer .table-auto bereit; hier
+   gilt es fuer jede Tabelle dieses Bereichs.
+
+   Nur mit den Stylesheets des Panels zusammen zu sehen. Ein Nachbau der
+   Vorlage allein zeigt es nicht, und deshalb hat es drei Anlaeufe gebraucht. */
+#mw-site .table{table-layout:auto}
 #mw-site .table > thead > tr > th,
 #mw-site .table > tbody > tr > td{padding:6px 10px;vertical-align:middle}
 #mw-site td.num{font-variant-numeric:tabular-nums}
@@ -107,7 +118,7 @@
 #mw-site .mw-file{display:flex;align-items:baseline;flex-wrap:wrap;min-width:0}
 #mw-site .mw-file .mw-dir{min-width:0;word-break:break-all}
 #mw-site td.mw-sev .label + .label{margin-left:4px}
-#mw-site .mw-hits{margin-top:4px;display:flex;flex-direction:column;gap:3px}
+#mw-site .mw-hits{margin-top:4px;display:flex;flex-direction:column;gap:3px;min-width:0}
 #mw-site .mw-hit{display:flex;align-items:baseline;gap:7px;flex-wrap:wrap;min-width:0;font-size:12px}
 #mw-site .mw-hit .mw-excerpt{min-width:0;word-break:break-all}
 /* Auf dem Telefon untereinander statt nebeneinander: nebeneinander machen
@@ -146,7 +157,18 @@
 	#mw-site .mw-file strong{flex:0 0 auto;white-space:nowrap}
 	/* Eine Regel je Zeile statt drei: Etikett, Regel, Stelle, Prueferin und
 	   der Auszug nebeneinander, der Auszug kuerzt am Ende. */
-	#mw-site .mw-hit{flex-wrap:wrap}
+	/* Dieselbe Deckelung wie bei .mw-file, und aus demselben Grund. Eine
+	   Tabellenspalte in automatischer Breite nimmt die Wunschbreite ihres
+	   Inhalts, und die Trefferliste wünscht sich alles: Regelname, Stelle,
+	   Prüferin und Auszug in einer Zeile waren 1030 Pixel. Die Spalte
+	   "Datei" wurde dadurch 1050 Pixel breit, und die drei schmalen Spalten
+	   daneben - Stufe, Datum, Schaltflächen - wurden auf elf Pixel
+	   zusammengedrückt: aus "Stufe" und "Datei" wurde in der Überschrift
+	   "SDatei", und die Schaltflächen standen als farbige Striche am Rand.
+	   Nur mit den Stylesheets des Panels zusammen zu sehen, deshalb hat es
+	   drei Anläufe gebraucht. */
+	#mw-site .mw-hits{max-width:60ch}
+	#mw-site .mw-hit{flex-wrap:wrap;max-width:100%}
 	#mw-site .mw-hit > *{flex:0 0 auto}
 	#mw-site .mw-hit .mw-excerpt{
 		flex:0 1 auto;max-width:52ch;
