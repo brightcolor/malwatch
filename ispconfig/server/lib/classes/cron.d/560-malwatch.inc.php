@@ -269,13 +269,15 @@ class cronjob_malwatch extends cronjob
 			}
 		}
 
-		// Diese drei bringen ihre eigene Bremse mit - der Spool wird nach
-		// Alter geräumt, Signaturen und Regelkatalog nach dem Alter ihrer
-		// Datei - und stehen deshalb vor der Stundensperre unten. Hinter ihr
-		// zeigte die Einstellungsseite nach einer frischen Installation bis
-		// zu eine Stunde lang „0 Prüfungen" neben jeder Möglichkeit, weil der
-		// Katalog noch leer war.
-		$this->clean_spool($config);
+		// Diese drei stehen vor der Stundensperre unten, weil sie schnell auf
+		// etwas Neues reagieren sollen: hinter ihr zeigte die
+		// Einstellungsseite nach einer frischen Installation bis zu eine
+		// Stunde lang „0 Prüfungen" neben jeder Möglichkeit, weil der Katalog
+		// noch leer war. Jeder der drei bremst sich selbst - auch auf dem
+		// Fehlerweg, siehe retry_blocked(): ihre eigenen Bremsen (eine
+		// Spalte, das Alter einer Datei, eine vollständige Zeile) greifen
+		// ausschließlich im Erfolgsfall, und die Stundensperre war vorher
+		// zugleich der Deckel für den Fehlerweg.
 		$this->refresh_signatures($config);
 		$this->refresh_rules($config);
 		$this->complete_quarantine_index($config);
@@ -285,6 +287,14 @@ class cronjob_malwatch extends cronjob
 		if (intval(date('i')) !== 7) {
 			return;
 		}
+
+		// Hier und nicht oben: der Spool wird nach Alter geräumt, mit einer
+		// Frist von einem Tag - dafür reicht ein Lauf je Stunde, und genau
+		// den setzt malwatch_quarantine_list.php voraus, wenn es einen Token
+		// noch bis zu einer Stunde über seine Frist hinaus gelten lässt. Oben
+		// war es ein scandir je Minute für nichts.
+		$this->clean_spool($config);
+		$this->clean_quarantine_scratch($config);
 
 		$keep = max(1, intval($config['keep_scans']));
 		$domains = $app->dbmaster->queryAllRecords(
@@ -313,6 +323,52 @@ class cronjob_malwatch extends cronjob
 	}
 
 	/**
+	 * Whether a step that runs every minute may try again after it failed.
+	 *
+	 * The three steps ahead of the hour lock each brake on their own result:
+	 * a config column, the mtime of the file they write, a row they filled
+	 * in. Every one of those is written only when the step succeeded, so on
+	 * the failure path there was no brake at all - a signature update with no
+	 * route to the mirror fetched 1440 times a day instead of 24, each with
+	 * its own warning line in the log. Until the steps were pulled out of it,
+	 * the hour lock was that cap.
+	 *
+	 * The marker is written before the attempt and removed only once it
+	 * worked, so a run that dies part way - killed, timed out, the machine
+	 * rebooted - leaves the brake engaged rather than clearing it.
+	 */
+	private function retry_blocked($config, $name)
+	{
+		$marker = $this->retry_marker($config, $name);
+		return is_file($marker) && filemtime($marker) > time() - 3600;
+	}
+
+	/** Notes that an attempt is being made now. */
+	private function note_attempt($config, $name)
+	{
+		$marker = $this->retry_marker($config, $name);
+		// touch() alone does not create the file on every platform when the
+		// directory is fresh, and an empty file is all this needs to be.
+		@file_put_contents($marker, '');
+		@touch($marker);
+	}
+
+	/** Lifts the brake after the step actually did its job. */
+	private function clear_attempt($config, $name)
+	{
+		@unlink($this->retry_marker($config, $name));
+	}
+
+	/**
+	 * Where a step's brake lives. In state/ next to the other state files, so
+	 * an operator clearing the state directory clears these with it.
+	 */
+	private function retry_marker($config, $name)
+	{
+		return rtrim((string) $config['state_dir'], '/') . '/state/.retry-' . $name;
+	}
+
+	/**
 	 * Fills in what a repair could not know about the entries it filed.
 	 *
 	 * A repair reports the ids it created and nothing else - size, file count
@@ -321,8 +377,11 @@ class cronjob_malwatch extends cronjob
 	 * unbekannt" in the size column and the footprint in the header stood at
 	 * zero, which is exactly the information someone opens that page for.
 	 *
-	 * Costs one indexed query per minute and nothing else while every row is
-	 * complete.
+	 * Costs one query per minute and nothing else while every row is
+	 * complete. There is no index on archive_bytes, so that query walks this
+	 * server's rows - which is why the brake below matters: a row that stays
+	 * incomplete would otherwise start the whole binary once a minute for
+	 * ever.
 	 */
 	private function complete_quarantine_index($config)
 	{
@@ -341,6 +400,11 @@ class cronjob_malwatch extends cronjob
 			return;
 		}
 
+		if ($this->retry_blocked($config, 'quarantine-index')) {
+			return;
+		}
+		$this->note_attempt($config, 'quarantine-index');
+
 		$out = rtrim((string) $config['state_dir'], '/') . '/state/quarantine-index.json';
 		$cmd = escapeshellcmd($binary) . ' quarantine list --quarantine-dir=' . escapeshellarg($store)
 			. ' --json --out=' . escapeshellarg($out) . ' 2>&1';
@@ -358,7 +422,22 @@ class cronjob_malwatch extends cronjob
 		}
 		$app->uses('malwatch_ingest');
 		$app->malwatch_ingest->sync_quarantine($conf['server_id'], $doc['entries'],
-			isset($doc['skipped']) ? intval($doc['skipped']) : 0);
+			isset($doc['skipped']) ? intval($doc['skipped']) : 0,
+			isset($doc['skipped_ids']) && is_array($doc['skipped_ids']) ? $doc['skipped_ids'] : array());
+
+		// Der Rückgabecode allein sagt hier nicht, ob der Schritt sein Ziel
+		// erreicht hat: bleibt eine Zeile unvollständig - der Speicher kennt
+		// den Eintrag nicht mehr, und eine der beiden Bremsen in
+		// sync_quarantine hat das Aufräumen deshalb ausgelassen -, dann
+		// findet die Abfrage oben sie in der nächsten Minute wieder und alles
+		// begänne von vorn. Die Bremse fällt darum erst, wenn nichts mehr
+		// offen ist.
+		$still_incomplete = $app->dbmaster->queryOneRecord(
+			'SELECT quarantine_id FROM malwatch_quarantine WHERE server_id = ? AND archive_bytes = 0 LIMIT 1',
+			$conf['server_id']);
+		if (!is_array($still_incomplete)) {
+			$this->clear_attempt($config, 'quarantine-index');
+		}
 	}
 
 	/**
@@ -409,6 +488,77 @@ class cronjob_malwatch extends cronjob
 	}
 
 	/**
+	 * Removes the scratch directories a killed run left behind in the store.
+	 *
+	 * StoreCopy unpacks its archive into <id>.verify to prove it can be read
+	 * back; Restore unpacks into <id>.restore before it removes what is at
+	 * the target. Both hang on a defer, and a process that dies - the OOM
+	 * killer, a reboot, job_timeout - never reaches it. The listing rightly
+	 * ignores such a directory, which makes it invisible as well as
+	 * permanent: an aborted restore of a WordPress core leaves 50 to 80 MB
+	 * lying in the one directory that is already tight whenever somebody is
+	 * clearing space, and clean_spool() next door never looks here.
+	 *
+	 * An hour is the cut-off rather than clean_spool's day: nothing keeps one
+	 * of these alive that long - the longest it ever lives is one unpack -
+	 * while a shorter window could take the scratch directory out from under
+	 * a restore that is still running.
+	 */
+	private function clean_quarantine_scratch($config)
+	{
+		$store = rtrim((string) $config['state_dir'], '/') . '/quarantine';
+		if (!is_dir($store)) {
+			return;
+		}
+
+		$names = scandir($store);
+		if ($names === false) {
+			return;
+		}
+
+		$cutoff = time() - 3600;
+		foreach ($names as $name) {
+			if (!preg_match('/\.(verify|restore)$/', $name)) {
+				continue;
+			}
+			$full = $store . '/' . $name;
+			// is_dir und kein Link: ein Link mit passendem Namen zeigt
+			// woandershin, und dorthin geht das Aufräumen nicht.
+			if (!is_dir($full) || is_link($full) || filemtime($full) >= $cutoff) {
+				continue;
+			}
+			$this->remove_tree($full);
+		}
+	}
+
+	/**
+	 * Removes a directory and everything below it.
+	 *
+	 * Symlinks are unlinked, never walked: the payload of a quarantine entry
+	 * comes off a compromised website and keeps its symlinks as symlinks
+	 * (internal/quarantine/archive.go), so one pointing at /etc must not turn
+	 * a cleanup into a deletion somewhere else. RecursiveDirectoryIterator
+	 * does not descend into links on its own, and the check below keeps rmdir
+	 * off the link itself.
+	 */
+	private function remove_tree($dir)
+	{
+		$items = new RecursiveIteratorIterator(
+			new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS),
+			RecursiveIteratorIterator::CHILD_FIRST);
+
+		foreach ($items as $item) {
+			$path = $item->getPathname();
+			if ($item->isLink() || !$item->isDir()) {
+				@unlink($path);
+				continue;
+			}
+			@rmdir($path);
+		}
+		@rmdir($dir);
+	}
+
+	/**
 	 * Refreshes malwatch_rule from the scanner's own catalogue, once a day.
 	 *
 	 * Unlike signature updates there is no config column to remember the
@@ -429,6 +579,13 @@ class cronjob_malwatch extends cronjob
 			return;
 		}
 
+		// Die mtime oben bremst nur den Erfolgsfall: scheitert der Aufruf,
+		// entsteht die Datei gar nicht erst.
+		if ($this->retry_blocked($config, 'rules')) {
+			return;
+		}
+		$this->note_attempt($config, 'rules');
+
 		$cmd = escapeshellcmd($binary) . ' rules --json --out=' . escapeshellarg($out) . ' 2>&1';
 		$output = array();
 		$status = 0;
@@ -438,6 +595,7 @@ class cronjob_malwatch extends cronjob
 			$app->log('malwatch: refreshing the rule catalogue failed: ' . implode(' ', $output), LOGLEVEL_WARN);
 			return;
 		}
+		$this->clear_attempt($config, 'rules');
 
 		$doc = json_decode((string) @file_get_contents($out), true);
 		$rules = is_array($doc) && isset($doc['rules']) && is_array($doc['rules']) ? $doc['rules'] : array();
@@ -478,6 +636,14 @@ class cronjob_malwatch extends cronjob
 			return;
 		}
 
+		// last_signature_update wird nur bei Erfolg geschrieben - ohne die
+		// zweite Bremse hier lief ein Update ohne Netz, ohne Spiegel oder
+		// hinter einem toten Proxy jede Minute erneut.
+		if ($this->retry_blocked($config, 'signatures')) {
+			return;
+		}
+		$this->note_attempt($config, 'signatures');
+
 		$cmd = escapeshellcmd($binary) . ' update --sig-dir='
 			. escapeshellarg(rtrim((string) $config['state_dir'], '/') . '/signatures') . ' --quiet 2>&1';
 		$output = array();
@@ -485,6 +651,7 @@ class cronjob_malwatch extends cronjob
 		exec($cmd, $output, $status);
 
 		if ($status === 0) {
+			$this->clear_attempt($config, 'signatures');
 			$app->dbmaster->query('UPDATE malwatch_config SET last_signature_update = NOW() WHERE config_id = 1');
 			$app->log('malwatch: signatures updated.', LOGLEVEL_DEBUG);
 		} else {

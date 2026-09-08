@@ -229,6 +229,8 @@ class malwatch_ingest
 
 		$entries = isset($report['entries']) && is_array($report['entries']) ? $report['entries'] : array();
 		$skipped = isset($report['skipped']) ? intval($report['skipped']) : 0;
+		$skipped_ids = isset($report['skipped_ids']) && is_array($report['skipped_ids'])
+			? $report['skipped_ids'] : array();
 		$server_id = intval($job['server_id']);
 
 		$options = json_decode((string) $job['options'], true);
@@ -243,7 +245,7 @@ class malwatch_ingest
 		// on those rows are the only way back to the findings they belong to.
 		$restoring = $action === 'restore' ? $this->indexed_rows($server_id, $asked_for) : array();
 
-		$this->sync_quarantine($server_id, $entries, $skipped);
+		$this->sync_quarantine($server_id, $entries, $skipped, $skipped_ids);
 
 		if ($action === 'restore') {
 			$this->reopen_restored($server_id, $restoring);
@@ -479,8 +481,13 @@ class malwatch_ingest
 	 * it out - restore, delete, or an export that happened to run last. A
 	 * row already on file is left untouched: rewriting it here would throw
 	 * away an export_token a download link may still be waiting on.
+	 *
+	 * skipped_ids names the entry directories the listing could not read.
+	 * Only the log ever sees them, and that is the point: without a name
+	 * there is no way to reach the one directory that is holding the whole
+	 * index back (see the branch below).
 	 */
-	public function sync_quarantine($server_id, $entries, $skipped = 0)
+	public function sync_quarantine($server_id, $entries, $skipped = 0, $skipped_ids = array())
 	{
 		global $app;
 
@@ -521,9 +528,38 @@ class malwatch_ingest
 		// nicht in der Liste" nicht "ist weg", sondern "war gerade nicht
 		// lesbar", und die Zeile verschwände aus dem Panel, während der
 		// Eintrag samt Schadcode auf der Platte liegen bleibt.
+		//
+		// Die Kennungen stehen mit in der Zeile, weil dieser Zustand keinen
+		// Ausgang von selbst hat: solange das eine kaputte Verzeichnis liegen
+		// bleibt, bleibt der Index dauerhaft veraltet, und ohne Namen findet
+		// niemand unter Hunderten gleich aussehender Verzeichnisse das eine,
+		// um das es geht.
 		if ($skipped > 0) {
+			$names = array();
+			foreach ((array) $skipped_ids as $skipped_id) {
+				$skipped_id = (string) $skipped_id;
+				if ($skipped_id !== '') {
+					$names[] = $skipped_id;
+				}
+			}
 			$app->log('malwatch: ' . $skipped . ' Quarantäneeintrag/-einträge waren nicht lesbar; '
-				. 'der Index wird diesmal nur ergänzt, nicht bereinigt.', LOGLEVEL_WARN);
+				. 'der Index wird diesmal nur ergänzt, nicht bereinigt.'
+				. (count($names) > 0 ? ' Betroffen: ' . implode(', ', $names) . '.' : ''), LOGLEVEL_WARN);
+			return;
+		}
+
+		// Zweite Bremse, unabhängig von der ersten: eine leere Liste löscht
+		// nichts, solange die Datenbank für diesen Server Zeilen kennt. Ein
+		// vorhandenes, aber leeres Speicherverzeichnis meldet weder einen
+		// Fehler noch übersprungene Einträge - es entsteht genau so, wenn in
+		// den Einstellungen ein anderes Arbeitsverzeichnis eingetragen wird
+		// und der nächste Auftrag es sich selbst anlegt. Ohne diese Bremse
+		// verschwände der ganze Index in einem Lauf, während die Archive
+		// unberührt unter dem alten Pfad liegen.
+		if (count($seen) === 0 && count($known) > 0) {
+			$app->log('malwatch: die Quarantäneliste ist leer, der Index kennt aber '
+				. count($known) . ' Eintrag/Einträge für diesen Server; es wird nichts gelöscht. '
+				. 'Zeigt "Arbeitsverzeichnis" noch auf den Speicher, in dem sie liegen?', LOGLEVEL_WARN);
 			return;
 		}
 
