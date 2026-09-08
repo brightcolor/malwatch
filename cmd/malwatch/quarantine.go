@@ -161,6 +161,16 @@ func runQuarantineAdd(quarantineDir string, base quarantine.Source, path string,
 			continue
 		}
 		info, err := os.Lstat(full)
+		if os.IsNotExist(err) {
+			// Not a failure: the file is not on the website any more, which
+			// is the whole point of the run. This is the ordinary case after
+			// a repair - it replaces whole directories, and the findings
+			// inside them are gone with the directory. Counting it as an
+			// error made a batch of forty succeed and still report "the
+			// quarantine job failed".
+			fmt.Fprintf(os.Stderr, "bereits verschwunden: %s\n", rel)
+			continue
+		}
 		if err != nil || !info.Mode().IsRegular() {
 			fmt.Fprintf(os.Stderr, "übersprungen: %s ist keine gewöhnliche Datei\n", rel)
 			failed++

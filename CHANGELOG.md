@@ -2,6 +2,59 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.10.1] – 2026-09-08
+
+### Behoben
+
+**„In Quarantäne verschieben" ging jedes Mal schief.** Der Auftrag rief den Scanner ohne
+seinen Befehl auf — `malwatch add …` statt `malwatch quarantine add …`. Der Scanner kennt
+kein `add`, antwortete mit seiner eigenen Hilfe und Rückgabecode 3, und im Panel stand
+„Die Quarantäne hat keinen Bericht hinterlassen" mit dieser Hilfe als Ausgabe.
+
+Die Verdrahtungsprüfung 37 vergleicht die Schalter und sah nichts: ein fehlender Schalter
+fällt auf, ein fehlendes erstes Wort nicht. Prüfung 40 nimmt jetzt jede Argumentliste des
+Runners und besteht darauf, dass ihr erstes Element ein Befehl ist, den `usage.go` kennt.
+
+**Eine Datei, die schon weg war, zählte als Fehlschlag.** Nach einer Reparatur ist das der
+Normalfall: sie ersetzt ganze Verzeichnisse, und die Funde darin sind mit dem Verzeichnis
+verschwunden. Vierzig verschobene Dateien und eine bereits gelöschte meldeten zusammen
+einen gescheiterten Auftrag. Jetzt heißt das „bereits verschwunden" und ist kein Fehler —
+das Ziel, dass die Datei nicht mehr auf der Website liegt, ist ja erreicht.
+
+**Die Größe blieb „noch unbekannt".** Was eine Reparatur ablegt, kennt nur seine Kennung;
+Größe, Dateizahl und Art stehen in der Liste des Speichers, die bisher erst der nächste
+Quarantäneauftrag erzeugte. Dreizehn Zeilen sagten deshalb „noch unbekannt" und der
+belegte Platz stand auf null — die Auskunft, für die man die Seite aufschlägt. Der Cron
+holt die Liste jetzt, sobald eine Zeile ohne Größe dasteht.
+
+**Der Regelkatalog kam eine Stunde zu spät.** `refresh_rules` und das Aufräumen des Spools
+standen hinter der Sperre, die die Tabellenläufe der Aufräumarbeiten auf Minute 7 der
+Stunde begrenzt. Beide bringen ihre eigene Bremse mit; die Sperre hat sie nur verzögert.
+Nach einer frischen Installation zeigte die Einstellungsseite deswegen bis zu eine Stunde
+lang „0 Prüfungen" neben jeder automatischen Maßnahme.
+
+### Geändert
+
+**Die Tabellen sind halb so hoch und lesen sich in einem Durchgang.** Ein Pfad stand über
+drei Zeilen, die Art des Eintrags als eigene Zeile darüber, und die Schaltflächen der
+letzten Spalte waren zu farbigen Strichen am Rand zusammengequetscht — ein Flex-Container
+schrumpft seine Kinder unter ihre Inhaltsbreite, wenn die Spalte schmal ist. Jetzt: enge
+Polsterung, Pfad einzeilig mit dem vollen Pfad als Tooltip, die Art als kleines Etikett
+daneben, Zahlen rechtsbündig und tabellarisch, Schaltflächen in einer Reihe ohne
+Schrumpfen. Betrifft alle sechs Tabellen der neuen Seiten und der Detailseite.
+
+**Die Schriftfarben stimmen jetzt auf beiden Themes.** Gedämpfter Text stand als
+`var(--cic-text-dim, #8b9298)` im Blatt — der Rückfallwert ist der des dunklen Themes, und
+auf dem hellen Standardtheme, das keine `--cic-*` setzt, ergab das Hellgrau auf Weiß.
+Gedämpfter Text läuft jetzt über `opacity` und erbt damit die Farbe des Themes, Linien und
+Flächen über durchscheinendes Grau; Schaltflächen bekommen von der Erweiterung überhaupt
+keine Farbe mehr, weil das Theme sie richtig setzt und jede eigene Angabe es auf dem
+anderen kaputt macht.
+
+Dabei aufgefallen und mit behoben: das Fundzeichen für „kritisch" stand auf der
+Statusseite rot auf rot, und eine Variable `--cic-ok-mid` gibt es nicht, die Regel lief
+also immer in ihren Rückfall.
+
 ## [0.10.0] – 2026-09-07
 
 ### Hinzugefügt
