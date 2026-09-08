@@ -284,17 +284,22 @@ class malwatch_installer extends extension_installer_base
 	 * die POSIX-Erweiterung ist nicht auf jedem System an - function_exists()
 	 * prueft das vorher ab. Ohne sie bleibt nur der Versuch selbst: chgrp()
 	 * auf $dir meldet per Rueckgabewert, ob die Gruppe existiert.
+	 *
+	 * Gemeldet wird in beiden Zweigen die tatsaechlich gesetzte Gruppe, nicht
+	 * die gefundene: dass es die Gruppe gibt, heisst nicht, dass dieser
+	 * Prozess sie vergeben darf. Laeuft der Installer nicht als root,
+	 * scheitert chgrp() still, und an diesem einen Rueckgabewert haengt die
+	 * ganze Rechtekette - runs und spool blieben root:root, ohne dass die
+	 * Warnung unten je ausgegeben wuerde, und Fortschrittsbalken wie Download
+	 * scheiterten wortlos mit "Die Datei liegt nicht mehr vor.", nachdem das
+	 * Token schon verbrannt ist.
 	 */
 	private function find_group($dir)
 	{
 		$posix = function_exists('posix_getgrnam');
 		foreach (array('ispconfig', 'ispapps', 'www-data') as $candidate) {
-			if ($posix) {
-				if (posix_getgrnam($candidate) === false) {
-					continue;
-				}
-				@chgrp($dir, $candidate);
-				return $candidate;
+			if ($posix && posix_getgrnam($candidate) === false) {
+				continue;
 			}
 			if (@chgrp($dir, $candidate)) {
 				return $candidate;

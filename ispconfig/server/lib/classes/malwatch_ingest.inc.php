@@ -153,6 +153,35 @@ class malwatch_ingest
 			// nichts benennt - und die restlichen Einträge gar nicht.
 			$ids = isset($element['quarantine_ids']) && is_array($element['quarantine_ids'])
 				? $element['quarantine_ids'] : array();
+
+			// Nur wenn das Element genau einen Eintrag erzeugt hat, ist der
+			// Eintrag das Element - dann stimmen Pfad, Art und Dateizahl. Bei
+			// mehreren weiß der Bericht nicht, welche Kennung welchen Teil
+			// benennt: eine Kernreparatur legt wp-admin, wp-includes und jede
+			// geänderte lose Kerndatei je einzeln ab, und $element['path'] ist
+			// für den Kern der Webstamm selbst. Fünf Zeilen, die alle
+			// denselben (absoluten, also nicht relativen) Pfad nennen und sich
+			// alle 'dir' schimpfen, sind keine Auskunft, sondern eine falsche;
+			// leer bleiben ist ehrlicher, bis die Liste des Speichers sie
+			// nachträgt.
+			$describes_element = count($ids) === 1 && (string) $element['kind'] !== 'core';
+			$rel_path = '';
+			// Der Vorgabewert der Spalte, solange nichts Genaueres bekannt
+			// ist; beide Werte stehen in self::$entry_kinds, das Pruefung 38
+			// in tests/check_wiring.sh gegen schema.sql haelt.
+			$entry_kind = 'file';
+			$files = 0;
+			if ($describes_element) {
+				$root = rtrim((string) $job['scan_path'], '/');
+				$abs = (string) (isset($element['path']) ? $element['path'] : '');
+				$rel_path = (strpos($abs, $root . '/') === 0) ? substr($abs, strlen($root) + 1) : '';
+				// Ein einzeln abgelegtes Element ist immer sein Verzeichnis -
+				// ein Plugin, ein Theme (internal/repair: quarantineElement
+				// legt el.Path ab).
+				$entry_kind = 'dir';
+				$files = intval(isset($element['files']) ? $element['files'] : 0);
+			}
+
 			foreach ($ids as $entry_id) {
 				$entry_id = (string) $entry_id;
 				if ($entry_id === '') {
@@ -165,10 +194,6 @@ class malwatch_ingest
 					continue;
 				}
 
-				$root = rtrim((string) $job['scan_path'], '/');
-				$abs = (string) (isset($element['path']) ? $element['path'] : '');
-				$rel_path = (strpos($abs, $root . '/') === 0) ? substr($abs, strlen($root) + 1) : $abs;
-
 				// The exact Reason string Store was called with never reaches
 				// this report - only the id it handed back does - but every
 				// element the run archived took one of these two sentences,
@@ -177,17 +202,18 @@ class malwatch_ingest
 					? 'Vor dem Darüberschreiben abgelegt'
 					: 'Beim Ersetzen durch das Original abgelegt';
 
-				// Größe und Art bleiben hier vorläufig: die kennt nur die
-				// Liste des Speichers, und die holt der nächste
-				// Quarantäneauftrag über sync_quarantine nach. Bis dahin ist
-				// die Zeile auffindbar, nur nicht vollständig.
+				// Größe bleibt hier vorläufig: die kennt nur die Liste des
+				// Speichers, und die holt complete_quarantine_index() binnen
+				// einer Minute über sync_quarantine nach - archive_bytes = 0
+				// findet genau diese Zeilen. Bis dahin ist die Zeile
+				// auffindbar, nur nicht vollständig.
 				$app->dbmaster->query(
 					'INSERT INTO malwatch_quarantine (sys_userid, sys_groupid, sys_perm_user, sys_perm_group, '
 					. 'sys_perm_other, server_id, parent_domain_id, domain, entry_id, entry_kind, rel_path, '
 					. "origin, reason, rule_id, severity, files, bytes, created_at) "
-					. "VALUES (1, ?, 'riud', 'r', '', ?, ?, ?, ?, 'dir', ?, 'repair', ?, '', '', ?, 0, ?)",
+					. "VALUES (1, ?, 'riud', 'r', '', ?, ?, ?, ?, ?, ?, 'repair', ?, '', '', ?, 0, ?)",
 					$sys_groupid, intval($job['server_id']), intval($job['parent_domain_id']), (string) $job['domain'],
-					$entry_id, $rel_path, $reason, intval(isset($element['files']) ? $element['files'] : 0),
+					$entry_id, $entry_kind, $rel_path, $reason, $files,
 					$this->to_datetime(isset($report['finished_at']) ? $report['finished_at'] : ''));
 			}
 		}
@@ -376,7 +402,17 @@ class malwatch_ingest
 			if ($base === '') {
 				continue;
 			}
-			$full = $base . '/' . ltrim((string) $row['rel_path'], '/');
+
+			$rel_path = ltrim((string) $row['rel_path'], '/');
+			if ($rel_path === '') {
+				// Eine Zeile, die eine Reparatur angelegt hat und die Liste
+				// des Speichers noch nicht vervollständigt hat (ingest_repair:
+				// bei mehreren Einträgen je Element ist der Pfad unbekannt).
+				// Ohne Pfad gibt es keinen Fund, der dazu gehört - und die
+				// Alternative wäre ein LIKE auf den ganzen Webstamm.
+				continue;
+			}
+			$full = $base . '/' . $rel_path;
 
 			// Only 'fixed' is reversed. 'ignored' is a person having decided
 			// this file is fine, and a restore is not an argument against it.
