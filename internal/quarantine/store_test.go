@@ -207,12 +207,49 @@ func TestListSkipsADirectoryWithoutReadableMeta(t *testing.T) {
 		t.Fatalf("Store failed: %v", err)
 	}
 
-	entries, _, err := List(storeRoot)
+	entries, skipped, err := List(storeRoot)
 	if err != nil {
 		t.Fatalf("List failed: %v", err)
 	}
 	if len(entries) != 1 {
 		t.Fatalf("List returned %d entries, want 1 (the half-written directory must be skipped)", len(entries))
+	}
+	// Named, not just counted: nothing else in the tree ever says which
+	// directory is the broken one, and until someone removes it the panel's
+	// index stays permanently stale.
+	if len(skipped) != 1 || skipped[0] != "20260101T000000Z-deadbeef" {
+		t.Errorf("skipped = %v, want [20260101T000000Z-deadbeef]", skipped)
+	}
+}
+
+func TestListDoesNotCountItsOwnScratchDirectories(t *testing.T) {
+	root := t.TempDir()
+	writeTestFile(t, filepath.Join(root, "shell.php"), []byte("<?php"), 0o644)
+	storeRoot := t.TempDir()
+
+	entry, err := Store(storeRoot, Source{Root: root, RelPath: "shell.php", Domain: "beispiel.de", Origin: "manual", Reason: "test"})
+	if err != nil {
+		t.Fatalf("Store failed: %v", err)
+	}
+
+	// What a killed process leaves behind. These are not entries and not
+	// damage; counting them would stop the panel from ever tidying its index
+	// again, for a directory that only holds a copy of something still filed.
+	for _, suffix := range []string{".verify", ".restore"} {
+		if err := os.MkdirAll(filepath.Join(storeRoot, entry.ID+suffix), 0o750); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	entries, skipped, err := List(storeRoot)
+	if err != nil {
+		t.Fatalf("List failed: %v", err)
+	}
+	if len(entries) != 1 {
+		t.Errorf("List returned %d entries, want 1", len(entries))
+	}
+	if len(skipped) != 0 {
+		t.Errorf("skipped = %v, want none", skipped)
 	}
 }
 

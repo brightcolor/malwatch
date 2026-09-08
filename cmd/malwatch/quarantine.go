@@ -324,14 +324,19 @@ func appendExportEntry(zw *zip.Writer, quarantineDir, id, tmpDir, password strin
 // quarantineIndex is the self-healing report every action ends with when
 // --json is set: the store's complete state, not just what one action did.
 type quarantineIndex struct {
-	Schema      int                `json:"schema"`
-	GeneratedAt string             `json:"generated_at"`
+	Schema      int    `json:"schema"`
+	GeneratedAt string `json:"generated_at"`
 	// Skipped counts the entry directories this listing could not read. The
 	// panel rebuilds its index from the array below and removes what is not
 	// in it, so a listing that is short of something has to say so - it is
 	// the difference between "that entry is gone" and "I could not see it".
-	Skipped int                `json:"skipped"`
-	Entries []quarantine.Entry `json:"entries"`
+	Skipped int `json:"skipped"`
+	// SkippedIDs names them. One directory that stays unreadable keeps the
+	// panel's index permanently stale, and the count alone gives nobody a way
+	// to find it: the store holds hundreds of directories whose names all look
+	// the same, and nothing else anywhere says which one is the broken one.
+	SkippedIDs []string           `json:"skipped_ids"`
+	Entries    []quarantine.Entry `json:"entries"`
 }
 
 // writeQuarantineIndex writes the current contents of quarantineDir to out,
@@ -346,10 +351,14 @@ func writeQuarantineIndex(quarantineDir, out string) error {
 		// store is empty.
 		entries = []quarantine.Entry{}
 	}
+	if skipped == nil {
+		skipped = []string{}
+	}
 	idx := quarantineIndex{
 		Schema:      1,
 		GeneratedAt: time.Now().UTC().Format(time.RFC3339),
-		Skipped:     skipped,
+		Skipped:     len(skipped),
+		SkippedIDs:  skipped,
 		Entries:     entries,
 	}
 

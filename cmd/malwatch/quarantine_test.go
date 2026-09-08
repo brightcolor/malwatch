@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/brightcolor/malwatch/internal/quarantine"
@@ -121,6 +122,71 @@ func TestQuarantineListJSONOutWritesTheStoredEntry(t *testing.T) {
 	}
 	if !found {
 		t.Errorf("entries = %+v, missing the stored entry %s", doc.Entries, entry.ID)
+	}
+}
+
+func TestQuarantineListJSONNamesTheDirectoriesItSkipped(t *testing.T) {
+	root := t.TempDir()
+	store := t.TempDir()
+	writeHarmlessFile(t, filepath.Join(root, "note.txt"))
+
+	if _, err := quarantine.Store(store, quarantine.Source{
+		Root: root, RelPath: "note.txt", Domain: "beispiel.de", Origin: "manual",
+	}); err != nil {
+		t.Fatalf("Store failed: %v", err)
+	}
+
+	// An entry directory with no readable meta.json - what a run killed
+	// between writing the archive and writing the metadata leaves behind, and
+	// what then keeps the panel's index from ever tidying itself again. The
+	// count alone would not tell anyone which directory to go and remove.
+	broken := "20260101T000000Z-deadbeef"
+	if err := os.MkdirAll(filepath.Join(store, broken), 0o750); err != nil {
+		t.Fatal(err)
+	}
+
+	out := filepath.Join(t.TempDir(), "list.json")
+	if code := cmdQuarantine([]string{
+		"list", "--quarantine-dir=" + store, "--json", "--out=" + out,
+	}); code != 0 {
+		t.Fatalf("exit code %d, want 0", code)
+	}
+
+	raw, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatalf("no report was written: %v", err)
+	}
+	var doc struct {
+		Skipped    int      `json:"skipped"`
+		SkippedIDs []string `json:"skipped_ids"`
+	}
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		t.Fatalf("list output is not valid JSON: %v\n%s", err, raw)
+	}
+	if doc.Skipped != 1 {
+		t.Errorf("skipped = %d, want 1", doc.Skipped)
+	}
+	if len(doc.SkippedIDs) != 1 || doc.SkippedIDs[0] != broken {
+		t.Errorf("skipped_ids = %v, want [%s]", doc.SkippedIDs, broken)
+	}
+}
+
+func TestQuarantineListJSONAlwaysCarriesSkippedIDsAsAnArray(t *testing.T) {
+	// The panel reads skipped_ids straight into a foreach; null instead of an
+	// empty array is the difference between "nothing was skipped" and a
+	// warning about a type.
+	out := filepath.Join(t.TempDir(), "list.json")
+	if code := cmdQuarantine([]string{
+		"list", "--quarantine-dir=" + t.TempDir(), "--json", "--out=" + out,
+	}); code != 0 {
+		t.Fatalf("exit code %d, want 0", code)
+	}
+	raw, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatalf("no report was written: %v", err)
+	}
+	if !strings.Contains(string(raw), `"skipped_ids": []`) {
+		t.Errorf("empty store did not report skipped_ids as an array:\n%s", raw)
 	}
 }
 

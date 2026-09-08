@@ -190,26 +190,32 @@ func readMeta(dir string) (Entry, error) {
 	return entry, nil
 }
 
-// List reads every entry in storeRoot, newest first, and reports how many
-// directories it had to skip.
+// List reads every entry in storeRoot, newest first, and names every
+// directory it had to skip.
 //
 // A directory without a readable meta.json - an entry half-written when a run
 // was interrupted, or the scratch directory StoreCopy verifies through - is
-// skipped rather than failing the whole listing. The count travels with the
-// result because the caller that matters, the panel's index, deletes every
-// row this listing does not name: a silently short list would take entries
-// out of the index that are still very much on disk.
+// skipped rather than failing the whole listing. The skipped names travel
+// with the result because the caller that matters, the panel's index, deletes
+// every row this listing does not name: a silently short list would take
+// entries out of the index that are still very much on disk.
+//
+// Names and not just a count, because a directory that stays unreadable stops
+// the index from ever tidying itself again, and nothing else in the tree ever
+// says which one it is: no command lists it, the cron does not touch it, and
+// Delete reaches it only with an id nobody knows. The name is the whole way
+// back to it.
 //
 // A missing storeRoot is an error and not an empty store. The only caller
 // passes a directory the installer creates; if it is gone, "there is nothing
 // in quarantine" is the one answer that must not be given.
-func List(storeRoot string) ([]Entry, int, error) {
+func List(storeRoot string) ([]Entry, []string, error) {
 	dirEntries, err := os.ReadDir(storeRoot)
 	if err != nil {
-		return nil, 0, err
+		return nil, nil, err
 	}
 
-	skipped := 0
+	var skipped []string
 	var entries []Entry
 	for _, de := range dirEntries {
 		if !de.IsDir() {
@@ -233,18 +239,19 @@ func List(storeRoot string) ([]Entry, int, error) {
 			if !isEntryID(de.Name()) {
 				continue // Arbeitsverzeichnis, kein halber Eintrag
 			}
-			skipped++
+			skipped = append(skipped, de.Name())
 			continue
 		}
 
 		entry, err := readMeta(dir)
 		if err != nil {
-			skipped++
+			skipped = append(skipped, de.Name())
 			continue
 		}
 		entries = append(entries, entry)
 	}
 	sort.Slice(entries, func(i, j int) bool { return entries[i].ID > entries[j].ID })
+	sort.Strings(skipped)
 	return entries, skipped, nil
 }
 
