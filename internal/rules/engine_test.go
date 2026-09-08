@@ -218,6 +218,45 @@ var samples = []sample{
 		miss: `<?php $body = file_get_contents('https://example.invalid/p'); echo strlen($body);`,
 	},
 	{
+		// Der Fehlschlag ist die Vorlagenmaschine: sie liest eine Datei und
+		// fuehrt das Ergebnis aus, holt es aber nicht aus dem Netz.
+		rule: "php.remote.fetch_eval_indirect", ext: "php", path: "/web/a.php",
+		hit:  `<?php $ch = curl_init(); curl_setopt($ch, CURLOPT_URL, $_GET['u']); $x = curl_exec($ch); eval($x);`,
+		miss: `<?php $tpl = file_get_contents(__DIR__ . '/view.tpl'); eval($tpl);`,
+	},
+	{
+		// Der Fehlschlag ist der Aufruf, den WordPress selbst jahrelang
+		// gemacht hat: create_function mit einem gewoehnlichen Rumpf.
+		rule: "php.eval.create_function", ext: "php", path: "/web/a.php",
+		hit:  `<?php $f = create_function('', base64_decode($_POST['c'])); $f();`,
+		miss: `<?php $f = create_function('$a, $b', 'return $a + $b;'); echo $f(1, 2);`,
+	},
+	{
+		// Der Fehlschlag ist ein Text ueber Webshells, kein Webshell: das
+		// Wort allein reicht nicht, gemeint ist die Zuweisung.
+		rule: "php.webshell.auth_pass", ext: "php", path: "/web/a.php",
+		hit:  `<?php $auth_pass = "63a9f0ea7bb98050796b649e85481845"; session_start();`,
+		miss: `<?php // die WSO-Familie erkennt man an ihrer $auth_pass-Zeile` + "\n" + `echo 1;`,
+	},
+	{
+		// Der Fehlschlag ist der Zwischenspeicher, der fuer Bots nicht
+		// greift: dieselbe Unterscheidung, aber ohne dass sich der
+		// ausgelieferte Inhalt dadurch aendert.
+		rule: "php.cloaking.search_bot", ext: "php", path: "/web/a.php",
+		hit: `<?php $ua = strtolower($_SERVER['HTTP_USER_AGENT']); if (strpos($ua, 'googlebot') !== false) ` +
+			`{ include 'spam.txt'; } else { header('Location: /'); }`,
+		miss: `<?php $ua = strtolower($_SERVER['HTTP_USER_AGENT']); $is_bot = strpos($ua, 'googlebot') !== false; ` +
+			`if (!$is_bot) { $cache->store($html); }`,
+	},
+	{
+		// Der Fehlschlag ist das gewoehnliche touch(): eine Datei anlegen
+		// oder ihr Datum auf jetzt setzen, ohne es von einer anderen zu
+		// nehmen.
+		rule: "php.stealth.touch_mtime", ext: "php", path: "/web/a.php",
+		hit:  `<?php copy('x.php', 'y.php'); touch('y.php', filemtime('index.php'));`,
+		miss: `<?php touch($lockfile); touch($cache, time() + 3600);`,
+	},
+	{
 		rule: "php.webshell.known", ext: "php", path: "/web/a.php",
 		hit:  `<?php /* c99shell v.1.0 */ echo 1;`,
 		miss: `<?php /* helper for the shell escaping tests */ echo 1;`,

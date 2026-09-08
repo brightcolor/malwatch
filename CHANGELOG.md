@@ -2,6 +2,60 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.11.0] – 2026-09-08
+
+### Hinzugefügt
+
+**Fünf neue Prüfungen**, 49 werden 54. Jede schließt eine Lücke, die eine
+Gegenprobe an sechs Laborproben offengelegt hat — von den sechs klassischen
+Formen erkannte der Scanner vorher zwei, und beide nur als „mittel".
+
+- `php.eval.create_function` — `create_function` mit entschlüsseltem oder aus
+  der Anfrage stammendem Rumpf. Bis PHP 7 der Ersatz für `eval`, wenn `eval`
+  gesperrt war, und deshalb in jedem älteren Befall. Der Aufruf allein ist
+  keiner: WordPress hat ihn jahrelang für Widgets benutzt.
+- `php.webshell.auth_pass` — die Kennwortzeile der WSO-Familie. Geprüft wird
+  die ganze Zuweisung, nicht das Wort, damit ein Text über Webshells nicht als
+  einer gilt.
+- `php.cloaking.search_bot` — zeigt Suchmaschinen etwas anderes als Besuchern.
+  Eine Art von Befall, für die es bisher gar keine Regel gab: der Code ist
+  unauffällig, auffällig ist die Unterscheidung. Nur „hoch" und nicht
+  selbsttätig — es gibt ehrliche Gründe, einen Bot anders zu behandeln.
+- `php.stealth.touch_mtime` — setzt den Zeitstempel einer abgelegten Datei auf
+  den einer Nachbardatei, damit sie in der Verzeichnisliste nicht auffällt.
+- `php.remote.fetch_eval_indirect` — lädt aus dem Netz in eine Variable und
+  führt diese danach aus. Die vorhandene Regel verlangte beides ineinander und
+  sah die zweischrittige Form nicht; übrig blieb `php.eval.variable` mit
+  „mittel", für Code, der sich seine Anweisungen aus dem Netz holt, zwei
+  Stufen zu wenig.
+
+### Gemessen
+
+Fehlalarme: **null**. Frisches WordPress und Joomla (13.770 Dateien) melden
+vorher wie nachher nichts. Auf drei Websites mit echtem Befall bleibt die Zahl
+der Funde exakt gleich — gameday-film.de 648, hecht-tiefbau.de 98,
+torrios.de 16 — bei zusammen rund 51.000 Dateien.
+
+Neue Treffer auf diesen Websites: **ebenfalls null.** Was dort liegt, sehen die
+bisherigen Regeln bereits. Die neuen Prüfungen decken bekannte Angriffsformen
+ab, die auf diesem Server gerade nicht vorkommen; als nachgewiesene
+Verbesserung der Erkennung ist das nicht zu verkaufen.
+
+### Wieder entfernt
+
+Eine sechste Regel auf `ignore_user_abort(true)` plus `set_time_limit(0)` plus
+Codeausführung — der Dauerläufer, den niemand bestellt hat — ist an der ersten
+echten Website, die sie zu sehen bekam, danebengegriffen: das Sicherungs-Plugin
+`iwp-client` tut genau diese drei Dinge, und zwar zu Recht. Es läuft lange,
+überlebt den Abbruch des Aufrufers und ruft `mysqldump` über `passthru` auf.
+Jedes Sicherungs- und Verwaltungs-Plugin sieht so aus.
+
+Enger fassen ließe sie sich nur, indem man verlangt, dass das Ausgeführte von
+außen kommt — und das melden `php.eval.request` und
+`php.remote.fetch_eval_indirect` schon. Es blieb kein Bereich übrig, in dem sie
+etwas beiträgt, also ist sie draußen. Der Grund steht als Kommentar an ihrer
+Stelle im Katalog, damit sie niemand ein zweites Mal schreibt.
+
 ## [0.10.4] – 2026-09-08
 
 ### Behoben

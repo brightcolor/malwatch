@@ -76,6 +76,21 @@ var catalog = []*Rule{
 		Match:       rx(`(?is)\beval\s*\(\s*(?:@\s*)?\$[a-zA-Z_]\w{0,40}\s*[;)]`),
 	},
 	{
+		// create_function war bis PHP 7 der Ersatz für eval, wenn eval
+		// gesperrt war, und ist deshalb in jedem älteren Befall zu finden.
+		// Der Aufruf allein ist keiner: WordPress selbst hat ihn jahrelang
+		// für Widgets benutzt. Gemeint ist der zweite Parameter - der
+		// Funktionsrumpf -, wenn er entschlüsselt oder aus der Anfrage kommt.
+		ID:          "php.eval.create_function",
+		Severity:    report.SeverityCritical,
+		AutoSafe:    true,
+		Description: "create_function mit verschleiertem Rumpf",
+		Exts:        phpExts,
+		Match: rx(`(?is)\bcreate_function\s*\(\s*[^,]{0,120},\s*(?:@\s*)?(?:` +
+			`base64_decode|gzinflate|gzuncompress|gzdecode|str_rot13|hex2bin|convert_uudecode|rawurldecode|strrev|pack` +
+			`)\s*\(|(?is)\bcreate_function\s*\(\s*[^,]{0,120},\s*(?:@\s*)?\$(?:_GET|_POST|_REQUEST|_COOKIE)\b`),
+	},
+	{
 		ID:          "php.eval.variable_call",
 		Severity:    report.SeverityCritical,
 		AutoSafe:    true,
@@ -475,6 +490,26 @@ var catalog = []*Rule{
 		Exts:        phpExts,
 		Match:       rx(`(?is)\b(?:eval|assert)\s*\(\s*(?:@\s*)?(?:file_get_contents|curl_exec|fopen)\s*\(`),
 	},
+	{
+		// Dieselbe Sache in zwei Schritten, und das ist die Form, die man
+		// wirklich findet: erst in eine Variable holen, dann diese ausführen.
+		// Die Regel darüber verlangt beides ineinander und sieht sie nicht;
+		// übrig blieb php.eval.variable mit "mittel" - für Code, der sich
+		// seine Anweisungen aus dem Netz holt, zwei Stufen zu wenig.
+		//
+		// Die Nebenbedingung nennt absichtlich nicht file_get_contents allein:
+		// eine Vorlagenmaschine liest eine Datei und führt das Ergebnis aus,
+		// und das ist keine Hintertür. Verlangt wird ein Abruf, der nur nach
+		// außen gehen kann - curl, ein Netzsocket, oder eine Adresse mit
+		// http davor.
+		ID:          "php.remote.fetch_eval_indirect",
+		Severity:    report.SeverityCritical,
+		AutoSafe:    true,
+		Description: "lädt von einer fremden Adresse und führt es danach aus",
+		Exts:        phpExts,
+		Match:       rx(`(?is)\b(?:eval|assert)\s*\(\s*(?:@\s*)?\$[a-zA-Z_]\w{0,40}\s*[;)]`),
+		Requires:    rx(`(?is)\b(?:curl_exec\s*\(|curl_setopt\s*\([^,]{1,60},\s*CURLOPT_URL|file_get_contents\s*\(\s*["']https?://|fsockopen\s*\()`),
+	},
 
 	// ----------------------------------------------------- webshell marks
 	{
@@ -524,6 +559,20 @@ var catalog = []*Rule{
 		Requires:    rx(`(?is)\b(?:move_uploaded_file|opendir|scandir|readdir|fopen)\s*\(`),
 	},
 	{
+		// $auth_pass ist die Kennwortzeile der WSO-Familie und ihrer
+		// Abkömmlinge, und sie steht dort seit Jahren unverändert - meist als
+		// MD5, in der frisch abgelegten Fassung auch leer. Der Name kommt in
+		// ehrlichem Code nicht vor; geprüft wird trotzdem die ganze Zuweisung
+		// und nicht nur das Wort, damit ein Text, der über Webshells
+		// schreibt, nicht als eine gilt.
+		ID:          "php.webshell.auth_pass",
+		Severity:    report.SeverityCritical,
+		AutoSafe:    true,
+		Description: "Kennwortzeile bekannter Webshells",
+		Exts:        phpExts,
+		Match:       rx(`(?i)\$auth_pass\s*=\s*["'][0-9a-f]{0,64}["']\s*;`),
+	},
+	{
 		ID:          "php.upload.unchecked",
 		Severity:    report.SeverityMedium,
 		Description: "Datei-Upload ohne erkennbare Prüfung des Ziels",
@@ -550,6 +599,58 @@ var catalog = []*Rule{
 		Exts:        phpExts,
 		Match:       rx(`(?is)\bmail\s*\(\s*\$(?:_GET|_POST|_REQUEST)\s*\[[^\]]{0,40}\]\s*,`),
 	},
+
+	// ------------------------------------------------------------ tarnung
+	{
+		// Wer dem Googlebot etwas anderes zeigt als dem Besucher, verkauft
+		// entweder Links oder versteckt eine Umleitung. Beides ist eine
+		// eigene Art von Befall, die keine der übrigen Regeln sieht: der Code
+		// selbst ist unauffällig, auffällig ist die Unterscheidung.
+		//
+		// Nur "high" und nicht selbsttätig: es gibt ehrliche Gründe, einen
+		// Suchmaschinenbesuch anders zu behandeln - ein Zwischenspeicher, der
+		// für Bots nicht greift, eine Statistik, die sie herausrechnet. Die
+		// Nebenbedingung verlangt deshalb, dass danach auch etwas geschieht,
+		// das den Inhalt verändert.
+		ID:          "php.cloaking.search_bot",
+		Severity:    report.SeverityHigh,
+		Description: "zeigt Suchmaschinen etwas anderes als Besuchern",
+		Exts:        phpExts,
+		Match: rx(`(?is)\$_SERVER\s*\[\s*["']HTTP_USER_AGENT["']\s*\].{0,200}?` +
+			`(?:googlebot|bingbot|yandexbot|baiduspider|duckduckbot|slurp)`),
+		// include und require stehen bewusst nicht in dieser Liste, obwohl ein
+		// Tarner sie benutzt: sie stehen in fast jeder PHP-Datei, und eine
+		// Nebenbedingung, die immer zutrifft, ist keine. Was übrig bleibt,
+		// sind die Formen, die den ausgelieferten Inhalt sichtbar verändern.
+		Requires: rx(`(?is)\bheader\s*\(\s*["']\s*location|\bcurl_exec\s*\(|` +
+			`\bfile_get_contents\s*\(\s*["']https?://|` +
+			`\becho\s+(?:@\s*)?(?:base64_decode|gzinflate|gzuncompress|str_rot13)\s*\(`),
+	},
+	{
+		// Eine abgelegte Datei fällt in einer Verzeichnisliste durch ihr
+		// Datum auf. Wer das weiß, setzt es auf das einer Nachbardatei.
+		//
+		// Nicht selbsttätig: ein Sicherungs- oder Umzugswerkzeug stellt
+		// Zeitstempel aus demselben Grund wieder her, aus dem ein Angreifer
+		// sie fälscht - damit hinterher steht, was vorher stand.
+		ID:          "php.stealth.touch_mtime",
+		Severity:    report.SeverityHigh,
+		Description: "setzt den Zeitstempel einer Datei auf den einer anderen",
+		Exts:        phpExts,
+		Match:       rx(`(?is)\btouch\s*\(\s*[^,)]{1,120},\s*(?:@\s*)?(?:filemtime|filectime|fileatime)\s*\(`),
+	},
+	// Hier stand eine Regel auf ignore_user_abort(true) plus
+	// set_time_limit(0) plus Codeausführung - der Dauerläufer, den niemand
+	// bestellt hat. Sie ist wieder heraus, weil sie an der ersten echten
+	// Website, die sie zu sehen bekam, danebengriff: das Sicherungs-Plugin
+	// iwp-client tut genau diese drei Dinge, und zwar zu Recht - es läuft
+	// lange, überlebt den Abbruch des Aufrufers und ruft mysqldump über
+	// passthru auf. Jedes Sicherungs- und Verwaltungs-Plugin sieht so aus.
+	//
+	// Enger fassen ließe sie sich nur, indem man verlangt, dass das
+	// Ausgeführte von außen kommt - und das melden php.eval.request und
+	// php.remote.fetch_eval_indirect bereits. Es bleibt kein Bereich übrig,
+	// in dem diese Regel etwas beiträgt, was nicht schon jemand meldet.
 
 	// ---------------------------------------------------------- injection
 	{
