@@ -2,6 +2,56 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.12.0] – 2026-09-08
+
+### Hinzugefügt
+
+**„Gehört das hier hin?" statt „sieht das schlecht aus?"** — `vendor.foreign_file`.
+
+Für jedes erkannte Plugin lädt der Scanner ohnehin die Prüfsummenliste von
+wordpress.org; daran erkennt er bisher geänderte Herstellerdateien. Was er
+nicht ansah: Dateien, die **in** einem Plugin-Verzeichnis liegen und die der
+Hersteller überhaupt nicht ausliefert. Ein Plugin-Verzeichnis enthält das
+Plugin — was sonst noch darin steht, ist auf einem anderen Weg hineingekommen.
+
+Das ist die eine Prüfung, bei der Verschleierung nicht hilft. Sie sieht den Ort
+an, nicht den Inhalt: eine perfekt getarnte Hintertür in
+`wp-content/plugins/akismet/` fällt auf, weil Akismet sie nicht ausliefert, und
+nicht, weil sie verdächtig aussieht.
+
+Der Kern ist ausdrücklich ausgenommen. Seine Prüfsummenliste beschreibt den
+Kern, nicht das Verzeichnis: `wp-config.php`, die Uploads und jedes Plugin
+stehen nicht darin, und sie alle als fremd zu melden hieße, die ganze Website
+zu melden.
+
+### Gemessen
+
+Acht Websites, rund 105.000 Dateien, 95 Plugin-Installationen: **eine einzige
+fremde Datei** — und die war eine erzeugte CSS-Datei, die Formidable Forms sich
+selbst in sein Verzeichnis legt.
+
+Daraus folgte die Einschränkung, mit der die Prüfung jetzt läuft: gemeldet wird
+nur, was der Server ausführen kann. Ein Stylesheet ist kein Einstieg, eine
+PHP-Datei, die der Hersteller nicht ausliefert, ist einer. Mit dieser
+Einschränkung: null Funde auf allen acht Websites.
+
+Gegenprobe, damit „null" nicht heißt „prüft nichts": eine untergeschobene
+`.php` in einer Kopie von Akismet wird als einziger Fund gemeldet, die über
+hundert echten Plugin-Dateien daneben schweigen. Eine daneben abgelegte `.css`
+wird nicht gemeldet.
+
+### Bekannte Grenzen
+
+Themes bleiben außen vor — wordpress.org veröffentlicht für sie keine
+Prüfsummen (`theme-checksums` antwortet mit 404), das Archiv müsste geladen und
+selbst ausgewertet werden. Bezahlte Plugins veröffentlicht ohnehin niemand;
+dort greift die Prüfung nicht, was schon bisher so war.
+
+Wie `core.modified` steht auch diese Prüfung nicht im Regelkatalog und kann
+deshalb nie Teil einer automatischen Maßnahme werden. Das ist richtig so — beide
+gehören vor die Augen eines Menschen —, aber die Zahlen neben den
+Einstellungen zählen sie nicht mit.
+
 ## [0.11.0] – 2026-09-08
 
 ### Hinzugefügt

@@ -255,6 +255,29 @@ func scanOne(f walk.File, sigDB *sigs.DB, engine *rules.Engine, known *knownfile
 			Excerpt:  "weicht von der Auslieferung ab (" + label + ")",
 		})
 	}
+	if status == knownfiles.Foreign && runnableExt(f.Ext) {
+		// Die andere Frage: nicht ob eine Datei verdächtig aussieht, sondern
+		// ob sie überhaupt dorthin gehört. Ein Plugin-Verzeichnis enthält das
+		// Plugin; was der Hersteller nicht ausliefert, ist auf einem anderen
+		// Weg hineingekommen. Verschleierung hilft dagegen nicht, denn
+		// geprüft wird der Ort, nicht der Inhalt.
+		//
+		// Gemeldet wird nur, was der Server ausführen kann. Über acht
+		// Websites mit zusammen rund 105.000 Dateien und 95 Plugins fand
+		// diese Prüfung genau eine fremde Datei, und das war eine erzeugte
+		// CSS-Datei, die Formidable Forms sich selbst in sein Verzeichnis
+		// legt. Ein Stylesheet ist kein Einstieg; eine PHP-Datei, die der
+		// Hersteller nicht ausliefert, ist einer.
+		out = append(out, report.Finding{
+			Path:     f.Path,
+			Rule:     "vendor.foreign_file",
+			Severity: report.SeverityHigh,
+			Engine:   "herstellerdateien",
+			Size:     f.Size,
+			MTime:    f.MTime.Format(time.RFC3339),
+			Excerpt:  "gehört nicht zur Auslieferung (" + label + ")",
+		})
+	}
 
 	out = append(out, sigDB.Scan(f.Path, f.Size, content)...)
 	out = append(out, engine.Scan(f.Path, f.Rel, f.Ext, content)...)
@@ -505,9 +528,24 @@ func loadChecksums(known *knownfiles.Index, fetcher *knownfiles.Fetcher, inst cm
 		}
 	case "plugin":
 		if files, err := fetcher.WordPressPlugin(inst.Slug, inst.Version); err == nil {
-			known.AddInstall(inst.Path, "Plugin "+inst.Slug+" "+inst.Version, files)
+			// Als ganzer Baum: was wordpress.org für dieses Plugin ausliefert,
+			// ist alles, was in dem Verzeichnis stehen sollte.
+			known.AddVendorTree(inst.Path, "Plugin "+inst.Slug+" "+inst.Version, files)
 		}
 	}
+}
+
+// runnableExt reports whether the web server would hand this file to PHP.
+//
+// Die Liste ist absichtlich dieselbe, die auch die Regeln als phpExts
+// benutzen, ohne .js: eine erzeugte JavaScript-Datei im Plugin-Verzeichnis
+// ist gewöhnlich, und ob eine fremde davon vorkommt, ist nicht gemessen.
+func runnableExt(ext string) bool {
+	switch ext {
+	case "php", "php3", "php4", "php5", "php7", "php8", "phtml", "phps", "inc", "module":
+		return true
+	}
+	return false
 }
 
 func stateFile(dir, name string) string {

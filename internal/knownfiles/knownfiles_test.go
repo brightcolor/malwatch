@@ -117,3 +117,44 @@ func TestUnsafeSlugAndVersionAreRejected(t *testing.T) {
 		t.Error("an ordinary locale was refused")
 	}
 }
+
+// TestAVendorTreeReportsWhatTheVendorDoesNotShip covers the difference
+// between the two ways of registering a checksum list. A CMS core is
+// surrounded by files its list never mentions - the configuration, the
+// uploads, every plugin - so an unlisted file there says nothing. A plugin
+// directory holds the plugin and nothing else, so an unlisted file there is
+// the whole finding: no pattern, no content, just the question of whether it
+// belongs.
+func TestAVendorTreeReportsWhatTheVendorDoesNotShip(t *testing.T) {
+	shipped := []byte("<?php // vom Hersteller")
+	sum := md5.Sum(shipped)
+	files := map[string]string{"akismet.php": hex.EncodeToString(sum[:])}
+
+	t.Run("vollstaendiger Baum", func(t *testing.T) {
+		idx := New()
+		idx.AddVendorTree(filepath.FromSlash("/web/wp-content/plugins/akismet"), "Plugin akismet 4.2.4", files)
+
+		if got, _ := idx.Check(filepath.FromSlash("/web/wp-content/plugins/akismet/akismet.php"), shipped); got != Original {
+			t.Errorf("die ausgelieferte Datei = %v, erwartet Original", got)
+		}
+		got, label := idx.Check(filepath.FromSlash("/web/wp-content/plugins/akismet/untergeschoben.php"), []byte("<?php // nur ein Platzhalter"))
+		if got != Foreign {
+			t.Errorf("die fremde Datei = %v, erwartet Foreign", got)
+		}
+		if label != "Plugin akismet 4.2.4" {
+			t.Errorf("Label = %q, erwartet den Namen des Plugins", label)
+		}
+	})
+
+	t.Run("unvollstaendige Liste", func(t *testing.T) {
+		idx := New()
+		idx.AddInstall(filepath.FromSlash("/web"), "WordPress 6.6.2", files)
+
+		// Dieselbe Frage an eine Liste, die nur einen Teil des Baums
+		// beschreibt: hier ist eine unbekannte Datei eine Datei, ueber die
+		// niemand etwas behauptet.
+		if got, _ := idx.Check(filepath.FromSlash("/web/wp-config.php"), []byte("<?php // Konfiguration")); got != Unknown {
+			t.Errorf("unbekannte Datei unter einem Kern = %v, erwartet Unknown", got)
+		}
+	})
+}

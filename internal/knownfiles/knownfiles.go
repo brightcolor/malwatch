@@ -23,6 +23,12 @@ const (
 	Original
 	// Modified means a vendor file exists under this name but differs.
 	Modified
+	// Foreign means the file sits inside a tree the vendor ships whole and
+	// is not part of it. Only trees registered through AddVendorTree can
+	// produce this: a WordPress core install is full of files the checksum
+	// list does not cover - wp-config.php, uploads, every plugin - and
+	// calling those foreign would report the entire website.
+	Foreign
 )
 
 // Index answers checksum questions for a set of installations.
@@ -43,6 +49,9 @@ type entry struct {
 	label string
 	// files maps a slash separated relative path to a lower case MD5.
 	files map[string]string
+	// complete says the list covers everything the vendor puts in this
+	// directory, so anything else below it does not come from the vendor.
+	complete bool
 }
 
 // New returns an empty index.
@@ -52,16 +61,37 @@ func New() *Index {
 
 // AddInstall registers the checksum list of one installation. root is the
 // directory the relative paths are based on.
+//
+// The list is treated as partial: a file below root that it does not mention
+// is simply unknown. That is the right reading for a CMS core, whose
+// directory also holds the configuration, the uploads and every plugin.
 func (i *Index) AddInstall(root, label string, files map[string]string) {
+	i.add(root, label, files, false)
+}
+
+// AddVendorTree registers a directory the vendor ships as a whole - a plugin
+// or a theme.
+//
+// The difference to AddInstall is what an unlisted file means. A plugin
+// directory contains the plugin and nothing else; a PHP file in it that the
+// vendor does not ship got there some other way. That question - does this
+// belong here - needs no pattern and cannot produce a false positive from a
+// clever disguise, which is what makes it worth asking.
+func (i *Index) AddVendorTree(root, label string, files map[string]string) {
+	i.add(root, label, files, true)
+}
+
+func (i *Index) add(root, label string, files map[string]string, complete bool) {
 	if len(files) == 0 {
 		return
 	}
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	i.entries = append(i.entries, &entry{
-		root:  filepath.Clean(root),
-		label: label,
-		files: files,
+		root:     filepath.Clean(root),
+		label:    label,
+		files:    files,
+		complete: complete,
 	})
 	sort.SliceStable(i.entries, func(a, b int) bool {
 		return len(i.entries[a].root) > len(i.entries[b].root)
@@ -114,6 +144,12 @@ func (i *Index) Check(path string, content []byte) (Status, string) {
 		}
 		want, ok := e.files[rel]
 		if !ok {
+			if e.complete {
+				// Inside a directory the vendor ships whole, and not part of
+				// it. The caller decides what to make of that; the index only
+				// says that the vendor did not put it there.
+				return Foreign, e.label
+			}
 			// The file is inside a known installation but not part of it -
 			// an upload, a cache file, a plugin. Nothing is claimed about it.
 			continue
