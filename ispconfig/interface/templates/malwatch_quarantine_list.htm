@@ -15,29 +15,56 @@
 </tmpl_loop>
 
 <style>
-/* Farben ausschliesslich aus den Theme-Variablen, mit Rueckfallwert - siehe
-   status.htm/malwatch_site_show.htm fuer denselben Grund: ein Teil der
-   Bediener sitzt auf einem Theme ohne --cic-*. Radius 3px fest, das Theme
-   kennt genau einen. Buttons und Tabelle selbst bleiben die echten
-   ISPConfig-Klassen (btn/table/label) - eigenes CSS gibt es nur fuer das,
-   was es dort nicht schon gibt. */
-#mw-quarantine .mw-sub{margin:6px 0 16px;color:var(--cic-text-dim,#8b9298);font-size:13px;max-width:76ch}
+/* Rueckfallwerte ohne Farbe: jede gedaempfte Schrift ist currentColor mit
+   Deckkraft, jede Linie und jede Flaeche ein durchscheinendes Grau. Ein
+   fester Rueckfall wie #8b9298 sieht auf dem dunklen Theme richtig aus und
+   ist auf dem hellen Standardtheme hellgrau auf Weiss - genau der Fehler,
+   den man als "die Schriftfarbe stimmt nicht" sieht. currentColor erbt vom
+   Theme und stimmt deshalb auf beiden. */
+#mw-quarantine .mw-sub{margin:6px 0 16px;opacity:.72;font-size:13px;max-width:76ch}
 #mw-quarantine .mw-actbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 4px}
 #mw-quarantine .mw-actbar .mw-grow{flex:1 1 auto}
-#mw-quarantine .mw-selcount{font-size:13px;color:var(--cic-text-dim,#8b9298);font-variant-numeric:tabular-nums;white-space:nowrap}
-#mw-quarantine .mw-kind{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--cic-text-dim,#8b9298);display:block;margin-bottom:2px}
-#mw-quarantine .mw-mono{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:12px;word-break:break-all}
-#mw-quarantine .mw-origin{display:block;font-size:11.5px;color:var(--cic-text-dim,#8b9298);margin-top:2px}
+#mw-quarantine .mw-selcount{font-size:13px;opacity:.72;font-variant-numeric:tabular-nums;white-space:nowrap}
+
+/* Dichter als die Vorlage des Themes: bei zwoelf Zeilen mit je 140 Pixeln
+   sieht man vier Eintraege und scrollt fuer den Rest. */
+#mw-quarantine .table > thead > tr > th,
+#mw-quarantine .table > tbody > tr > td{padding:6px 10px;vertical-align:middle}
+
+#mw-quarantine .mw-what{display:flex;align-items:baseline;gap:8px;min-width:0}
+#mw-quarantine .mw-kind{
+	flex:0 0 auto;font-size:9.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+	padding:1px 5px;border-radius:3px;border:1px solid var(--cic-line-soft,rgba(128,128,128,.4));
+	opacity:.75;line-height:1.6;
+}
+/* Ein Pfad in einer Zeile, nicht in dreien: der Anfang steht, das Ende
+   kuerzt, der ganze Pfad haengt als Titel daran. */
+#mw-quarantine .mw-mono{
+	font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:12px;
+	display:block;min-width:0;max-width:46ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+#mw-quarantine .mw-origin{display:block;font-size:11.5px;opacity:.66;margin-top:1px}
 #mw-quarantine td.num{font-variant-numeric:tabular-nums;white-space:nowrap}
-#mw-quarantine .mw-dl-preparing{font-size:12px;color:var(--cic-text-dim,#8b9298);white-space:nowrap}
-#mw-quarantine .mw-qacts{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}
-#mw-quarantine .mw-quiet{margin-top:14px;padding:12px 15px;border:1px solid var(--cic-line-soft,#3c3c3b);border-radius:3px;color:var(--cic-text-dim,#8b9298);font-size:13px;background:var(--cic-head,#202020)}
-#mw-quarantine .mw-quiet strong{color:var(--cic-text,#bac3ca)}
+#mw-quarantine td.mw-size{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+#mw-quarantine th.mw-size{text-align:right}
+#mw-quarantine .mw-unknown{opacity:.55;font-style:italic}
+#mw-quarantine .mw-dl-preparing{font-size:12px;opacity:.66;white-space:nowrap}
+
+/* Die Schaltflaechen einer Zeile in einer Reihe, ohne Schrumpfen. Ohne
+   flex:0 0 auto druecken sie sich in der schmalen Spalte auf wenige Pixel
+   zusammen und stehen als farbige Striche am Rand. */
+#mw-quarantine td.mw-acts{white-space:nowrap;width:1%}
+#mw-quarantine .mw-qacts{display:flex;gap:5px;flex-wrap:nowrap;justify-content:flex-end}
+#mw-quarantine .mw-qacts > *{flex:0 0 auto}
+#mw-quarantine .mw-qacts .btn{padding:3px 9px;font-size:12px;line-height:1.5}
+
+#mw-quarantine .mw-quiet{margin-top:14px;padding:12px 15px;border:1px solid var(--cic-line-soft,rgba(128,128,128,.35));border-radius:3px;opacity:.85;font-size:13px;background:var(--cic-head,rgba(128,128,128,.07))}
+#mw-quarantine .mw-quiet strong{opacity:1}
 #mw-quarantine .mw-quiet + .mw-quiet{margin-top:9px}
 #mw-quarantine input[type=checkbox]{accent-color:var(--cic-accent,#dd630d)}
 #mw-quarantine .mw-pager{display:flex;flex-wrap:wrap;gap:9px;align-items:center;margin-top:12px}
-#mw-quarantine .mw-pager .mw-range{font-size:13px;color:var(--cic-text-dim,#8b9298);font-variant-numeric:tabular-nums}
-#mw-quarantine .mw-pager .mw-hint{font-size:12.5px;color:var(--cic-text-dim,#8b9298)}
+#mw-quarantine .mw-pager .mw-range{font-size:13px;opacity:.72;font-variant-numeric:tabular-nums}
+#mw-quarantine .mw-pager .mw-hint{font-size:12.5px;opacity:.66}
 </style>
 
 <div id="mw-quarantine">
@@ -80,7 +107,7 @@
 			<th>{tmpl_var name='col_website_txt'}</th>
 			<th>{tmpl_var name='col_why_txt'}</th>
 			<th>{tmpl_var name='col_moved_txt'}</th>
-			<th>{tmpl_var name='col_size_txt'}</th>
+			<th class="mw-size">{tmpl_var name='col_size_txt'}</th>
 			<th style="width:1%">&nbsp;</th>
 		</tr>
 	</thead>
@@ -89,8 +116,10 @@
 		<tr>
 			<td><input type="checkbox" class="mw-check" name="ids[]" value="{tmpl_var name='row_key'}" /></td>
 			<td>
-				<span class="mw-kind">{tmpl_var name='kind_label'}</span>
-				<span class="mw-mono">{tmpl_var name='path'}</span>
+				<div class="mw-what">
+					<span class="mw-kind">{tmpl_var name='kind_label'}</span>
+					<span class="mw-mono" title="{tmpl_var name='path'}">{tmpl_var name='path'}</span>
+				</div>
 			</td>
 			<td>
 				<tmpl_if name="has_domain_link">
@@ -104,20 +133,20 @@
 				{tmpl_var name='moved_when'}
 				<span class="mw-origin">{tmpl_var name='origin_label'}</span>
 			</td>
-			<td class="num">{tmpl_var name='size_label'}</td>
-			<td>
+			<td class="mw-size"><tmpl_if name="size_known">{tmpl_var name='size_label'}<tmpl_else><span class="mw-unknown">{tmpl_var name='size_label'}</span></tmpl_if></td>
+			<td class="mw-acts">
 				<div class="mw-qacts">
-					<button class="btn btn-default formbutton-default formbutton-narrow" type="button"
+					<button class="btn btn-default formbutton-default" type="button"
 						onclick="if(!confirm('{tmpl_var name='confirm_restore_one_txt'}')){event.stopPropagation();return false;} document.getElementById('mw-entry-id').value='{tmpl_var name='row_key'}';document.getElementById('mw-action').value='restore';"
 						data-submit-form="pageForm" data-form-action="security/malwatch_quarantine_list.php">{tmpl_var name='btn_restore_txt'}</button>
 					<tmpl_if name="dl_ready">
-						<a class="btn btn-default formbutton-default formbutton-narrow" href="security/malwatch_quarantine_download.php?token={tmpl_var name='dl_token'}">{tmpl_var name='dl_ready_label'}</a>
+						<a class="btn btn-default formbutton-default" href="security/malwatch_quarantine_download.php?token={tmpl_var name='dl_token'}">{tmpl_var name='dl_ready_label'}</a>
 					</tmpl_if>
 					<tmpl_if name="dl_preparing">
 						<span class="mw-dl-preparing">{tmpl_var name='dl_preparing_txt'}</span>
 					</tmpl_if>
 					<tmpl_if name="dl_normal">
-						<button class="btn btn-default formbutton-default formbutton-narrow" type="button"
+						<button class="btn btn-default formbutton-default" type="button"
 							onclick="document.getElementById('mw-entry-id').value='{tmpl_var name='row_key'}';document.getElementById('mw-action').value='download';"
 							data-submit-form="pageForm" data-form-action="security/malwatch_quarantine_list.php">{tmpl_var name='btn_download_txt'}</button>
 					</tmpl_if>
@@ -135,11 +164,11 @@
 <tmpl_if name="has_pager">
 <div class="mw-pager">
 	<tmpl_if name="has_prev_page">
-		<a class="btn btn-default formbutton-default formbutton-narrow" href="#"
+		<a class="btn btn-default formbutton-default" href="#"
 			data-load-content="security/malwatch_quarantine_list.php?page={tmpl_var name='prev_page'}">{tmpl_var name='btn_prev_page_txt'}</a>
 	</tmpl_if>
 	<tmpl_if name="has_next_page">
-		<a class="btn btn-default formbutton-default formbutton-narrow" href="#"
+		<a class="btn btn-default formbutton-default" href="#"
 			data-load-content="security/malwatch_quarantine_list.php?page={tmpl_var name='next_page'}">{tmpl_var name='btn_next_page_txt'}</a>
 	</tmpl_if>
 	<span class="mw-range">{tmpl_var name='pager_range'}</span>

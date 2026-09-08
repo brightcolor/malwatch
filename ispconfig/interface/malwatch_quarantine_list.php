@@ -235,6 +235,10 @@ if (is_array($rows)) {
 			'moved_when' => $app->functions->htmlentities($moved_when),
 			'origin_label' => $app->functions->htmlentities(malwatch_origin_label($wb, $row['origin'])),
 			'size_label' => $app->functions->htmlentities($size_label),
+			// Eine gemessene Größe und "noch unbekannt" stehen in derselben
+			// Spalte; ohne Unterschied im Satz liest sich der Platzhalter wie
+			// ein Wert.
+			'size_known' => $bytes > 0 ? 1 : 0,
 			'dl_ready' => $dl_ready ? 1 : 0,
 			'dl_preparing' => $dl_preparing ? 1 : 0,
 			'dl_normal' => (!$dl_ready && !$dl_preparing) ? 1 : 0,

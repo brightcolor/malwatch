@@ -734,6 +734,40 @@ for page in "$root"/interface/*.php "$root"/interface/lib/*.php; do
 	done
 done
 
+# 40. Jede Argumentliste, die der Runner baut, faengt mit einem Befehl an, den
+#     der Scanner kennt.
+#
+#     Pruefung 37 vergleicht die Schalter und sah deshalb nicht, dass die
+#     Quarantaeneliste mit ihrem Aktionswort statt mit "quarantine" begann: der
+#     Auftrag rief "malwatch add --quarantine-dir=…" auf, der Scanner antwortete
+#     mit seiner Hilfe und Rueckgabecode 3, und im Panel stand "Die Quarantaene
+#     hat keinen Bericht hinterlassen". Ein Schalter fehlt sichtbar, ein
+#     fehlendes erstes Wort nicht.
+runner="$root/server/lib/classes/malwatch_runner.inc.php"
+usage="$root/../cmd/malwatch/usage.go"
+if [ -f "$runner" ] && [ -f "$usage" ]; then
+	# Jede Argumentliste des Runners ist eine array(…)-Zuweisung. Das erste
+	# Element danach - Kommentarzeilen uebersprungen - muss ein Befehlswort
+	# sein, das usage.go kennt. Geprueft wird nicht, ob irgendwo ein gueltiger
+	# Befehl vorkommt, sondern ob jede Liste mit einem anfaengt: der Fehler
+	# war, dass eine Liste mit ihrem Aktionswort begann statt mit dem Befehl.
+	awk '
+		/= *array\($/ { want = 1; next }
+		want && /^[[:space:]]*(\/\/|#|\*)/ { next }
+		want { print; want = 0 }
+	' "$runner" > "$tmpdir/firstargs"
+
+	while IFS= read -r first; do
+		word=$(printf '%s' "$first" | sed -nE "s/^[[:space:]]*'([a-z]+)',?[[:space:]]*$/\1/p")
+		if [ -z "$word" ]; then
+			fail "malwatch_runner.inc.php baut eine Argumentliste, die nicht mit einem Befehlswort beginnt: ${first# }"
+			continue
+		fi
+		grep -qE "^  malwatch $word( |\$)" "$usage" \
+			|| fail "malwatch_runner.inc.php ruft den Scanner mit '$word' auf, usage.go kennt den Befehl nicht"
+	done < "$tmpdir/firstargs"
+fi
+
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'
 fi

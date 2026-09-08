@@ -278,6 +278,7 @@ class cronjob_malwatch extends cronjob
 		$this->clean_spool($config);
 		$this->refresh_signatures($config);
 		$this->refresh_rules($config);
+		$this->complete_quarantine_index($config);
 
 		// Only once an hour: the queries below scan whole tables and there is
 		// nothing to gain from running them every minute.
@@ -309,6 +310,55 @@ class cronjob_malwatch extends cronjob
 		$app->dbmaster->query(
 			"DELETE FROM malwatch_finding WHERE finding_state = 'fixed' "
 			. 'AND last_seen < DATE_SUB(NOW(), INTERVAL 90 DAY)');
+	}
+
+	/**
+	 * Fills in what a repair could not know about the entries it filed.
+	 *
+	 * A repair reports the ids it created and nothing else - size, file count
+	 * and kind live in the store's own listing, which only a quarantine job
+	 * produces. Until one ran, thirteen rows in the panel said "noch
+	 * unbekannt" in the size column and the footprint in the header stood at
+	 * zero, which is exactly the information someone opens that page for.
+	 *
+	 * Costs one indexed query per minute and nothing else while every row is
+	 * complete.
+	 */
+	private function complete_quarantine_index($config)
+	{
+		global $app, $conf;
+
+		$incomplete = $app->dbmaster->queryOneRecord(
+			'SELECT quarantine_id FROM malwatch_quarantine WHERE server_id = ? AND archive_bytes = 0 LIMIT 1',
+			$conf['server_id']);
+		if (!is_array($incomplete)) {
+			return;
+		}
+
+		$binary = (string) $config['binary_path'];
+		$store = rtrim((string) $config['state_dir'], '/') . '/quarantine';
+		if ($binary === '' || !is_executable($binary) || !is_dir($store)) {
+			return;
+		}
+
+		$out = rtrim((string) $config['state_dir'], '/') . '/state/quarantine-index.json';
+		$cmd = escapeshellcmd($binary) . ' quarantine list --quarantine-dir=' . escapeshellarg($store)
+			. ' --json --out=' . escapeshellarg($out) . ' 2>&1';
+		$output = array();
+		$status = 0;
+		exec($cmd, $output, $status);
+		if ($status !== 0) {
+			$app->log('malwatch: reading the quarantine store failed: ' . implode(' ', $output), LOGLEVEL_WARN);
+			return;
+		}
+
+		$doc = json_decode((string) @file_get_contents($out), true);
+		if (!is_array($doc) || !isset($doc['entries']) || !is_array($doc['entries'])) {
+			return;
+		}
+		$app->uses('malwatch_ingest');
+		$app->malwatch_ingest->sync_quarantine($conf['server_id'], $doc['entries'],
+			isset($doc['skipped']) ? intval($doc['skipped']) : 0);
 	}
 
 	/**

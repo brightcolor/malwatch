@@ -152,7 +152,12 @@ function malwatch_queue_quarantine($app, $domain_id, array $paths)
 		return 'Keiner der Pfade steht als Fund dieser Website.';
 	}
 
-	$queued = malwatch_queue_job($app, $domain_id, 'quarantine', array('files' => $accepted));
+	// 'action' ausdrücklich, obwohl der Runner ohne sie auf 'add' zurückfällt:
+	// die Optionen eines Auftrags sind das Einzige, was hinterher noch sagt,
+	// was er tun sollte, und ein Auftrag ohne Aktion sieht in der Datenbank
+	// wie ein halb gebauter aus.
+	$queued = malwatch_queue_job($app, $domain_id, 'quarantine',
+		array('action' => 'add', 'origin' => 'manual', 'files' => $accepted));
 	return $queued === true ? count($accepted) : $queued;
 }
 

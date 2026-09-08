@@ -158,6 +158,11 @@ class malwatch_runner
 			// full list (see malwatch_ingest::sync_quarantine).
 			$action = isset($options['action']) && $options['action'] !== '' ? (string) $options['action'] : 'add';
 			$quarantine = array(
+				// Der Befehl selbst zuerst, dann die Aktion. Ohne ihn rief der
+				// Auftrag "malwatch add …" auf, und der Scanner antwortete mit
+				// seiner Hilfe und Rückgabecode 3 - im Panel als "Die
+				// Quarantäne hat keinen Bericht hinterlassen" zu sehen.
+				'quarantine',
 				$action,
 				'--quarantine-dir=' . $state_dir . '/quarantine',
 				'--json',
