@@ -2,6 +2,63 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.10.2] – 2026-09-08
+
+Eine Prüfung des gesamten Zweigs, die vor allem die Korrekturen der vorigen Prüfung
+angesehen hat. Zwei davon griffen nur dort, wo hingesehen worden war.
+
+### Behoben
+
+**Die Symlink-Abwehr deckte nur eine von zwei Schreibschleifen.** Die Schleife, die die
+losen Kerndateien schreibt, gab es zweimal. Im Modus „Darüberschreiben" — also genau dem
+Modus, der den alten Baum stehen lässt und damit auch das, was jemand hineingelegt hat —
+kam eine `index.php`, die auf `wp-config.php` zeigt, durch die Grenzprüfung, und die
+Herstellerdatei landete als root in der `wp-config.php`. Ohne Kopie, weil Verknüpfungen
+beim Ablegen absichtlich übersprungen werden. Es gibt jetzt genau eine solche Schleife.
+
+**Die Reparatur prüfte das geladene Original zu spät.** „Enthält es dieses Verzeichnis?"
+stand je Verzeichnis unmittelbar vor dessen Auslagerung: fehlte dem Download das zweite,
+war das erste längst in der Quarantäne und von der Website weg. Die Website stand ohne
+`wp-admin` da, und der Lauf meldete einen Fehler. Jetzt wird alles geprüft, bevor
+irgendetwas angefasst wird. Eine Reihenfolge ist keine Prüfung.
+
+**Ein gescheiterter Kernlauf verschwieg, was er schon abgelegt hatte.** Die Kennungen
+gingen auf dem Fehlerweg verloren, der ausgelagerte Baum lag im Speicher, und weder
+Bericht noch Panel nannten ihn. Vorhanden, aber unauffindbar ist schlimmer als verloren.
+
+**`validRel` prüfte nichts.** Die Schleife suchte `..` in einem Pfad, aus dem `path.Clean`
+sie längst herausgerechnet hatte — drei Fassungen lang eine Prüfung, die keine war. Der
+zugehörige Test war grün, weil die Datei nicht existierte, nicht weil der Pfad abgelehnt
+wurde; er legt sie jetzt vorher an.
+
+**Die Liste entschied am Namen, was ein Eintrag ist.** Eine Änderung am Format der Kennung
+hätte jeden vorhandenen Eintrag lautlos aus der Liste genommen — und das Panel löscht, was
+die Liste nicht nennt. Ein Verzeichnis mit einer `meta.json` ist ein Eintrag, wie immer es
+heißt; die Namen der übersprungenen stehen jetzt in der Liste und im Protokoll.
+
+**Eine leere Liste löscht keinen Index mehr.** Zeigte die Einstellung auf einen
+vorhandenen, aber falschen Speicher, war die Antwort „keine Einträge" — und der Abgleich
+räumte den ganzen Index ab. Solange die Datenbank für diesen Server Zeilen hat, löscht
+eine leere Antwort nichts.
+
+**Die Minutenschritte des Crons bremsen jetzt auch nach einem Fehlschlag.** Scheiterte
+einer, lief er jede Minute erneut.
+
+**„Zusammenstellung speichern" speicherte die Einstellungen mit** — und schaltete dabei die
+automatische Maßnahme still ab. Wer eine Regelauswahl unter einem Namen sichert, erwartet
+genau das und nichts weiter.
+
+**Ein Apostroph in einem Bestätigungstext zerlegte die Schaltfläche.** Die Texte gehen in
+ein `onclick`-Attribut; sie werden jetzt dafür aufbereitet, und Prüfung 41 hält jeden
+weiteren daran fest.
+
+### Geändert
+
+Prüfung 40 sieht jetzt auch einzeilige Argumentlisten und Aufrufe, die als Zeichenkette
+zusammengesetzt werden — die erste Fassung hätte den Fehler, für den sie geschrieben
+wurde, in dieser Form nicht gefangen. Beide neuen Prüfungen sind mit absichtlich
+eingebauten Fehlern zum Auslösen gebracht worden, vier verschiedene für Prüfung 40.
+
 ## [0.10.1] – 2026-09-08
 
 ### Behoben
