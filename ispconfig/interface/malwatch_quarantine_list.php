@@ -90,6 +90,15 @@ $app->tpl->newTemplate('form.tpl.htm');
 $app->tpl->setInclude('content_tpl', 'templates/malwatch_quarantine_list.htm');
 $app->tpl->setVar($wb);
 
+// Overwritten right after setVar($wb), which passes a sentence on exactly as
+// the language file wrote it: these five end up inside confirm('…') and
+// alert('…') in an onclick attribute, where one apostrophe kills the button
+// without a sound. See malwatch_js_text().
+foreach (array('confirm_none_selected_txt', 'confirm_restore_selected_txt', 'confirm_delete_selected_txt',
+	'confirm_restore_one_txt', 'confirm_delete_one_txt') as $js_key) {
+	$app->tpl->setVar($js_key, malwatch_js_text($app, isset($wb[$js_key]) ? $wb[$js_key] : ''));
+}
+
 $totals = $app->db->queryOneRecord('SELECT COUNT(*) AS n, COALESCE(SUM(archive_bytes),0) AS b FROM malwatch_quarantine');
 $total_count = is_array($totals) ? $app->functions->intval($totals['n']) : 0;
 $total_bytes = is_array($totals) ? (float) $totals['b'] : 0.0;

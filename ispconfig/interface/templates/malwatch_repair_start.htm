@@ -16,8 +16,10 @@
    fester Rueckfall wie #8b9298 sieht auf dem dunklen Theme richtig aus und
    ist auf dem hellen Standardtheme hellgrau auf Weiss - genau der Fehler,
    den man als "die Schriftfarbe stimmt nicht" sieht. Nur Akzent, Warnung,
-   Fehler und Erfolg behalten einen festen Wert, die lesen sich auf beiden
-   Untergruenden. Siehe malwatch_quarantine_list.htm, dieselbe Regel.
+   Fehler und Erfolg behalten einen festen Wert - der greift aber nur dort,
+   wo es die Variablen nicht gibt, und das sind die hellen Themes: als
+   Schrift gehoert dorthin der dunklere Ton, als Flaeche der hellere.
+   Siehe malwatch_quarantine_list.htm, dieselbe Regel.
    Radius 3px fest, das Theme kennt genau einen. ".mw-choice" gibt es sonst
    nirgends im Bestand (der Rest der Oberflaeche kommt mit Bootstrap-Labels
    und -Buttons aus); hier braucht es eigenes CSS, weil eine Entscheidung
@@ -44,7 +46,11 @@
 	background:var(--cic-sunken,rgba(128,128,128,.10));color:var(--cic-accent-text,#dd630d);
 	border:1px solid var(--cic-accent-deep,#a84c0b);
 }
-#mw-repair .mw-tag.mw-caution{color:var(--cic-warn-lift,#ef8a2b);border-color:var(--cic-warn-lift,#ef8a2b)}
+/* Anderer Rueckfall als beim gefuellten Etikett auf der Statusseite: der
+   Rueckfall greift nur dort, wo es die Variablen nicht gibt - auf default und
+   ispc-clean -, und dort steht dieses Etikett auf Weiss. #ef8a2b kommt da auf
+   2,5:1, bei 10,5 px Versalien deutlich zu wenig. */
+#mw-repair .mw-tag.mw-caution{color:var(--cic-warn-lift,#b25f00);border-color:var(--cic-warn-lift,#b25f00)}
 
 /* Dichter als die Vorlage des Themes: die Elementtabelle einer WordPress-
    Installation hat leicht dreissig Zeilen, und bei der Polsterung des Themes

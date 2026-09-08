@@ -641,6 +641,31 @@ function malwatch_duration($seconds)
 }
 
 /**
+ * A sentence that is safe between single quotes inside an onclick attribute.
+ *
+ * Every confirm() and alert() on these pages sits in an HTML attribute and
+ * takes its text from a language file, and $app->tpl->setVar($wb) hands those
+ * over exactly as written. One apostrophe - "the customer's files" is the
+ * obvious way to write that line in English - closes the JavaScript string
+ * early and leaves the button doing nothing at all, silently. The language
+ * files are ours and none of them holds one today; this is a trap laid for
+ * the next person who writes a better sentence, not a hole.
+ *
+ * Both escapes, in this order: the JavaScript one first, so the backslash it
+ * adds is what the HTML escape then carries through the attribute. The
+ * browser undoes the HTML layer before the JavaScript parser ever sees the
+ * text, which is why the order cannot be the other way round.
+ */
+function malwatch_js_text($app, $text)
+{
+	$escaped = str_replace(
+		array('\\', "'", "\r\n", "\n", "\r"),
+		array('\\\\', "\\'", '\\n', '\\n', '\\n'),
+		(string) $text);
+	return $app->functions->htmlentities($escaped);
+}
+
+/**
  * Formats a byte count the way a human reads it: "169 B", "5,4 kB",
  * "41,8 MB" - decimal units and a German comma, not the binary kind an
  * administrator's tools would show.

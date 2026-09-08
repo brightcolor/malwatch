@@ -106,6 +106,14 @@ if (!file_exists($lng_file)) {
 include $lng_file;
 $app->tpl->setVar($wb);
 
+// Overwritten right after setVar($wb), which passes a sentence on exactly as
+// the language file wrote it: these three end up inside confirm('…') in an
+// onclick attribute, where one apostrophe kills the button without a sound.
+// See malwatch_js_text().
+foreach (array('confirm_delete_all_txt', 'confirm_enable_txt', 'confirm_delete_one_txt') as $js_key) {
+	$app->tpl->setVar($js_key, malwatch_js_text($app, isset($wb[$js_key]) ? $wb[$js_key] : ''));
+}
+
 $site = $app->db->queryOneRecord('SELECT * FROM malwatch_site WHERE parent_domain_id = ?', $domain_id);
 $last_scan = $app->db->queryOneRecord(
 	'SELECT * FROM malwatch_scan WHERE parent_domain_id = ? ORDER BY scan_id DESC LIMIT 1', $domain_id);

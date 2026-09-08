@@ -24,8 +24,10 @@
    kennen; ein fester Rueckfall wie #8b9298 steht dort als Hellgrau auf
    Weiss - genau der Fehler, den man als "die Schriftfarbe stimmt nicht"
    sieht. Siehe malwatch_quarantine_list.htm, dieselbe Regel. Fest bleiben
-   nur Akzent, Warnung, Fehler und Erfolg, die lesen sich auf beiden
-   Untergruenden; --cic-warn ist bewusst nicht dabei, es ist fast identisch
+   nur Akzent, Warnung, Fehler und Erfolg - ihr fester Wert greift aber nur
+   dort, wo es die Variablen nicht gibt, und das sind die hellen Themes: als
+   Schrift gehoert dorthin der dunklere Ton, als Flaeche der hellere;
+   --cic-warn ist bewusst nicht dabei, es ist fast identisch
    mit --cic-accent, fuer den Warnzustand steht --cic-warn-lift. Radius 3px,
    das Theme kennt genau einen. */
 #mw-actions{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin:0 0 14px}
@@ -66,7 +68,11 @@
 #mw-run .mw-log table{width:100%;font-size:12px}
 #mw-run .mw-log td{padding:2px 0;border:0;opacity:.72}
 #mw-run .mw-log td.err{opacity:1;color:var(--cic-bad-text,#d13f22)}
-#mw-run .mw-log td.warn{opacity:1;color:var(--cic-warn-lift,#ef8a2b)}
+/* Anderer Rueckfall als bei der Flaeche: der Rueckfall greift nur dort, wo es
+   die Variablen nicht gibt - auf default und ispc-clean -, und dort steht die
+   Zeile auf Weiss. #ef8a2b kommt da auf 2,5:1 und ist damit auch fuer grossen
+   Text zu wenig. */
+#mw-run .mw-log td.warn{opacity:1;color:var(--cic-warn-lift,#b25f00)}
 @media (prefers-reduced-motion:reduce){#mw-run .mw-fill{transition:none}}
 
 /* Dichter als die Vorlage des Themes. Bei deren Polsterung nahm eine Fund-

@@ -37,10 +37,14 @@
 	padding:1px 5px;border-radius:3px;border:1px solid var(--cic-line-soft,rgba(128,128,128,.4));
 	opacity:.75;line-height:1.6;
 }
+/* Zwei Klassen, nicht eine: .mw-mono ist nur die Schriftart und steht auch
+   mitten im Satz - "das Kennwort lautet infected" in der Fussnote unten. Als
+   Block gesetzt riss dieses eine Wort den meistgelesenen Erklaerkasten der
+   Seite in drei Zeilen. Die Spaltendarstellung haengt deshalb an .mw-path. */
+#mw-quarantine .mw-mono{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:12px}
 /* Ein Pfad in einer Zeile, nicht in dreien: der Anfang steht, das Ende
    kuerzt, der ganze Pfad haengt als Titel daran. */
-#mw-quarantine .mw-mono{
-	font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:12px;
+#mw-quarantine .mw-path{
 	display:block;min-width:0;max-width:46ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
 }
 #mw-quarantine .mw-origin{display:block;font-size:11.5px;opacity:.66;margin-top:1px}
@@ -58,8 +62,13 @@
 #mw-quarantine .mw-qacts > *{flex:0 0 auto}
 #mw-quarantine .mw-qacts .btn{padding:3px 9px;font-size:12px;line-height:1.5}
 
+/* Deckkraft auf dem ganzen Kasten, nicht auf einzelnen Kindern: das <strong>
+   darin hebt sich ueber die Schriftstaerke ab, nicht ueber die Farbe. Eine
+   Regel, die sie dem <strong> zurueckgibt, gibt es hier bewusst nicht - ein
+   Kind kann die Deckkraft seines Elternteils nicht zuruecknehmen, und eine
+   Zeile, die so aussieht, als taete sie es, lehrt die naechste Person die
+   falsche Regel. */
 #mw-quarantine .mw-quiet{margin-top:14px;padding:12px 15px;border:1px solid var(--cic-line-soft,rgba(128,128,128,.35));border-radius:3px;opacity:.85;font-size:13px;background:var(--cic-head,rgba(128,128,128,.07))}
-#mw-quarantine .mw-quiet strong{opacity:1}
 #mw-quarantine .mw-quiet + .mw-quiet{margin-top:9px}
 #mw-quarantine input[type=checkbox]{accent-color:var(--cic-accent,#dd630d)}
 #mw-quarantine .mw-pager{display:flex;flex-wrap:wrap;gap:9px;align-items:center;margin-top:12px}
@@ -118,7 +127,7 @@
 			<td>
 				<div class="mw-what">
 					<span class="mw-kind">{tmpl_var name='kind_label'}</span>
-					<span class="mw-mono" title="{tmpl_var name='path'}">{tmpl_var name='path'}</span>
+					<span class="mw-mono mw-path" title="{tmpl_var name='path'}">{tmpl_var name='path'}</span>
 				</div>
 			</td>
 			<td>

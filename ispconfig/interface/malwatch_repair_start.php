@@ -160,6 +160,14 @@ $app->tpl->newTemplate('form.tpl.htm');
 $app->tpl->setInclude('content_tpl', 'templates/malwatch_repair_start.htm');
 $app->tpl->setVar($wb);
 
+// Overwritten right after setVar($wb), which passes a sentence on exactly as
+// the language file wrote it: these two end up inside confirm('…') and
+// alert('…') in an onclick attribute, where one apostrophe kills the button
+// without a sound. See malwatch_js_text().
+foreach (array('err_no_selection_txt', 'confirm_start_txt') as $js_key) {
+	$app->tpl->setVar($js_key, malwatch_js_text($app, isset($wb[$js_key]) ? $wb[$js_key] : ''));
+}
+
 $app->tpl->setVar('domain_id', $domain_id);
 $app->tpl->setVar('domain', $app->functions->htmlentities($web['domain']));
 $app->tpl->setVar('back_label', sprintf($wb['back_txt'], $app->functions->htmlentities($web['domain'])));
