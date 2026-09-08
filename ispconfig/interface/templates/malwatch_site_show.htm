@@ -98,6 +98,12 @@
    Titel-Tooltip dort erreichbar waere - auf einem Telefon gibt es kein
    Darueberfahren. */
 #mw-site .mw-path{display:block;min-width:0;word-break:break-all}
+/* Der Name eines Plugins ist kein schmales Feld. Als mw-tight mit nowrap
+   nahm er sich seine ganze Inhaltsbreite - bei "Ultimate_VC_Addons /
+   ultimate-vc-addons" waren das 448 Pixel, und die Tabelle stand mit 1084
+   Pixeln in einer 1000 Pixel breiten Spalte. Gemessen an der echten Seite von
+   demoberei.ch. */
+#mw-site .mw-elname{display:inline-block;max-width:100%;vertical-align:bottom;word-break:break-word}
 #mw-site .mw-file{display:flex;align-items:baseline;flex-wrap:wrap;min-width:0}
 #mw-site .mw-file .mw-dir{min-width:0;word-break:break-all}
 #mw-site td.mw-sev .label + .label{margin-left:4px}
@@ -436,7 +442,7 @@
 <table class="table">
 	<thead class="dark">
 		<tr>
-			<th class="mw-tight">{tmpl_var name='product_txt'}</th>
+			<th>{tmpl_var name='product_txt'}</th>
 			<th class="mw-tight">{tmpl_var name='installed_version_txt'}</th>
 			<th class="mw-tight">{tmpl_var name='latest_version_txt'}</th>
 			<th>{tmpl_var name='path_txt'}</th>
@@ -445,7 +451,7 @@
 	<tbody>
 		<tmpl_loop name="software">
 		<tr>
-			<td class="mw-tight">{tmpl_var name='name'} <small>({tmpl_var name='kind'})</small></td>
+			<td><span class="mw-elname">{tmpl_var name='name'}</span> <small>({tmpl_var name='kind'})</small></td>
 			<td class="num">
 				{tmpl_var name='installed_version'}
 				<tmpl_if name="is_outdated"><span class="label label-warning">{tmpl_var name='outdated_txt'}</span></tmpl_if>

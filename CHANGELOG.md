@@ -2,6 +2,34 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.12.1] – 2026-09-09
+
+### Behoben
+
+**Die Softwaretabelle schob die Seite zur Seite.** Diesmal an der echten Seite
+gemessen statt an einer Nachbildung: die Detailseite von demoberei.ch, gerendert
+mit ihren echten Daten, in eine 1000 Pixel breite Inhaltsspalte gestellt — so
+breit ist sie im Panel neben der Navigation bei einem 1285 Pixel breiten
+Fenster.
+
+Die Tabelle war **1084 Pixel** breit. Die Ursache stand in einer einzigen
+Klasse: die Spalte „Produkt" trug `mw-tight`, also `width:1%` mit
+`white-space:nowrap`. Das heißt nicht „schmal", sondern „so breit wie der
+Inhalt, und der darf nicht umbrechen" — bei einem Namen wie
+`Ultimate_VC_Addons / ultimate-vc-addons` waren das 448 Pixel für eine Spalte,
+die aussieht, als solle sie schmal sein. Ein Plugin-Name ist kein schmales Feld;
+die Klasse ist weg, der Name darf umbrechen.
+
+Nachgemessen an derselben Seite: alle fünf Tabellen passen bei 1000 und bei 1200
+Pixeln, keine muss seitlich scrollen, die Seite selbst scrollt nicht, und beide
+Schaltflächen jeder Fundzeile stehen in voller Breite da statt als farbige
+Striche am Rand.
+
+Unterhalb von etwa 900 Pixeln bleibt die Fundtabelle bei 905 Pixeln stehen —
+Stufe, Dateiname, Datum und die zwei Schaltflächen brauchen so viel. Dort
+scrollt dann der Tabellenrahmen, nicht die Seite. Das ist der Unterschied, um
+den es die ganze Zeit ging.
+
 ## [0.12.0] – 2026-09-08
 
 ### Hinzugefügt
