@@ -1,36 +1,48 @@
 <style>
-/* Farben ausschliesslich aus dem Theme, mit Rueckfallwert - ein Teil der
-   Bediener sitzt auf default oder ispc-clean, wo es die Variablen nicht
-   gibt. --cic-warn ist bewusst nicht dabei: es ist fast identisch mit
-   --cic-accent, und dann waere Zustand von Bedienbarkeit nicht zu
+/* Rueckfallwerte ohne Farbe: jede gedaempfte Schrift ist currentColor mit
+   Deckkraft, jede Linie und jede Flaeche ein durchscheinendes Grau. Ein
+   Teil der Bediener sitzt auf default oder ispc-clean, wo es die Variablen
+   nicht gibt; ein fester Rueckfall wie #8b9298 steht dort als Hellgrau auf
+   Weiss - genau der Fehler, den man als "die Schriftfarbe stimmt nicht"
+   sieht. Siehe malwatch_quarantine_list.htm, dieselbe Regel. Fest bleiben
+   nur Akzent, Warnung, Fehler und Erfolg, die lesen sich auf beiden
+   Untergruenden. --cic-warn ist bewusst nicht dabei: es ist fast identisch
+   mit --cic-accent, und dann waere Zustand von Bedienbarkeit nicht zu
    unterscheiden. Fuer Warnungen steht --cic-warn-lift. */
-#mw-status .mw-lede{font-size:21px;line-height:1.3;font-weight:600;color:var(--cic-text-loud,#fff)}
-#mw-status .mw-sub{margin:6px 0 0;color:var(--cic-text-dim,#8b9298);font-size:13px}
+#mw-status .mw-lede{font-size:21px;line-height:1.3;font-weight:600}
+#mw-status .mw-sub{margin:6px 0 0;opacity:.72;font-size:13px}
 #mw-status .mw-sites{display:flex;flex-direction:column;gap:9px;margin-top:16px}
 #mw-status .mw-site{display:grid;grid-template-columns:1fr auto;gap:14px;align-items:start;
-  padding:13px 15px;border:1px solid var(--cic-line-soft,#3c3c3b);border-radius:3px;
-  background:var(--cic-raised,#292929)}
+  padding:13px 15px;border:1px solid var(--cic-line-soft,rgba(128,128,128,.35));border-radius:3px;
+  background:var(--cic-raised,rgba(128,128,128,.06))}
 #mw-status .mw-site.bad{border-left:3px solid var(--cic-bad,#d13f22)}
 #mw-status .mw-site.warn{border-left:3px solid var(--cic-warn-lift,#ef8a2b)}
 #mw-status .mw-site.busy{border-left:3px solid var(--cic-accent,#dd630d)}
 #mw-status .mw-site h3{margin:0;font-size:15px;font-weight:600;display:flex;align-items:center;
-  gap:8px;flex-wrap:wrap;color:var(--cic-text-loud,#fff)}
+  gap:8px;flex-wrap:wrap}
 #mw-status .mw-site p{margin:5px 0 0;font-size:13.5px;max-width:62ch}
 #mw-status .mw-chip{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
-  padding:2px 7px;border-radius:3px}
-#mw-status .mw-chip.bad{background:var(--cic-bad-deep,#b13116);color:var(--cic-bad-text,#fff)}
+  padding:2px 7px;border-radius:3px;white-space:nowrap}
+/* Zwei gefuellte Etiketten: die Schrift steht auf der Chip-Farbe, nicht auf
+   dem Untergrund der Seite, deshalb ist sie hier fest und auf beiden Themes
+   dieselbe. --cic-bad-text waere falsch: das ist der aufgehellte Ton fuer
+   dunkle Flaechen und stuende auf dem dunkelroten Chip fast unlesbar. */
+#mw-status .mw-chip.bad{background:var(--cic-bad-deep,#b13116);color:#fff}
 #mw-status .mw-chip.warn{background:var(--cic-warn-lift,#ef8a2b);color:var(--cic-on-accent,#1c1c1c)}
-#mw-status .mw-chip.busy{background:var(--cic-sunken,#151515);color:var(--cic-accent-text,#ef7d21);
+#mw-status .mw-chip.busy{background:var(--cic-sunken,rgba(128,128,128,.10));color:var(--cic-accent-text,#dd630d);
   border:1px solid var(--cic-accent-deep,#a84c0b)}
+/* Die Schaltflaeche behaelt die Farbe des Themes - eine eigene Angabe waere
+   auf dem jeweils anderen Theme falsch. Nur nicht umbrechen soll sie. */
 #mw-status .mw-acts{display:flex;flex-direction:column;gap:6px}
-#mw-status .mw-track{height:6px;border-radius:3px;background:var(--cic-line-soft,#3c3c3b);
+#mw-status .mw-acts .btn{white-space:nowrap}
+#mw-status .mw-track{height:6px;border-radius:3px;background:var(--cic-line-soft,rgba(128,128,128,.35));
   overflow:hidden;margin-top:10px}
 #mw-status .mw-fill{height:100%;background:var(--cic-accent,#dd630d);border-radius:3px;
   transition:width .5s linear;width:0}
 #mw-status .mw-meta{display:flex;justify-content:space-between;gap:12px;margin-top:6px;
-  font-size:12px;color:var(--cic-text-dim,#8b9298);font-variant-numeric:tabular-nums}
-#mw-status .mw-quiet{margin-top:18px;padding:12px 15px;border:1px solid var(--cic-line-soft,#3c3c3b);
-  border-radius:3px;color:var(--cic-text-dim,#8b9298);font-size:13px;background:var(--cic-head,#202020)}
+  font-size:12px;opacity:.72;font-variant-numeric:tabular-nums}
+#mw-status .mw-quiet{margin-top:18px;padding:12px 15px;border:1px solid var(--cic-line-soft,rgba(128,128,128,.35));
+  border-radius:3px;opacity:.85;font-size:13px;background:var(--cic-head,rgba(128,128,128,.07))}
 @media (prefers-reduced-motion:reduce){#mw-status *{transition:none !important}}
 </style>
 

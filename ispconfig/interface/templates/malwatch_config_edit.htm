@@ -210,8 +210,13 @@
 </div></div>
 
 <style>
-/* Farben ausschliesslich aus den Theme-Variablen, mit Rueckfallwert - siehe
-   malwatch_quarantine_list.htm fuer denselben Grund. Radius 3px fest.
+/* Rueckfallwerte ohne Farbe: jede gedaempfte Schrift ist currentColor mit
+   Deckkraft, jede Linie und jede Flaeche ein durchscheinendes Grau. Ein
+   fester Rueckfall wie #8b9298 sieht auf dem dunklen Theme richtig aus und
+   ist auf dem hellen Standardtheme hellgrau auf Weiss - genau der Fehler,
+   den man als "die Schriftfarbe stimmt nicht" sieht. Nur Akzent, Warnung,
+   Fehler und Erfolg behalten einen festen Wert. Siehe
+   malwatch_quarantine_list.htm, dieselbe Regel. Radius 3px fest.
    ".mw-choice" gibt es sonst nirgends im Bestand (siehe
    malwatch_repair_start.htm fuer dieselbe Begruendung: eine Entscheidung mit
    Preis und Beschreibung ist kein Standardelement des Panels) - hier neu
@@ -221,34 +226,44 @@
 #mw-config-auto.mw-choices{display:flex;flex-direction:column;gap:9px;max-width:82ch}
 #mw-config-auto .mw-choice{
 	display:grid;grid-template-columns:auto 1fr;gap:11px;padding:12px 14px;
-	border:1px solid var(--cic-line-soft,#3c3c3b);border-radius:3px;
-	background:var(--cic-raised,#292929);cursor:pointer;
+	border:1px solid var(--cic-line-soft,rgba(128,128,128,.35));border-radius:3px;
+	background:var(--cic-raised,rgba(128,128,128,.06));cursor:pointer;
 }
-#mw-config-auto .mw-choice:hover{border-color:var(--cic-line-loud,#5a5a5a)}
-#mw-config-auto .mw-choice:has(> input:checked){border-color:var(--cic-accent,#dd630d);background:var(--cic-hover,#2d2d2d)}
+#mw-config-auto .mw-choice:hover{border-color:var(--cic-line-loud,rgba(128,128,128,.55))}
+#mw-config-auto .mw-choice:has(> input:checked){border-color:var(--cic-accent,#dd630d);background:var(--cic-hover,rgba(128,128,128,.12))}
 #mw-config-auto .mw-choice > input{margin-top:4px;accent-color:var(--cic-accent,#dd630d)}
-#mw-config-auto .mw-name{font-weight:600;font-size:14px;color:var(--cic-text-loud,#fff);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-#mw-config-auto .mw-desc{margin:4px 0 0;font-size:13px;color:var(--cic-text,#bac3ca)}
-#mw-config-auto .mw-mono{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:12px;color:var(--cic-text-dim,#8b9298)}
+#mw-config-auto .mw-name{font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+/* Keine Deckkraft auf die Karte: der Name darin soll lauter bleiben als die
+   Beschreibung, und Deckkraft laesst sich von innen nicht zuruecknehmen. */
+#mw-config-auto .mw-desc{margin:4px 0 0;font-size:13px;opacity:.82}
+#mw-config-auto .mw-mono{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:12px}
 #mw-config-auto .mw-tag{
 	font-size:10.5px;font-weight:600;padding:1px 6px;border-radius:3px;
-	background:var(--cic-sunken,#151515);color:var(--cic-accent-text,#ef7d21);
+	background:var(--cic-sunken,rgba(128,128,128,.10));color:var(--cic-accent-text,#dd630d);
 	border:1px solid var(--cic-accent-deep,#a84c0b);
 }
-#mw-config-auto .mw-ownlist{margin-top:12px;padding:12px 14px;border:1px solid var(--cic-line-soft,#3c3c3b);border-radius:3px;background:var(--cic-sunken,#151515)}
-#mw-config-auto .mw-ownlist h4{margin:0 0 9px;font-size:13px;font-weight:600;color:var(--cic-text-loud,#fff)}
-#mw-config-auto .mw-ownlist p{font-size:12.5px;color:var(--cic-text-dim,#8b9298);margin:0 0 10px}
+#mw-config-auto .mw-ownlist{margin-top:12px;padding:12px 14px;border:1px solid var(--cic-line-soft,rgba(128,128,128,.35));border-radius:3px;background:var(--cic-sunken,rgba(128,128,128,.10))}
+#mw-config-auto .mw-ownlist h4{margin:0 0 9px;font-size:13px;font-weight:600}
+#mw-config-auto .mw-ownlist p{font-size:12.5px;opacity:.72;margin:0 0 10px}
 #mw-config-auto .mw-rules{display:flex;flex-direction:column;gap:7px}
 #mw-config-auto .mw-rules label{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;font-size:13px;cursor:pointer}
 #mw-config-auto .mw-rules input{accent-color:var(--cic-accent,#dd630d)}
-#mw-config-auto .mw-rid{font-size:11.5px;color:var(--cic-text-dim,#8b9298);justify-self:end;font-variant-numeric:tabular-nums}
+#mw-config-auto .mw-rid{font-size:11.5px;opacity:.72;justify-self:end;font-variant-numeric:tabular-nums;white-space:nowrap}
 #mw-config-auto .mw-savebar{display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap}
+/* Das Feld erbt Schrift- und Flaechenfarbe vom Theme statt sie zu setzen:
+   ein fester Rueckfall waere hier ein dunkles Feld auf einer weissen Seite. */
 #mw-config-auto .mw-savebar input[type=text]{
-	font:inherit;font-size:13px;padding:6px 10px;border:1px solid var(--cic-line-loud,#5a5a5a);
-	border-radius:3px;background:var(--cic-page,#1c1c1c);color:var(--cic-text,#bac3ca);min-width:190px;
+	font:inherit;font-size:13px;padding:6px 10px;border:1px solid var(--cic-line-loud,rgba(128,128,128,.55));
+	border-radius:3px;background:var(--cic-page,transparent);color:inherit;min-width:190px;
 }
-.mw-quiet{margin:12px 0;padding:12px 15px;border:1px solid var(--cic-line-soft,#3c3c3b);border-radius:3px;color:var(--cic-text-dim,#8b9298);font-size:13px;background:var(--cic-head,#202020);display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-.mw-rule{height:1px;background:var(--cic-line-soft,#3c3c3b);border:0;margin:18px 0}
+/* Die Deckkraft sitzt hier auf dem Text, nicht auf dem Kasten: in diesem
+   Kasten steht eine Schaltflaeche, und ein Kind laesst sich aus einer
+   Deckkraft des Elternteils nicht wieder herausholen - die Schaltflaeche
+   saehe abgeschaltet aus. Ihre Farbe kommt ohnehin vom Theme; eine eigene
+   Angabe waere auf dem jeweils anderen Theme falsch. */
+.mw-quiet{margin:12px 0;padding:12px 15px;border:1px solid var(--cic-line-soft,rgba(128,128,128,.35));border-radius:3px;font-size:13px;background:var(--cic-head,rgba(128,128,128,.07));display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.mw-quiet > span{opacity:.85}
+.mw-rule{height:1px;background:var(--cic-line-soft,rgba(128,128,128,.35));border:0;margin:18px 0}
 .mw-savebar-final{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
 </style>
 
