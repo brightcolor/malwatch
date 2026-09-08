@@ -321,10 +321,21 @@ func TestStoreAndStoreCopyRejectARelPathOutsideTheRoot(t *testing.T) {
 	cases := []struct {
 		label string
 		rel   string
+		// pre ist eine Datei, die vor dem Aufruf angelegt wird, damit der
+		// Aufruf nicht schon an "gibt es nicht" scheitert: sonst prüft der
+		// Fall die Pfadprüfung gar nicht, sondern os.Lstat.
+		pre string
 	}{
-		{"empty", ""},
-		{"dot", "."},
-		{"dotdot", "../.."},
+		{"empty", "", ""},
+		{"dot", ".", ""},
+		{"dotdot", "../..", ""},
+		// Ein ".." mitten im Pfad, das path.Clean gegen das Verzeichnis davor
+		// aufrechnet: der bereinigte Pfad bleibt im Webstamm, die Prüfung über
+		// die bereinigten Bestandteile sah deshalb nie ein "..". Genau dieser
+		// Fall ließ die Schleife drei Fassungen lang als Prüfung durchgehen,
+		// die nichts prüfte.
+		{"dotdot_in_der_mitte", "wp-content/../wp-config.php", "wp-config.php"},
+		{"dotdot_am_anfang", "../nachbar/datei.php", ""},
 	}
 	for _, fn := range funcs {
 		t.Run(fn.name, func(t *testing.T) {
@@ -333,6 +344,9 @@ func TestStoreAndStoreCopyRejectARelPathOutsideTheRoot(t *testing.T) {
 					root := t.TempDir()
 					marker := filepath.Join(root, "wp-content", "uploads", "keep.txt")
 					writeTestFile(t, marker, []byte("keep me"), 0o644)
+					if c.pre != "" {
+						writeTestFile(t, filepath.Join(root, filepath.FromSlash(c.pre)), []byte("<?php // da"), 0o644)
+					}
 					storeRoot := t.TempDir()
 
 					if _, err := fn.call(storeRoot, Source{Root: root, RelPath: c.rel}); err == nil {

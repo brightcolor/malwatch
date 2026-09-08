@@ -176,3 +176,141 @@ func TestRepairCoreAbortsWhenTheStagedTreeIsMissingWpAdmin(t *testing.T) {
 		t.Error("the web root changed even though repairCore aborted for a missing wp-admin")
 	}
 }
+
+// TestOverlayCoreRefusesToWriteThroughASymlinkedLooseRootFile is the same
+// attack SwapCore already refuses, aimed at the other mode. The loop that
+// writes the loose root files existed twice, and only the copy SwapCore
+// calls got the check: in overlay mode an index.php pointing at
+// wp-config.php still passed InsideRoot - the target is inside the root -
+// and os.WriteFile followed it, so the vendor's index.php landed in
+// wp-config.php as root. Overlay is the mode that leaves the old tree
+// standing, so it is also the mode where a planted link is still there when
+// the writing starts.
+func TestOverlayCoreRefusesToWriteThroughASymlinkedLooseRootFile(t *testing.T) {
+	root := t.TempDir()
+	configPath := filepath.Join(root, "wp-config.php")
+	if err := os.WriteFile(configPath, []byte("<?php // secrets\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	indexPath := filepath.Join(root, "index.php")
+	symlinkOrSkip(t, configPath, indexPath)
+
+	staged := t.TempDir()
+	if err := os.WriteFile(filepath.Join(staged, "index.php"),
+		[]byte("<?php // ORIGINAL WORDPRESS\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := overlayCore(root, staged); err == nil {
+		t.Fatal("overlayCore wrote through a symlinked loose core file instead of refusing")
+	}
+
+	got, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "<?php // secrets\n" {
+		t.Errorf("overlayCore wrote through the link: wp-config.php now %q", got)
+	}
+}
+
+// TestRepairCoreTouchesNothingWhenTheStagedTreeIsIncomplete guards the order
+// of the two steps, not just their presence. The check for "does the staged
+// core actually contain this directory" used to sit inside the loop, right
+// before each directory was filed away: with wp-admin first and wp-includes
+// missing from the download, wp-admin was already in quarantine and off the
+// website by the time the run noticed and stopped. The website then had no
+// administration area and the run reported an error - the copy existed, but
+// the site was down either way. Checking every directory before touching any
+// of them is the whole fix, and a test that only asserts "it returns an
+// error" would pass on the broken version too.
+func TestRepairCoreTouchesNothingWhenTheStagedTreeIsIncomplete(t *testing.T) {
+	root := coreOnlyRoot(t, "<?php // index")
+	store := t.TempDir()
+
+	// The staged core has wp-admin but no wp-includes - a truncated download,
+	// or a vendor layout that moved. coreDirs visits wp-admin first.
+	staged := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(staged, "wp-admin"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(staged, "wp-admin", "admin.php"),
+		[]byte("<?php // original admin"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, ids, err := repairCore(Options{Root: root, QuarantineDir: store, Domain: "beispiel.de"},
+		"replace", staged)
+	if err == nil {
+		t.Fatal("an incomplete staged core did not stop the repair")
+	}
+	if len(ids) != 0 {
+		t.Errorf("the run filed %d entr(ies) away before it stopped: %v", len(ids), ids)
+	}
+	if _, err := os.Stat(filepath.Join(root, "wp-admin", "admin.php")); err != nil {
+		t.Errorf("wp-admin is gone from the website although the run refused: %v", err)
+	}
+	entries, _, err := quarantine.List(store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Errorf("quarantine holds %d entr(ies) from a run that changed nothing", len(entries))
+	}
+}
+
+// TestAFailedCoreRepairStillNamesWhatItFiled covers what happens when the
+// run breaks after the first directory is already in quarantine. The ids are
+// the only thread back to it: the store names entries by id, and a caller
+// that drops them on the error path leaves the archived tree on disk with
+// nothing in the report or the panel pointing at it. Present but unfindable
+// is worse than lost, because nobody goes looking.
+func TestAFailedCoreRepairStillNamesWhatItFiled(t *testing.T) {
+	root := coreOnlyRoot(t, "<?php // index")
+	store := t.TempDir()
+
+	// wp-includes is replaced by a link pointing out of the web root, so
+	// InsideRoot refuses it - after wp-admin has been filed away. The staged
+	// tree is complete, so the up-front check passes and the run gets far
+	// enough to archive the first directory.
+	outside := t.TempDir()
+	if err := os.RemoveAll(filepath.Join(root, "wp-includes")); err != nil {
+		t.Fatal(err)
+	}
+	symlinkOrSkip(t, outside, filepath.Join(root, "wp-includes"))
+
+	staged := t.TempDir()
+	for _, dir := range coreDirs {
+		if err := os.MkdirAll(filepath.Join(staged, dir), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(staged, dir, "x.php"), []byte("<?php // original"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	_, ids, err := repairCore(Options{Root: root, QuarantineDir: store, Domain: "beispiel.de"},
+		"replace", staged)
+	if err == nil {
+		t.Skip("the link was not refused on this platform; nothing to assert about the failure path")
+	}
+	entries, _, listErr := quarantine.List(store)
+	if listErr != nil {
+		t.Fatal(listErr)
+	}
+	if len(entries) != len(ids) {
+		t.Fatalf("the store holds %d entr(ies) but the run reported %d id(s): %v",
+			len(entries), len(ids), ids)
+	}
+	for _, entry := range entries {
+		found := false
+		for _, id := range ids {
+			if id == entry.ID {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("entry %s sits in the store and no returned id names it", entry.ID)
+		}
+	}
+}

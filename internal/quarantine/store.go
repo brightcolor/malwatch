@@ -60,14 +60,22 @@ func isEntryID(name string) bool { return entryIDPattern.MatchString(name) }
 // The callers are all ours, but "the caller is ours" is a property that stops
 // holding the first time someone adds one.
 func validRel(rel string) error {
-	clean := path.Clean("/" + strings.ReplaceAll(rel, "\\", "/"))
+	slashed := strings.ReplaceAll(rel, "\\", "/")
+	clean := path.Clean("/" + slashed)
 	if rel == "" || clean == "/" {
 		return fmt.Errorf("leerer Pfad: die Quarantäne nimmt einzelne Dateien und Verzeichnisse, nicht den ganzen Webstamm")
 	}
 	if path.IsAbs(rel) || filepath.IsAbs(rel) {
 		return fmt.Errorf("absoluter Pfad %q: erwartet wird ein Pfad unterhalb des Webstamms", rel)
 	}
-	for _, part := range strings.Split(strings.Trim(clean, "/"), "/") {
+	// Die rohen Bestandteile, nicht die bereinigten: path.Clean rechnet ein
+	// ".." gegen das Verzeichnis davor auf, also enthält das Ergebnis nie
+	// eines, und eine Schleife darüber prüft nichts. Sie sah drei Fassungen
+	// lang aus wie eine Prüfung. Ein "..", das im Ergebnis wieder aufgeht,
+	// mag harmlos sein - der Pfad kommt aus einem Formularfeld, und ein
+	// Aufrufer, der solche Pfade schickt, meint etwas anderes als das, was
+	// hier ankommt.
+	for _, part := range strings.Split(strings.Trim(slashed, "/"), "/") {
 		if part == ".." {
 			return fmt.Errorf("%q führt aus dem Webstamm heraus", rel)
 		}
@@ -207,15 +215,29 @@ func List(storeRoot string) ([]Entry, int, error) {
 		if !de.IsDir() {
 			continue
 		}
+		dir := filepath.Join(storeRoot, de.Name())
+
 		// Scratch directories - <id>.verify while StoreCopy checks itself,
 		// <id>.restore while Restore checks a payload before removing the
 		// target - are not entries and are not damage either. They only look
 		// like both, and one left behind by a killed process would otherwise
 		// keep the panel's index from ever tidying itself again.
-		if !isEntryID(de.Name()) {
+		//
+		// Der Name allein entscheidet das aber nicht: ein Verzeichnis mit
+		// einer meta.json ist ein Eintrag, wie immer es heißt. Nur am Muster
+		// zu filtern hieße, dass eine spätere Änderung am Format der Kennung
+		// jeden vorhandenen Eintrag lautlos aus der Liste nimmt - und weil
+		// das Panel alles löscht, was die Liste nicht nennt, auch aus dem
+		// Panel.
+		if _, err := os.Stat(filepath.Join(dir, "meta.json")); err != nil {
+			if !isEntryID(de.Name()) {
+				continue // Arbeitsverzeichnis, kein halber Eintrag
+			}
+			skipped++
 			continue
 		}
-		entry, err := readMeta(filepath.Join(storeRoot, de.Name()))
+
+		entry, err := readMeta(dir)
 		if err != nil {
 			skipped++
 			continue

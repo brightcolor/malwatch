@@ -44,17 +44,32 @@ func SwapCore(root, stagedDir string) (int, error) {
 		replaced += countFiles(dst)
 	}
 
+	n, err := writeLooseRootFiles(root, stagedDir)
+	return replaced + n, err
+}
+
+// writeLooseRootFiles puts the staged core's root files - index.php,
+// wp-login.php and the rest - in place by name, adding and replacing and
+// touching nothing else.
+//
+// One function for both modes, because there were two copies of this loop
+// and only one of them got the check below. The other stayed open for a
+// whole release, in the mode that leaves the old tree standing and therefore
+// keeps whatever was planted in it.
+func writeLooseRootFiles(root, stagedDir string) (int, error) {
 	entries, err := os.ReadDir(stagedDir)
 	if err != nil {
-		return replaced, err
+		return 0, err
 	}
+
+	written := 0
 	for _, entry := range entries {
 		if entry.IsDir() {
 			continue
 		}
 		dst := filepath.Join(root, entry.Name())
 		if err := InsideRoot(root, dst); err != nil {
-			return replaced, err
+			return written, err
 		}
 		// InsideRoot resolves the path and would catch a link pointing out of
 		// the web root, but one pointing back inside passes - and os.WriteFile
@@ -62,17 +77,17 @@ func SwapCore(root, stagedDir string) (int, error) {
 		// A loose core file is a file; a link in its place is not something to
 		// write through.
 		if lst, err := os.Lstat(dst); err == nil && lst.Mode()&os.ModeSymlink != 0 {
-			return replaced, fmt.Errorf("%s ist eine Verknüpfung und wird nicht überschrieben - "+
+			return written, fmt.Errorf("%s ist eine Verknüpfung und wird nicht überschrieben - "+
 				"eine Kerndatei ist keine Verknüpfung", dst)
 		}
 		raw, err := os.ReadFile(filepath.Join(stagedDir, entry.Name()))
 		if err != nil {
-			return replaced, err
+			return written, err
 		}
 		if err := os.WriteFile(dst, raw, 0o644); err != nil {
-			return replaced, err
+			return written, err
 		}
-		replaced++
+		written++
 	}
-	return replaced, nil
+	return written, nil
 }

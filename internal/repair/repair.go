@@ -189,7 +189,13 @@ func Run(opts Options) (*report.Repair, error) {
 			pw.Phase(5, phaseTotal, "swap")
 			n, ids, err := repairCore(opts, mode, it.dir)
 			if err != nil {
+				// Die bis dahin vergebenen Kennungen gehören in den Bericht,
+				// gerade weil der Lauf scheiterte: sonst liegt der ausgelagerte
+				// Baum im Speicher, und weder Bericht noch Panel nennen ihn -
+				// vorhanden, aber unauffindbar, und das ist schlimmer als
+				// verloren, weil niemand danach sucht.
 				entry.Outcome, entry.Message = report.OutcomeFailed, err.Error()
+				entry.QuarantineIDs = ids
 				rep.Elements = append(rep.Elements, entry)
 				return rep, err
 			}
@@ -324,20 +330,26 @@ func captureMode(dir string) (mode os.FileMode, uid, gid int, ok bool) {
 // a quarantine entry to name, only files SwapCore has always overwritten one
 // by one.
 func repairCore(opts Options, mode string, stagedDir string) (int, []string, error) {
+	// Erst alles prüfen, dann irgendetwas anfassen. Die Prüfung stand
+	// vorher je Verzeichnis unmittelbar vor dessen Ablage: fehlte dem
+	// geladenen Original das zweite Verzeichnis, war das erste längst
+	// ausgelagert, und die Website stand ohne wp-admin da, während der Lauf
+	// mit einem Fehler abbrach. Eine Reihenfolge ist keine Prüfung.
+	for _, dir := range coreDirs {
+		if _, err := os.Lstat(filepath.Join(opts.Root, dir)); err != nil {
+			continue // ist auf der Website nicht da, wird also nichts ersetzt
+		}
+		if _, err := os.Stat(filepath.Join(stagedDir, dir)); err != nil {
+			return 0, nil, fmt.Errorf("das geladene Original enthält kein %s - "+
+				"der Kern wird nicht angefasst", dir)
+		}
+	}
+
 	var ids []string
 	for _, dir := range coreDirs {
 		target := filepath.Join(opts.Root, dir)
 		if _, err := os.Lstat(target); err != nil {
 			continue // nothing there yet to archive
-		}
-		// Only archive what the staged tree can actually put back. Without
-		// this, a core archive missing wp-admin - a truncated download, a
-		// vendor layout that changed - would have wp-admin filed away and
-		// then silently not replaced, and the run would report success while
-		// the website had lost its administration area.
-		if _, err := os.Stat(filepath.Join(stagedDir, dir)); err != nil {
-			return 0, ids, fmt.Errorf("das geladene Original enthält kein %s - "+
-				"der Kern wird nicht angefasst", dir)
 		}
 		if err := InsideRoot(opts.Root, target); err != nil {
 			return 0, ids, err
@@ -481,28 +493,8 @@ func overlayCore(root, stagedDir string) (int, error) {
 		written += n
 	}
 
-	entries, err := os.ReadDir(stagedDir)
-	if err != nil {
-		return written, err
-	}
-	for _, de := range entries {
-		if de.IsDir() {
-			continue
-		}
-		dst := filepath.Join(root, de.Name())
-		if err := InsideRoot(root, dst); err != nil {
-			return written, err
-		}
-		raw, err := os.ReadFile(filepath.Join(stagedDir, de.Name()))
-		if err != nil {
-			return written, err
-		}
-		if err := os.WriteFile(dst, raw, 0o644); err != nil {
-			return written, err
-		}
-		written++
-	}
-	return written, nil
+	n, err := writeLooseRootFiles(root, stagedDir)
+	return written + n, err
 }
 
 func label(el Element) string {
