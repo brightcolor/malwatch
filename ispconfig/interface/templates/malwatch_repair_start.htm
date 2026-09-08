@@ -11,39 +11,67 @@
 </tmpl_if>
 
 <style>
-/* Farben ausschliesslich aus den Theme-Variablen, mit Rueckfallwert - siehe
-   malwatch_quarantine_list.htm/malwatch_site_show.htm fuer denselben Grund.
+/* Rueckfallwerte ohne Farbe: jede gedaempfte Schrift ist currentColor mit
+   Deckkraft, jede Linie und jede Flaeche ein durchscheinendes Grau. Ein
+   fester Rueckfall wie #8b9298 sieht auf dem dunklen Theme richtig aus und
+   ist auf dem hellen Standardtheme hellgrau auf Weiss - genau der Fehler,
+   den man als "die Schriftfarbe stimmt nicht" sieht. Nur Akzent, Warnung,
+   Fehler und Erfolg behalten einen festen Wert, die lesen sich auf beiden
+   Untergruenden. Siehe malwatch_quarantine_list.htm, dieselbe Regel.
    Radius 3px fest, das Theme kennt genau einen. ".mw-choice" gibt es sonst
    nirgends im Bestand (der Rest der Oberflaeche kommt mit Bootstrap-Labels
    und -Buttons aus); hier braucht es eigenes CSS, weil eine Entscheidung
    mit Preis und Beschreibung kein Standardelement des Panels ist. */
 #mw-repair .mw-back{margin:0 0 10px}
-#mw-repair .mw-sub{margin:6px 0 16px;color:var(--cic-text-dim,#8b9298);font-size:13px;max-width:76ch}
-#mw-repair .mw-sec{font-size:15px;font-weight:600;margin:20px 0 4px;color:var(--cic-text-loud,#fff)}
+#mw-repair .mw-sub{margin:6px 0 16px;opacity:.72;font-size:13px;max-width:76ch}
+#mw-repair .mw-sec{font-size:15px;font-weight:600;margin:20px 0 4px}
 #mw-repair .mw-choices{display:flex;flex-direction:column;gap:9px;margin-top:10px;max-width:82ch}
 #mw-repair .mw-choice{
 	display:grid;grid-template-columns:auto 1fr;gap:11px;padding:12px 14px;
-	border:1px solid var(--cic-line-soft,#3c3c3b);border-radius:3px;
-	background:var(--cic-raised,#292929);cursor:pointer;
+	border:1px solid var(--cic-line-soft,rgba(128,128,128,.35));border-radius:3px;
+	background:var(--cic-raised,rgba(128,128,128,.06));cursor:pointer;
 }
-#mw-repair .mw-choice:hover{border-color:var(--cic-line-loud,#5a5a5a)}
-#mw-repair .mw-choice:has(input:checked){border-color:var(--cic-accent,#dd630d);background:var(--cic-hover,#2d2d2d)}
+#mw-repair .mw-choice:hover{border-color:var(--cic-line-loud,rgba(128,128,128,.55))}
+#mw-repair .mw-choice:has(input:checked){border-color:var(--cic-accent,#dd630d);background:var(--cic-hover,rgba(128,128,128,.12))}
 #mw-repair .mw-choice input{margin-top:4px;accent-color:var(--cic-accent,#dd630d)}
-#mw-repair .mw-choice .mw-name{font-weight:600;font-size:14px;color:var(--cic-text-loud,#fff);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-#mw-repair .mw-choice .mw-desc{margin:4px 0 0;font-size:13px;color:var(--cic-text,#bac3ca)}
+#mw-repair .mw-choice .mw-name{font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+/* Keine Deckkraft auf die Karte selbst: der Name darin soll lauter bleiben
+   als die Beschreibung, und Deckkraft laesst sich von innen nicht wieder
+   zuruecknehmen. Deshalb sitzt sie nur auf dem Beschreibungsabsatz. */
+#mw-repair .mw-choice .mw-desc{margin:4px 0 0;font-size:13px;opacity:.82}
 #mw-repair .mw-tag{
 	font-size:10.5px;font-weight:600;padding:1px 6px;border-radius:3px;
-	background:var(--cic-sunken,#151515);color:var(--cic-accent-text,#ef7d21);
+	background:var(--cic-sunken,rgba(128,128,128,.10));color:var(--cic-accent-text,#dd630d);
 	border:1px solid var(--cic-accent-deep,#a84c0b);
 }
 #mw-repair .mw-tag.mw-caution{color:var(--cic-warn-lift,#ef8a2b);border-color:var(--cic-warn-lift,#ef8a2b)}
-#mw-repair .mw-kind{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--cic-text-dim,#8b9298);margin-right:6px}
-#mw-repair td.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+
+/* Dichter als die Vorlage des Themes: die Elementtabelle einer WordPress-
+   Installation hat leicht dreissig Zeilen, und bei der Polsterung des Themes
+   sieht man davon fuenf. */
+#mw-repair .table > thead > tr > th,
+#mw-repair .table > tbody > tr > td{padding:6px 10px;vertical-align:middle}
+/* Art des Elements als kleines Etikett neben dem Namen statt als eigene
+   Zeile darueber - sonst ist jede Zeile eine Zeile hoeher als noetig. */
+#mw-repair .mw-el{display:flex;align-items:baseline;gap:8px;min-width:0}
+#mw-repair .mw-kind{
+	flex:0 0 auto;font-size:9.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+	padding:1px 5px;border-radius:3px;border:1px solid var(--cic-line-soft,rgba(128,128,128,.4));
+	opacity:.75;line-height:1.6;
+}
+/* max-width, nicht nur min-width:0: eine Tabelle in automatischer Breite
+   waechst sonst mit dem laengsten Namen mit, statt ihn zu kuerzen. */
+#mw-repair .mw-elname{min-width:0;max-width:46ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#mw-repair td.num{font-variant-numeric:tabular-nums;white-space:nowrap;width:1%}
+/* Die drei schmalen Spalten rechts nehmen nur ihre Inhaltsbreite, damit die
+   Namensspalte den Rest bekommt statt umgekehrt. */
+#mw-repair td.mw-orig,#mw-repair td.mw-what{white-space:nowrap;width:1%}
 #mw-repair .mw-mono{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:12px}
-#mw-repair .mw-quiet{margin-top:16px;padding:12px 15px;border:1px solid var(--cic-line-soft,#3c3c3b);border-radius:3px;color:var(--cic-text-dim,#8b9298);font-size:13px;background:var(--cic-head,#202020)}
-#mw-repair .mw-quiet strong{color:var(--cic-text,#bac3ca)}
+/* Deckkraft auf dem ganzen Kasten, nicht auf einzelnen Kindern: das <strong>
+   darin hebt sich ueber die Schriftstaerke ab, nicht ueber die Farbe. */
+#mw-repair .mw-quiet{margin-top:16px;padding:12px 15px;border:1px solid var(--cic-line-soft,rgba(128,128,128,.35));border-radius:3px;opacity:.85;font-size:13px;background:var(--cic-head,rgba(128,128,128,.07))}
 #mw-repair .mw-savebar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:14px}
-#mw-repair .mw-selcount{font-size:13px;color:var(--cic-text-dim,#8b9298);font-variant-numeric:tabular-nums}
+#mw-repair .mw-selcount{font-size:13px;opacity:.72;font-variant-numeric:tabular-nums;white-space:nowrap}
 #mw-repair input[type=checkbox]{accent-color:var(--cic-accent,#dd630d)}
 </style>
 
@@ -106,18 +134,23 @@
 		<tr>
 			<th style="width:28px">&nbsp;</th>
 			<th>{tmpl_var name='col_element_txt'}</th>
-			<th>{tmpl_var name='col_version_txt'}</th>
-			<th>{tmpl_var name='col_original_txt'}</th>
-			<th>{tmpl_var name='col_what_happens_txt'}</th>
+			<th style="width:1%">{tmpl_var name='col_version_txt'}</th>
+			<th style="width:1%">{tmpl_var name='col_original_txt'}</th>
+			<th style="width:1%">{tmpl_var name='col_what_happens_txt'}</th>
 		</tr>
 	</thead>
 	<tbody>
 		<tmpl_loop name="elements">
 		<tr data-has-original="{tmpl_var name='has_original'}">
 			<td><input type="checkbox" class="mw-el-check" name="only[]" value="{tmpl_var name='only_value'}" <tmpl_if name="is_checked">checked</tmpl_if> /></td>
-			<td><span class="mw-kind">{tmpl_var name='kind_label'}</span><b>{tmpl_var name='name'}</b></td>
-			<td class="num"><span class="mw-mono">{tmpl_var name='installed_version'}</span></td>
 			<td>
+				<div class="mw-el">
+					<span class="mw-kind">{tmpl_var name='kind_label'}</span>
+					<span class="mw-elname" title="{tmpl_var name='name'}"><b>{tmpl_var name='name'}</b></span>
+				</div>
+			</td>
+			<td class="num"><span class="mw-mono">{tmpl_var name='installed_version'}</span></td>
+			<td class="mw-orig">
 				<tmpl_if name="has_original">
 					<span class="label label-success">{tmpl_var name='original_available_txt'}</span>
 				<tmpl_else>
