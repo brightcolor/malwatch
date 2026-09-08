@@ -31,7 +31,14 @@
 #mw-quarantine .table > thead > tr > th,
 #mw-quarantine .table > tbody > tr > td{padding:6px 10px;vertical-align:middle}
 
-#mw-quarantine .mw-what{display:flex;align-items:baseline;gap:8px;min-width:0}
+/* Unten die schmale Fassung, die nichts voraussetzt; alles Enge kommt erst
+   ab Tabletbreite dazu. Andersherum schrumpfen Spalten mit width:1% und
+   nowrap auf einem Telefon auf wenige Pixel, und weil nowrap den Text nicht
+   umbrechen laesst, laeuft er aus der Zelle heraus ueber die Nachbarn: aus
+   zwei Ueberschriften wird ein ineinandergeschobenes Wort. Ein auf 46ch
+   gekuerzter Pfad ist dort abgeschnitten, ohne dass der Titel-Tooltip
+   erreichbar waere - auf einem Telefon gibt es kein Darueberfahren. */
+#mw-quarantine .mw-what{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;min-width:0}
 #mw-quarantine .mw-kind{
 	flex:0 0 auto;font-size:9.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
 	padding:1px 5px;border-radius:3px;border:1px solid var(--cic-line-soft,rgba(128,128,128,.4));
@@ -42,25 +49,36 @@
    Block gesetzt riss dieses eine Wort den meistgelesenen Erklaerkasten der
    Seite in drei Zeilen. Die Spaltendarstellung haengt deshalb an .mw-path. */
 #mw-quarantine .mw-mono{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:12px}
-/* Ein Pfad in einer Zeile, nicht in dreien: der Anfang steht, das Ende
-   kuerzt, der ganze Pfad haengt als Titel daran. */
-#mw-quarantine .mw-path{
-	display:block;min-width:0;max-width:46ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-}
+#mw-quarantine .mw-path{display:block;min-width:0;word-break:break-all}
 #mw-quarantine .mw-origin{display:block;font-size:11.5px;opacity:.66;margin-top:1px}
-#mw-quarantine td.num{font-variant-numeric:tabular-nums;white-space:nowrap}
-#mw-quarantine td.mw-size{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+#mw-quarantine td.num{font-variant-numeric:tabular-nums}
+#mw-quarantine td.mw-size{text-align:right;font-variant-numeric:tabular-nums}
 #mw-quarantine th.mw-size{text-align:right}
 #mw-quarantine .mw-unknown{opacity:.55;font-style:italic}
-#mw-quarantine .mw-dl-preparing{font-size:12px;opacity:.66;white-space:nowrap}
+#mw-quarantine .mw-dl-preparing{font-size:12px;opacity:.66}
+#mw-quarantine .mw-qacts{display:flex;gap:5px;flex-direction:column;align-items:stretch}
+#mw-quarantine .mw-qacts .btn{padding:3px 9px;font-size:12px;line-height:1.5;white-space:normal}
+/* Letztes Netz: kann eine Tabelle doch einmal nicht schmal genug werden,
+   schiebt der Rahmen sie seitlich, statt sie ineinanderzufalten. */
+#mw-quarantine .table-wrapper{overflow-x:auto}
 
-/* Die Schaltflaechen einer Zeile in einer Reihe, ohne Schrumpfen. Ohne
-   flex:0 0 auto druecken sie sich in der schmalen Spalte auf wenige Pixel
-   zusammen und stehen als farbige Striche am Rand. */
-#mw-quarantine td.mw-acts{white-space:nowrap;width:1%}
-#mw-quarantine .mw-qacts{display:flex;gap:5px;flex-wrap:nowrap;justify-content:flex-end}
-#mw-quarantine .mw-qacts > *{flex:0 0 auto}
-#mw-quarantine .mw-qacts .btn{padding:3px 9px;font-size:12px;line-height:1.5}
+@media (min-width:768px){
+	/* Ein Pfad in einer Zeile, nicht in dreien: der Anfang steht, das Ende
+	   kuerzt, der ganze Pfad haengt als Titel daran. */
+	#mw-quarantine .mw-what{flex-wrap:nowrap}
+	#mw-quarantine .mw-path{
+		max-width:46ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;word-break:normal;
+	}
+	#mw-quarantine td.num,#mw-quarantine td.mw-size,
+	#mw-quarantine .mw-dl-preparing{white-space:nowrap}
+	/* Die Schaltflaechen einer Zeile in einer Reihe, ohne Schrumpfen. Ohne
+	   flex:0 0 auto druecken sie sich in der schmalen Spalte auf wenige Pixel
+	   zusammen und stehen als farbige Striche am Rand. */
+	#mw-quarantine td.mw-acts,#mw-quarantine th.mw-acts{white-space:nowrap;width:1%}
+	#mw-quarantine .mw-qacts{flex-direction:row;align-items:baseline;flex-wrap:nowrap;justify-content:flex-end}
+	#mw-quarantine .mw-qacts .btn{white-space:nowrap}
+	#mw-quarantine .mw-qacts > *{flex:0 0 auto}
+}
 
 /* Deckkraft auf dem ganzen Kasten, nicht auf einzelnen Kindern: das <strong>
    darin hebt sich ueber die Schriftstaerke ab, nicht ueber die Farbe. Eine
@@ -117,7 +135,7 @@
 			<th>{tmpl_var name='col_why_txt'}</th>
 			<th>{tmpl_var name='col_moved_txt'}</th>
 			<th class="mw-size">{tmpl_var name='col_size_txt'}</th>
-			<th style="width:1%">&nbsp;</th>
+			<th class="mw-acts">&nbsp;</th>
 		</tr>
 	</thead>
 	<tbody>

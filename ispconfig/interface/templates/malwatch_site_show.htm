@@ -81,40 +81,78 @@
    scrollte fuer den Rest. */
 #mw-site .table > thead > tr > th,
 #mw-site .table > tbody > tr > td{padding:6px 10px;vertical-align:middle}
-/* Schmale Spalten nehmen nur ihre Inhaltsbreite, damit Pfad und Fundliste
-   den Rest bekommen statt umgekehrt. */
-#mw-site td.mw-tight,#mw-site th.mw-tight,#mw-site td.mw-acts{white-space:nowrap;width:1%}
-#mw-site td.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+#mw-site td.num{font-variant-numeric:tabular-nums}
 #mw-site td.right,#mw-site th.right{text-align:right}
 #mw-site .mw-mono{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:12px}
-/* Ein Pfad in einer Zeile, nicht in dreien: der Anfang steht, das Ende
-   kuerzt, der ganze Pfad haengt als Titel daran. */
-#mw-site .mw-path{
-	display:block;min-width:0;max-width:56ch;
-	overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-}
-/* Beim Fund steht der Dateiname rechts, und genau der ist die Auskunft.
-   Gekuerzt wird deshalb das Verzeichnis davor, nicht der Name dahinter. */
-#mw-site .mw-file{display:flex;align-items:baseline;min-width:0;max-width:60ch}
-#mw-site .mw-file .mw-dir{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#mw-site .mw-file strong{flex:0 0 auto;white-space:nowrap}
-#mw-site td.mw-sev{white-space:nowrap;width:1%}
+
+/* Unten steht die schmale Fassung, weil sie die ist, die nichts voraussetzt:
+   ein Pfad darf umbrechen, eine Spalte nimmt sich, was sie braucht. Alles
+   Enge kommt erst ab Tabletbreite dazu.
+
+   Andersherum ging es schief: vier Spalten mit width:1% und nowrap haben auf
+   einem Telefon keinen Platz, schrumpfen auf wenige Pixel, und weil nowrap
+   den Text nicht umbrechen laesst, laeuft er aus der Zelle heraus ueber die
+   Nachbarn. Aus "Stufe" und "Datei" wurde in der Ueberschrift "SDatei", aus
+   drei Ueberschriften ein ineinandergeschobenes Wort. Und ein Pfad, der auf
+   56ch gekuerzt wird, ist auf 390 Pixeln abgeschnitten, ohne dass der
+   Titel-Tooltip dort erreichbar waere - auf einem Telefon gibt es kein
+   Darueberfahren. */
+#mw-site .mw-path{display:block;min-width:0;word-break:break-all}
+#mw-site .mw-file{display:flex;align-items:baseline;flex-wrap:wrap;min-width:0}
+#mw-site .mw-file .mw-dir{min-width:0;word-break:break-all}
 #mw-site td.mw-sev .label + .label{margin-left:4px}
-/* Eine Regel je Zeile statt drei: Etikett, Regel, Stelle, Prueferin und
-   der Auszug nebeneinander, der Auszug kuerzt am Ende. */
 #mw-site .mw-hits{margin-top:4px;display:flex;flex-direction:column;gap:3px}
-#mw-site .mw-hit{display:flex;align-items:baseline;gap:7px;flex-wrap:nowrap;min-width:0;font-size:12px}
-#mw-site .mw-hit > *{flex:0 0 auto}
-#mw-site .mw-hit .mw-excerpt{
-	flex:0 1 auto;min-width:0;max-width:52ch;
-	overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+#mw-site .mw-hit{display:flex;align-items:baseline;gap:7px;flex-wrap:wrap;min-width:0;font-size:12px}
+#mw-site .mw-hit .mw-excerpt{min-width:0;word-break:break-all}
+/* Auf dem Telefon untereinander statt nebeneinander: nebeneinander machen
+   zwei Schaltflaechen die Spalte breiter als der Rest der Zeile zusammen,
+   und die Tabelle schiebt sich aus dem Bild. Gestapelt ist die Spalte so
+   breit wie eine Schaltflaeche. */
+#mw-site .mw-facts{display:flex;gap:5px;flex-direction:column;align-items:stretch}
+/* Bootstrap setzt jeder Schaltflaeche white-space:nowrap. Auf dem Telefon
+   macht das aus "In Quarantaene verschieben" eine Spalte von 130 Pixeln, die
+   sich nicht schmaler machen laesst, und die Tabelle passt nicht mehr. Zwei
+   Zeilen im Knopf sind besser als eine Tabelle, die seitlich wegrutscht. */
+#mw-site .mw-facts .btn{padding:3px 9px;font-size:12px;line-height:1.5;white-space:normal}
+/* Letztes Netz: kann eine Tabelle doch einmal nicht schmal genug werden,
+   schiebt der Rahmen sie seitlich, statt sie ineinanderzufalten. */
+#mw-site .table-wrapper{overflow-x:auto}
+/* Auf dem Telefon ist fuer vier Spalten kein Platz: Stufe, Datei und die
+   Schaltflaechen zusammen fuellen ihn schon. "Zuerst gesehen" ist die
+   Angabe, die man am ehesten entbehrt - sie steht auch in der Fundliste -,
+   und ohne sie stehen die Schaltflaechen im Bild statt hinter einem Wisch
+   nach rechts. */
+@media (max-width:767px){#mw-site .mw-when{display:none}}
+
+@media (min-width:768px){
+	/* Schmale Spalten nehmen nur ihre Inhaltsbreite, damit Pfad und
+	   Fundliste den Rest bekommen statt umgekehrt. */
+	#mw-site td.mw-tight,#mw-site th.mw-tight,#mw-site td.mw-acts,
+	#mw-site td.mw-sev{white-space:nowrap;width:1%}
+	#mw-site td.num{white-space:nowrap}
+	/* Ein Pfad in einer Zeile, nicht in dreien: der Anfang steht, das Ende
+	   kuerzt, der ganze Pfad haengt als Titel daran. */
+	#mw-site .mw-path{max-width:56ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;word-break:normal}
+	/* Beim Fund steht der Dateiname rechts, und genau der ist die Auskunft.
+	   Gekuerzt wird deshalb das Verzeichnis davor, nicht der Name dahinter. */
+	#mw-site .mw-file{flex-wrap:nowrap;max-width:60ch}
+	#mw-site .mw-file .mw-dir{flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;word-break:normal}
+	#mw-site .mw-file strong{flex:0 0 auto;white-space:nowrap}
+	/* Eine Regel je Zeile statt drei: Etikett, Regel, Stelle, Prueferin und
+	   der Auszug nebeneinander, der Auszug kuerzt am Ende. */
+	#mw-site .mw-hit{flex-wrap:nowrap}
+	#mw-site .mw-hit > *{flex:0 0 auto}
+	#mw-site .mw-hit .mw-excerpt{
+		flex:0 1 auto;max-width:52ch;
+		overflow:hidden;text-overflow:ellipsis;white-space:nowrap;word-break:normal;
+	}
+	/* Die Schaltflaechen einer Zeile in einer Reihe, ohne Schrumpfen: ohne
+	   flex:0 0 auto druecken sie sich in der schmalen Spalte auf wenige Pixel
+	   zusammen und stehen als farbige Striche am Rand. */
+	#mw-site .mw-facts{flex-direction:row;align-items:baseline;flex-wrap:nowrap;justify-content:flex-end}
+	#mw-site .mw-facts .btn{white-space:nowrap}
+	#mw-site .mw-facts > *{flex:0 0 auto}
 }
-/* Die Schaltflaechen einer Zeile in einer Reihe, ohne Schrumpfen: ohne
-   flex:0 0 auto druecken sie sich in der schmalen Spalte auf wenige Pixel
-   zusammen und stehen als farbige Striche am Rand. */
-#mw-site .mw-facts{display:flex;gap:5px;flex-wrap:nowrap;justify-content:flex-end}
-#mw-site .mw-facts > *{flex:0 0 auto}
-#mw-site .mw-facts .btn{padding:3px 9px;font-size:12px;line-height:1.5}
 </style>
 
 <!--
@@ -342,7 +380,7 @@
 		<tr>
 			<th class="mw-tight">{tmpl_var name='severity_txt'}</th>
 			<th>{tmpl_var name='file_txt'}</th>
-			<th class="mw-tight">{tmpl_var name='first_seen_txt'}</th>
+			<th class="mw-tight mw-when">{tmpl_var name='first_seen_txt'}</th>
 			<th class="mw-tight">&nbsp;</th>
 		</tr>
 	</thead>
@@ -367,7 +405,7 @@
 					</tmpl_loop>
 				</div>
 			</td>
-			<td class="num mw-tight">{tmpl_var name='first_seen'}</td>
+			<td class="num mw-tight mw-when">{tmpl_var name='first_seen'}</td>
 			<td class="mw-acts">
 				<div class="mw-facts">
 				<tmpl_if name="is_ignored">

@@ -2,6 +2,38 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.10.3] – 2026-09-08
+
+### Behoben
+
+**Auf dem Telefon fielen die Tabellenüberschriften ineinander und die
+Schaltflächen standen außerhalb des Bildes.** Aus „Stufe" und „Datei" wurde in
+der Kopfzeile „SDatei", aus drei Überschriften ein ineinandergeschobenes Wort,
+Pfade waren mitten im Verzeichnis abgeschnitten, und die ganze Seite ließ sich
+seitlich wegschieben, statt in den Rahmen zu passen.
+
+Die Ursache war eine Annahme: die dichte Darstellung, die eine Tabelle auf einem
+Monitor lesbar macht — `width:1%` und `white-space:nowrap` auf den schmalen
+Spalten, ein Pfad auf 46 Zeichen gekürzt — setzt Platz voraus. Auf 375 Pixeln
+gibt es ihn nicht. Solche Spalten schrumpfen dort auf wenige Pixel, und weil
+`nowrap` den Text nicht umbrechen lässt, läuft er aus der Zelle heraus über die
+Nachbarn.
+
+Die schmale Fassung ist jetzt die Grundeinstellung, weil sie nichts voraussetzt:
+Pfade brechen um und werden nicht gekürzt, Spalten nehmen sich, was sie brauchen,
+die Schaltflächen einer Zeile stehen untereinander statt nebeneinander. Alles
+Enge kommt erst ab Tabletbreite dazu. Zusätzlich schiebt der Tabellenrahmen im
+Notfall die Tabelle seitlich statt die ganze Seite.
+
+Ein auf 46 Zeichen gekürzter Pfad hatte auf dem Telefon noch einen zweiten
+Haken: der volle Pfad hing als Tooltip daran, und Darüberfahren gibt es dort
+nicht.
+
+Die Spalte „Zuerst gesehen" der Fundliste entfällt unterhalb von 768 Pixeln.
+Stufe, Datei und die beiden Schaltflächen füllen die Breite eines Telefons
+bereits aus; das Datum ist die Angabe, die man am ehesten entbehrt, und es steht
+auch in der Fundliste.
+
 ## [0.10.2] – 2026-09-08
 
 Eine Prüfung des gesamten Zweigs, die vor allem die Korrekturen der vorigen Prüfung

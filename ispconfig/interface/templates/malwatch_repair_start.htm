@@ -65,14 +65,25 @@
 	padding:1px 5px;border-radius:3px;border:1px solid var(--cic-line-soft,rgba(128,128,128,.4));
 	opacity:.75;line-height:1.6;
 }
-/* max-width, nicht nur min-width:0: eine Tabelle in automatischer Breite
-   waechst sonst mit dem laengsten Namen mit, statt ihn zu kuerzen. */
-#mw-repair .mw-elname{min-width:0;max-width:46ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#mw-repair td.num{font-variant-numeric:tabular-nums;white-space:nowrap;width:1%}
-/* Die drei schmalen Spalten rechts nehmen nur ihre Inhaltsbreite, damit die
-   Namensspalte den Rest bekommt statt umgekehrt. */
-#mw-repair td.mw-orig,#mw-repair td.mw-what{white-space:nowrap;width:1%}
+/* Schmal zuerst, eng erst ab Tabletbreite: width:1% und nowrap setzen Platz
+   voraus, den ein Telefon nicht hat. Dort schrumpfen solche Spalten auf
+   wenige Pixel, und der nicht umbrechbare Text laeuft aus der Zelle heraus
+   ueber die Nachbarn - aus zwei Ueberschriften wird ein
+   ineinandergeschobenes Wort. */
+#mw-repair .mw-elname{min-width:0;word-break:break-word}
+#mw-repair td.num{font-variant-numeric:tabular-nums}
 #mw-repair .mw-mono{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:12px}
+#mw-repair .table-wrapper{overflow-x:auto}
+
+@media (min-width:768px){
+	/* max-width, nicht nur min-width:0: eine Tabelle in automatischer Breite
+	   waechst sonst mit dem laengsten Namen mit, statt ihn zu kuerzen. */
+	#mw-repair .mw-elname{max-width:46ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;word-break:normal}
+	/* Die drei schmalen Spalten rechts nehmen nur ihre Inhaltsbreite, damit
+	   die Namensspalte den Rest bekommt statt umgekehrt. */
+	#mw-repair td.num,#mw-repair td.mw-orig,#mw-repair td.mw-what,
+	#mw-repair th.mw-tight{white-space:nowrap;width:1%}
+}
 /* Deckkraft auf dem ganzen Kasten, nicht auf einzelnen Kindern: das <strong>
    darin hebt sich ueber die Schriftstaerke ab, nicht ueber die Farbe. */
 #mw-repair .mw-quiet{margin-top:16px;padding:12px 15px;border:1px solid var(--cic-line-soft,rgba(128,128,128,.35));border-radius:3px;opacity:.85;font-size:13px;background:var(--cic-head,rgba(128,128,128,.07))}
@@ -140,9 +151,9 @@
 		<tr>
 			<th style="width:28px">&nbsp;</th>
 			<th>{tmpl_var name='col_element_txt'}</th>
-			<th style="width:1%">{tmpl_var name='col_version_txt'}</th>
-			<th style="width:1%">{tmpl_var name='col_original_txt'}</th>
-			<th style="width:1%">{tmpl_var name='col_what_happens_txt'}</th>
+			<th class="mw-tight">{tmpl_var name='col_version_txt'}</th>
+			<th class="mw-tight">{tmpl_var name='col_original_txt'}</th>
+			<th class="mw-tight">{tmpl_var name='col_what_happens_txt'}</th>
 		</tr>
 	</thead>
 	<tbody>
