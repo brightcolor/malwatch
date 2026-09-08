@@ -35,6 +35,9 @@ class page_action extends tform_actions
 	/** The $wb loaded in onLoad(), reused in onShowEnd() without loading it twice. */
 	private $malwatch_wb = array();
 
+	/** Set by onLoad() for "Zusammenstellung speichern"; read in onUpdate(). */
+	private $malwatch_preset_only = false;
+
 	public function onLoad()
 	{
 		global $app;
@@ -68,19 +71,11 @@ class page_action extends tform_actions
 		// on.
 		//
 		// What this block must not do is return. It used to end in
-		// $this->onShow() and skip parent::onLoad() entirely, and that cost
-		// two things. loadFormDef() never ran, so onShowEdit() went on to
-		// $app->tform->getHTML() over a form definition that had never been
-		// loaded. And tform never saved: a settings field the operator had
-		// just edited - "Abbruch nach Stunden" from 6 to 12 - was thrown away
-		// without a word by a click on a button that says it saves something.
-		// Falling through to parent::onLoad() does both jobs in one request.
-		//
-		// next_tab is what keeps tform_actions::onUpdate() from redirecting to
-		// status.php once the save went through; it only redirects when
-		// next_tab is empty. Without it the message set further down would be
-		// written onto a page nobody ever sees. The form has exactly one tab,
-		// so naming it changes nothing else.
+		// $this->onShow() and skip parent::onLoad() entirely, so loadFormDef()
+		// never ran and onShowEdit() went on to $app->tform->getHTML() over a
+		// form definition that had never been loaded. Falling through fixes
+		// that for both actions - what the two do differ in is whether the
+		// form is saved along the way, see onUpdate().
 		//
 		// The token is checked here and only here: auth::csrf_token_check()
 		// consumes the token it just accepted, and tform_actions runs no check
@@ -91,14 +86,31 @@ class page_action extends tform_actions
 			$action = (string) $_POST['malwatch_action'];
 			if ($action === 'save_preset') {
 				$this->handle_save_preset($wb);
+
+				// Eine Regelauswahl unter einem Namen sichern heißt genau das
+				// und nichts weiter - siehe onUpdate(), das dieser Schalter
+				// abbestellt.
+				$this->malwatch_preset_only = true;
 			} elseif ($action === 'apply_existing') {
 				// Runs before the save below, not after: the number in the
 				// confirmation the operator just agreed to was counted from
 				// the setting as it stands, and the sweep has to cover that
 				// same set - not one being changed in the very same click.
+				//
+				// Hier fällt der Request bewusst bis in den Speichervorgang
+				// durch: „auf die bestehenden Funde anwenden" steht unter den
+				// Einstellungen, und ein Feld, das der Bediener im selben Zug
+				// geändert hat - „Abbruch nach Stunden" von 6 auf 12 - wurde
+				// vorher wortlos verworfen.
 				$this->handle_apply_existing($wb);
+
+				// next_tab keeps tform_actions::onUpdate() from redirecting to
+				// status.php once the save went through; it only redirects when
+				// next_tab is empty. Without it the message set further down
+				// would be written onto a page nobody ever sees. The form has
+				// exactly one tab, so naming it changes nothing else.
+				$_REQUEST['next_tab'] = 'settings';
 			}
-			$_REQUEST['next_tab'] = 'settings';
 		}
 
 		parent::onLoad();
@@ -212,6 +224,34 @@ class page_action extends tform_actions
 			$this->malwatch_message .= ' ' . sprintf($wb['msg_apply_existing_skipped_txt'],
 				number_format($skipped_sites, 0, ',', '.'));
 		}
+	}
+
+	/**
+	 * Saves the form - unless the click that got here was "Zusammenstellung
+	 * speichern".
+	 *
+	 * That button posts the whole page, like every other button in this
+	 * panel, and the template's own script has meanwhile set the two hidden
+	 * fields to auto_action='preset' and auto_preset_id=0 - that is what
+	 * clicking "Eigene Auswahl" means before a selection has a name.
+	 * malwatch_actions::auto_paths() reads exactly that pair as "moves
+	 * nothing", so saving the form here would switch off the automatic
+	 * removal that was running until this click, with nothing anywhere
+	 * saying so: the screen shows "Die Zusammenstellung wurde gespeichert",
+	 * and the radio still looks selected.
+	 *
+	 * Whoever saves a rule selection under a name expects a saved rule
+	 * selection and nothing else. The settings are shown again from the
+	 * database, unchanged, with the new selection below them as its own
+	 * choice - ready to be picked and saved on purpose.
+	 */
+	public function onUpdate()
+	{
+		if ($this->malwatch_preset_only) {
+			$this->onShow();
+			return;
+		}
+		parent::onUpdate();
 	}
 
 	public function onBeforeUpdate()
