@@ -154,16 +154,15 @@ class malwatch_ingest
 			$ids = isset($element['quarantine_ids']) && is_array($element['quarantine_ids'])
 				? $element['quarantine_ids'] : array();
 
-			// Nur wenn das Element genau einen Eintrag erzeugt hat, ist der
-			// Eintrag das Element - dann stimmen Pfad, Art und Dateizahl. Bei
-			// mehreren weiß der Bericht nicht, welche Kennung welchen Teil
-			// benennt: eine Kernreparatur legt wp-admin, wp-includes und jede
-			// geänderte lose Kerndatei je einzeln ab, und $element['path'] ist
-			// für den Kern der Webstamm selbst. Fünf Zeilen, die alle
-			// denselben (absoluten, also nicht relativen) Pfad nennen und sich
-			// alle 'dir' schimpfen, sind keine Auskunft, sondern eine falsche;
-			// leer bleiben ist ehrlicher, bis die Liste des Speichers sie
-			// nachträgt.
+			// Und aus derselben Aufteilung folgt, was die Zeilen sagen dürfen:
+			// welche der Kennungen wp-admin benennt und welche eine lose
+			// Kerndatei, steht im Bericht nirgends. Nur ein Element mit genau
+			// einer Kennung ist selbst dieser eine Eintrag - dann stimmen Pfad,
+			// Art und Dateizahl. Sonst blieben sie leer, bis die Liste des
+			// Speichers sie nachträgt: fünf Zeilen, die alle denselben Pfad
+			// nennen (für den Kern ist $element['path'] der Webstamm, also
+			// absolut) und sich alle 'dir' schimpfen, sind keine Auskunft,
+			// sondern eine falsche.
 			$describes_element = count($ids) === 1 && (string) $element['kind'] !== 'core';
 			$rel_path = '';
 			// Der Vorgabewert der Spalte, solange nichts Genaueres bekannt

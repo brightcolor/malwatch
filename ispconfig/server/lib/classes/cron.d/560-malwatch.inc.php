@@ -343,14 +343,10 @@ class cronjob_malwatch extends cronjob
 		return is_file($marker) && filemtime($marker) > time() - 3600;
 	}
 
-	/** Notes that an attempt is being made now. */
+	/** Notes that an attempt is being made now. Its mtime is the whole record. */
 	private function note_attempt($config, $name)
 	{
-		$marker = $this->retry_marker($config, $name);
-		// touch() alone does not create the file on every platform when the
-		// directory is fresh, and an empty file is all this needs to be.
-		@file_put_contents($marker, '');
-		@touch($marker);
+		@touch($this->retry_marker($config, $name));
 	}
 
 	/** Lifts the brake after the step actually did its job. */
@@ -540,12 +536,17 @@ class cronjob_malwatch extends cronjob
 	 * a cleanup into a deletion somewhere else. RecursiveDirectoryIterator
 	 * does not descend into links on its own, and the check below keeps rmdir
 	 * off the link itself.
+	 *
+	 * CATCH_GET_CHILD, because a subdirectory that cannot be opened is a
+	 * reason to leave that one alone, not to throw the rest of housekeeping -
+	 * the thirty and ninety day cleanups below - out of this run with it.
 	 */
 	private function remove_tree($dir)
 	{
 		$items = new RecursiveIteratorIterator(
 			new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS),
-			RecursiveIteratorIterator::CHILD_FIRST);
+			RecursiveIteratorIterator::CHILD_FIRST,
+			RecursiveIteratorIterator::CATCH_GET_CHILD);
 
 		foreach ($items as $item) {
 			$path = $item->getPathname();

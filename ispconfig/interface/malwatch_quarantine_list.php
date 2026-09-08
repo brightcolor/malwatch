@@ -96,7 +96,11 @@ $app->tpl->setVar($wb);
 // without a sound. See malwatch_js_text().
 foreach (array('confirm_none_selected_txt', 'confirm_restore_selected_txt', 'confirm_delete_selected_txt',
 	'confirm_restore_one_txt', 'confirm_delete_one_txt') as $js_key) {
-	$app->tpl->setVar($js_key, malwatch_js_text($app, isset($wb[$js_key]) ? $wb[$js_key] : ''));
+	// isset und kein leerer Rueckfall: ein Tippfehler in der Liste soll die
+	// Zeichenkette lassen, wie sie war, nicht den Text loeschen.
+	if (isset($wb[$js_key])) {
+		$app->tpl->setVar($js_key, malwatch_js_text($app, $wb[$js_key]));
+	}
 }
 
 $totals = $app->db->queryOneRecord('SELECT COUNT(*) AS n, COALESCE(SUM(archive_bytes),0) AS b FROM malwatch_quarantine');

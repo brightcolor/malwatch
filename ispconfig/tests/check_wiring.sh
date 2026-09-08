@@ -836,6 +836,27 @@ if [ -f "$usage" ]; then
 	done < "$tmpdir/cmdwords"
 fi
 
+# 41. Jeder Satz, den eine Vorlage in ein confirm() oder alert() innerhalb
+#     eines onclick-Attributs setzt, geht vorher durch malwatch_js_text().
+#
+#     $app->tpl->setVar($wb) reicht eine Zeile aus der Sprachdatei genau so
+#     durch, wie sie dasteht. Ein Apostroph darin - "the customer's files" ist
+#     die naheliegende englische Formulierung - schliesst die
+#     JavaScript-Zeichenkette zu frueh, und die Schaltflaeche tut lautlos gar
+#     nichts. Heute enthaelt keine Sprachdatei einen; die Pruefung gilt der
+#     naechsten Textaenderung, die es besser formulieren will.
+for tpl in "$root"/interface/templates/*.htm; do
+	[ -f "$tpl" ] || continue
+	page="$root/interface/$(basename "$tpl" .htm).php"
+	[ -f "$page" ] || continue
+
+	for key in $(grep -ohE "(confirm|alert)\('\{tmpl_var name='[a-z_]+'\}" "$tpl" \
+		| sed -E "s/.*name='([a-z_]+)'.*/\1/" | sort -u); do
+		grep -q "malwatch_js_text" "$page" && grep -q "'$key'" "$page" \
+			|| fail "$(basename "$tpl") setzt {$key} in ein confirm()/alert(), $(basename "$page") schickt den Text nicht durch malwatch_js_text()"
+	done
+done
+
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'
 fi

@@ -165,7 +165,11 @@ $app->tpl->setVar($wb);
 // alert('…') in an onclick attribute, where one apostrophe kills the button
 // without a sound. See malwatch_js_text().
 foreach (array('err_no_selection_txt', 'confirm_start_txt') as $js_key) {
-	$app->tpl->setVar($js_key, malwatch_js_text($app, isset($wb[$js_key]) ? $wb[$js_key] : ''));
+	// isset und kein leerer Rueckfall: ein Tippfehler in der Liste soll die
+	// Zeichenkette lassen, wie sie war, nicht den Text loeschen.
+	if (isset($wb[$js_key])) {
+		$app->tpl->setVar($js_key, malwatch_js_text($app, $wb[$js_key]));
+	}
 }
 
 $app->tpl->setVar('domain_id', $domain_id);
