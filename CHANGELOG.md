@@ -2,6 +2,22 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.10.4] – 2026-09-08
+
+### Behoben
+
+**Auch auf dem Monitor rutschte die zweite Schaltfläche aus der Tabelle.** 0.10.3
+hat die schmale Darstellung geradegezogen, die breite aber nur für ein wirklich
+breites Fenster. In der Inhaltsspalte des Panels — bei 800 bis 900 Pixeln — war
+die Fundtabelle 87 Pixel breiter als ihr Rahmen: die Schaltflächen standen in
+einer Reihe und durften nicht schrumpfen, also schob sich „In Quarantäne
+verschieben" nach rechts hinaus und war als roter Strich am Rand zu sehen.
+
+Zwei Reihen dürfen jetzt umbrechen, wenn es eng wird: die Schaltflächen einer
+Zeile und die Trefferzeile aus Regel, Stelle und Auszug. Beide behalten ihre
+volle Breite und rücken untereinander, statt aus dem Bild zu wandern. Gemessen
+bei 800, 900 und 1200 Pixeln: aus 87 Pixeln Überhang wurden 3, 8 und 0.
+
 ## [0.10.3] – 2026-09-08
 
 ### Behoben
