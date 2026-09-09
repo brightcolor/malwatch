@@ -2,6 +2,24 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.12.3] – 2026-09-09
+
+### Geändert
+
+**Die Stufe steht nicht mehr zweimal in derselben Zeile.** Sie hatte ihren Platz
+in der ersten Spalte und wurde darunter an jeder Regelzeile wiederholt — bei
+einer Datei mit drei Treffern also viermal dasselbe Wort.
+
+Wiederholt wird sie jetzt nur noch, wenn sie etwas hinzufügt: hat eine Datei
+Treffer **verschiedener** Stufen, zeigt die Spalte die schwerste, und erst das
+Etikett an der Regel sagt, welche Regel welche gefunden hat.
+
+Nachgezählt an zwei Websites: auf der einen 92 Regelzeilen, davon jetzt **null**
+mit Etikett — dort ist jede Datei in sich einheitlich. Auf der anderen 500
+Regelzeilen, davon **163** mit Etikett: das sind die Dateien, in denen
+tatsächlich zwei Stufen zusammenkommen. 337 überflüssige Etiketten weg, die
+aussagekräftigen geblieben.
+
 ## [0.12.2] – 2026-09-09
 
 ### Behoben

@@ -594,6 +594,24 @@ function malwatch_group_findings($app, $rows, $wb, $base = '')
 		$groups[$key]['hit_count'] = count($groups[$key]['hits']);
 	}
 
+	// Die Stufe steht schon in der ersten Spalte der Zeile. Sie an jeder
+	// Regelzeile darunter zu wiederholen sagt nichts dazu - außer wenn eine
+	// Datei Treffer verschiedener Stufen hat: dann zeigt die Spalte die
+	// schwerste, und erst das Etikett an der Regel sagt, welche Regel welche
+	// gefunden hat. Genau dann wird es gezeigt und sonst nicht.
+	foreach ($groups as $key => $group) {
+		$mixed = false;
+		foreach ($group['hits'] as $hit) {
+			if ($hit['severity_label'] !== $group['severity_label']) {
+				$mixed = true;
+				break;
+			}
+		}
+		foreach ($groups[$key]['hits'] as $i => $hit) {
+			$groups[$key]['hits'][$i]['show_severity'] = $mixed ? 1 : 0;
+		}
+	}
+
 	// Worst first, then by path, so the same scan always reads the same way.
 	uasort($groups, function ($a, $b) {
 		$diff = malwatch_severity_rank($b['severity']) - malwatch_severity_rank($a['severity']);

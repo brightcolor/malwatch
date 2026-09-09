@@ -424,7 +424,7 @@
 				<div class="mw-hits">
 					<tmpl_loop name="hits">
 					<div class="mw-hit">
-						<span class="label {tmpl_var name='severity_class'}">{tmpl_var name='severity_label'}</span>
+						<tmpl_if name="show_severity"><span class="label {tmpl_var name='severity_class'}">{tmpl_var name='severity_label'}</span></tmpl_if>
 						<code>{tmpl_var name='rule_id'}</code>
 						<tmpl_if name="has_line"><small>{tmpl_var name='line_txt'} {tmpl_var name='line_number'}</small></tmpl_if>
 						<small class="text-muted">{tmpl_var name='engine'}</small>
