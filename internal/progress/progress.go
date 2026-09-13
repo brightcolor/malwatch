@@ -30,6 +30,17 @@ type element struct {
 	Version string `json:"version"`
 }
 
+// Step is one element of a run that goes through several states, such as an
+// upgrade: the panel shows a line per step.
+type Step struct {
+	Kind  string `json:"kind"`
+	Slug  string `json:"slug,omitempty"`
+	Path  string `json:"path,omitempty"`
+	From  string `json:"from,omitempty"`
+	To    string `json:"to,omitempty"`
+	State string `json:"state"`
+}
+
 type document struct {
 	Schema        int        `json:"schema"`
 	Kind          string     `json:"kind"`
@@ -44,6 +55,7 @@ type document struct {
 	FilesTotal    int        `json:"files_total"`
 	File          string     `json:"file,omitempty"`
 	Log           []LogEntry `json:"log"`
+	Steps         []Step     `json:"steps,omitempty"`
 }
 
 // Writer keeps the document and writes it out, throttled.
@@ -93,6 +105,25 @@ func (w *Writer) File(rel string, done, total int) {
 	w.doc.File, w.doc.FilesDone, w.doc.FilesTotal = rel, done, total
 	w.mu.Unlock()
 	w.maybeWrite()
+}
+
+// SetSteps publishes the elements of the run with their first state.
+func (w *Writer) SetSteps(steps []Step) {
+	w.mu.Lock()
+	w.doc.Steps = append([]Step(nil), steps...)
+	w.mu.Unlock()
+	_ = w.Flush()
+}
+
+// StepState moves one step to a new state and publishes it at once: a state
+// change is what the panel waits for. An index outside the list is ignored.
+func (w *Writer) StepState(index int, state string) {
+	w.mu.Lock()
+	if index >= 0 && index < len(w.doc.Steps) {
+		w.doc.Steps[index].State = state
+	}
+	w.mu.Unlock()
+	_ = w.Flush()
 }
 
 // Log appends a line. level is one of ok, info, warn or error.

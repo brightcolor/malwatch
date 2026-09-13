@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 	"testing"
 )
@@ -118,5 +119,57 @@ func TestAnEmptyPathIsAWriterThatDoesNothing(t *testing.T) {
 	}
 	if len(w.Entries()) != 1 {
 		t.Errorf("the log is kept in memory even without a file: %v", w.Entries())
+	}
+}
+
+func TestStepsCarryTheirStates(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "job.progress")
+	w, err := New(path, "upgrade")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer w.Close()
+
+	w.SetSteps([]Step{
+		{Kind: "core", Path: "/w", From: "6.4.2", To: "6.4.5", State: "waiting"},
+		{Kind: "plugin", Slug: "akismet", Path: "/w/wp-content/plugins/akismet", From: "5.3.0", To: "5.3.3", State: "waiting"},
+	})
+	w.StepState(1, "swapped")
+	w.StepState(7, "updated") // outside the list: ignored
+
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc struct {
+		Kind  string `json:"kind"`
+		Steps []Step `json:"steps"`
+	}
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		t.Fatal(err)
+	}
+	if doc.Kind != "upgrade" || len(doc.Steps) != 2 {
+		t.Fatalf("document is wrong: %+v", doc)
+	}
+	if doc.Steps[0].State != "waiting" || doc.Steps[1].State != "swapped" || doc.Steps[1].To != "5.3.3" {
+		t.Errorf("steps are wrong: %+v", doc.Steps)
+	}
+}
+
+func TestADocumentWithoutStepsLeavesThemOut(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "job.progress")
+	w, err := New(path, "scan")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), `"steps"`) {
+		t.Errorf("a scan document carries steps: %s", raw)
 	}
 }
