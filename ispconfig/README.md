@@ -43,9 +43,10 @@ also innerhalb einer Minute, das Ergebnis erscheint, sobald der Lauf fertig ist.
 
 ## Schwachstellen
 
-**Security > Schwachstellen** listet alle Installationen mit bekannten Lücken
-über alle Websites, die schwerste Einstufung zuerst. Jede Lücke nennt ihre
-CVE-Nummer, die Version, die sie behebt, und verweist auf ihren Eintrag.
+**Security > Schwachstellen** gliedert nach Websites: je Website ihre
+Installationen mit bekannten Lücken, die schwerste Einstufung zuerst. Die Seite
+der Website listet die Lücken einzeln, jede mit CVE-Nummer, der Version, die
+sie behebt, und einem Verweis auf ihren Eintrag.
 
 Gefüllt wird die Liste auf zwei Wegen:
 

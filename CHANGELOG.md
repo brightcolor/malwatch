@@ -2,6 +2,27 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.13.1] – 2026-09-13
+
+### Geändert
+
+**„Schwachstellen" gliedert nach Websites.** Je Website steht ein
+aufklappbarer Block mit ihren angreifbaren Installationen, die schwerste
+Einstufung zuerst, bis zu 40 je Website. Jede Zeile nennt die Zahl der Lücken,
+die installierte Version und die Version, ab der alle behoben sind; die
+aktuelle Version erscheint bei veralteter Software. Die einzelnen Lücken stehen
+auf der Seite der Website. Mit ihnen wog die Übersicht auf dem Livesystem
+1,7 MB bei 458 Installationen; gegliedert wiegt sie 156 KB bei inzwischen 592.
+
+**Lücken auf der Seite einer Website.** Die Liste einer Installation klappt in
+einer eigenen Zeile über die ganze Tabellenbreite auf; in der Produktspalte war
+sie 332 Pixel schmal. Je Installation stehen die zehn schwersten Lücken, auf
+der ganzen Seite bis zu 400. Weitere Installationen zeigen die Zahl ihrer
+Lücken, und ein Hinweis unter der Tabelle nennt den Grund. Ein zweiter Hinweis
+erscheint, wenn die Tabelle wegen ihrer Grenze von 300 Zeilen einen Teil der
+Installationen auslässt. Die Seite einer Demo-Website mit 712 Installationen,
+425 davon angreifbar, sank damit von 1,08 MB auf 352 KB.
+
 ## [0.13.0] – 2026-09-13
 
 ### Neu

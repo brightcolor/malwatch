@@ -460,19 +460,23 @@
 </div>
 
 <style>
-/* Die bekannten Luecken einer Installation klappen unter ihrem Namen auf, in
-   derselben Darstellung wie auf der Schwachstellenseite. Gedaempft wird wie
-   ueberall in diesem Bereich ueber Deckkraft, damit beide Themes stimmen. */
-.mw-flaws{margin-top:4px}
+/* Die bekannten Luecken einer Installation stehen in einer eigenen Zeile
+   ueber die ganze Tabellenbreite, direkt unter ihr. In der Produktspalte war
+   die aufgeklappte Liste 332 Pixel schmal, und eine Zeile mit zwoelf Luecken
+   wurde 783 Pixel hoch. Gedaempft wird wie ueberall in diesem Bereich ueber
+   Deckkraft, damit beide Themes stimmen. */
+#mw-site .table > tbody > tr.mw-flawrow > td{border-top:0;padding-top:0}
+#mw-site .mw-flawcount{margin-left:4px}
 .mw-flaws > summary{cursor:pointer;font-size:12.5px}
 .mw-flaws .mw-update{opacity:.8;font-size:12px}
 .mw-flaws ul{list-style:none;margin:7px 0 2px;padding:0;display:flex;flex-direction:column;gap:6px}
-.mw-flaws li{font-size:12.5px;line-height:1.45;max-width:90ch;white-space:normal}
+.mw-flaws li{font-size:12.5px;line-height:1.45;max-width:110ch;white-space:normal;word-break:break-word}
 .mw-flaws li .label{margin-right:5px}
 .mw-flaws li .mw-mono{margin-right:5px;font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:11.5px}
 .mw-flaw-dim{opacity:.72}
 .mw-flaws .mw-flaw-more{margin:6px 0 0}
 .mw-flaw-unchecked{display:block;margin-top:3px}
+.mw-flaw-note{margin:8px 0 0;font-size:12.5px;max-width:80ch}
 </style>
 
 <p class="fieldset-legend">{tmpl_var name='software_txt'}</p>
@@ -491,9 +495,23 @@
 		<tr>
 			<td>
 				<span class="mw-elname">{tmpl_var name='name'}</span> <small>({tmpl_var name='kind'})</small>
-				<tmpl_if name="has_vulns">
+				<tmpl_if name="has_vulns"><span class="label {tmpl_var name='vuln_worst_class'} mw-flawcount">{tmpl_var name='vuln_count_label'}</span></tmpl_if>
+				<tmpl_if name="is_vuln_unchecked"><small class="mw-flaw-dim mw-flaw-unchecked">{tmpl_var name='vuln_unchecked_label'}</small></tmpl_if>
+			</td>
+			<td class="num">
+				{tmpl_var name='installed_version'}
+				<tmpl_if name="is_outdated"><span class="label label-warning">{tmpl_var name='outdated_txt'}</span></tmpl_if>
+			</td>
+			<td class="num">
+				<tmpl_if name="is_unknown">{tmpl_var name='version_unknown_txt'}<tmpl_else>{tmpl_var name='latest_version'}</tmpl_if>
+			</td>
+			<td><code class="mw-mono mw-path" title="{tmpl_var name='install_path'}">{tmpl_var name='install_path'}</code></td>
+		</tr>
+		<tmpl_if name="has_flaw_list">
+		<tr class="mw-flawrow">
+			<td colspan="4">
 				<details class="mw-flaws">
-					<summary><span class="label {tmpl_var name='vuln_worst_class'}">{tmpl_var name='vuln_count_label'}</span><tmpl_if name="has_update_to"> <span class="mw-update">{tmpl_var name='update_to'}</span></tmpl_if></summary>
+					<summary>{tmpl_var name='vuln_details_txt'}<tmpl_if name="has_update_to"> <span class="mw-update">· {tmpl_var name='update_to'}</span></tmpl_if></summary>
 					<ul>
 						<tmpl_loop name="vulns">
 						<li>
@@ -506,18 +524,9 @@
 					</ul>
 					<tmpl_if name="has_more"><p class="mw-flaw-dim mw-flaw-more">{tmpl_var name='more_label'}</p></tmpl_if>
 				</details>
-				</tmpl_if>
-				<tmpl_if name="is_vuln_unchecked"><small class="mw-flaw-dim mw-flaw-unchecked">{tmpl_var name='vuln_unchecked_label'}</small></tmpl_if>
 			</td>
-			<td class="num">
-				{tmpl_var name='installed_version'}
-				<tmpl_if name="is_outdated"><span class="label label-warning">{tmpl_var name='outdated_txt'}</span></tmpl_if>
-			</td>
-			<td class="num">
-				<tmpl_if name="is_unknown">{tmpl_var name='version_unknown_txt'}<tmpl_else>{tmpl_var name='latest_version'}</tmpl_if>
-			</td>
-			<td><code class="mw-mono mw-path" title="{tmpl_var name='install_path'}">{tmpl_var name='install_path'}</code></td>
 		</tr>
+		</tmpl_if>
 		</tmpl_loop>
 		<tmpl_unless name="has_software">
 		<tr><td colspan="4">{tmpl_var name='no_software_txt'}</td></tr>
@@ -525,6 +534,8 @@
 	</tbody>
 </table>
 </div>
+<tmpl_if name="has_software_limit_note"><p class="mw-flaw-dim mw-flaw-note">{tmpl_var name='software_limit_note'}</p></tmpl_if>
+<tmpl_if name="has_flaw_budget_note"><p class="mw-flaw-dim mw-flaw-note">{tmpl_var name='flaw_budget_note'}</p></tmpl_if>
 
 <p class="fieldset-legend">{tmpl_var name='history_txt'}</p>
 <div class="table-wrapper marginTop15">

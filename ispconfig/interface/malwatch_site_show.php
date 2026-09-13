@@ -194,15 +194,23 @@ $app->tpl->setVar('scan_base', $app->functions->htmlentities($base));
 // Known flaws first, the worst on top, then what is merely outdated.
 // vuln_count and vuln_severity exist for this order; the stored list itself is
 // decoded only for the rows that have one.
+$software_limit = 300;
 $software = $app->db->queryAllRecords(
 	'SELECT * FROM malwatch_software WHERE parent_domain_id = ? '
 	. "ORDER BY vuln_count > 0 DESC, FIELD(vuln_severity, 'low', 'medium', 'high', 'critical') DESC, "
-	. 'outdated DESC, product ASC, slug ASC LIMIT 300',
+	. 'outdated DESC, product ASC, slug ASC LIMIT ' . $software_limit,
 	$domain_id);
 
 // "Lücken nicht geprüft" says something only while the lookup is switched on.
 $vuln_config = malwatch_get_config($app);
 $vuln_on = !(isset($vuln_config['vuln_scan']) && $vuln_config['vuln_scan'] === 'n');
+
+// How many flaws the page writes out in total. A demo website on the live
+// server carries 425 vulnerable installs; ten flaws each made the page 1.08 MB.
+// Past the budget an install keeps its count and its severity label, and a
+// note below the table says why its list is missing.
+$flaw_budget_total = 400;
+$flaw_budget = $flaw_budget_total;
 
 $software_rows = array();
 if (is_array($software)) {
@@ -215,9 +223,14 @@ if (is_array($software)) {
 		$vuln_severity = (string) $row['vuln_severity'];
 		$update_label = malwatch_update_to_label($wb, $row['vuln_fixed_in'], $vuln_count,
 			$app->functions->intval($row['vuln_nofix']));
-		list($vulns, $more) = $vuln_count > 0
-			? malwatch_vuln_rows($app, $wb, $row['vulns'], 25, $vuln_count)
+		// Ten per install, worst first: a demo website carries a hundred
+		// installs with up to 130 known flaws each, and the page has to stay
+		// light enough to open. The rest is counted below the list.
+		$flaw_limit = min(10, $flaw_budget);
+		list($vulns, $more) = ($vuln_count > 0 && $flaw_limit > 0)
+			? malwatch_vuln_rows($app, $wb, $row['vulns'], $flaw_limit, $vuln_count)
 			: array(array(), 0);
+		$flaw_budget -= count($vulns);
 		$software_rows[] = array(
 			'name' => $app->functions->htmlentities($name),
 			'kind' => $app->functions->htmlentities($row['software_kind']),
@@ -234,6 +247,7 @@ if (is_array($software)) {
 			'has_update_to' => $update_label !== '' ? 1 : 0,
 			'update_to' => $app->functions->htmlentities($update_label),
 			'vulns' => $vulns,
+			'has_flaw_list' => count($vulns) > 0 ? 1 : 0,
 			'has_more' => $more > 0 ? 1 : 0,
 			'more_label' => $app->functions->htmlentities(sprintf($wb['vuln_more_txt'], number_format($more, 0, ',', '.'))),
 			'is_vuln_unchecked' => ($vuln_on && $row['vuln_unchecked'] === 'y') ? 1 : 0,
@@ -246,6 +260,29 @@ if (is_array($software)) {
 }
 $app->tpl->setLoop('software', $software_rows);
 $app->tpl->setVar('has_software', count($software_rows) > 0);
+
+// Below the table: why an install shows a count without its list, and how many
+// installs the row limit left out.
+$flaw_hidden = 0;
+foreach ($software_rows as $software_row) {
+	if ($software_row['has_vulns'] && !$software_row['has_flaw_list']) {
+		$flaw_hidden++;
+	}
+}
+$app->tpl->setVar('has_flaw_budget_note', $flaw_hidden > 0 ? 1 : 0);
+$app->tpl->setVar('flaw_budget_note', $app->functions->htmlentities(sprintf($wb['vuln_budget_note_txt'],
+	number_format($flaw_budget_total, 0, ',', '.'), number_format($flaw_hidden, 0, ',', '.'))));
+
+$software_shown = count($software_rows);
+$software_total = $software_shown;
+if ($software_shown >= $software_limit) {
+	$total_row = $app->db->queryOneRecord(
+		'SELECT COUNT(*) AS n FROM malwatch_software WHERE parent_domain_id = ?', $domain_id);
+	$software_total = max($software_shown, is_array($total_row) ? $app->functions->intval($total_row['n']) : 0);
+}
+$app->tpl->setVar('has_software_limit_note', $software_total > $software_shown ? 1 : 0);
+$app->tpl->setVar('software_limit_note', $app->functions->htmlentities(sprintf($wb['software_limit_note_txt'],
+	number_format($software_shown, 0, ',', '.'), number_format($software_total, 0, ',', '.'))));
 
 // --- History ---------------------------------------------------------------
 $scans = $app->db->queryAllRecords(

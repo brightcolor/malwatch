@@ -83,6 +83,7 @@ $wb['outdated_txt'] = 'outdated';
 $wb['version_unknown_txt'] = 'not determined';
 $wb['vuln_count_one_txt'] = '1 known vulnerability';
 $wb['vuln_count_many_txt'] = '%s known vulnerabilities';
+$wb['vuln_details_txt'] = 'Show vulnerabilities';
 $wb['vuln_update_to_txt'] = 'all fixed from %s';
 $wb['vuln_update_some_txt'] = '%s of %s fixed from %s';
 $wb['vuln_fixed_in_txt'] = 'fixed in %s';
@@ -92,6 +93,8 @@ $wb['vuln_unrated_txt'] = 'not rated';
 $wb['vuln_unchecked_txt'] = 'vulnerabilities not checked';
 $wb['vuln_incomplete_txt'] = 'last check incomplete';
 $wb['vuln_more_txt'] = '… and %s more';
+$wb['vuln_budget_note_txt'] = 'The page lists up to %s vulnerabilities one by one, the most severe first. %s further installations show their number.';
+$wb['software_limit_note_txt'] = 'The table shows %s of %s installations, those with known vulnerabilities first.';
 
 $wb['history_txt'] = 'History';
 $wb['no_scans_txt'] = 'No scans yet.';

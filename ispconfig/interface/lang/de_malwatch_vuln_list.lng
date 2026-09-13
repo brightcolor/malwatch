@@ -18,11 +18,11 @@ $wb['msg_optout_txt'] = 'Bei %s Websites ist „Veraltete Software suchen“ abg
 $wb['msg_failed_txt'] = 'Für %s Websites ist kein Verzeichnis hinterlegt.';
 $wb['err_nothing_queued_txt'] = 'Es wurde nichts eingereiht.';
 
-$wb['col_severity_txt'] = 'Stufe';
-$wb['col_software_txt'] = 'Software';
-$wb['col_website_txt'] = 'Website';
-$wb['col_installed_txt'] = 'Installiert';
-$wb['col_flaws_txt'] = 'Bekannte Lücken';
+$wb['site_installs_one_txt'] = '1 Installation mit Lücken';
+$wb['site_installs_many_txt'] = '%s Installationen mit Lücken';
+$wb['more_installs_txt'] = '… und %s weitere Installationen';
+$wb['open_site_txt'] = 'Zur Seite der Website mit den einzelnen Lücken';
+$wb['installed_line_txt'] = 'installiert %s';
 $wb['latest_line_txt'] = 'aktuell %s';
 $wb['kind_core_txt'] = 'Kern';
 $wb['kind_plugin_txt'] = 'Plugin';

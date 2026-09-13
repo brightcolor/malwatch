@@ -83,6 +83,7 @@ $wb['outdated_txt'] = 'veraltet';
 $wb['version_unknown_txt'] = 'nicht ermittelbar';
 $wb['vuln_count_one_txt'] = '1 bekannte Lücke';
 $wb['vuln_count_many_txt'] = '%s bekannte Lücken';
+$wb['vuln_details_txt'] = 'Lücken anzeigen';
 $wb['vuln_update_to_txt'] = 'alle behoben ab %s';
 $wb['vuln_update_some_txt'] = '%s von %s behoben ab %s';
 $wb['vuln_fixed_in_txt'] = 'behoben in %s';
@@ -92,6 +93,8 @@ $wb['vuln_unrated_txt'] = 'nicht eingestuft';
 $wb['vuln_unchecked_txt'] = 'Lücken nicht geprüft';
 $wb['vuln_incomplete_txt'] = 'letzter Abgleich unvollständig';
 $wb['vuln_more_txt'] = '… und %s weitere';
+$wb['vuln_budget_note_txt'] = 'Die Seite schreibt bis zu %s Lücken einzeln aus, die schwersten zuerst. Bei %s weiteren Installationen steht ihre Anzahl.';
+$wb['software_limit_note_txt'] = 'Die Tabelle zeigt %s von %s Installationen, die mit bekannten Lücken zuerst.';
 
 $wb['history_txt'] = 'Verlauf';
 $wb['no_scans_txt'] = 'Noch keine Prüfläufe.';

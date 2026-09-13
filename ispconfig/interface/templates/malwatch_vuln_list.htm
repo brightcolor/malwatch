@@ -15,41 +15,55 @@
 <style>
 /* Dieselben Regeln wie malwatch_quarantine_list.htm: gedaempfte Schrift ist
    currentColor mit Deckkraft, Linien und Flaechen sind durchscheinendes
-   Grau, damit beide Themes lesbar bleiben. Die Tabelle bekommt
-   table-layout:auto, weil das Panel .table auf fixed setzt und width:1% dann
-   woertlich ein Prozent heisst. Schmal zuerst, das Enge erst ab 768px. */
+   Grau, damit beide Themes lesbar bleiben.
+
+   Ein aufklappbarer Block je Website, darin eine Zeile je Installation. Als
+   Tabelle stand die aufgeklappte Lueckenliste in einer 310 Pixel schmalen
+   Spalte; als Block nimmt jede Zeile die ganze Breite, auf dem Telefon wie
+   auf dem Schreibtisch. */
 #mw-vulns .mw-sub{margin:6px 0 12px;opacity:.72;font-size:13px;max-width:80ch}
 #mw-vulns .mw-chips{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px}
 #mw-vulns .mw-chips .label{font-size:12px;font-weight:600}
-#mw-vulns .mw-actbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:0 0 4px}
+#mw-vulns .mw-actbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:0 0 14px}
 #mw-vulns .mw-hint{font-size:12.5px;opacity:.72;max-width:72ch}
-#mw-vulns .table{table-layout:auto}
-#mw-vulns .table > thead > tr > th,
-#mw-vulns .table > tbody > tr > td{padding:7px 10px;vertical-align:top}
-#mw-vulns .table-wrapper{overflow-x:auto}
+#mw-vulns .mw-sites{display:flex;flex-direction:column;gap:8px}
+#mw-vulns details.mw-siteblock{
+	border:1px solid var(--cic-line-soft,rgba(128,128,128,.35));border-radius:3px;
+	background:var(--cic-raised,rgba(128,128,128,.06));min-width:0;
+}
+#mw-vulns details.mw-siteblock > summary{
+	list-style:none;cursor:pointer;padding:10px 14px;
+	display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;
+}
+#mw-vulns details.mw-siteblock > summary::-webkit-details-marker{display:none}
+#mw-vulns details.mw-siteblock > summary:focus-visible{outline:2px solid var(--cic-accent,#dd630d);outline-offset:-2px}
+#mw-vulns .mw-domain{font-weight:600;font-size:14px;word-break:break-word}
+#mw-vulns .mw-meta{display:flex;flex-wrap:wrap;gap:2px 14px;font-size:12.5px;font-variant-numeric:tabular-nums}
+/* Der Pfeil zeigt, dass der Block aufgeht; gedreht, wenn er offen ist. */
+#mw-vulns .mw-domain::after{content:"\25B8";display:inline-block;margin-left:8px;opacity:.6;transition:transform .15s}
+#mw-vulns details[open] > summary .mw-domain::after{transform:rotate(90deg)}
+#mw-vulns .mw-body{padding:0 14px 12px;border-top:1px solid var(--cic-line-soft,rgba(128,128,128,.35))}
+#mw-vulns ul.mw-installlist{list-style:none;margin:0;padding:0}
+#mw-vulns ul.mw-installlist > li{
+	display:grid;grid-template-columns:auto minmax(0,1fr);gap:2px 12px;align-items:baseline;
+	padding:8px 0;border-top:1px solid var(--cic-line-soft,rgba(128,128,128,.22));
+}
+#mw-vulns ul.mw-installlist > li:first-child{border-top:0}
+#mw-vulns .mw-sev{grid-row:1 / span 2}
+#mw-vulns .mw-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 10px;min-width:0}
 #mw-vulns .mw-elname{font-weight:600;word-break:break-word}
 #mw-vulns .mw-dim{opacity:.72}
 #mw-vulns .mw-mono{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:12px}
 /* code bringt aus Bootstrap eine eigene Farbe und Flaeche mit; hier soll der
-   Pfad nur leiser sein als der Name darueber. */
-#mw-vulns code.mw-path{display:block;margin-top:2px;padding:0;background:none;color:inherit;opacity:.66;
-  font-size:11.5px;word-break:break-all;white-space:normal}
-#mw-vulns td.mw-ver{font-variant-numeric:tabular-nums}
-#mw-vulns .mw-latest{display:block;font-size:11.5px}
-#mw-vulns details.mw-flaws > summary{cursor:pointer;font-weight:600}
-#mw-vulns .mw-update{font-weight:400;opacity:.8;font-size:12.5px}
-#mw-vulns details.mw-flaws ul{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:7px}
-#mw-vulns details.mw-flaws li{font-size:13px;line-height:1.45;max-width:90ch}
-#mw-vulns details.mw-flaws li .label{margin-right:5px}
-#mw-vulns details.mw-flaws li .mw-mono{margin-right:5px}
-#mw-vulns details.mw-flaws p{margin:7px 0 0;font-size:12.5px}
+   Pfad nur leiser sein als der Name davor. */
+#mw-vulns code.mw-path{padding:0;border:0;border-radius:0;box-shadow:none;background:none;color:inherit;opacity:.66;
+	font-size:11.5px;word-break:break-all;white-space:normal}
+#mw-vulns .mw-more{margin:6px 0 0;font-size:12.5px}
+#mw-vulns .mw-sitelink{margin:8px 0 0;font-size:13px}
 #mw-vulns .mw-quiet{margin-top:14px;padding:12px 15px;border:1px solid var(--cic-line-soft,rgba(128,128,128,.35));
-  border-radius:3px;opacity:.85;font-size:13px;background:var(--cic-head,rgba(128,128,128,.07))}
+	border-radius:3px;opacity:.85;font-size:13px;background:var(--cic-head,rgba(128,128,128,.07))}
 #mw-vulns .mw-quiet + .mw-quiet{margin-top:9px}
-@media (min-width:768px){
-	#mw-vulns td.mw-sev,#mw-vulns th.mw-sev,#mw-vulns td.mw-ver,#mw-vulns th.mw-ver{white-space:nowrap;width:1%}
-	#mw-vulns code.mw-path{max-width:48ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;word-break:normal}
-}
+@media (prefers-reduced-motion:reduce){#mw-vulns .mw-domain::after{transition:none}}
 </style>
 
 <div id="mw-vulns">
@@ -76,51 +90,42 @@
 	<span class="mw-hint">{tmpl_var name='check_all_hint_txt'}</span>
 </div>
 
-<tmpl_if name="has_rows">
-<div class="table-wrapper marginTop15">
-<table class="table">
-	<thead class="dark">
-		<tr>
-			<th class="mw-sev">{tmpl_var name='col_severity_txt'}</th>
-			<th>{tmpl_var name='col_software_txt'}</th>
-			<th>{tmpl_var name='col_website_txt'}</th>
-			<th class="mw-ver">{tmpl_var name='col_installed_txt'}</th>
-			<th>{tmpl_var name='col_flaws_txt'}</th>
-		</tr>
-	</thead>
-	<tbody>
-		<tmpl_loop name="rows">
-		<tr>
-			<td class="mw-sev"><span class="label {tmpl_var name='severity_class'}">{tmpl_var name='severity_label'}</span></td>
-			<td>
-				<span class="mw-elname">{tmpl_var name='name'}</span> <small class="mw-dim">{tmpl_var name='kind_label'}</small>
-				<code class="mw-mono mw-path" title="{tmpl_var name='path'}">{tmpl_var name='path'}</code>
-			</td>
-			<td><a href="#" data-load-content="security/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='domain'}</a></td>
-			<td class="mw-ver">
-				{tmpl_var name='installed_version'}
-				<tmpl_if name="has_latest"><span class="mw-dim mw-latest">{tmpl_var name='latest_line'}</span></tmpl_if>
-			</td>
-			<td>
-				<details class="mw-flaws">
-					<summary>{tmpl_var name='count_label'}<tmpl_if name="has_update_to"> <span class="mw-update">· {tmpl_var name='update_to'}</span></tmpl_if></summary>
-					<ul>
-						<tmpl_loop name="vulns">
-						<li>
-							<span class="label {tmpl_var name='vuln_class'}">{tmpl_var name='vuln_rating'}</span>
-							<tmpl_if name="has_vuln_id"><span class="mw-mono">{tmpl_var name='vuln_id'}</span></tmpl_if>
-							<tmpl_if name="has_vuln_link"><a href="{tmpl_var name='vuln_link'}" target="_blank" rel="noopener noreferrer">{tmpl_var name='vuln_title'}</a><tmpl_else>{tmpl_var name='vuln_title'}</tmpl_if>
-							<tmpl_if name="vuln_fix"><span class="mw-dim">· {tmpl_var name='vuln_fix'}</span></tmpl_if>
-						</li>
-						</tmpl_loop>
-					</ul>
-					<tmpl_if name="has_more"><p class="mw-dim">{tmpl_var name='more_label'}</p></tmpl_if>
-				</details>
-			</td>
-		</tr>
-		</tmpl_loop>
-	</tbody>
-</table>
+<tmpl_if name="has_sites">
+<div class="mw-sites">
+	<tmpl_loop name="sites">
+	<details class="mw-siteblock">
+		<summary>
+			<span class="label {tmpl_var name='site_severity_class'}">{tmpl_var name='site_severity_label'}</span>
+			<span class="mw-domain">{tmpl_var name='domain'}</span>
+			<span class="mw-meta">
+				<span>{tmpl_var name='installs_label'}</span>
+				<span>{tmpl_var name='flaws_label'}</span>
+			</span>
+		</summary>
+		<div class="mw-body">
+			<ul class="mw-installlist">
+				<tmpl_loop name="installs">
+				<li>
+					<span class="mw-sev"><span class="label {tmpl_var name='severity_class'}">{tmpl_var name='severity_label'}</span></span>
+					<span class="mw-head">
+						<span class="mw-elname">{tmpl_var name='name'}</span>
+						<small class="mw-dim">{tmpl_var name='kind_label'}</small>
+						<code class="mw-mono mw-path">{tmpl_var name='path'}</code>
+					</span>
+					<span class="mw-meta">
+						<span>{tmpl_var name='count_label'}</span>
+						<span>{tmpl_var name='installed_line'}</span>
+						<tmpl_if name="has_latest"><span class="mw-dim">{tmpl_var name='latest_line'}</span></tmpl_if>
+						<tmpl_if name="has_update_to"><span>{tmpl_var name='update_to'}</span></tmpl_if>
+					</span>
+				</li>
+				</tmpl_loop>
+			</ul>
+			<tmpl_if name="has_more_installs"><p class="mw-dim mw-more">{tmpl_var name='more_installs_label'}</p></tmpl_if>
+			<p class="mw-sitelink"><a href="#" data-load-content="security/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='open_site_txt'}</a></p>
+		</div>
+	</details>
+	</tmpl_loop>
 </div>
 <tmpl_else>
 	<div class="mw-quiet">{tmpl_var name='empty_txt'}</div>
