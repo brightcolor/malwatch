@@ -43,6 +43,10 @@ func wordpressExtras(root string) []Install {
 	return out
 }
 
+// WordPressExtras lists the plugins and themes of the WordPress installation
+// at root. An installation below root is a call of its own.
+func WordPressExtras(root string) []Install { return wordpressExtras(root) }
+
 // wpContentDir finds the content directory, which a site may have renamed.
 func wpContentDir(root string) string {
 	if dir := filepath.Join(root, "wp-content"); isDir(dir) {
