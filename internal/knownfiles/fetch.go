@@ -2,6 +2,7 @@ package knownfiles
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -11,6 +12,10 @@ import (
 	"strings"
 	"time"
 )
+
+// ErrNotPublished says wordpress.org keeps no checksum list for a release. A
+// paid plugin is the usual case; what that means is the caller's decision.
+var ErrNotPublished = errors.New("keine Prüfsummen veröffentlicht")
 
 // Fetcher loads vendor checksum lists over the network and keeps them on
 // disk, so a nightly run over many sites downloads each list once.
@@ -132,7 +137,7 @@ func (f *Fetcher) WordPressPlugin(slug, version string) (map[string]string, erro
 		}
 	}
 	if len(out) == 0 {
-		return nil, fmt.Errorf("leere Prüfsummenliste")
+		return nil, fmt.Errorf("leere Prüfsummenliste: %w", ErrNotPublished)
 	}
 	return out, nil
 }
@@ -157,6 +162,9 @@ func (f *Fetcher) load(key, rawURL string) ([]byte, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, fmt.Errorf("HTTP 404: %w", ErrNotPublished)
+	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
 	}
