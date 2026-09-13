@@ -39,6 +39,8 @@ jobs:
         run: sh ispconfig/tests/check_constants.sh
       - name: Check wiring
         run: sh ispconfig/tests/check_wiring.sh
+      - name: Upgrade helpers
+        run: php ispconfig/tests/upgrade_helpers_test.php
 
   clean-cms:
     # The counter-check that matters: a freshly downloaded WordPress and

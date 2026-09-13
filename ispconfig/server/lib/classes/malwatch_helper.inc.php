@@ -185,6 +185,123 @@ class malwatch_helper
 		return null;
 	}
 
+	/**
+	 * The PHP command line binary for the PHP version a website runs.
+	 *
+	 * ISPConfig records the CGI binary of an additional PHP version
+	 * (/usr/bin/php-cgi8.2); its command line twin sits next to it
+	 * (/usr/bin/php8.2). A website on the default PHP uses /usr/bin/php.
+	 * Returns '' when that file is missing.
+	 */
+	public function php_cli_binary($web)
+	{
+		global $app;
+
+		$id = intval(isset($web['server_php_id']) ? $web['server_php_id'] : 0);
+		$candidate = '/usr/bin/php';
+		if ($id > 0) {
+			$row = $app->dbmaster->queryOneRecord(
+				'SELECT php_fastcgi_binary FROM server_php WHERE server_php_id = ?', $id);
+			$candidate = is_array($row) ? self::cli_php_path((string) $row['php_fastcgi_binary']) : '';
+		}
+		return ($candidate !== '' && is_file($candidate) && is_executable($candidate)) ? $candidate : '';
+	}
+
+	/** /usr/bin/php-cgi8.2 becomes /usr/bin/php8.2; anything that is no CGI binary ''. */
+	public static function cli_php_path($cgi_binary)
+	{
+		if (!preg_match('#^(/[A-Za-z0-9._/-]*/)php-cgi([0-9][0-9.]*)?$#', trim((string) $cgi_binary), $m)) {
+			return '';
+		}
+		return $m[1] . 'php' . (isset($m[2]) ? $m[2] : '');
+	}
+
+	/** Where the check after an upgrade connects: the IP of the vhost, 127.0.0.1 for '*'. */
+	public static function connect_address($web)
+	{
+		$ip = trim((string) (isset($web['ip_address']) ? $web['ip_address'] : ''));
+		if ($ip === '' || $ip === '*' || !filter_var($ip, FILTER_VALIDATE_IP)) {
+			return '127.0.0.1';
+		}
+		return $ip;
+	}
+
+	/**
+	 * The address of a WordPress installation: the domain of the website and
+	 * the path of the installation below its web root, with a closing slash.
+	 */
+	public static function install_url($domain, $https, $scan_path, $install_path)
+	{
+		$base = rtrim((string) $scan_path, '/');
+		$rel = trim((string) substr(rtrim((string) $install_path, '/'), strlen($base)), '/');
+		$path = '/';
+		if ($rel !== '') {
+			$path .= implode('/', array_map('rawurlencode', explode('/', $rel))) . '/';
+		}
+		return ($https ? 'https://' : 'http://') . $domain . $path;
+	}
+
+	/**
+	 * The WordPress installation a plugin or theme directory belongs to:
+	 * <installation>/<content directory>/plugins/<slug>. '' for anything else.
+	 */
+	public static function install_of($element_path, $kind)
+	{
+		$path = rtrim((string) $element_path, '/');
+		$parent = $kind === 'plugin' ? 'plugins' : ($kind === 'theme' ? 'themes' : '');
+		if ($parent === '' || basename(dirname($path)) !== $parent) {
+			return '';
+		}
+		return dirname(dirname(dirname($path)));
+	}
+
+	/**
+	 * Turns the elements of an upgrade job into the installations of its plan
+	 * file. Every element names a software row of this website; kind, slug and
+	 * path come from that row, the job carries nothing but its id and the
+	 * target version.
+	 */
+	public function upgrade_installs($job, $web, $scan_path, $options)
+	{
+		global $app;
+
+		$by_install = array();
+		$elements = isset($options['elements']) && is_array($options['elements']) ? $options['elements'] : array();
+		foreach ($elements as $choice) {
+			$software_id = isset($choice['software_id']) ? intval($choice['software_id']) : 0;
+			$version = isset($choice['version']) ? (string) $choice['version'] : '';
+			if ($software_id < 1 || !preg_match('/^[0-9A-Za-z._-]{1,40}$/', $version)) {
+				continue;
+			}
+			$row = $app->dbmaster->queryOneRecord(
+				"SELECT software_kind, slug, install_path FROM malwatch_software "
+				. "WHERE software_id = ? AND parent_domain_id = ? AND product = 'wordpress'",
+				$software_id, intval($job['parent_domain_id']));
+			if (!is_array($row)) {
+				continue;
+			}
+			$kind = (string) $row['software_kind'];
+			$install = $kind === 'core' ? rtrim((string) $row['install_path'], '/')
+				: self::install_of((string) $row['install_path'], $kind);
+			if ($install === '' || strpos($install . '/', rtrim($scan_path, '/') . '/') !== 0) {
+				continue;
+			}
+			if (!isset($by_install[$install])) {
+				$by_install[$install] = array(
+					'path' => $install,
+					'url' => self::install_url((string) $web['domain'], (string) $web['ssl'] === 'y', $scan_path, $install),
+					'elements' => array(),
+				);
+			}
+			$element = array('kind' => $kind, 'version' => $version);
+			if ($kind !== 'core') {
+				$element['slug'] = (string) $row['slug'];
+			}
+			$by_install[$install]['elements'][] = $element;
+		}
+		return array_values($by_install);
+	}
+
 	/** Writes a line into the ISPConfig log with a common prefix. */
 	public function log($message, $level = LOGLEVEL_DEBUG)
 	{

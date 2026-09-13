@@ -196,7 +196,7 @@ fi
 # 16. Ohne --progress schreibt kein Lauf aus dem Panel eine Fortschrittsdatei,
 #     und die Ansicht bliebe für immer leer.
 grep -q -- '--progress=' "$root/server/lib/classes/malwatch_runner.inc.php" 	|| fail "der Runner übergibt --progress nicht; die Fortschrittsansicht bekäme nie Daten"
-for kind in repair quarantine; do
+for kind in repair quarantine upgrade; do
 	grep -q "'$kind'" "$root/server/lib/classes/malwatch_runner.inc.php" 		|| fail "der Runner kennt die Auftragsart $kind nicht"
 done
 

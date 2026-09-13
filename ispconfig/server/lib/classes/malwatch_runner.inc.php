@@ -44,6 +44,10 @@ class malwatch_runner
 		@unlink($done_file);
 
 		$args = $this->build_arguments($job, $config, $path, $result_file);
+		if ($args === null) {
+			// build_arguments() failed the job and named the reason.
+			return false;
+		}
 		$command = escapeshellarg($binary);
 		foreach ($args as $arg) {
 			$command .= ' ' . escapeshellarg($arg);
@@ -151,6 +155,10 @@ class malwatch_runner
 			return $repair;
 		}
 
+		if ($kind === 'upgrade') {
+			return $this->upgrade_arguments($job, $config, $path, $state_dir, $progress, $result_file, $options);
+		}
+
 		if ($kind === 'quarantine') {
 			// The action is the first, positional argument; add/restore/
 			// delete/export all still get --quarantine-dir, --json and
@@ -220,6 +228,7 @@ class malwatch_runner
 				$check[] = '--exclude=' . $pattern;
 			}
 			$this->add_vuln_arguments($check, $state_dir, $config);
+			$this->add_php_argument($check, $job);
 			return $check;
 		}
 
@@ -285,6 +294,7 @@ class malwatch_runner
 			$args[] = '--no-clamav';
 		}
 		$this->add_vuln_arguments($args, $state_dir, $config);
+		$this->add_php_argument($args, $job);
 
 		// The exit code must not depend on the operator's notification
 		// thresholds: the addon decides what to act on from the findings
@@ -306,6 +316,103 @@ class malwatch_runner
 		if ($token_file !== '') {
 			$args[] = '--wpscan-token-file=' . $token_file;
 		}
+	}
+
+	/** Names the PHP of the website, so the report carries its version. */
+	private function add_php_argument(array &$args, $job)
+	{
+		global $app;
+
+		$web = $app->malwatch_helper->get_web($job['parent_domain_id']);
+		if (!is_array($web) || (string) $web['php'] === 'no') {
+			return;
+		}
+		$php = $app->malwatch_helper->php_cli_binary($web);
+		if ($php !== '') {
+			$args[] = '--php=' . $php;
+		}
+	}
+
+	/**
+	 * Assembles an upgrade: writes the plan file and names the user, the PHP
+	 * and the address of the website. Returns null when the job cannot run;
+	 * the job is failed with the reason then.
+	 */
+	private function upgrade_arguments($job, $config, $path, $state_dir, $progress, $result_file, $options)
+	{
+		global $app;
+
+		$helper = $app->malwatch_helper;
+		$web = $helper->get_web($job['parent_domain_id']);
+		if (!is_array($web)) {
+			return $this->refuse_upgrade($job, 'Die Website wurde nicht gefunden.');
+		}
+		if ((string) $web['php'] === 'no') {
+			return $this->refuse_upgrade($job, 'Die Website läuft ohne PHP, WordPress lässt sich dort nicht aktualisieren.');
+		}
+		$php = $helper->php_cli_binary($web);
+		if ($php === '') {
+			return $this->refuse_upgrade($job, 'Zur PHP-Version der Website liegt auf diesem Server kein PHP-Kommandozeilenprogramm.');
+		}
+
+		$installs = $helper->upgrade_installs($job, $web, $path, $options);
+		if (count($installs) === 0) {
+			return $this->refuse_upgrade($job, 'Der Auftrag nennt keine Installation dieser Website.');
+		}
+
+		$plan_file = $state_dir . '/runs/job-' . intval($job['job_id']) . '.plan.json';
+		$old = umask(0077);
+		$written = @file_put_contents($plan_file, json_encode(array('schema' => 1, 'installs' => $installs),
+			JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+		umask($old);
+		if ($written === false) {
+			return $this->refuse_upgrade($job, 'Die Plandatei konnte nicht geschrieben werden.');
+		}
+		@chmod($plan_file, 0600);
+
+		// Root only: archives of a whole WordPress core sit here before the
+		// exchange, and a database export on its way into quarantine.
+		$staging = $state_dir . '/staging';
+		if (!is_dir($staging)) {
+			@mkdir($staging, 0700, true);
+		}
+		@chmod($staging, 0700);
+
+		$upgrade = array(
+			'upgrade',
+			'--path=' . $path,
+			'--plan=' . $plan_file,
+			'--run-as=' . $web['system_user'] . ':' . $web['system_group'],
+			'--php=' . $php,
+			'--wp-cli=' . $this->wp_cli_path($config),
+			'--connect=' . malwatch_helper::connect_address($web),
+			'--quarantine-dir=' . $state_dir . '/quarantine',
+			'--staging-dir=' . $staging,
+			'--domain=' . $job['domain'],
+			'--progress=' . $progress,
+			'--json',
+			'--out=' . $result_file,
+		);
+		if (!empty($options['dry_run'])) {
+			$upgrade[] = '--dry-run';
+		}
+		return $upgrade;
+	}
+
+	/** The WP-CLI path from the settings, the default where it is empty. */
+	private function wp_cli_path($config)
+	{
+		$path = isset($config['wp_cli_path']) ? trim((string) $config['wp_cli_path']) : '';
+		return $path !== '' ? $path : '/usr/local/bin/wp';
+	}
+
+	/** Fails an upgrade job before the scanner starts; build_arguments() returns this. */
+	private function refuse_upgrade($job, $message)
+	{
+		global $app;
+
+		$app->malwatch_helper->fail_job($job['job_id'], $message);
+		return null;
 	}
 
 	/**
