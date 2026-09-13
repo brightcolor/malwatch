@@ -362,7 +362,7 @@ CREATE TABLE IF NOT EXISTS `malwatch_quarantine` (
   `entry_id` varchar(64) NOT NULL DEFAULT '',
   `entry_kind` enum('file','dir') NOT NULL DEFAULT 'file',
   `rel_path` varchar(1024) NOT NULL DEFAULT '',
-  `origin` enum('manual','auto','repair') NOT NULL DEFAULT 'manual',
+  `origin` enum('manual','auto','repair','upgrade') NOT NULL DEFAULT 'manual',
   `reason` varchar(255) NOT NULL DEFAULT '',
   `rule_id` varchar(128) NOT NULL DEFAULT '',
   `severity` varchar(10) NOT NULL DEFAULT '',
@@ -543,4 +543,117 @@ CREATE TABLE IF NOT EXISTS `malwatch_auto_preset` (
   `rule_ids` mediumtext,
   `created_at` datetime DEFAULT NULL,
   PRIMARY KEY (`preset_id`)
+) DEFAULT CHARSET=utf8mb4 AUTO_INCREMENT=1 ;
+
+-- --------------------------------------------------------
+-- WordPress-Updates aus dem Panel (malwatch upgrade).
+-- --------------------------------------------------------
+
+-- upgrade aktualisiert WordPress-Kern, Plugins und Themes; siehe
+-- malwatch_runner::build_arguments und malwatch_ingest::ingest_upgrade.
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_job` MODIFY COLUMN `job_kind` enum(''scan'',''repair'',''quarantine'',''vulncheck'',''upgrade'') NOT NULL DEFAULT ''scan''',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_job' AND COLUMN_NAME = 'job_kind'
+    AND COLUMN_TYPE LIKE '%''upgrade''%');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- Ein Upgrade legt den ersetzten Stand mit dem Ursprung upgrade ab.
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_quarantine` MODIFY COLUMN `origin` enum(''manual'',''auto'',''repair'',''upgrade'') NOT NULL DEFAULT ''manual''',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_quarantine' AND COLUMN_NAME = 'origin'
+    AND COLUMN_TYPE LIKE '%''upgrade''%');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- Was die neueste Version verlangt und, beim Kern, die neueste Version des
+-- installierten Zweigs. Daraus rechnet malwatch_upgrade_offers() die Angebote.
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_software` ADD COLUMN `latest_requires_wp` varchar(32) NOT NULL DEFAULT '''' AFTER `latest_version`',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_software' AND COLUMN_NAME = 'latest_requires_wp');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_software` ADD COLUMN `latest_requires_php` varchar(32) NOT NULL DEFAULT '''' AFTER `latest_requires_wp`',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_software' AND COLUMN_NAME = 'latest_requires_php');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_software` ADD COLUMN `latest_in_branch` varchar(64) NOT NULL DEFAULT '''' AFTER `latest_requires_php`',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_software' AND COLUMN_NAME = 'latest_in_branch');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- Die PHP-Version der Website, wie Scan und Abgleich sie zuletzt gelesen haben.
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_site` ADD COLUMN `php_version` varchar(32) NOT NULL DEFAULT '''' AFTER `last_state`',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_site' AND COLUMN_NAME = 'php_version');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_config` ADD COLUMN `wp_cli_path` varchar(255) NOT NULL DEFAULT ''/usr/local/bin/wp'' AFTER `wpscan_token`',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_config' AND COLUMN_NAME = 'wp_cli_path');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+--
+-- Ein Upgrade-Lauf und seine Elemente, nach dem Muster der Reparatur.
+--
+CREATE TABLE IF NOT EXISTS `malwatch_upgrade` (
+  `upgrade_id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `sys_userid` int(11) unsigned NOT NULL DEFAULT '0',
+  `sys_groupid` int(11) unsigned NOT NULL DEFAULT '0',
+  `sys_perm_user` varchar(5) DEFAULT NULL,
+  `sys_perm_group` varchar(5) DEFAULT NULL,
+  `sys_perm_other` varchar(5) DEFAULT NULL,
+  `server_id` int(11) unsigned NOT NULL DEFAULT '0',
+  `job_id` int(11) unsigned NOT NULL DEFAULT '0',
+  `parent_domain_id` int(11) unsigned NOT NULL DEFAULT '0',
+  `domain` varchar(255) NOT NULL DEFAULT '',
+  `started_at` datetime DEFAULT NULL,
+  `finished_at` datetime DEFAULT NULL,
+  `dry_run` enum('n','y') NOT NULL DEFAULT 'n',
+  `php_version` varchar(32) NOT NULL DEFAULT '',
+  `count_updated` int(11) unsigned NOT NULL DEFAULT '0',
+  `count_refused` int(11) unsigned NOT NULL DEFAULT '0',
+  `count_rolled_back` int(11) unsigned NOT NULL DEFAULT '0',
+  `count_failed` int(11) unsigned NOT NULL DEFAULT '0',
+  `exit_code` int(11) NOT NULL DEFAULT '0',
+  `errors` text,
+  `raw_report` mediumtext,
+  PRIMARY KEY (`upgrade_id`),
+  KEY `parent_domain_id` (`parent_domain_id`)
+) DEFAULT CHARSET=utf8mb4 AUTO_INCREMENT=1 ;
+
+CREATE TABLE IF NOT EXISTS `malwatch_upgrade_element` (
+  `element_id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `sys_userid` int(11) unsigned NOT NULL DEFAULT '0',
+  `sys_groupid` int(11) unsigned NOT NULL DEFAULT '0',
+  `sys_perm_user` varchar(5) DEFAULT NULL,
+  `sys_perm_group` varchar(5) DEFAULT NULL,
+  `sys_perm_other` varchar(5) DEFAULT NULL,
+  `server_id` int(11) unsigned NOT NULL DEFAULT '0',
+  `upgrade_id` int(11) unsigned NOT NULL DEFAULT '0',
+  `parent_domain_id` int(11) unsigned NOT NULL DEFAULT '0',
+  `install_path` varchar(1024) NOT NULL DEFAULT '',
+  `element_kind` varchar(16) NOT NULL DEFAULT '',
+  `slug` varchar(190) NOT NULL DEFAULT '',
+  `from_version` varchar(64) NOT NULL DEFAULT '',
+  `to_version` varchar(64) NOT NULL DEFAULT '',
+  `outcome` varchar(32) NOT NULL DEFAULT '',
+  `message` varchar(255) NOT NULL DEFAULT '',
+  `quarantine_ids` varchar(1024) NOT NULL DEFAULT '',
+  `db_export_id` varchar(64) NOT NULL DEFAULT '',
+  PRIMARY KEY (`element_id`),
+  KEY `upgrade_id` (`upgrade_id`)
 ) DEFAULT CHARSET=utf8mb4 AUTO_INCREMENT=1 ;

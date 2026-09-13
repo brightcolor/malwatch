@@ -1,4 +1,6 @@
 -- ISPConfig extension: malwatch - remove the schema.
+DROP TABLE IF EXISTS `malwatch_upgrade_element`;
+DROP TABLE IF EXISTS `malwatch_upgrade`;
 DROP TABLE IF EXISTS `malwatch_auto_preset`;
 DROP TABLE IF EXISTS `malwatch_rule`;
 DROP TABLE IF EXISTS `malwatch_quarantine`;
