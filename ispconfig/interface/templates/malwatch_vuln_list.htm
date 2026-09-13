@@ -42,7 +42,11 @@
 /* Der Pfeil zeigt, dass der Block aufgeht; gedreht, wenn er offen ist. */
 #mw-vulns .mw-domain::after{content:"\25B8";display:inline-block;margin-left:8px;opacity:.6;transition:transform .15s}
 #mw-vulns details[open] > summary .mw-domain::after{transform:rotate(90deg)}
-#mw-vulns .mw-body{padding:0 14px 12px;border-top:1px solid var(--cic-line-soft,rgba(128,128,128,.35))}
+#mw-vulns .mw-body{padding:6px 14px 12px;border-top:1px solid var(--cic-line-soft,rgba(128,128,128,.35))}
+/* Was ein Block aufklappt, rueckt unter den Domainnamen ein; die Linie links
+   bindet es an seine Website. */
+#mw-vulns .mw-indent{margin-left:12px;padding:0 0 2px 16px;border-left:2px solid var(--cic-line-soft,rgba(128,128,128,.35))}
+@media (max-width:480px){#mw-vulns .mw-indent{margin-left:2px;padding-left:10px}}
 #mw-vulns ul.mw-installlist{list-style:none;margin:0;padding:0}
 #mw-vulns ul.mw-installlist > li{
 	display:grid;grid-template-columns:auto minmax(0,1fr);gap:2px 12px;align-items:baseline;
@@ -103,26 +107,28 @@
 			</span>
 		</summary>
 		<div class="mw-body">
-			<ul class="mw-installlist">
-				<tmpl_loop name="installs">
-				<li>
-					<span class="mw-sev"><span class="label {tmpl_var name='severity_class'}">{tmpl_var name='severity_label'}</span></span>
-					<span class="mw-head">
-						<span class="mw-elname">{tmpl_var name='name'}</span>
-						<small class="mw-dim">{tmpl_var name='kind_label'}</small>
-						<code class="mw-mono mw-path">{tmpl_var name='path'}</code>
-					</span>
-					<span class="mw-meta">
-						<span>{tmpl_var name='count_label'}</span>
-						<span>{tmpl_var name='installed_line'}</span>
-						<tmpl_if name="has_latest"><span class="mw-dim">{tmpl_var name='latest_line'}</span></tmpl_if>
-						<tmpl_if name="has_update_to"><span>{tmpl_var name='update_to'}</span></tmpl_if>
-					</span>
-				</li>
-				</tmpl_loop>
-			</ul>
-			<tmpl_if name="has_more_installs"><p class="mw-dim mw-more">{tmpl_var name='more_installs_label'}</p></tmpl_if>
-			<p class="mw-sitelink"><a href="#" data-load-content="security/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='open_site_txt'}</a></p>
+			<div class="mw-indent">
+				<ul class="mw-installlist">
+					<tmpl_loop name="installs">
+					<li>
+						<span class="mw-sev"><span class="label {tmpl_var name='severity_class'}">{tmpl_var name='severity_label'}</span></span>
+						<span class="mw-head">
+							<span class="mw-elname">{tmpl_var name='name'}</span>
+							<small class="mw-dim">{tmpl_var name='kind_label'}</small>
+							<code class="mw-mono mw-path">{tmpl_var name='path'}</code>
+						</span>
+						<span class="mw-meta">
+							<span>{tmpl_var name='count_label'}</span>
+							<span>{tmpl_var name='installed_line'}</span>
+							<tmpl_if name="has_latest"><span class="mw-dim">{tmpl_var name='latest_line'}</span></tmpl_if>
+							<tmpl_if name="has_update_to"><span>{tmpl_var name='update_to'}</span></tmpl_if>
+						</span>
+					</li>
+					</tmpl_loop>
+				</ul>
+				<tmpl_if name="has_more_installs"><p class="mw-dim mw-more">{tmpl_var name='more_installs_label'}</p></tmpl_if>
+				<p class="mw-sitelink"><a href="#" data-load-content="security/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='open_site_txt'}</a></p>
+			</div>
 		</div>
 	</details>
 	</tmpl_loop>

@@ -469,12 +469,14 @@
 #mw-site .mw-flawcount{margin-left:4px}
 .mw-flaws > summary{cursor:pointer;font-size:12.5px}
 .mw-flaws .mw-update{opacity:.8;font-size:12px}
-.mw-flaws ul{list-style:none;margin:7px 0 2px;padding:0;display:flex;flex-direction:column;gap:6px}
+/* Die aufgeklappte Liste rueckt unter ihre Zeile ein; die Linie links bindet
+   sie an die Installation darueber. */
+.mw-flaws ul{list-style:none;margin:7px 0 2px 12px;padding:0 0 0 16px;border-left:2px solid var(--cic-line-soft,rgba(128,128,128,.35));display:flex;flex-direction:column;gap:6px}
 .mw-flaws li{font-size:12.5px;line-height:1.45;max-width:110ch;white-space:normal;word-break:break-word}
 .mw-flaws li .label{margin-right:5px}
 .mw-flaws li .mw-mono{margin-right:5px;font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:11.5px}
 .mw-flaw-dim{opacity:.72}
-.mw-flaws .mw-flaw-more{margin:6px 0 0}
+.mw-flaws .mw-flaw-more{margin:6px 0 0 30px}
 .mw-flaw-unchecked{display:block;margin-top:3px}
 .mw-flaw-note{margin:8px 0 0;font-size:12.5px;max-width:80ch}
 </style>

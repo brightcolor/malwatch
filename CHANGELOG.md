@@ -2,6 +2,15 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.13.2] – 2026-09-13
+
+### Geändert
+
+**Aufgeklappte Listen rücken ein.** In der Schwachstellen-Übersicht stehen die
+Installationen einer Website eingerückt unter ihrem Namen, mit einer Linie
+links. Auf der Seite einer Website rückt die Lückenliste unter „Lücken
+anzeigen“ ein. So hebt sich, was ein Block aufklappt, von der Liste darum ab.
+
 ## [0.13.1] – 2026-09-13
 
 ### Geändert
