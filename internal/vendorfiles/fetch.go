@@ -61,12 +61,12 @@ func NewFetcher(base BaseURLs, timeout time.Duration) *Fetcher {
 // installation against the international files reports everything carrying a
 // translated comment as modified.
 func (f *Fetcher) Core(version, locale, dest string) (string, error) {
-	if !safe(version) {
+	if !Safe(version) {
 		return "", fmt.Errorf("unplausible Version %q", version)
 	}
 	u := f.base.Core + "wordpress-" + url.PathEscape(version) + ".zip"
 	if locale != "" && locale != "en_US" {
-		if !safe(locale) {
+		if !Safe(locale) {
 			return "", fmt.Errorf("unplausible Sprache %q", locale)
 		}
 		lang := strings.SplitN(locale, "_", 2)[0]
@@ -99,7 +99,7 @@ func (f *Fetcher) Theme(slug, version, dest string) (string, error) {
 }
 
 func (f *Fetcher) slugged(base, slug, version, dest string) (string, error) {
-	if !safe(slug) || !safe(version) {
+	if !Safe(slug) || !Safe(version) {
 		return "", fmt.Errorf("unplausibler Name %q oder Version %q", slug, version)
 	}
 	u := base + url.PathEscape(slug) + "." + url.PathEscape(version) + ".zip"
@@ -188,9 +188,9 @@ func writeEntry(entry *zip.File, target string) error {
 	return err
 }
 
-// safe keeps a version or slug read off a customer's disk out of a URL path.
-// The value comes from a file an attacker may control.
-func safe(s string) bool {
+// Safe keeps a version or slug read off a customer's disk, or out of a plan
+// file, out of a URL path. The value may come from a file an attacker controls.
+func Safe(s string) bool {
 	if s == "" || len(s) > 100 || strings.Contains(s, "..") {
 		return false
 	}
