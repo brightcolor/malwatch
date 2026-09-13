@@ -400,3 +400,25 @@ Abnahmetest in CI:
 Wie gehabt baut ein Tag Binaries, Addon-Paket und `SHA256SUMS`. Auf dem Server
 folgt zuerst ein Probelauf gegen eine Test-Website, dann ein echtes Update auf
 einer Demo-Website; danach steht die Funktion allen Websites offen.
+
+## Nachtrag zum Umsetzungsplan (14.09.2026)
+
+Beim Planen haben sich sieben Punkte geklärt. Sie gelten vor dem Text oben:
+
+1. Der Befehl heißt `malwatch upgrade`; `malwatch update` lädt seit jeher die
+   Signaturen. Die Kennungen im Addon folgen: `job_kind = 'upgrade'`,
+   `malwatch_upgrade`, `malwatch_upgrade_element`,
+   `malwatch_upgrade_start.php`, `ingest_upgrade`,
+   `malwatch_upgrade_notification`. Die Beschriftung im Panel bleibt „Updates“.
+2. Rückgabecode 3 gilt für `rollback_failed` und jeden Fehler des Laufs, wie
+   bei den übrigen Befehlen.
+3. Der Bericht führt die Elemente als flache Liste `elements`; jedes nennt
+   seine Installation in `install`.
+4. Die Fortschrittsdatei trägt je Element einen Schritt mit `from`, `to` und
+   `state`.
+5. `repair` prüft bisher keine Prüfsummen; das Upgrade prüft sie über
+   `knownfiles`. Ein Plugin, für das wordpress.org keine Liste veröffentlicht,
+   läuft wie ein Theme weiter und trägt den Vermerk `unverified`.
+6. Der Datenbank-Export liegt als Quarantäne-Eintrag in dem Verzeichnis, das
+   allein root betreten darf; das Archiv trägt die Rechte der Quarantäne.
+7. Quarantäne-Einträge eines Upgrades tragen den Ursprung `upgrade`.
