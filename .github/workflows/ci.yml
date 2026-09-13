@@ -155,3 +155,106 @@ jobs:
           [ "$left" = "$expected" ] || {
             echo "expected exactly the two files outside the vendor directories"
             exit 1; }
+
+  upgrade-roundtrip:
+    # The promise of malwatch upgrade, in both directions: a real update leaves
+    # the new release of the vendor in place with the site answering, and an
+    # update that breaks the site is taken back with the site answering again.
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: wordpress
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=5s --health-timeout=5s --health-retries=30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+          cache: true
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          extensions: mysqli
+          tools: wp-cli
+      - name: Build
+        run: go build -o malwatch ./cmd/malwatch
+      - name: WordPress 6.5.3 with akismet 5.3.2
+        run: |
+          mkdir -p www/wp
+          wp core download --version=6.5.3 --locale=en_US --path=www/wp
+          wp config create --path=www/wp --dbname=wordpress --dbuser=root --dbpass=root --dbhost=127.0.0.1
+          wp core install --path=www/wp --url=http://127.0.0.1:8080 --title=Probe \
+            --admin_user=probe --admin_password=probe --admin_email=probe@beispiel.de --skip-email
+          wp plugin install akismet --version=5.3.2 --activate --path=www/wp
+      - name: Serve it
+        run: |
+          (cd www/wp && php -S 127.0.0.1:8080 > "$RUNNER_TEMP/php-server.log" 2>&1 &)
+          for i in $(seq 1 30); do
+            curl -fsS -o /dev/null http://127.0.0.1:8080/wp-login.php && break
+            sleep 1
+          done
+          curl -fsS -o /dev/null http://127.0.0.1:8080/
+      - name: Upgrade the core within its branch and the plugin
+        run: |
+          cat > plan.json <<EOF
+          {"schema":1,"installs":[{"path":"$PWD/www/wp","url":"http://127.0.0.1:8080/","elements":[
+            {"kind":"core","version":"6.5.5"},
+            {"kind":"plugin","slug":"akismet","version":"5.3.3"}]}]}
+          EOF
+          set +e
+          ./malwatch upgrade --path="$PWD/www" --plan=plan.json --run-as="$(id -un)" \
+            --php="$(command -v php)" --wp-cli="$(command -v wp)" --connect=127.0.0.1:8080 \
+            --quarantine-dir=quarantine --progress=progress.json --json --out=upgrade.json
+          code=$?
+          set -e
+          jq -r '.elements[] | "\(.kind) \(.slug // "") \(.outcome) \(.message // "")"' upgrade.json
+          [ "$code" = "0" ] || { echo "exit code $code, expected 0"; cat upgrade.json; exit 1; }
+          jq -e '[.elements[].outcome] == ["updated","updated"]' upgrade.json
+          jq -e '.kind == "upgrade" and (.steps | length) == 2' progress.json
+      - name: The files are the new releases, and the site answers
+        run: |
+          wp core verify-checksums --path=www/wp
+          wp plugin verify-checksums akismet --path=www/wp
+          grep -q "6.5.5" www/wp/wp-includes/version.php
+          curl -fsS -o /dev/null http://127.0.0.1:8080/
+          curl -fsS -o /dev/null http://127.0.0.1:8080/wp-login.php
+      - name: A plugin release that breaks the site
+        run: |
+          mkdir -p www/wp/wp-content/plugins/malwatch-probe vendor/plugin build/malwatch-probe
+          printf '<?php\n/*\nPlugin Name: malwatch probe\nVersion: 1.0.0\n*/\n' \
+            > www/wp/wp-content/plugins/malwatch-probe/malwatch-probe.php
+          wp plugin activate malwatch-probe --path=www/wp
+          printf '<?php\n/*\nPlugin Name: malwatch probe\nVersion: 2.0.0\n*/\nmalwatch_probe_undefined_function();\n' \
+            > build/malwatch-probe/malwatch-probe.php
+          (cd build && zip -qr ../vendor/plugin/malwatch-probe.2.0.0.zip malwatch-probe)
+          (cd vendor && python3 -m http.server 8090 > "$RUNNER_TEMP/vendor.log" 2>&1 &)
+          for i in $(seq 1 30); do
+            curl -fsS -o /dev/null http://127.0.0.1:8090/plugin/malwatch-probe.2.0.0.zip && break
+            sleep 1
+          done
+      - name: Upgrade it and expect the rollback
+        run: |
+          cat > broken.json <<EOF
+          {"schema":1,"installs":[{"path":"$PWD/www/wp","url":"http://127.0.0.1:8080/","elements":[
+            {"kind":"plugin","slug":"malwatch-probe","version":"2.0.0"}]}]}
+          EOF
+          set +e
+          ./malwatch upgrade --path="$PWD/www" --plan=broken.json --run-as="$(id -un)" \
+            --php="$(command -v php)" --wp-cli="$(command -v wp)" --connect=127.0.0.1:8080 \
+            --quarantine-dir=quarantine --vendor-base=http://127.0.0.1:8090/ --json --out=broken-run.json
+          code=$?
+          set -e
+          jq . broken-run.json
+          [ "$code" = "2" ] || { echo "exit code $code, expected 2"; exit 1; }
+          jq -e '.elements[0].outcome == "rolled_back"' broken-run.json
+          grep -q "Version: 1.0.0" www/wp/wp-content/plugins/malwatch-probe/malwatch-probe.php
+          curl -fsS -o /dev/null http://127.0.0.1:8080/
+          curl -fsS -o /dev/null http://127.0.0.1:8080/wp-login.php
+          [ ! -e www/wp/.maintenance ] || { echo ".maintenance left behind"; exit 1; }
