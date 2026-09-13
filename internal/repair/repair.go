@@ -24,8 +24,13 @@ type Options struct {
 	Only          []string // "core", "plugin:elementor"; empty means everything
 	NoOriginal    string   // "keep" or "quarantine"; empty means "keep"
 	Domain        string
-	Fetcher       *vendorfiles.Fetcher
-	Progress      *progress.Writer
+	// Origin and Reason label the quarantine entries. Empty means the
+	// repair's own labels; an upgrade passes its own, so the quarantine list
+	// says why a tree left the site.
+	Origin   string
+	Reason   string
+	Fetcher  *vendorfiles.Fetcher
+	Progress *progress.Writer
 }
 
 // staged is one element together with the tree that will replace it. An empty
@@ -64,6 +69,22 @@ func ParseNoOriginal(s string) (string, error) {
 	default:
 		return "", fmt.Errorf("unbekannter Wert %q für --no-original (erlaubt: keep, quarantine)", s)
 	}
+}
+
+// origin is the quarantine origin of this run.
+func (o Options) origin() string {
+	if o.Origin != "" {
+		return o.Origin
+	}
+	return "repair"
+}
+
+// reason is the caller's quarantine reason, or the repair's own text.
+func (o Options) reason(own string) string {
+	if o.Reason != "" {
+		return o.Reason
+	}
+	return own
 }
 
 // Run walks the five phases.
@@ -289,8 +310,8 @@ func repairSource(opts Options, el Element, reason string) quarantine.Source {
 		Root:    opts.Root,
 		RelPath: filepath.ToSlash(rel),
 		Domain:  opts.Domain,
-		Origin:  "repair",
-		Reason:  reason,
+		Origin:  opts.origin(),
+		Reason:  opts.reason(reason),
 	}
 }
 
@@ -355,15 +376,15 @@ func repairCore(opts Options, mode string, stagedDir string) (int, []string, err
 			return 0, ids, err
 		}
 
-		reason := "Beim Ersetzen durch das Original abgelegt"
+		reason := opts.reason("Beim Ersetzen durch das Original abgelegt")
 		src := quarantine.Source{
 			Root: opts.Root, RelPath: dir, Domain: opts.Domain,
-			Origin: "repair", Reason: reason,
+			Origin: opts.origin(), Reason: reason,
 		}
 		var qEntry quarantine.Entry
 		var err error
 		if mode == "overlay" {
-			src.Reason = "Vor dem Darüberschreiben abgelegt"
+			src.Reason = opts.reason("Vor dem Darüberschreiben abgelegt")
 			qEntry, err = quarantine.StoreCopy(opts.QuarantineDir, src)
 		} else {
 			qEntry, err = quarantine.Store(opts.QuarantineDir, src)
@@ -442,8 +463,8 @@ func quarantineLooseRootFiles(opts Options, stagedDir string) ([]string, error) 
 
 		qEntry, err := quarantine.StoreCopy(opts.QuarantineDir, quarantine.Source{
 			Root: opts.Root, RelPath: name, Domain: opts.Domain,
-			Origin: "repair",
-			Reason: "Vom Original abweichende Kerndatei, vor dem Überschreiben abgelegt",
+			Origin: opts.origin(),
+			Reason: opts.reason("Vom Original abweichende Kerndatei, vor dem Überschreiben abgelegt"),
 		})
 		if err != nil {
 			return ids, err
