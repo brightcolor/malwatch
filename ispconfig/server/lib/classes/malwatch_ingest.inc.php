@@ -75,6 +75,106 @@ class malwatch_ingest
 		return $scan_id;
 	}
 
+	/**
+	 * Reads the report of a vulnerability check - the software stage alone.
+	 *
+	 * Only malwatch_software is written. Such a report never carries a
+	 * finding; read like a scan it would close every open finding of the
+	 * website as fixed and add a history entry claiming a result nobody
+	 * measured.
+	 */
+	public function ingest_vulncheck($job)
+	{
+		global $app;
+
+		$app->uses('malwatch_helper');
+		$helper = $app->malwatch_helper;
+
+		$file = (string) $job['result_file'];
+		$report = null;
+		if ($file !== '' && is_file($file)) {
+			$report = json_decode((string) file_get_contents($file), true);
+		}
+		if (!is_array($report) || !isset($report['schema'])) {
+			$helper->fail_job($job['job_id'], 'Die Schwachstellenprüfung hat keinen lesbaren Bericht hinterlassen. '
+				. $this->tail_log($job));
+			return;
+		}
+		if (intval($report['schema']) !== self::SCHEMA) {
+			$helper->fail_job($job['job_id'], 'Der Bericht hat Format ' . intval($report['schema'])
+				. ', erwartet wird ' . self::SCHEMA . '. Bitte Erweiterung und Scanner auf denselben Stand bringen.');
+			return;
+		}
+
+		$web = $helper->get_web($job['parent_domain_id']);
+		$sys_groupid = is_array($web) ? intval($web['sys_groupid']) : 0;
+		$site = $helper->get_site($job['parent_domain_id']);
+
+		// The rows keep pointing at the last real scan of the website.
+		$scan_id = is_array($site) ? intval($site['last_scan_id']) : 0;
+		$this->store_software($job, $report, $scan_id, $sys_groupid);
+		$this->apply_vulncheck_state($job, $site);
+
+		$software = isset($report['software']) && is_array($report['software']) ? $report['software'] : array();
+		$vulnerable = 0;
+		foreach ($software as $entry) {
+			if (!empty($entry['vulnerabilities'])) {
+				$vulnerable++;
+			}
+		}
+		$app->dbmaster->query(
+			"UPDATE malwatch_job SET job_status = 'done', finished_at = NOW(), job_log = ? WHERE job_id = ?",
+			sprintf('Schwachstellen abgeglichen: %d Installation(en), davon %d mit bekannten Lücken.',
+				count($software), $vulnerable),
+			$job['job_id']);
+
+		@unlink($file);
+		@unlink(preg_replace('/\.json$/', '.log', $file));
+	}
+
+	/**
+	 * Carries the result of a vulnerability check over to
+	 * malwatch_site.last_state.
+	 *
+	 * Only the states that describe software move. A website with open
+	 * findings stays 'findings', one whose last run failed stays 'error'.
+	 * 'clean' is a statement about files, so a website that was never scanned
+	 * for malware can become 'vulnerable' or 'outdated' here and otherwise
+	 * stays 'unknown'.
+	 */
+	private function apply_vulncheck_state($job, $site)
+	{
+		global $app;
+
+		if (!is_array($site)) {
+			return;
+		}
+		$counts = $app->dbmaster->queryOneRecord(
+			"SELECT COALESCE(SUM(vuln_count > 0), 0) AS vulnerable, COALESCE(SUM(outdated = 'y'), 0) AS outdated "
+			. 'FROM malwatch_software WHERE parent_domain_id = ?',
+			intval($job['parent_domain_id']));
+		$vulnerable = is_array($counts) ? intval($counts['vulnerable']) : 0;
+		$outdated = is_array($counts) ? intval($counts['outdated']) : 0;
+
+		$state = (string) $site['last_state'];
+		if (!in_array($state, array('clean', 'vulnerable', 'outdated', 'unknown'), true)) {
+			return;
+		}
+		$scanned = intval($site['last_scan_id']) > 0;
+		if ($vulnerable > 0) {
+			$state = 'vulnerable';
+		} elseif ($outdated > 0) {
+			$state = 'outdated';
+		} elseif ($scanned) {
+			$state = 'clean';
+		} else {
+			$state = 'unknown';
+		}
+
+		$app->dbmaster->query('UPDATE malwatch_site SET last_state = ? WHERE site_id = ?',
+			$state, intval($site['site_id']));
+	}
+
 	/** Writes the malwatch_scan row and returns its id. */
 	/**
 	 * Reads the report of a restore into malwatch_repair and its elements.
@@ -736,10 +836,14 @@ class malwatch_ingest
 		}
 
 		$outdated = 0;
+		$vulnerable = 0;
 		$software = isset($report['software']) && is_array($report['software']) ? $report['software'] : array();
 		foreach ($software as $entry) {
 			if (!empty($entry['outdated'])) {
 				$outdated++;
+			}
+			if (!empty($entry['vulnerabilities']) && is_array($entry['vulnerabilities'])) {
+				$vulnerable++;
 			}
 		}
 
@@ -753,6 +857,8 @@ class malwatch_ingest
 		$state = 'clean';
 		if (array_sum($counts) > 0) {
 			$state = 'findings';
+		} elseif ($vulnerable > 0) {
+			$state = 'vulnerable';
 		} elseif ($outdated > 0) {
 			$state = 'outdated';
 		}
@@ -790,6 +896,7 @@ class malwatch_ingest
 			'count_medium' => $counts['medium'],
 			'count_low' => $counts['low'],
 			'count_outdated' => $outdated,
+			'count_vulnerable' => $vulnerable,
 			'exit_code' => intval($job['exit_code']),
 			'scan_state' => $state,
 			'engines' => substr(implode(', ', $engines), 0, 255),
@@ -800,14 +907,15 @@ class malwatch_ingest
 			'INSERT INTO malwatch_scan (sys_userid, sys_groupid, sys_perm_user, sys_perm_group, sys_perm_other, '
 			. 'server_id, job_id, parent_domain_id, domain, scan_path, started_at, finished_at, duration_seconds, '
 			. 'files_scanned, files_skipped, count_critical, count_high, count_medium, count_low, count_outdated, '
-			. 'exit_code, scan_state, engines, notes) '
-			. 'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+			. 'count_vulnerable, exit_code, scan_state, engines, notes) '
+			. 'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
 			$insert['sys_userid'], $insert['sys_groupid'], $insert['sys_perm_user'], $insert['sys_perm_group'],
 			$insert['sys_perm_other'], $insert['server_id'], $insert['job_id'], $insert['parent_domain_id'],
 			$insert['domain'], $insert['scan_path'], $insert['started_at'], $insert['finished_at'],
 			$insert['duration_seconds'], $insert['files_scanned'], $insert['files_skipped'],
 			$insert['count_critical'], $insert['count_high'], $insert['count_medium'], $insert['count_low'],
-			$insert['count_outdated'], $insert['exit_code'], $insert['scan_state'], $insert['engines'], $insert['notes']);
+			$insert['count_outdated'], $insert['count_vulnerable'], $insert['exit_code'], $insert['scan_state'],
+			$insert['engines'], $insert['notes']);
 
 		$row = $app->dbmaster->queryOneRecord('SELECT scan_id FROM malwatch_scan WHERE job_id = ? ORDER BY scan_id DESC',
 			intval($job['job_id']));
@@ -918,36 +1026,116 @@ class malwatch_ingest
 			$slug = isset($entry['slug']) ? (string) $entry['slug'] : '';
 
 			$existing = $app->dbmaster->queryOneRecord(
-				'SELECT software_id FROM malwatch_software WHERE parent_domain_id = ? AND path_hash = ? AND software_kind = ? AND slug = ?',
+				'SELECT software_id, installed_version FROM malwatch_software WHERE parent_domain_id = ? AND path_hash = ? AND software_kind = ? AND slug = ?',
 				$domain_id, $hash, $kind, $slug);
 
 			$outdated = !empty($entry['outdated']) ? 'y' : 'n';
 			$unknown = !empty($entry['unknown']) ? 'y' : 'n';
 
+			$version = (string) $entry['version'];
+			$latest = (string) (isset($entry['latest']) ? $entry['latest'] : '');
+
+			// vulnerabilities_checked is missing from a report of a scanner
+			// before 0.13.0 and false for a run with the lookup switched off.
+			// Both read as "not checked": an absent list is no statement that
+			// nothing is known.
+			$vuln_checked = !empty($entry['vulnerabilities_checked']);
+			$vulns = isset($entry['vulnerabilities']) && is_array($entry['vulnerabilities']) ? $entry['vulnerabilities'] : array();
+			$vuln_severity = '';
+			$vuln_nofix = 0;
+			foreach ($vulns as $vuln) {
+				$severity = is_array($vuln) && isset($vuln['severity']) ? (string) $vuln['severity'] : '';
+				if ($helper->severity_rank($severity) > $helper->severity_rank($vuln_severity)) {
+					$vuln_severity = $severity;
+				}
+				if (!is_array($vuln) || empty($vuln['fixed_in'])) {
+					$vuln_nofix++;
+				}
+			}
+			$vuln_count = count($vulns);
+			$vuln_fixed_in = substr(isset($entry['update_to']) ? (string) $entry['update_to'] : '', 0, 64);
+			$vuln_json = $this->compact_vulns($vulns);
+
 			if (is_array($existing)) {
+				if (!$vuln_checked && (string) $existing['installed_version'] === $version) {
+					// Nobody was asked this time, and the version is the one the
+					// stored list was made for: the list stays, marked as not
+					// checked in this run. The pages say so next to it.
+					$app->dbmaster->query(
+						'UPDATE malwatch_software SET scan_id = ?, installed_version = ?, latest_version = ?, '
+						. "outdated = ?, version_unknown = ?, vuln_unchecked = 'y', last_seen = ? WHERE software_id = ?",
+						$scan_id, $version, $latest, $outdated, $unknown, $now, intval($existing['software_id']));
+					continue;
+				}
 				$app->dbmaster->query(
 					'UPDATE malwatch_software SET scan_id = ?, installed_version = ?, latest_version = ?, '
-					. 'outdated = ?, version_unknown = ?, last_seen = ? WHERE software_id = ?',
-					$scan_id, (string) $entry['version'], (string) (isset($entry['latest']) ? $entry['latest'] : ''),
-					$outdated, $unknown, $now, intval($existing['software_id']));
+					. 'outdated = ?, version_unknown = ?, vuln_count = ?, vuln_nofix = ?, vuln_severity = ?, '
+					. 'vuln_fixed_in = ?, vuln_unchecked = ?, vulns = ?, last_seen = ? WHERE software_id = ?',
+					$scan_id, $version, $latest, $outdated, $unknown, $vuln_count, $vuln_nofix, $vuln_severity,
+					$vuln_fixed_in, $vuln_checked ? 'n' : 'y', $vuln_json, $now, intval($existing['software_id']));
 				continue;
 			}
 
 			$app->dbmaster->query(
 				'INSERT INTO malwatch_software (sys_userid, sys_groupid, sys_perm_user, sys_perm_group, sys_perm_other, '
 				. 'server_id, parent_domain_id, domain, scan_id, install_path, path_hash, product, software_kind, slug, '
-				. 'installed_version, latest_version, outdated, version_unknown, last_seen) '
-				. "VALUES (1, ?, 'riud', 'r', '', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+				. 'installed_version, latest_version, outdated, version_unknown, vuln_count, vuln_nofix, vuln_severity, '
+				. 'vuln_fixed_in, vuln_unchecked, vulns, last_seen) '
+				. "VALUES (1, ?, 'riud', 'r', '', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 				$sys_groupid, intval($conf['server_id']), $domain_id, (string) $job['domain'], $scan_id,
 				substr($path, 0, 1024), $hash, substr((string) $entry['product'], 0, 64), substr($kind, 0, 16),
-				substr($slug, 0, 128), (string) $entry['version'],
-				(string) (isset($entry['latest']) ? $entry['latest'] : ''), $outdated, $unknown, $now);
+				substr($slug, 0, 128), $version, $latest, $outdated, $unknown,
+				$vuln_count, $vuln_nofix, $vuln_severity, $vuln_fixed_in, $vuln_checked ? 'n' : 'y', $vuln_json, $now);
 		}
 
 		// Installations that disappeared are removed: unlike a finding, a
 		// deleted CMS is not history worth keeping.
 		$app->dbmaster->query('DELETE FROM malwatch_software WHERE parent_domain_id = ? AND last_seen < ?',
 			$domain_id, $now);
+	}
+
+	/**
+	 * Reduces the known flaws of one install to what the site page shows.
+	 *
+	 * Capped at fifty: an old plugin can carry a hundred entries, and the
+	 * scanner already sorted them worst first. Every text is cut on character
+	 * boundaries - json_encode refuses a string cut inside a multibyte letter
+	 * and would store nothing at all. A link that is not a web address is
+	 * dropped here as well as in the scanner, since the page puts it in an
+	 * href.
+	 */
+	private function compact_vulns($vulns)
+	{
+		$app_severities = malwatch_helper::$severities;
+		$out = array();
+		foreach (array_slice($vulns, 0, 50) as $vuln) {
+			if (!is_array($vuln)) {
+				continue;
+			}
+			$link = isset($vuln['link']) ? (string) $vuln['link'] : '';
+			if (!preg_match('#^https?://#i', $link)) {
+				$link = '';
+			}
+			$sources = array();
+			$given = isset($vuln['sources']) && is_array($vuln['sources']) ? $vuln['sources'] : array();
+			foreach (array_slice($given, 0, 5) as $source) {
+				$sources[] = mb_substr((string) $source, 0, 40, 'UTF-8');
+			}
+			$severity = isset($vuln['severity']) ? (string) $vuln['severity'] : '';
+			$out[] = array(
+				'id' => mb_substr(isset($vuln['id']) ? (string) $vuln['id'] : '', 0, 32, 'UTF-8'),
+				'title' => mb_substr(isset($vuln['title']) ? (string) $vuln['title'] : '', 0, 200, 'UTF-8'),
+				'severity' => in_array($severity, $app_severities, true) ? $severity : '',
+				'score' => isset($vuln['score']) ? round((float) $vuln['score'], 1) : 0,
+				'fixed_in' => mb_substr(isset($vuln['fixed_in']) ? (string) $vuln['fixed_in'] : '', 0, 64, 'UTF-8'),
+				'last_affected' => mb_substr(isset($vuln['last_affected']) ? (string) $vuln['last_affected'] : '', 0, 64, 'UTF-8'),
+				'unfixed' => !empty($vuln['unfixed']),
+				'link' => mb_substr($link, 0, 255, 'UTF-8'),
+				'sources' => $sources,
+			);
+		}
+		$json = json_encode($out, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+		return $json === false ? '[]' : $json;
 	}
 
 	/** Converts an RFC 3339 timestamp into a MySQL datetime. */

@@ -43,7 +43,7 @@ $domain_id = $app->functions->intval(isset($_GET['domain_id']) ? $_GET['domain_i
 if ($job_id < 1 && $domain_id > 0) {
 	$row = $app->db->queryOneRecord(
 		"SELECT job_id FROM malwatch_job WHERE parent_domain_id = ? AND job_status IN ('pending','running') "
-		. 'ORDER BY job_id DESC LIMIT 1', $domain_id);
+		. "AND job_kind != 'vulncheck' ORDER BY job_id DESC LIMIT 1", $domain_id);
 	if (is_array($row)) {
 		$job_id = $app->functions->intval($row['job_id']);
 	}

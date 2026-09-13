@@ -121,9 +121,11 @@ foreach (array('confirm_delete_all_txt', 'confirm_enable_txt', 'confirm_delete_o
 $site = $app->db->queryOneRecord('SELECT * FROM malwatch_site WHERE parent_domain_id = ?', $domain_id);
 $last_scan = $app->db->queryOneRecord(
 	'SELECT * FROM malwatch_scan WHERE parent_domain_id = ? ORDER BY scan_id DESC LIMIT 1', $domain_id);
+// The daily vulnerability check is left out: it has no progress to show,
+// and a scan started by hand takes its place (malwatch_queue_scan).
 $job = $app->db->queryOneRecord(
 	"SELECT * FROM malwatch_job WHERE parent_domain_id = ? AND job_status IN ('pending','running') "
-	. 'ORDER BY job_id DESC LIMIT 1', $domain_id);
+	. "AND job_kind != 'vulncheck' ORDER BY job_id DESC LIMIT 1", $domain_id);
 // Told about here so the hint below can point at the quarantine list instead
 // of the operator having to go looking for what a past "In Quarantäne
 // verschieben" click actually did with the files.
@@ -189,9 +191,18 @@ $app->tpl->setVar('finding_count', is_array($findings) ? count($findings) : 0);
 $app->tpl->setVar('scan_base', $app->functions->htmlentities($base));
 
 // --- Software --------------------------------------------------------------
+// Known flaws first, the worst on top, then what is merely outdated.
+// vuln_count and vuln_severity exist for this order; the stored list itself is
+// decoded only for the rows that have one.
 $software = $app->db->queryAllRecords(
-	'SELECT * FROM malwatch_software WHERE parent_domain_id = ? ORDER BY outdated DESC, product ASC, slug ASC LIMIT 300',
+	'SELECT * FROM malwatch_software WHERE parent_domain_id = ? '
+	. "ORDER BY vuln_count > 0 DESC, FIELD(vuln_severity, 'low', 'medium', 'high', 'critical') DESC, "
+	. 'outdated DESC, product ASC, slug ASC LIMIT 300',
 	$domain_id);
+
+// "Lücken nicht geprüft" says something only while the lookup is switched on.
+$vuln_config = malwatch_get_config($app);
+$vuln_on = !(isset($vuln_config['vuln_scan']) && $vuln_config['vuln_scan'] === 'n');
 
 $software_rows = array();
 if (is_array($software)) {
@@ -200,6 +211,13 @@ if (is_array($software)) {
 		if ((string) $row['slug'] !== '') {
 			$name .= ' / ' . $row['slug'];
 		}
+		$vuln_count = $app->functions->intval($row['vuln_count']);
+		$vuln_severity = (string) $row['vuln_severity'];
+		$update_label = malwatch_update_to_label($wb, $row['vuln_fixed_in'], $vuln_count,
+			$app->functions->intval($row['vuln_nofix']));
+		list($vulns, $more) = $vuln_count > 0
+			? malwatch_vuln_rows($app, $wb, $row['vulns'], 25, $vuln_count)
+			: array(array(), 0);
 		$software_rows[] = array(
 			'name' => $app->functions->htmlentities($name),
 			'kind' => $app->functions->htmlentities($row['software_kind']),
@@ -208,6 +226,21 @@ if (is_array($software)) {
 			'latest_version' => $app->functions->htmlentities($row['latest_version']),
 			'is_outdated' => $row['outdated'] === 'y' ? 1 : 0,
 			'is_unknown' => $row['version_unknown'] === 'y' ? 1 : 0,
+			'has_vulns' => $vuln_count > 0 ? 1 : 0,
+			'vuln_worst_class' => $vuln_severity !== '' ? malwatch_severity_class($vuln_severity) : 'label-default',
+			'vuln_count_label' => $app->functions->htmlentities($vuln_count === 1
+				? $wb['vuln_count_one_txt']
+				: sprintf($wb['vuln_count_many_txt'], number_format($vuln_count, 0, ',', '.'))),
+			'has_update_to' => $update_label !== '' ? 1 : 0,
+			'update_to' => $app->functions->htmlentities($update_label),
+			'vulns' => $vulns,
+			'has_more' => $more > 0 ? 1 : 0,
+			'more_label' => $app->functions->htmlentities(sprintf($wb['vuln_more_txt'], number_format($more, 0, ',', '.'))),
+			'is_vuln_unchecked' => ($vuln_on && $row['vuln_unchecked'] === 'y') ? 1 : 0,
+			// With a list on screen the run was partial or asked nobody while
+			// the version stayed the same; without one nothing is known yet.
+			'vuln_unchecked_label' => $app->functions->htmlentities($vuln_count > 0
+				? $wb['vuln_incomplete_txt'] : $wb['vuln_unchecked_txt']),
 		);
 	}
 }
@@ -269,7 +302,7 @@ $app->tpl->setVar('error', $app->functions->htmlentities($error));
 // While a job runs the page shows it and comes back on its own.
 $running = $app->db->queryOneRecord(
 	"SELECT job_id FROM malwatch_job WHERE parent_domain_id = ? AND job_status IN ('pending','running') "
-	. 'ORDER BY job_id DESC LIMIT 1', $domain_id);
+	. "AND job_kind != 'vulncheck' ORDER BY job_id DESC LIMIT 1", $domain_id);
 $app->tpl->setVar('running_job_id', is_array($running)
 	? $app->functions->intval($running['job_id']) : '');
 

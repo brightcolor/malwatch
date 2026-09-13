@@ -16,3 +16,7 @@ $wb['findings_one_txt'] = 'One affected file.';
 $wb['waiting_txt'] = 'Starting soon …';
 $wb['progress_scanned_txt'] = '%s files examined';
 $wb['progress_of_total_txt'] = '%s of %s files';
+$wb['vulns_one_txt'] = 'One installation has known vulnerabilities.';
+$wb['vulns_many_one_site_txt'] = '%s installations on one website have known vulnerabilities.';
+$wb['vulns_many_txt'] = '%s installations on %s websites have known vulnerabilities.';
+$wb['vulns_view_txt'] = 'Go to vulnerabilities';

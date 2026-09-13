@@ -37,6 +37,24 @@ und Heuristik lesen die Dateien weiter.
 Drupal, TYPO3, Contao, Nextcloud, phpMyAdmin, Matomo, MediaWiki, Shopware und
 Magento, abgeglichen mit den Herstellerquellen.
 
+**Bekannte Schwachstellen** genau der installierten Version, jede mit
+CVE-Nummer, Einstufung und der Version, die sie behebt:
+
+| Software | Quelle |
+|---|---|
+| WordPress, Plugins, Themes | WPVulnerability und wordpress.org, mit API-Schlüssel zusätzlich WPScan |
+| Joomla | Joomla Security Centre |
+| Drupal, TYPO3, phpMyAdmin, Contao, Shopware, MediaWiki, Magento 2 | OSV, Datenbank der Composer-Pakete |
+
+Für Nextcloud, Matomo und Magento 1 gibt es keine tragfähige Quelle; ihre
+Installationen tragen den Hinweis „Lücken nicht geprüft“.
+
+Beschreiben mehrere Quellen dieselbe Lücke, erscheint sie einmal. Die
+OSV-Datenbank wird als Ganzes geladen und auf dem Server durchsucht; an
+WPVulnerability und WPScan gehen Name und Version der jeweiligen Komponente.
+Jede Antwort bleibt einen Tag gespeichert, eine von WPScan eine Woche, weil
+der kostenlose Tarif 25 Abfragen am Tag erlaubt.
+
 ## Installieren
 
 ```bash
@@ -68,6 +86,17 @@ malwatch scan --path=/var/www --max-age=2 --cache=/var/lib/malwatch/clean.json \
   --email=admin@example.com --min-severity=high
 ```
 
+Nur die Software abgleichen, Versionen und bekannte Lücken, mit WPScan als
+zusätzlicher Quelle:
+
+```bash
+malwatch scan --path=/var/www --no-malware-scan --wpscan-token-file=/etc/malwatch/wpscan.token
+```
+
+Der Schlüssel steht in einer Datei oder in `MALWATCH_WPSCAN_TOKEN`. Als
+Schalter auf der Kommandozeile wäre er für jeden Benutzer der Maschine in
+`/proc` lesbar.
+
 Alle Schalter zeigt `malwatch --help`.
 
 ### Rückgabecodes
@@ -76,7 +105,7 @@ Alle Schalter zeigt `malwatch --help`.
 |---|---|
 | 0 | nichts gefunden |
 | 1 | Funde ab der eingestellten Stufe |
-| 2 | nur veraltete Software gefunden |
+| 2 | nur veraltete Software oder Software mit bekannten Lücken gefunden |
 | 3 | der Lauf selbst ist gescheitert |
 
 ### Fehlalarme freigeben

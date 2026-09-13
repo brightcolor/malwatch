@@ -2,6 +2,95 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.13.0] – 2026-09-13
+
+### Neu
+
+**Bekannte Schwachstellen je installierter Version.** Zu jeder erkannten
+Software schlägt der Scanner nach, welche Sicherheitslücken für genau diese
+Version veröffentlicht sind: mit CVE-Nummer, Einstufung und der Version, die
+sie behebt.
+
+| Software | Quelle |
+|---|---|
+| WordPress, Plugins, Themes | WPVulnerability und wordpress.org, mit API-Schlüssel zusätzlich WPScan |
+| Joomla | Joomla Security Centre, dazu OSV |
+| Drupal, TYPO3, phpMyAdmin, Contao, Shopware, MediaWiki, Magento 2 | OSV |
+
+Für Nextcloud, Matomo und Magento 1 gibt es keine tragfähige Quelle; ihre
+Installationen tragen den Hinweis „Lücken nicht geprüft“. Die Meldungen zu
+Shopware 6 und Magento 2 gelten nur für ihre eigene Hauptversion: dort steht oft
+„ab Version 0“, und ein Shop mit Shopware 5 bekäme sonst den Rat, auf 6.4 zu
+aktualisieren.
+
+Viele Lücken stehen mehrfach in den Daten, oft zweimal in derselben Datenbank:
+einmal mit CVE-Nummer, einmal so, wie ein zweiter Forscher sie gemeldet hat.
+Einträge mit gemeinsamer Kennung oder derselben behebenden Version werden
+zusammengelegt und erscheinen einmal.
+
+OSV wird einmal am Tag als Gesamtarchiv geladen und auf dem Server
+durchsucht. An WPVulnerability und WPScan gehen Name und Version der
+jeweiligen Komponente. Antworten bleiben einen Tag gespeichert, die von WPScan
+eine Woche, weil dessen kostenloser Tarif 25 Abfragen am Tag erlaubt. Ist das
+Kontingent aufgebraucht, pausiert WPScan, und die gespeicherten Antworten
+gelten weiter. Bleibt eine Quelle dreimal hintereinander stumm, fragt der Lauf
+sie nicht weiter und greift auf ältere gespeicherte Antworten zurück. Der
+Bericht nennt beides.
+
+**Menüpunkt „Schwachstellen".** Die Seite listet alle Installationen mit
+bekannten Lücken über alle Websites, die schwerste Einstufung zuerst. Jede
+Zeile klappt ihre Lücken mit Verweis auf den Eintrag auf. Die Seite einer
+Website zeigt dieselbe Liste unter ihrer Software, die Statusseite eine Zeile
+mit dem Weg dorthin. Eine Website mit bekannten Lücken und ohne offenen Fund
+bekommt den Zustand „bekannte Lücken". Nennt eine Lücke keine behebende
+Version, heißt es „2 von 3 behoben ab 5.9.2“. Fragt ein Lauf keine Datenbank,
+bleibt die Liste des letzten Abgleichs stehen, solange die Version gleich ist,
+und trägt den Hinweis „letzter Abgleich unvollständig“.
+
+**Täglicher Abgleich.** Ab 4 Uhr gleicht das Addon einmal am Tag jede aktive
+Website ab. Der Abgleich führt allein die Softwarestufe des Scanners aus:
+Software erkennen, Versionen und Lücken nachschlagen. Bis zu drei Abgleiche
+laufen gleichzeitig, zusätzlich zu den eingestellten gleichzeitigen Prüfungen.
+„Alle Websites jetzt abgleichen" reiht die Runde sofort ein. Startet jemand
+für eine Website eine Prüfung, während ihr Abgleich noch wartet, übernimmt die
+Prüfung; sie gleicht ohnehin mit ab.
+
+**WPScan-Schlüssel unter Einstellungen.** Der Runner legt ihn als Datei mit
+Rechten 0600 ab und übergibt dem Scanner den Dateinamen. Als Argument stünde er
+für jeden Benutzer des Servers lesbar in `/proc`. Die Einstellungsseite zeigt
+einen gespeicherten Schlüssel nur als Hinweis; ein leeres Feld behält ihn, ein
+Häkchen entfernt ihn.
+
+**Scanner.** `--no-vuln-scan` schaltet den Abgleich ab; den WPScan-Schlüssel
+liefern `--wpscan-token-file` oder `MALWATCH_WPSCAN_TOKEN`. Der JSON-Bericht
+trägt je Software `vulnerabilities`, `update_to` und
+`vulnerabilities_checked`. Rückgabecode 2 gilt auch für Software mit
+bekannten Lücken, und `--email` verschickt den Bericht auch dann, wenn er nur
+bekannte Lücken enthält.
+
+### Nachgemessen
+
+Über alle 36 WordPress-Websites des Servers: 709 Komponenten, davon 251 mit
+bekannten Lücken, zusammen 1.601 Einträge. Keine gemeldete Korrekturversion lag
+unter der installierten Version, und keine Komponente in ihrer neuesten Version
+stand mit einer Lücke da. Dazu je eine Drupal-, Joomla- und TYPO3-Installation
+zum Gegenlesen. Vier Stellen haben die ersten Messungen korrigiert:
+
+1. **Slider Revolution 6.7.20** stand mit einer Upload-Lücke da, die erst mit
+   7.0.0 kam. Die Datenbank führt sie als „< 7.0.11", ihr eigener Titel sagt
+   „7.0.0 - 7.0.10". Solche Angaben grenzen den Bereich jetzt nach unten ein,
+   sofern sie zum strukturierten Bereich passen und genau einen Abschnitt
+   nennen. Von acht Einträgen für diese Installation blieben vier.
+2. **Joomla:** Der Feed schreibt hinter „Versions:" ein geschütztes
+   Leerzeichen. Die Feldsuche übersah es, und keine einzige Meldung wurde
+   gelesen. Jetzt passen 22 Meldungen auf eine Installation mit 5.4.5.
+3. **„Bisher ohne Korrektur" bei einer behobenen Lücke:** Ein Eintrag „bis
+   einschließlich 1.16.3" trug zusätzlich die Markierung „unbehoben", auf einer
+   Website mit 1.15.29, während 1.20.2 aktuell ist. Die obere Grenze gilt jetzt
+   vor der Markierung; angezeigt wird „betroffen bis 1.16.3".
+4. **Titel beim WordPress-Kern:** Einträge trugen die Versionsnummer als Titel.
+   Er kommt jetzt aus der Beschreibung der Lücke.
+
 ## [0.12.3] – 2026-09-09
 
 ### Geändert

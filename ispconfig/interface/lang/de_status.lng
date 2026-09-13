@@ -16,3 +16,7 @@ $wb['findings_one_txt'] = 'Eine auffällige Datei.';
 $wb['waiting_txt'] = 'Startet gleich …';
 $wb['progress_scanned_txt'] = '%s Dateien durchgesehen';
 $wb['progress_of_total_txt'] = '%s von %s Dateien';
+$wb['vulns_one_txt'] = 'Eine Installation hat bekannte Lücken.';
+$wb['vulns_many_one_site_txt'] = '%s Installationen auf einer Website haben bekannte Lücken.';
+$wb['vulns_many_txt'] = '%s Installationen auf %s Websites haben bekannte Lücken.';
+$wb['vulns_view_txt'] = 'Zu den Schwachstellen';

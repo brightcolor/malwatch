@@ -34,5 +34,5 @@ $liste['item'][] = array(
 	'prefix' => '',
 	'suffix' => '',
 	'width' => '',
-	'value' => array('' => 'alle', 'clean' => 'sauber', 'findings' => 'Funde', 'outdated' => 'veraltet', 'error' => 'Fehler')
+	'value' => array('' => 'alle', 'clean' => 'sauber', 'findings' => 'Funde', 'vulnerable' => 'bekannte Lücken', 'outdated' => 'veraltet', 'error' => 'Fehler')
 );

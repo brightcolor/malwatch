@@ -9,6 +9,13 @@ class malwatch_helper
 	/** Severity names in order, weakest first. */
 	public static $severities = array('low', 'medium', 'high', 'critical');
 
+	/**
+	 * How many vulnerability checks may run at once, beside the scans. A check
+	 * reads no file for malware; three at a time keep the requests to the
+	 * vulnerability databases at a pace their operators ask for.
+	 */
+	const VULNCHECK_PARALLEL = 3;
+
 	private $config = null;
 
 	/** Returns the global settings, with defaults for a missing row. */
@@ -86,13 +93,21 @@ class malwatch_helper
 			$message, $job_id);
 	}
 
-	/** Counts jobs currently running on this server, excluding one id. */
-	public function count_running_jobs($except_job_id = 0)
+	/**
+	 * Counts jobs currently running on this server, excluding one id.
+	 *
+	 * Vulnerability checks are counted apart from everything else: they have
+	 * their own limit (VULNCHECK_PARALLEL) and take no slot of max_parallel.
+	 * Pass 'vulncheck' as $kind to count them, anything else for the rest.
+	 */
+	public function count_running_jobs($except_job_id = 0, $kind = '')
 	{
 		global $app, $conf;
 
+		$kind_sql = $kind === 'vulncheck' ? "job_kind = 'vulncheck'" : "job_kind != 'vulncheck'";
 		$row = $app->dbmaster->queryOneRecord(
-			"SELECT COUNT(*) AS n FROM malwatch_job WHERE server_id = ? AND job_status = 'running' AND job_id != ?",
+			"SELECT COUNT(*) AS n FROM malwatch_job WHERE server_id = ? AND job_status = 'running' AND job_id != ? AND "
+			. $kind_sql,
 			$conf['server_id'], intval($except_job_id));
 
 		return is_array($row) ? intval($row['n']) : 0;

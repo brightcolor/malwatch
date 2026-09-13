@@ -119,6 +119,10 @@ class malwatch_actions
 		$state = 'clean';
 		if ($count > 0) {
 			$state = 'findings';
+		} elseif (isset($scan['count_vulnerable']) && intval($scan['count_vulnerable']) > 0) {
+			// Before 'outdated': a published flaw is what attackers search
+			// for, an old version alone can be harmless for years.
+			$state = 'vulnerable';
 		} elseif (intval($scan['count_outdated']) > 0) {
 			$state = 'outdated';
 		}

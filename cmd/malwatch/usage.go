@@ -33,7 +33,13 @@ Prüfstufen:
   --no-version-scan        keine Suche nach veralteter Software
   --no-plugin-version-scan Plugins und Themes nicht prüfen
   --no-clamav              ClamAV nicht zusätzlich verwenden
-  --offline                keine Abfragen bei den Herstellern
+  --no-vuln-scan           keine Suche nach bekannten Schwachstellen
+  --wpscan-token-file=DATEI
+                           API-Schlüssel für WPScan aus dieser Datei lesen,
+                           ersatzweise aus der Umgebungsvariablen
+                           MALWATCH_WPSCAN_TOKEN
+  --offline                keine Abfragen bei Herstellern und
+                           Schwachstellen-Datenbanken
   --ignore=REGEL           diese Regel nicht anwenden, mehrfach angebbar
 
 Ausgabe:
@@ -120,7 +126,7 @@ Ablagen:
 Rückgabecodes von scan:
   0  nichts gefunden
   1  Funde ab der eingestellten Stufe
-  2  nur veraltete Software gefunden
+  2  nur veraltete Software oder Software mit bekannten Lücken gefunden
   3  der Lauf selbst ist gescheitert
 
 Rückgabecodes von repair:

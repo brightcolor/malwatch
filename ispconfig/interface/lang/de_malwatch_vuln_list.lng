@@ -1,0 +1,52 @@
+<?php
+$wb['lede_none_txt'] = 'In der erkannten Software sind keine Lücken bekannt.';
+$wb['lede_one_txt'] = 'Eine Installation hat bekannte Lücken.';
+$wb['lede_many_one_site_txt'] = '%s Installationen auf einer Website haben bekannte Lücken.';
+$wb['lede_many_txt'] = '%s Installationen auf %s Websites haben bekannte Lücken.';
+$wb['as_of_txt'] = 'Zuletzt abgeglichen %s.';
+$wb['never_checked_txt'] = 'Bisher hat kein Abgleich stattgefunden.';
+$wb['running_one_txt'] = 'Für eine Website läuft der Abgleich gerade.';
+$wb['running_many_txt'] = 'Für %s Websites läuft der Abgleich gerade.';
+$wb['disabled_txt'] = 'Die Suche nach bekannten Schwachstellen ist in den Einstellungen abgeschaltet. Die Liste zeigt den Stand des letzten Abgleichs.';
+
+$wb['btn_check_all_txt'] = 'Alle Websites jetzt abgleichen';
+$wb['check_all_hint_txt'] = 'Der Abgleich liest keine Datei auf Schadcode und belastet den Server kaum. Von selbst läuft er einmal am Tag für alle aktiven Websites, und jede reguläre Prüfung gleicht ebenfalls ab.';
+$wb['msg_queued_one_txt'] = 'Der Abgleich für eine Website ist eingereiht.';
+$wb['msg_queued_txt'] = 'Der Abgleich für %s Websites ist eingereiht.';
+$wb['msg_skipped_txt'] = 'Bei %s Websites lief bereits ein Auftrag; eine laufende Prüfung gleicht dort ebenfalls ab.';
+$wb['msg_optout_txt'] = 'Bei %s Websites ist „Veraltete Software suchen“ abgeschaltet.';
+$wb['msg_failed_txt'] = 'Für %s Websites ist kein Verzeichnis hinterlegt.';
+$wb['err_nothing_queued_txt'] = 'Es wurde nichts eingereiht.';
+
+$wb['col_severity_txt'] = 'Stufe';
+$wb['col_software_txt'] = 'Software';
+$wb['col_website_txt'] = 'Website';
+$wb['col_installed_txt'] = 'Installiert';
+$wb['col_flaws_txt'] = 'Bekannte Lücken';
+$wb['latest_line_txt'] = 'aktuell %s';
+$wb['kind_core_txt'] = 'Kern';
+$wb['kind_plugin_txt'] = 'Plugin';
+$wb['kind_theme_txt'] = 'Theme';
+
+$wb['empty_txt'] = 'Findet ein Abgleich Software mit bekannten Lücken, steht sie hier, die schwersten zuerst.';
+$wb['unchecked_one_txt'] = 'Eine Installation konnte nicht abgeglichen werden.';
+$wb['unchecked_many_txt'] = '%s Installationen konnten nicht abgeglichen werden.';
+$wb['unchecked_hint_txt'] = 'Für ihr Produkt gibt es keine Datenquelle, oder die Quelle war beim letzten Abgleich nicht erreichbar. Den Grund nennen die Hinweise auf der Seite der jeweiligen Website.';
+$wb['sources_head_txt'] = 'Herkunft der Angaben:';
+$wb['sources_txt'] = 'WPVulnerability und wordpress.org für WordPress samt Plugins und Themes, das Joomla Security Centre für Joomla, OSV für Drupal, TYPO3, phpMyAdmin, Contao, Shopware, MediaWiki und Magento 2. Mit hinterlegtem Schlüssel fragt der Scanner zusätzlich WPScan. Für Nextcloud, Matomo und Magento 1 gibt es keine tragfähige Quelle.';
+
+// Dieselben Schluessel wie in de_malwatch.lng: malwatch_vuln_rows() in
+// malwatch_lib.inc.php liest sie auf beiden Seiten.
+$wb['severity_low_txt'] = 'gering';
+$wb['severity_medium_txt'] = 'mittel';
+$wb['severity_high_txt'] = 'hoch';
+$wb['severity_critical_txt'] = 'kritisch';
+$wb['vuln_count_one_txt'] = '1 bekannte Lücke';
+$wb['vuln_count_many_txt'] = '%s bekannte Lücken';
+$wb['vuln_update_to_txt'] = 'alle behoben ab %s';
+$wb['vuln_update_some_txt'] = '%s von %s behoben ab %s';
+$wb['vuln_fixed_in_txt'] = 'behoben in %s';
+$wb['vuln_last_affected_txt'] = 'betroffen bis %s';
+$wb['vuln_unfixed_txt'] = 'bisher ohne Korrektur';
+$wb['vuln_unrated_txt'] = 'nicht eingestuft';
+$wb['vuln_more_txt'] = '… und %s weitere';

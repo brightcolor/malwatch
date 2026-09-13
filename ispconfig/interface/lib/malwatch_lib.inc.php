@@ -48,11 +48,15 @@ function malwatch_queue_scan($app, $domain_id)
 		return 'Die Website wurde nicht gefunden.';
 	}
 
+	malwatch_drop_pending_vulncheck($app, $domain_id);
 	$running = $app->db->queryOneRecord(
-		"SELECT job_id FROM malwatch_job WHERE parent_domain_id = ? AND job_status IN ('pending','running')",
+		"SELECT job_id, job_kind FROM malwatch_job WHERE parent_domain_id = ? AND job_status IN ('pending','running')",
 		$domain_id);
 	if (is_array($running)) {
-		return 'Für diese Website läuft bereits eine Prüfung.';
+		// The page hides a running vulnerability check; the refusal names it.
+		return $running['job_kind'] === 'vulncheck'
+			? 'Für diese Website läuft gerade der Schwachstellenabgleich. Danach lässt sich die Prüfung starten.'
+			: 'Für diese Website läuft bereits eine Prüfung.';
 	}
 
 	$path = malwatch_scan_path($web);
@@ -249,6 +253,21 @@ function malwatch_auto_mode_paths_by_domain($app, $mode, array $rule_ids = array
 	return $by_domain;
 }
 
+/**
+ * Removes a vulnerability check that is still waiting for this website.
+ *
+ * Every other job reads the software as well, a scan most of all, so the
+ * waiting check has nothing left to do. Kept, it would turn the daily round
+ * into a stretch in which every job an operator starts is refused with
+ * "läuft bereits". A check that has already started is left to finish.
+ */
+function malwatch_drop_pending_vulncheck($app, $domain_id)
+{
+	$app->db->query(
+		"DELETE FROM malwatch_job WHERE parent_domain_id = ? AND job_kind = 'vulncheck' AND job_status = 'pending'",
+		$app->functions->intval($domain_id));
+}
+
 /** Puts one job of any kind into the queue. */
 function malwatch_queue_job($app, $domain_id, $kind, array $options)
 {
@@ -260,11 +279,16 @@ function malwatch_queue_job($app, $domain_id, $kind, array $options)
 	if (!is_array($web)) {
 		return 'Die Website wurde nicht gefunden.';
 	}
+	if ($kind !== 'vulncheck') {
+		malwatch_drop_pending_vulncheck($app, $domain_id);
+	}
 	$running = $app->db->queryOneRecord(
-		"SELECT job_id FROM malwatch_job WHERE parent_domain_id = ? AND job_status IN ('pending','running')",
+		"SELECT job_id, job_kind FROM malwatch_job WHERE parent_domain_id = ? AND job_status IN ('pending','running')",
 		$domain_id);
 	if (is_array($running)) {
-		return 'Für diese Website läuft bereits ein Auftrag.';
+		return ($running['job_kind'] === 'vulncheck' && $kind !== 'vulncheck')
+			? 'Für diese Website läuft gerade der Schwachstellenabgleich. Danach lässt sich der Auftrag starten.'
+			: 'Für diese Website läuft bereits ein Auftrag.';
 	}
 	$path = malwatch_scan_path($web);
 	if ($path === '') {
@@ -289,6 +313,126 @@ function malwatch_queue_job($app, $domain_id, $kind, array $options)
 	), 'job_id');
 
 	return true;
+}
+
+/**
+ * Queues a vulnerability check for every active website.
+ *
+ * Returns array(queued, busy, optout, failed): busy websites already have a
+ * job pending or running - a scan looks the flaws up as well -, opted-out
+ * ones are set to "Veraltete Software suchen: nein", failed ones have no
+ * directory to look into.
+ */
+function malwatch_queue_vulnchecks($app)
+{
+	$webs = $app->db->queryAllRecords(
+		"SELECT domain_id FROM web_domain WHERE type IN ('vhost','vhostsubdomain','vhostalias') AND active = 'y' "
+		. 'ORDER BY domain_id ASC');
+	$queued = 0;
+	$busy = 0;
+	$optout = 0;
+	$failed = 0;
+	foreach ((array) $webs as $web) {
+		$domain_id = $app->functions->intval($web['domain_id']);
+		$site = $app->db->queryOneRecord(
+			'SELECT excludes, version_scan FROM malwatch_site WHERE parent_domain_id = ?', $domain_id);
+		if (is_array($site) && $site['version_scan'] === 'n') {
+			$optout++;
+			continue;
+		}
+		$running = $app->db->queryOneRecord(
+			"SELECT job_id FROM malwatch_job WHERE parent_domain_id = ? AND job_status IN ('pending','running')",
+			$domain_id);
+		if (is_array($running)) {
+			$busy++;
+			continue;
+		}
+		$result = malwatch_queue_job($app, $domain_id, 'vulncheck',
+			array('excludes' => is_array($site) ? (string) $site['excludes'] : ''));
+		if ($result === true) {
+			$queued++;
+		} else {
+			$failed++;
+		}
+	}
+	return array($queued, $busy, $optout, $failed);
+}
+
+/**
+ * "alle behoben ab 5.9.2", or "2 von 3 behoben ab 5.9.2" when some flaws name
+ * no fixed version - an update to that version leaves those where they are.
+ * Empty when no flaw names one.
+ */
+function malwatch_update_to_label($wb, $update_to, $count, $nofix)
+{
+	$update_to = (string) $update_to;
+	if ($update_to === '') {
+		return '';
+	}
+	if ($nofix <= 0) {
+		return sprintf($wb['vuln_update_to_txt'], $update_to);
+	}
+	return sprintf($wb['vuln_update_some_txt'], number_format(max(0, $count - $nofix), 0, ',', '.'),
+		number_format($count, 0, ',', '.'), $update_to);
+}
+
+/**
+ * Turns the stored list of known flaws of one install into template rows.
+ *
+ * Shared by the website page and the vulnerability overview, so both say
+ * the same about the same flaw. Returns the rows and how many were left out
+ * beyond $limit. $total is the full number of flaws: the stored list is
+ * capped (malwatch_ingest::compact_vulns), and counting it would understate
+ * what is left out.
+ */
+function malwatch_vuln_rows($app, $wb, $json, $limit = 25, $total = -1)
+{
+	$list = json_decode((string) $json, true);
+	if (!is_array($list)) {
+		return array(array(), 0);
+	}
+	$rows = array();
+	foreach (array_slice($list, 0, $limit) as $vuln) {
+		if (!is_array($vuln)) {
+			continue;
+		}
+		$severity = isset($vuln['severity']) ? (string) $vuln['severity'] : '';
+		$score = isset($vuln['score']) ? (float) $vuln['score'] : 0.0;
+		$rating = $severity !== '' ? malwatch_severity_label($wb, $severity) : $wb['vuln_unrated_txt'];
+		if ($score > 0) {
+			$rating .= ' ' . number_format($score, 1, ',', '.');
+		}
+
+		$fix = '';
+		if (!empty($vuln['fixed_in'])) {
+			$fix = sprintf($wb['vuln_fixed_in_txt'], (string) $vuln['fixed_in']);
+		} elseif (!empty($vuln['last_affected'])) {
+			$fix = sprintf($wb['vuln_last_affected_txt'], (string) $vuln['last_affected']);
+		} elseif (!empty($vuln['unfixed'])) {
+			$fix = $wb['vuln_unfixed_txt'];
+		}
+
+		// Checked a third time, here where it becomes an href: the list comes
+		// from a database the scanner does not control.
+		$link = isset($vuln['link']) ? (string) $vuln['link'] : '';
+		if (!preg_match('#^https?://#i', $link)) {
+			$link = '';
+		}
+		$id = isset($vuln['id']) ? (string) $vuln['id'] : '';
+
+		$rows[] = array(
+			'vuln_rating' => $app->functions->htmlentities($rating),
+			'vuln_class' => $severity !== '' ? malwatch_severity_class($severity) : 'label-default',
+			'vuln_id' => $app->functions->htmlentities($id),
+			'has_vuln_id' => $id !== '' ? 1 : 0,
+			'vuln_title' => $app->functions->htmlentities(isset($vuln['title']) ? (string) $vuln['title'] : ''),
+			'vuln_fix' => $app->functions->htmlentities($fix),
+			'vuln_link' => $app->functions->htmlentities($link),
+			'has_vuln_link' => $link !== '' ? 1 : 0,
+		);
+	}
+	$all = $total >= 0 ? max($total, count($list)) : count($list);
+	return array($rows, max(0, $all - count($rows)));
 }
 
 /**
@@ -455,6 +599,7 @@ function malwatch_state_class($state)
 {
 	switch ($state) {
 		case 'findings':
+		case 'vulnerable':
 			return 'label-danger';
 		case 'outdated':
 			return 'label-warning';
@@ -706,6 +851,10 @@ function malwatch_bytes($n)
 /**
  * Liefert die Websites, die etwas brauchen, und die Zahl der uebrigen.
  *
+ * Der taegliche Schwachstellenabgleich zaehlt hier nicht als laufende
+ * Pruefung: er liest keine Datei, hat keinen Fortschritt zu zeigen und liefe
+ * jeden Morgen fuer jede Website gleichzeitig durch diese Liste.
+ *
  * Reihenfolge: kritische Funde, dann laufende Pruefungen, dann hohe Funde.
  * Wer morgens hinsieht, soll die dringendste Website oben finden und nicht
  * suchen muessen.
@@ -729,13 +878,14 @@ function malwatch_status_rows($app)
 		LEFT JOIN malwatch_scan s ON s.scan_id = (
 			SELECT scan_id FROM malwatch_scan
 			WHERE parent_domain_id = w.domain_id
-				AND scan_state IN ('clean','findings','outdated')
+				AND scan_state IN ('clean','findings','vulnerable','outdated')
 			ORDER BY scan_id DESC LIMIT 1
 		)
 		LEFT JOIN malwatch_job j ON j.job_id = (
 			SELECT job_id FROM malwatch_job
 			WHERE parent_domain_id = w.domain_id
 				AND job_status IN ('pending','running')
+				AND job_kind != 'vulncheck'
 			ORDER BY job_id DESC LIMIT 1
 		)
 		WHERE w.type IN ('vhost','vhostsubdomain','vhostalias') AND w.active = 'y'

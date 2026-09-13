@@ -51,6 +51,8 @@ func cmdScan(args []string) int {
 	noVersion := fs.Bool("no-version-scan", false, "")
 	noPlugin := fs.Bool("no-plugin-version-scan", false, "")
 	noClamAV := fs.Bool("no-clamav", false, "")
+	noVuln := fs.Bool("no-vuln-scan", false, "")
+	wpscanTokenFile := fs.String("wpscan-token-file", "", "")
 	offline := fs.Bool("offline", false, "")
 
 	asJSON := fs.Bool("json", false, "")
@@ -120,12 +122,17 @@ func cmdScan(args []string) int {
 		NoVersionScan: *noVersion,
 		NoPluginScan:  *noPlugin,
 		NoClamAV:      *noClamAV,
-		Offline:       *offline,
-		IgnoreRules:   ignore,
-		Whitelist:     whitelist,
-		SignatureDir:  *sigDir,
-		StateDir:      *stateDir,
-		CacheFile:     *cacheFile,
+		NoVulnScan:    *noVuln,
+		// The token arrives in a file or in the environment. On the command
+		// line every user of the machine could read it out of /proc.
+		WPScanToken:     os.Getenv("MALWATCH_WPSCAN_TOKEN"),
+		WPScanTokenFile: *wpscanTokenFile,
+		Offline:         *offline,
+		IgnoreRules:     ignore,
+		Whitelist:       whitelist,
+		SignatureDir:    *sigDir,
+		StateDir:        *stateDir,
+		CacheFile:       *cacheFile,
 	}
 	// The panel reads the same document for a scan as for a repair, so both
 	// job kinds get the same view. Without it a scan says "eingeplant" and

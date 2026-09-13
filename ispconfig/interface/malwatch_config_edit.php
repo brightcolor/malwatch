@@ -276,6 +276,26 @@ class page_action extends tform_actions
 			$_POST['auto_preset_id'] = 0;
 		}
 
+		// The stored WPScan token never goes back to the browser (see
+		// onShowEnd), so a field that comes back empty keeps it. The checkbox
+		// next to it removes the token.
+		$token = isset($_POST['wpscan_token']) ? trim((string) $_POST['wpscan_token']) : '';
+		if (!empty($_POST['wpscan_token_remove'])) {
+			$token = '';
+		} elseif ($token === '') {
+			$stored = $app->db->queryOneRecord('SELECT wpscan_token FROM malwatch_config WHERE config_id = 1');
+			$token = is_array($stored) ? (string) $stored['wpscan_token'] : '';
+		}
+		$_POST['wpscan_token'] = $token;
+
+		// tform_actions::onLoad() copied $_POST into dataRecord before this
+		// method runs, and saves from that copy. Both values set above have to
+		// reach it.
+		if (is_array($this->dataRecord)) {
+			$this->dataRecord['auto_preset_id'] = $_POST['auto_preset_id'];
+			$this->dataRecord['wpscan_token'] = $token;
+		}
+
 		parent::onBeforeUpdate();
 	}
 
@@ -296,6 +316,11 @@ class page_action extends tform_actions
 
 		$config = malwatch_get_config($app);
 		$app->tpl->setVar('binary_missing', $config['binary_ready'] ? 0 : 1);
+
+		// The field is rendered empty; a placeholder says a token is stored.
+		$app->tpl->setVar('wpscan_token', '');
+		$app->tpl->setVar('wpscan_token_set',
+			trim((string) (isset($config['wpscan_token']) ? $config['wpscan_token'] : '')) !== '' ? 1 : 0);
 		$app->tpl->setVar('last_signature_update',
 			$app->functions->htmlentities(malwatch_datetime(isset($config['last_signature_update']) ? $config['last_signature_update'] : '')));
 

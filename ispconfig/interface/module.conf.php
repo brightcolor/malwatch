@@ -40,6 +40,16 @@ $items[] = array(
 	'html_id' => 'security_findings'
 );
 
+// Bekannte Luecken der erkannten Software, ueber alle Websites. Ein eigener
+// Punkt, weil hier eine andere Frage beantwortet wird als bei den Funden:
+// welche installierte Version ein Update braucht.
+$items[] = array(
+	'title'   => 'Schwachstellen',
+	'target'  => 'content',
+	'link'    => 'security/malwatch_vuln_list.php',
+	'html_id' => 'security_vulns'
+);
+
 $items[] = array(
 	'title'   => 'Quarantäne',
 	'target'  => 'content',

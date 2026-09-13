@@ -69,6 +69,22 @@ if ($rows['quiet_count'] === 1) {
 	$app->tpl->setVar('quiet_txt', sprintf($wb['quiet_txt'], number_format($rows['quiet_count'], 0, ',', '.')));
 }
 
+// Bekannte Luecken haben ihre eigene Seite. Hier steht nur eine ruhige Zeile
+// mit dem Weg dorthin: die Startseite behaelt ihre eine Frage - brennt etwas? -,
+// und wer morgens nur sie ansieht, erfaehrt trotzdem, dass Updates anstehen.
+$vulns = $app->db->queryOneRecord(
+	'SELECT COUNT(*) AS installs, COUNT(DISTINCT parent_domain_id) AS sites FROM malwatch_software WHERE vuln_count > 0');
+$vuln_installs = is_array($vulns) ? $app->functions->intval($vulns['installs']) : 0;
+$vuln_sites = is_array($vulns) ? $app->functions->intval($vulns['sites']) : 0;
+$app->tpl->setVar('has_vulns', $vuln_installs > 0 ? 1 : 0);
+if ($vuln_installs === 1) {
+	$app->tpl->setVar('vulns_line', $wb['vulns_one_txt']);
+} elseif ($vuln_installs > 1) {
+	$app->tpl->setVar('vulns_line', $vuln_sites === 1
+		? sprintf($wb['vulns_many_one_site_txt'], number_format($vuln_installs, 0, ',', '.'))
+		: sprintf($wb['vulns_many_txt'], number_format($vuln_installs, 0, ',', '.'), number_format($vuln_sites, 0, ',', '.')));
+}
+
 // as_of_txt hat drei Fassungen, je nachdem, was malwatch_next_run() (in
 // malwatch_lib.inc.php) als next_run_state ermittelt hat. 'scheduled' ist
 // der Normalfall: as_of_txt traegt zwei Platzhalter, Stand und naechster

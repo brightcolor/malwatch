@@ -30,12 +30,14 @@ type Sender struct {
 
 // SendReport delivers the report. A clean report is only sent when
 // sendEmpty is set, so a nightly job does not mail fifty "nothing found"
-// messages that nobody reads.
+// messages that nobody reads. A known flaw counts as something to report even
+// on an install that is up to date: a flaw the vendor has not fixed yet is
+// exactly the case where nothing else would say so.
 func (s Sender) SendReport(rep *report.Report, sendEmpty bool) error {
 	if len(s.To) == 0 {
 		return nil
 	}
-	if !sendEmpty && len(rep.Findings) == 0 && rep.OutdatedCount() == 0 {
+	if !sendEmpty && len(rep.Findings) == 0 && rep.OutdatedCount() == 0 && rep.VulnerableCount() == 0 {
 		return nil
 	}
 

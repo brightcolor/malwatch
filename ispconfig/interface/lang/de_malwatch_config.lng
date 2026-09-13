@@ -29,6 +29,15 @@ $wb['use_clamav_txt'] = 'ClamAV mitverwenden';
 $wb['use_clamav_hint_txt'] = 'Nur wirksam, wenn clamdscan oder clamscan installiert ist.';
 $wb['auto_update_signatures_txt'] = 'Signaturen täglich aktualisieren';
 
+$wb['vuln_head_txt'] = 'Bekannte Schwachstellen';
+$wb['vuln_intro_txt'] = 'Zu jeder erkannten Software fragt der Scanner öffentliche Datenbanken, welche Sicherheitslücken für genau diese Version bekannt sind: WPVulnerability und wordpress.org für WordPress samt Plugins und Themes, das Joomla Security Centre für Joomla, OSV für Drupal, TYPO3, phpMyAdmin, Contao, Shopware, MediaWiki und Magento 2. Jede Antwort bleibt einen Tag gespeichert.';
+$wb['vuln_scan_txt'] = 'Nach bekannten Schwachstellen suchen';
+$wb['vuln_scan_hint_txt'] = 'An WPVulnerability und WPScan gehen dabei Name und Version jedes Plugins, Themes und WordPress-Kerns. OSV wird als Gesamtliste geladen und auf dem Server durchsucht.';
+$wb['wpscan_token_txt'] = 'WPScan-API-Schlüssel';
+$wb['wpscan_token_hint_txt'] = 'Optional. Mit Schlüssel fragt der Scanner zusätzlich WPScan. Der kostenlose Tarif erlaubt 25 Abfragen am Tag; deshalb bleiben diese Antworten eine Woche gespeichert. Wer die Daten in einen Dienst für Kunden einbindet, braucht laut WPScan einen Enterprise-Tarif. Ein gespeicherter Schlüssel erscheint im Feld nur als Hinweis; lassen Sie das Feld leer, bleibt er erhalten.';
+$wb['wpscan_token_stored_txt'] = 'Schlüssel gespeichert';
+$wb['wpscan_token_remove_txt'] = 'Gespeicherten Schlüssel entfernen';
+
 $wb['count_sites_txt'] = 'Eingerichtete Websites';
 $wb['count_scans_txt'] = 'Prüfläufe';
 $wb['count_findings_txt'] = 'Offene Funde';
@@ -99,6 +108,7 @@ $wb['scan_max_age_error_range'] = 'Die Zahl der Tage muss zwischen 0 und 3650 li
 $wb['max_parallel_error_range'] = 'Die Zahl gleichzeitiger Prüfungen muss zwischen 1 und 16 liegen.';
 $wb['job_timeout_error_range'] = 'Die Abbruchzeit muss zwischen 1 und 168 Stunden liegen.';
 $wb['keep_scans_error_range'] = 'Die Zahl aufbewahrter Prüfläufe muss zwischen 1 und 1000 liegen.';
+$wb['wpscan_token_error_regex'] = 'Der WPScan-Schlüssel besteht aus Buchstaben, Ziffern, Binde- und Unterstrichen, höchstens 128 Zeichen.';
 
 $wb['btn_save_txt'] = 'Einstellungen speichern';
 $wb['btn_cancel_txt'] = 'Abbrechen';

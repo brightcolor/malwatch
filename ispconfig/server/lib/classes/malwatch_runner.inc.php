@@ -199,6 +199,30 @@ class malwatch_runner
 			return $quarantine;
 		}
 
+		if ($kind === 'vulncheck') {
+			// The software stage alone: detect, compare versions, look up known
+			// flaws. No file is read for malware, which is what makes a round
+			// over every website each day affordable.
+			$check = array(
+				'scan',
+				'--path=' . $path,
+				'--no-malware-scan',
+				'--no-clamav',
+				'--json',
+				'--out=' . $result_file,
+				'--quiet',
+				'--sig-dir=' . $state_dir . '/signatures',
+				'--state-dir=' . $state_dir . '/state',
+			);
+			// Excluded paths stay excluded: a copy of an old CMS parked in an
+			// excluded directory would otherwise show up with every flaw it has.
+			foreach ($this->exclude_patterns($options, $config) as $pattern) {
+				$check[] = '--exclude=' . $pattern;
+			}
+			$this->add_vuln_arguments($check, $state_dir, $config);
+			return $check;
+		}
+
 		$args = array(
 			'scan',
 			'--path=' . $path,
@@ -233,7 +257,7 @@ class malwatch_runner
 		// der Schalter und die Anzeige zaehlt ohne Prozentangabe.
 		$last = $app->db->queryOneRecord(
 			'SELECT files_scanned, files_skipped FROM malwatch_scan WHERE parent_domain_id = ? '
-			. "AND scan_state IN ('clean','findings','outdated') "
+			. "AND scan_state IN ('clean','findings','vulnerable','outdated') "
 			. 'AND (files_scanned + files_skipped) > 0 '
 			. 'ORDER BY scan_id DESC LIMIT 1',
 			intval($job['parent_domain_id'])
@@ -260,6 +284,7 @@ class malwatch_runner
 		if ($config['use_clamav'] !== 'y') {
 			$args[] = '--no-clamav';
 		}
+		$this->add_vuln_arguments($args, $state_dir, $config);
 
 		// The exit code must not depend on the operator's notification
 		// thresholds: the addon decides what to act on from the findings
@@ -267,6 +292,56 @@ class malwatch_runner
 		$args[] = '--min-severity=low';
 
 		return $args;
+	}
+
+	/** Appends the switches for the lookup of known flaws. */
+	private function add_vuln_arguments(array &$args, $state_dir, $config)
+	{
+		if (isset($config['vuln_scan']) && $config['vuln_scan'] === 'n') {
+			$args[] = '--no-vuln-scan';
+			return;
+		}
+		$token_file = $this->wpscan_token_file($state_dir,
+			isset($config['wpscan_token']) ? (string) $config['wpscan_token'] : '');
+		if ($token_file !== '') {
+			$args[] = '--wpscan-token-file=' . $token_file;
+		}
+	}
+
+	/**
+	 * Keeps the WPScan key in a file only root can read and returns its path,
+	 * or '' without a key - a file left over from an earlier key is removed.
+	 *
+	 * The key reaches the scanner as a file name. As an argument it would sit
+	 * in /proc/<pid>/cmdline, readable by every user on the server for as
+	 * long as the scan runs, and the scan runs next to customer code.
+	 */
+	private function wpscan_token_file($state_dir, $token)
+	{
+		$dir = $state_dir . '/state';
+		$file = $dir . '/wpscan.token';
+		$token = trim($token);
+
+		if ($token === '') {
+			if (is_file($file)) {
+				@unlink($file);
+			}
+			return '';
+		}
+
+		$this->ensure_shared_dir($dir);
+		if (!is_file($file) || (string) @file_get_contents($file) !== $token) {
+			// umask first: between writing and chmod the file would otherwise
+			// exist for a moment with the default permissions.
+			$old = umask(0077);
+			$written = @file_put_contents($file, $token);
+			umask($old);
+			if ($written === false) {
+				return '';
+			}
+		}
+		@chmod($file, 0600);
+		return $file;
 	}
 
 	/** Merges the global and per site exclude patterns. */

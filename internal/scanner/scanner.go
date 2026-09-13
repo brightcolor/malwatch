@@ -22,6 +22,7 @@ import (
 	"github.com/brightcolor/malwatch/internal/rules"
 	"github.com/brightcolor/malwatch/internal/sigs"
 	"github.com/brightcolor/malwatch/internal/version"
+	"github.com/brightcolor/malwatch/internal/vulns"
 	"github.com/brightcolor/malwatch/internal/walk"
 )
 
@@ -38,6 +39,13 @@ type Options struct {
 	NoVersionScan bool
 	NoPluginScan  bool
 	NoClamAV      bool
+	// NoVulnScan skips the lookup of known flaws. The detected versions and
+	// their comparison with the newest release stay in the report.
+	NoVulnScan bool
+	// WPScanToken switches WPScan on as an additional source for WordPress.
+	// WPScanTokenFile names a file holding it and wins when both are set.
+	WPScanToken     string
+	WPScanTokenFile string
 
 	IgnoreRules []string
 	Whitelist   map[string]bool
@@ -463,6 +471,23 @@ func collectSoftware(rep *report.Report, opts *Options, known *knownfiles.Index)
 		fetcher = knownfiles.NewFetcher(stateFile(opts.StateDir, "checksums"), 30*time.Second)
 	}
 
+	var checker *vulns.Checker
+	if !opts.Offline && !opts.NoVulnScan {
+		token := opts.WPScanToken
+		if opts.WPScanTokenFile != "" {
+			if raw, err := os.ReadFile(opts.WPScanTokenFile); err != nil {
+				rep.Errors = append(rep.Errors, "WPScan-Schlüssel nicht lesbar ("+err.Error()+"); WPScan wurde nicht gefragt")
+				token = ""
+			} else {
+				token = strings.TrimSpace(string(raw))
+			}
+		}
+		checker = vulns.New(vulns.Options{
+			CacheDir:    stateFile(opts.StateDir, "vulnerabilities"),
+			WPScanToken: token,
+		})
+	}
+
 	for _, inst := range installs {
 		if inst.Kind != "core" && opts.NoPluginScan {
 			continue
@@ -491,6 +516,12 @@ func collectSoftware(rep *report.Report, opts *Options, known *knownfiles.Index)
 		} else {
 			entry.Unknown = true
 		}
+		if checker != nil {
+			list, checked := checker.Check(inst)
+			entry.Vulns = list
+			entry.UpdateTo = vulns.UpdateTo(list)
+			entry.VulnsChecked = checked
+		}
 		rep.Software = append(rep.Software, entry)
 
 		if fetcher != nil {
@@ -503,6 +534,12 @@ func collectSoftware(rep *report.Report, opts *Options, known *knownfiles.Index)
 	}
 	if fetcher != nil {
 		rep.Errors = append(rep.Errors, fetcher.Failures()...)
+	}
+	if checker != nil {
+		if used := checker.Describe(); used != "" {
+			rep.Engines["schwachstellen"] = used
+		}
+		rep.Errors = append(rep.Errors, checker.Notes()...)
 	}
 	if opts.Offline {
 		rep.Errors = append(rep.Errors,

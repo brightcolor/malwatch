@@ -29,6 +29,15 @@ $wb['use_clamav_txt'] = 'Use ClamAV as well';
 $wb['use_clamav_hint_txt'] = 'Only takes effect when clamdscan or clamscan is installed.';
 $wb['auto_update_signatures_txt'] = 'Update signatures daily';
 
+$wb['vuln_head_txt'] = 'Known vulnerabilities';
+$wb['vuln_intro_txt'] = 'For every detected piece of software the scanner asks public databases which security flaws are known for exactly that version: WPVulnerability and wordpress.org for WordPress with its plugins and themes, the Joomla Security Centre for Joomla, OSV for Drupal, TYPO3, phpMyAdmin, Contao, Shopware, MediaWiki and Magento 2. Each answer is kept for a day.';
+$wb['vuln_scan_txt'] = 'Look up known vulnerabilities';
+$wb['vuln_scan_hint_txt'] = 'WPVulnerability and WPScan receive the name and version of every plugin, theme and WordPress core. OSV is downloaded as a whole and searched on the server.';
+$wb['wpscan_token_txt'] = 'WPScan API token';
+$wb['wpscan_token_hint_txt'] = 'Optional. With a token the scanner asks WPScan as well. The free plan allows 25 requests a day, which is why these answers are kept for a week. According to WPScan, using the data in a service for customers requires an enterprise plan. A stored token only shows as a placeholder; leave the field empty to keep it.';
+$wb['wpscan_token_stored_txt'] = 'Token stored';
+$wb['wpscan_token_remove_txt'] = 'Remove the stored token';
+
 $wb['count_sites_txt'] = 'Configured websites';
 $wb['count_scans_txt'] = 'Scans';
 $wb['count_findings_txt'] = 'Open findings';
@@ -98,6 +107,7 @@ $wb['scan_max_age_error_range'] = 'The number of days must be between 0 and 3650
 $wb['max_parallel_error_range'] = 'The number of concurrent scans must be between 1 and 16.';
 $wb['job_timeout_error_range'] = 'The abort time must be between 1 and 168 hours.';
 $wb['keep_scans_error_range'] = 'The number of kept scans must be between 1 and 1000.';
+$wb['wpscan_token_error_regex'] = 'The WPScan token consists of letters, digits, hyphens and underscores, at most 128 characters.';
 
 $wb['btn_save_txt'] = 'Save settings';
 $wb['btn_cancel_txt'] = 'Cancel';

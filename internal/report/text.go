@@ -89,11 +89,14 @@ func writeSoftware(b *strings.Builder, r *Report, showAll bool) {
 		return
 	}
 
+	vulnerable := make([]Software, 0)
 	outdated := make([]Software, 0)
 	unknown := make([]Software, 0)
 	current := 0
 	for _, s := range r.Software {
 		switch {
+		case len(s.Vulns) > 0:
+			vulnerable = append(vulnerable, s)
 		case s.Outdated:
 			outdated = append(outdated, s)
 		case s.Unknown:
@@ -103,43 +106,101 @@ func writeSoftware(b *strings.Builder, r *Report, showAll bool) {
 		}
 	}
 
-	fmt.Fprintf(b, "Web-Software: %d erkannt, %d veraltet, %d aktuell\n", len(r.Software), len(outdated), current)
+	fmt.Fprintf(b, "Web-Software: %d erkannt, %d mit bekannten Lücken, %d veraltet, %d aktuell\n",
+		len(r.Software), len(vulnerable), r.OutdatedCount(), current)
 	b.WriteString(strings.Repeat("-", 60) + "\n")
 
+	// Known flaws first. An outdated install can be harmless for years; one
+	// with a published flaw is exactly what gets searched for across the
+	// internet, and it is usually outdated as well, so it is listed once.
+	for _, s := range vulnerable {
+		fmt.Fprintf(b, "Lücken: %s %s in %s", softwareName(s), s.Version, s.Path)
+		if s.UpdateTo != "" {
+			// "alle" only when every flaw names its fix: an update to
+			// UpdateTo leaves the others where they are.
+			if fixed := fixedCount(s.Vulns); fixed == len(s.Vulns) {
+				fmt.Fprintf(b, " (alle behoben ab %s)", s.UpdateTo)
+			} else {
+				fmt.Fprintf(b, " (%d von %d behoben ab %s)", fixed, len(s.Vulns), s.UpdateTo)
+			}
+		}
+		b.WriteString("\n")
+		for i, v := range s.Vulns {
+			if i == maxVulnLines {
+				fmt.Fprintf(b, "  … und %d weitere\n", len(s.Vulns)-maxVulnLines)
+				break
+			}
+			fmt.Fprintf(b, "  %s\n", vulnLine(v))
+		}
+	}
+
 	for _, s := range outdated {
-		name := s.Product
-		if s.Slug != "" {
-			name = fmt.Sprintf("%s %s", s.Product, s.Slug)
-		}
-		fmt.Fprintf(b, "veraltet: %s %s (aktuell ist %s) in %s\n", name, s.Version, s.Latest, s.Path)
-		if s.Vuln != "" {
-			fmt.Fprintf(b, "  Schwachstelle: %s\n", s.Vuln)
-		}
+		fmt.Fprintf(b, "veraltet: %s %s (aktuell ist %s) in %s\n", softwareName(s), s.Version, s.Latest, s.Path)
 	}
 
 	// An install whose latest version is unknown is reported as unknown, never
 	// silently as up to date - a failed version lookup must not read as a clean bill.
 	for _, s := range unknown {
-		name := s.Product
-		if s.Slug != "" {
-			name = fmt.Sprintf("%s %s", s.Product, s.Slug)
-		}
-		fmt.Fprintf(b, "ungeprüft: %s %s in %s (aktuelle Version nicht ermittelbar)\n", name, s.Version, s.Path)
+		fmt.Fprintf(b, "ungeprüft: %s %s in %s (aktuelle Version nicht ermittelbar)\n", softwareName(s), s.Version, s.Path)
 	}
 
 	if showAll {
 		for _, s := range r.Software {
-			if s.Outdated || s.Unknown {
+			if s.Outdated || s.Unknown || len(s.Vulns) > 0 {
 				continue
 			}
-			name := s.Product
-			if s.Slug != "" {
-				name = fmt.Sprintf("%s %s", s.Product, s.Slug)
-			}
-			fmt.Fprintf(b, "aktuell: %s %s in %s\n", name, s.Version, s.Path)
+			fmt.Fprintf(b, "aktuell: %s %s in %s\n", softwareName(s), s.Version, s.Path)
 		}
 	}
 	b.WriteString("\n")
+}
+
+// maxVulnLines caps the flaws listed per install. An old plugin can carry
+// forty of them; the first ten, worst first, say what there is to say.
+const maxVulnLines = 10
+
+// fixedCount returns how many flaws name the version that fixes them.
+func fixedCount(list []Vulnerability) int {
+	n := 0
+	for _, v := range list {
+		if v.FixedIn != "" {
+			n++
+		}
+	}
+	return n
+}
+
+func softwareName(s Software) string {
+	if s.Slug != "" {
+		return s.Product + " " + s.Slug
+	}
+	return s.Product
+}
+
+// vulnLine renders one flaw as "hoch 7.2  CVE-2023-6449  Titel, behoben in 5.8.4".
+func vulnLine(v Vulnerability) string {
+	rating := "nicht eingestuft"
+	if v.Severity != "" {
+		rating = v.Severity.Label()
+		if v.Score > 0 {
+			rating += fmt.Sprintf(" %.1f", v.Score)
+		}
+	}
+	parts := []string{rating}
+	if v.ID != "" {
+		parts = append(parts, v.ID)
+	}
+	parts = append(parts, v.Title)
+	line := strings.Join(parts, "  ")
+	switch {
+	case v.FixedIn != "":
+		line += ", behoben in " + v.FixedIn
+	case v.LastAffected != "":
+		line += ", betroffen bis " + v.LastAffected
+	case v.Unfixed:
+		line += ", bisher ohne Korrektur"
+	}
+	return line
 }
 
 // Subject returns a one-line summary for a mail subject.
@@ -151,6 +212,8 @@ func (r *Report) Subject() string {
 	switch {
 	case len(r.Findings) > 0:
 		return fmt.Sprintf("malwatch: %d Fund(e) auf %s", len(r.Findings), host)
+	case r.VulnerableCount() > 0:
+		return fmt.Sprintf("malwatch: %d Installation(en) mit bekannten Lücken auf %s", r.VulnerableCount(), host)
 	case r.OutdatedCount() > 0:
 		return fmt.Sprintf("malwatch: %d veraltete Installation(en) auf %s", r.OutdatedCount(), host)
 	default:

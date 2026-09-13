@@ -459,6 +459,22 @@
 </table>
 </div>
 
+<style>
+/* Die bekannten Luecken einer Installation klappen unter ihrem Namen auf, in
+   derselben Darstellung wie auf der Schwachstellenseite. Gedaempft wird wie
+   ueberall in diesem Bereich ueber Deckkraft, damit beide Themes stimmen. */
+.mw-flaws{margin-top:4px}
+.mw-flaws > summary{cursor:pointer;font-size:12.5px}
+.mw-flaws .mw-update{opacity:.8;font-size:12px}
+.mw-flaws ul{list-style:none;margin:7px 0 2px;padding:0;display:flex;flex-direction:column;gap:6px}
+.mw-flaws li{font-size:12.5px;line-height:1.45;max-width:90ch;white-space:normal}
+.mw-flaws li .label{margin-right:5px}
+.mw-flaws li .mw-mono{margin-right:5px;font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:11.5px}
+.mw-flaw-dim{opacity:.72}
+.mw-flaws .mw-flaw-more{margin:6px 0 0}
+.mw-flaw-unchecked{display:block;margin-top:3px}
+</style>
+
 <p class="fieldset-legend">{tmpl_var name='software_txt'}</p>
 <div class="table-wrapper marginTop15">
 <table class="table">
@@ -473,7 +489,26 @@
 	<tbody>
 		<tmpl_loop name="software">
 		<tr>
-			<td><span class="mw-elname">{tmpl_var name='name'}</span> <small>({tmpl_var name='kind'})</small></td>
+			<td>
+				<span class="mw-elname">{tmpl_var name='name'}</span> <small>({tmpl_var name='kind'})</small>
+				<tmpl_if name="has_vulns">
+				<details class="mw-flaws">
+					<summary><span class="label {tmpl_var name='vuln_worst_class'}">{tmpl_var name='vuln_count_label'}</span><tmpl_if name="has_update_to"> <span class="mw-update">{tmpl_var name='update_to'}</span></tmpl_if></summary>
+					<ul>
+						<tmpl_loop name="vulns">
+						<li>
+							<span class="label {tmpl_var name='vuln_class'}">{tmpl_var name='vuln_rating'}</span>
+							<tmpl_if name="has_vuln_id"><span class="mw-mono">{tmpl_var name='vuln_id'}</span></tmpl_if>
+							<tmpl_if name="has_vuln_link"><a href="{tmpl_var name='vuln_link'}" target="_blank" rel="noopener noreferrer">{tmpl_var name='vuln_title'}</a><tmpl_else>{tmpl_var name='vuln_title'}</tmpl_if>
+							<tmpl_if name="vuln_fix"><span class="mw-flaw-dim">· {tmpl_var name='vuln_fix'}</span></tmpl_if>
+						</li>
+						</tmpl_loop>
+					</ul>
+					<tmpl_if name="has_more"><p class="mw-flaw-dim mw-flaw-more">{tmpl_var name='more_label'}</p></tmpl_if>
+				</details>
+				</tmpl_if>
+				<tmpl_if name="is_vuln_unchecked"><small class="mw-flaw-dim mw-flaw-unchecked">{tmpl_var name='vuln_unchecked_label'}</small></tmpl_if>
+			</td>
 			<td class="num">
 				{tmpl_var name='installed_version'}
 				<tmpl_if name="is_outdated"><span class="label label-warning">{tmpl_var name='outdated_txt'}</span></tmpl_if>

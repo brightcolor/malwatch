@@ -178,6 +178,30 @@ $form['tabs']['settings'] = array(
 			'default' => 'y',
 			'value' => array(0 => 'n', 1 => 'y')
 		),
+		'vuln_scan' => array(
+			'datatype' => 'VARCHAR',
+			'formtype' => 'CHECKBOX',
+			'default' => 'y',
+			'value' => array(0 => 'n', 1 => 'y')
+		),
+		// A WPScan token is 43 letters and digits today. The pattern leaves
+		// room for a longer one and keeps anything that could break out of
+		// the file the runner writes it into (see malwatch_runner).
+		'wpscan_token' => array(
+			'datatype' => 'VARCHAR',
+			'formtype' => 'TEXT',
+			'default' => '',
+			'validators' => array(
+				array(
+					'type' => 'REGEX',
+					'regex' => '/^[A-Za-z0-9_-]{0,128}$/',
+					'errmsg' => 'wpscan_token_error_regex'
+				)
+			),
+			'value' => '',
+			'width' => '40',
+			'maxlength' => '128'
+		),
 		// The template does not use the auto-generated widget for either
 		// field below - the "choice card" markup in malwatch_config_edit.htm
 		// is hand-written, because none of tform's stock formtypes render a

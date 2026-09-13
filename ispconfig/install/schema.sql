@@ -62,7 +62,7 @@ CREATE TABLE IF NOT EXISTS `malwatch_site` (
   `next_run` datetime DEFAULT NULL,
   `open_findings` int(11) unsigned NOT NULL DEFAULT '0',
   `worst_severity` varchar(10) NOT NULL DEFAULT '',
-  `last_state` enum('unknown','clean','findings','outdated','error') NOT NULL DEFAULT 'unknown',
+  `last_state` enum('unknown','clean','findings','vulnerable','outdated','error') NOT NULL DEFAULT 'unknown',
   PRIMARY KEY (`site_id`),
   UNIQUE KEY `parent_domain_id` (`parent_domain_id`),
   KEY `server_id` (`server_id`),
@@ -126,7 +126,7 @@ CREATE TABLE IF NOT EXISTS `malwatch_scan` (
   `count_outdated` int(11) unsigned NOT NULL DEFAULT '0',
   `new_findings` int(11) unsigned NOT NULL DEFAULT '0',
   `exit_code` int(11) NOT NULL DEFAULT '0',
-  `scan_state` enum('clean','findings','outdated','error') NOT NULL DEFAULT 'clean',
+  `scan_state` enum('clean','findings','vulnerable','outdated','error') NOT NULL DEFAULT 'clean',
   `engines` varchar(255) NOT NULL DEFAULT '',
   `notes` text,
   PRIMARY KEY (`scan_id`),
@@ -414,6 +414,116 @@ CREATE TABLE IF NOT EXISTS `malwatch_rule` (
   `last_seen` datetime DEFAULT NULL,
   PRIMARY KEY (`rule_id`)
 ) DEFAULT CHARSET=utf8mb4 ;
+
+-- --------------------------------------------------------
+-- Bekannte Schwachstellen (0.13.0)
+--
+-- Je erkannter Software: wie viele bekannte Luecken, die schwerste Stufe,
+-- ab welcher Version alle behoben sind, und die Liste selbst als JSON, so
+-- wie der Scanner sie liefert (gekappt in malwatch_ingest::store_software).
+-- Die drei Spalten vor der Liste gibt es, damit die Seiten danach sortieren
+-- und zaehlen koennen, ohne JSON zu lesen.
+-- --------------------------------------------------------
+
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_software` ADD COLUMN `vuln_count` int(11) unsigned NOT NULL DEFAULT ''0'' AFTER `version_unknown`',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_software' AND COLUMN_NAME = 'vuln_count');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_software` ADD COLUMN `vuln_severity` varchar(10) NOT NULL DEFAULT '''' AFTER `vuln_count`',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_software' AND COLUMN_NAME = 'vuln_severity');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_software` ADD COLUMN `vuln_fixed_in` varchar(64) NOT NULL DEFAULT '''' AFTER `vuln_severity`',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_software' AND COLUMN_NAME = 'vuln_fixed_in');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 'y', wenn keine Quelle geantwortet hat: eine leere Liste heisst dann
+-- "nicht gefragt" und darf nicht als "nichts bekannt" erscheinen.
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_software` ADD COLUMN `vuln_unchecked` enum(''n'',''y'') NOT NULL DEFAULT ''n'' AFTER `vuln_fixed_in`',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_software' AND COLUMN_NAME = 'vuln_unchecked');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_software` ADD COLUMN `vulns` mediumtext AFTER `vuln_unchecked`',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_software' AND COLUMN_NAME = 'vulns');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- Wie viele der Luecken keine behebende Version nennen. Ohne die Zahl
+-- schriebe die Seite "alle behoben ab 5.9.2", obwohl nach dem Update eine
+-- Luecke bleibt.
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_software` ADD COLUMN `vuln_nofix` int(11) unsigned NOT NULL DEFAULT ''0'' AFTER `vuln_count`',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_software' AND COLUMN_NAME = 'vuln_nofix');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_scan` ADD COLUMN `count_vulnerable` int(11) unsigned NOT NULL DEFAULT ''0'' AFTER `count_outdated`',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_scan' AND COLUMN_NAME = 'count_vulnerable');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 'vulnerable' steht zwischen 'findings' und 'outdated': eine bekannte Luecke
+-- wiegt schwerer als eine bloss alte Version und leichter als ein Fund.
+-- Geprueft wird wie bei action_type der Spaltentyp, nicht die Existenz.
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_scan` MODIFY COLUMN `scan_state` enum(''clean'',''findings'',''vulnerable'',''outdated'',''error'') NOT NULL DEFAULT ''clean''',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_scan' AND COLUMN_NAME = 'scan_state'
+    AND COLUMN_TYPE LIKE '%''vulnerable''%');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_site` MODIFY COLUMN `last_state` enum(''unknown'',''clean'',''findings'',''vulnerable'',''outdated'',''error'') NOT NULL DEFAULT ''unknown''',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_site' AND COLUMN_NAME = 'last_state'
+    AND COLUMN_TYPE LIKE '%''vulnerable''%');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- vulncheck ist der taegliche Abgleich allein: Software erkennen, Versionen
+-- und bekannte Luecken nachschlagen, keine Datei auf Schadcode lesen. Er
+-- schreibt nur malwatch_software (siehe malwatch_ingest::ingest_vulncheck).
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_job` MODIFY COLUMN `job_kind` enum(''scan'',''repair'',''quarantine'',''vulncheck'') NOT NULL DEFAULT ''scan''',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_job' AND COLUMN_NAME = 'job_kind'
+    AND COLUMN_TYPE LIKE '%''vulncheck''%');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- vuln_scan schaltet den Abgleich fuer alle Websites ab. wpscan_token ist
+-- der API-Schluessel fuer WPScan; leer heisst: WPScan wird nicht gefragt.
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_config` ADD COLUMN `vuln_scan` enum(''n'',''y'') NOT NULL DEFAULT ''y'' AFTER `use_clamav`',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_config' AND COLUMN_NAME = 'vuln_scan');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_config` ADD COLUMN `wpscan_token` varchar(255) NOT NULL DEFAULT '''' AFTER `vuln_scan`',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_config' AND COLUMN_NAME = 'wpscan_token');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 --
 -- Named rule selections for the "eigene Auswahl" auto action. Not tied to a

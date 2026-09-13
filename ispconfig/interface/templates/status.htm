@@ -98,6 +98,11 @@
     <div class="mw-quiet">{tmpl_var name='quiet_txt'}</div>
   </tmpl_if>
 
+  <tmpl_if name="has_vulns">
+    <div class="mw-quiet">{tmpl_var name='vulns_line'}
+      <a href="#" data-load-content="security/malwatch_vuln_list.php">{tmpl_var name='vulns_view_txt'}</a></div>
+  </tmpl_if>
+
 </div>
 
 <script>

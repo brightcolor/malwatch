@@ -1,0 +1,52 @@
+<?php
+$wb['lede_none_txt'] = 'No vulnerabilities are known for the detected software.';
+$wb['lede_one_txt'] = 'One installation has known vulnerabilities.';
+$wb['lede_many_one_site_txt'] = '%s installations on one website have known vulnerabilities.';
+$wb['lede_many_txt'] = '%s installations on %s websites have known vulnerabilities.';
+$wb['as_of_txt'] = 'Last checked %s.';
+$wb['never_checked_txt'] = 'No check has run yet.';
+$wb['running_one_txt'] = 'The check is running for one website right now.';
+$wb['running_many_txt'] = 'The check is running for %s websites right now.';
+$wb['disabled_txt'] = 'Looking up known vulnerabilities is switched off in the settings. The list shows the state of the last check.';
+
+$wb['btn_check_all_txt'] = 'Check all websites now';
+$wb['check_all_hint_txt'] = 'The check reads no file for malware and hardly loads the server. It runs on its own once a day for every active website, and every regular scan checks as well.';
+$wb['msg_queued_one_txt'] = 'The check for one website has been queued.';
+$wb['msg_queued_txt'] = 'The check for %s websites has been queued.';
+$wb['msg_skipped_txt'] = '%s websites already had a job running; a running scan checks there as well.';
+$wb['msg_optout_txt'] = '%s websites have "Look for outdated software" switched off.';
+$wb['msg_failed_txt'] = '%s websites have no directory configured.';
+$wb['err_nothing_queued_txt'] = 'Nothing was queued.';
+
+$wb['col_severity_txt'] = 'Severity';
+$wb['col_software_txt'] = 'Software';
+$wb['col_website_txt'] = 'Website';
+$wb['col_installed_txt'] = 'Installed';
+$wb['col_flaws_txt'] = 'Known vulnerabilities';
+$wb['latest_line_txt'] = 'current %s';
+$wb['kind_core_txt'] = 'core';
+$wb['kind_plugin_txt'] = 'plugin';
+$wb['kind_theme_txt'] = 'theme';
+
+$wb['empty_txt'] = 'When a check finds software with known vulnerabilities, it is listed here, the most severe first.';
+$wb['unchecked_one_txt'] = 'One installation could not be checked.';
+$wb['unchecked_many_txt'] = '%s installations could not be checked.';
+$wb['unchecked_hint_txt'] = 'Either no data source covers their product, or the source was unreachable during the last check. The notes on the page of the website concerned give the reason.';
+$wb['sources_head_txt'] = 'Where the data comes from:';
+$wb['sources_txt'] = 'WPVulnerability and wordpress.org for WordPress with its plugins and themes, the Joomla Security Centre for Joomla, OSV for Drupal, TYPO3, phpMyAdmin, Contao, Shopware, MediaWiki and Magento 2. With a token configured the scanner asks WPScan as well. Nextcloud, Matomo and Magento 1 have no usable source.';
+
+// The same keys as en_malwatch.lng: malwatch_vuln_rows() in malwatch_lib.inc.php
+// reads them on both pages.
+$wb['severity_low_txt'] = 'low';
+$wb['severity_medium_txt'] = 'medium';
+$wb['severity_high_txt'] = 'high';
+$wb['severity_critical_txt'] = 'critical';
+$wb['vuln_count_one_txt'] = '1 known vulnerability';
+$wb['vuln_count_many_txt'] = '%s known vulnerabilities';
+$wb['vuln_update_to_txt'] = 'all fixed from %s';
+$wb['vuln_update_some_txt'] = '%s of %s fixed from %s';
+$wb['vuln_fixed_in_txt'] = 'fixed in %s';
+$wb['vuln_last_affected_txt'] = 'affects up to %s';
+$wb['vuln_unfixed_txt'] = 'no fix yet';
+$wb['vuln_unrated_txt'] = 'not rated';
+$wb['vuln_more_txt'] = '… and %s more';

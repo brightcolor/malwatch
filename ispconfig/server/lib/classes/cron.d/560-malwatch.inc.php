@@ -34,6 +34,12 @@ class cronjob_malwatch extends cronjob
 		}
 
 		try {
+			$this->queue_due_vulnchecks($config);
+		} catch (Exception $e) {
+			$app->log('malwatch: scheduling the vulnerability check failed: ' . $e->getMessage(), LOGLEVEL_WARN);
+		}
+
+		try {
 			$this->start_pending($config);
 		} catch (Exception $e) {
 			$app->log('malwatch: starting a queued scan failed: ' . $e->getMessage(), LOGLEVEL_WARN);
@@ -82,6 +88,13 @@ class cronjob_malwatch extends cronjob
 			}
 			if ($kind === 'quarantine') {
 				$app->malwatch_ingest->ingest_quarantine($job);
+				$app->malwatch_runner->clear_marker($job);
+				continue;
+			}
+			if ($kind === 'vulncheck') {
+				// No actions afterwards: those key on new findings, and this
+				// run never produces one.
+				$app->malwatch_ingest->ingest_vulncheck($job);
 				$app->malwatch_runner->clear_marker($job);
 				continue;
 			}
@@ -155,6 +168,11 @@ class cronjob_malwatch extends cronjob
 		}
 
 		foreach ($sites as $site) {
+			// A vulnerability check still waiting gives way to the scan that
+			// is due: the scan looks the flaws up as well.
+			$app->dbmaster->query(
+				"DELETE FROM malwatch_job WHERE parent_domain_id = ? AND job_kind = 'vulncheck' AND job_status = 'pending'",
+				intval($site['parent_domain_id']));
 			$pending = $app->dbmaster->queryOneRecord(
 				"SELECT job_id FROM malwatch_job WHERE parent_domain_id = ? AND job_status IN ('pending','running')",
 				intval($site['parent_domain_id']));
@@ -181,8 +199,70 @@ class cronjob_malwatch extends cronjob
 		}
 	}
 
+	/**
+	 * Queues the daily vulnerability check for every active website.
+	 *
+	 * Flaws are published every day while the installed software stays the
+	 * same; the weekly malware scan alone would learn of one up to a week
+	 * late. The check reads no file for malware and asks each source once per
+	 * component a day, most of it answered from the cache.
+	 *
+	 * Once a day per server, from four in the morning on. The marker is a
+	 * file in the state directory: malwatch_config is a single row for all
+	 * servers, and a date stored there would let the first server that gets
+	 * to it take the day for all of them.
+	 */
+	private function queue_due_vulnchecks($config)
+	{
+		global $app, $conf;
+
+		if (isset($config['vuln_scan']) && $config['vuln_scan'] === 'n') {
+			return;
+		}
+		if (intval(date('G')) < 4) {
+			return;
+		}
+		$marker = rtrim((string) $config['state_dir'], '/') . '/state/vulncheck.last';
+		$today = date('Y-m-d');
+		if (is_file($marker) && trim((string) @file_get_contents($marker)) === $today) {
+			return;
+		}
+		if (!is_dir(dirname($marker))) {
+			@mkdir(dirname($marker), 0750, true);
+		}
+		// Written before anything is queued, and nothing is queued when it
+		// cannot be written: a marker that does not stick would queue the
+		// whole round again every minute.
+		if (@file_put_contents($marker, $today) === false) {
+			return;
+		}
+
+		$webs = $app->dbmaster->queryAllRecords(
+			"SELECT * FROM web_domain WHERE server_id = ? AND type IN ('vhost','vhostsubdomain','vhostalias') "
+			. "AND active = 'y' ORDER BY domain_id ASC",
+			$conf['server_id']);
+		foreach ((array) $webs as $web) {
+			$busy = $app->dbmaster->queryOneRecord(
+				"SELECT job_id FROM malwatch_job WHERE parent_domain_id = ? AND job_status IN ('pending','running')",
+				intval($web['domain_id']));
+			if (is_array($busy)) {
+				// A scan that is already queued looks the flaws up as well.
+				continue;
+			}
+			$site = $app->malwatch_helper->get_site($web['domain_id']);
+			if (!is_array($site)) {
+				$site = array('excludes' => '', 'max_age' => 0, 'version_scan' => 'y');
+			}
+			if ($site['version_scan'] === 'n') {
+				// "Veraltete Software suchen: nein" on this website.
+				continue;
+			}
+			$this->create_job($site, $web, 'schedule', 'vulncheck');
+		}
+	}
+
 	/** Inserts one job row. */
-	private function create_job($site, $web, $source)
+	private function create_job($site, $web, $source, $kind = 'scan')
 	{
 		global $app, $conf;
 
@@ -200,10 +280,10 @@ class cronjob_malwatch extends cronjob
 
 		$app->dbmaster->query(
 			'INSERT INTO malwatch_job (sys_userid, sys_groupid, sys_perm_user, sys_perm_group, sys_perm_other, '
-			. 'server_id, parent_domain_id, domain, scan_path, job_source, job_status, options, created_at) '
-			. "VALUES (1, ?, 'riud', 'r', '', ?, ?, ?, ?, ?, 'pending', ?, NOW())",
+			. 'server_id, parent_domain_id, domain, scan_path, job_source, job_kind, job_status, options, created_at) '
+			. "VALUES (1, ?, 'riud', 'r', '', ?, ?, ?, ?, ?, ?, 'pending', ?, NOW())",
 			intval($web['sys_groupid']), intval($conf['server_id']), intval($web['domain_id']),
-			(string) $web['domain'], $path, $source, $options);
+			(string) $web['domain'], $path, $source, $kind, $options);
 	}
 
 	/**
@@ -219,13 +299,28 @@ class cronjob_malwatch extends cronjob
 
 		$limit = max(1, intval($config['max_parallel']));
 		$running = $app->malwatch_helper->count_running_jobs();
-		if ($running >= $limit) {
-			return;
+		if ($running < $limit) {
+			$this->start_jobs($config, "job_kind != 'vulncheck'", $limit - $running);
 		}
 
+		// Vulnerability checks have their own slots beside the scans: behind a
+		// scan of several hours the daily round would reach the last website
+		// a day late.
+		$checks = $app->malwatch_helper->count_running_jobs(0, 'vulncheck');
+		if ($checks < malwatch_helper::VULNCHECK_PARALLEL) {
+			$this->start_jobs($config, "job_kind = 'vulncheck'", malwatch_helper::VULNCHECK_PARALLEL - $checks);
+		}
+	}
+
+	/** Claims and starts up to $count pending jobs matching $kind_sql. */
+	private function start_jobs($config, $kind_sql, $count)
+	{
+		global $app, $conf;
+
 		$jobs = $app->dbmaster->queryAllRecords(
-			"SELECT * FROM malwatch_job WHERE server_id = ? AND job_status = 'pending' ORDER BY job_id ASC LIMIT ?",
-			$conf['server_id'], $limit - $running);
+			"SELECT * FROM malwatch_job WHERE server_id = ? AND job_status = 'pending' AND " . $kind_sql
+			. ' ORDER BY job_id ASC LIMIT ?',
+			$conf['server_id'], intval($count));
 
 		if (!is_array($jobs)) {
 			return;

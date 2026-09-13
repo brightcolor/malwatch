@@ -41,6 +41,27 @@ Pfad unter **Security > Einstellungen** prüfen.
 Die Cron-Klasse läuft jede Minute. Eine von Hand angestoßene Prüfung startet
 also innerhalb einer Minute, das Ergebnis erscheint, sobald der Lauf fertig ist.
 
+## Schwachstellen
+
+**Security > Schwachstellen** listet alle Installationen mit bekannten Lücken
+über alle Websites, die schwerste Einstufung zuerst. Jede Lücke nennt ihre
+CVE-Nummer, die Version, die sie behebt, und verweist auf ihren Eintrag.
+
+Gefüllt wird die Liste auf zwei Wegen:
+
+1. Jede reguläre Prüfung einer Website gleicht ihre Software ab.
+2. Ein eigener Abgleich läuft einmal am Tag ab 4 Uhr für jede aktive Website.
+   Er führt allein die Softwarestufe des Scanners aus: erkennen und
+   nachschlagen. Bis zu drei Abgleiche laufen gleichzeitig, zusätzlich zu den
+   eingestellten gleichzeitigen Prüfungen. Der Knopf **Alle Websites jetzt
+   abgleichen** stößt die Runde sofort an.
+
+Unter **Security > Einstellungen** lässt sich der Abgleich abschalten und ein
+WPScan-API-Schlüssel eintragen. Der Runner legt den Schlüssel als
+`state/wpscan.token` mit Rechten 0600 ab und übergibt dem Scanner nur den
+Dateinamen. Laut WPScan braucht einen Enterprise-Tarif, wer die Daten in einen
+Dienst für Kunden einbindet.
+
 ## Aktionen
 
 Je Website einzeln schaltbar, jede mit eigener Mindeststufe:
@@ -53,7 +74,8 @@ Je Website einzeln schaltbar, jede mit eigener Mindeststufe:
 Drei Grenzen sind fest eingebaut:
 
 1. Nur Funde, die seit dem letzten Lauf neu sind, lösen eine Aktion aus.
-2. Veraltete Software schaltet nie eine Website ab.
+2. Veraltete Software und bekannte Lücken schalten nie eine Website ab und
+   verschieben keine Datei in die Quarantäne.
 3. Ein sauberer Lauf schaltet eine gesperrte Website nicht von selbst wieder
    ein. Das bleibt eine Entscheidung des Betreibers.
 

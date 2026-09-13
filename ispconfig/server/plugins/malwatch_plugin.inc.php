@@ -48,8 +48,15 @@ class malwatch_plugin
 		}
 
 		$config = $app->malwatch_helper->get_config();
-		$running = $app->malwatch_helper->count_running_jobs($job_id);
-		if ($running >= max(1, intval($config['max_parallel']))) {
+		if (isset($job['job_kind']) && $job['job_kind'] === 'vulncheck') {
+			// Their own slots, see malwatch_helper::VULNCHECK_PARALLEL.
+			$running = $app->malwatch_helper->count_running_jobs($job_id, 'vulncheck');
+			$limit = malwatch_helper::VULNCHECK_PARALLEL;
+		} else {
+			$running = $app->malwatch_helper->count_running_jobs($job_id);
+			$limit = max(1, intval($config['max_parallel']));
+		}
+		if ($running >= $limit) {
 			// Too many at once would drown the machine in IO. The job goes
 			// back to pending and the cron class picks it up when there is room.
 			$app->malwatch_helper->release_job($job_id, 'Warten: es laufen bereits ' . $running . ' Prüfungen.');
