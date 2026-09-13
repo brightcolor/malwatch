@@ -78,13 +78,21 @@ type Finding struct {
 
 // Software is one detected web application install.
 type Software struct {
-	Path     string `json:"path"`
-	Product  string `json:"product"`
-	Kind     string `json:"kind"` // core, plugin, theme
-	Slug     string `json:"slug,omitempty"`
-	Version  string `json:"version"`
-	Latest   string `json:"latest,omitempty"`
-	Outdated bool   `json:"outdated"`
+	Path    string `json:"path"`
+	Product string `json:"product"`
+	Kind    string `json:"kind"` // core, plugin, theme
+	Slug    string `json:"slug,omitempty"`
+	Version string `json:"version"`
+	Latest  string `json:"latest,omitempty"`
+	// LatestRequiresWP and LatestRequiresPHP are what the newest release asks
+	// of a site, as wordpress.org lists them; empty when unknown. For the
+	// WordPress core LatestRequiresPHP belongs to the newest release overall.
+	LatestRequiresWP  string `json:"latest_requires_wp,omitempty"`
+	LatestRequiresPHP string `json:"latest_requires_php,omitempty"`
+	// LatestInBranch is, for the WordPress core, the newest release on the
+	// installed major and minor branch.
+	LatestInBranch string `json:"latest_in_branch,omitempty"`
+	Outdated       bool   `json:"outdated"`
 	// Unknown marks an install whose latest version could not be determined,
 	// so a missing "outdated" flag is not mistaken for "up to date".
 	Unknown bool `json:"unknown,omitempty"`
@@ -140,17 +148,20 @@ type Stats struct {
 
 // Report is the complete result of one scan run.
 type Report struct {
-	Schema          int               `json:"schema"`
-	MalwatchVersion string            `json:"malwatch_version"`
-	Host            string            `json:"host,omitempty"`
-	StartedAt       time.Time         `json:"started_at"`
-	FinishedAt      time.Time         `json:"finished_at"`
-	Paths           []string          `json:"paths"`
-	Engines         map[string]string `json:"engines"`
-	Stats           Stats             `json:"stats"`
-	Findings        []Finding         `json:"findings"`
-	Software        []Software        `json:"software"`
-	Errors          []string          `json:"errors,omitempty"`
+	Schema          int    `json:"schema"`
+	MalwatchVersion string `json:"malwatch_version"`
+	Host            string `json:"host,omitempty"`
+	// PHPVersion is the version of the PHP the website runs, when the caller
+	// named its binary.
+	PHPVersion string            `json:"php_version,omitempty"`
+	StartedAt  time.Time         `json:"started_at"`
+	FinishedAt time.Time         `json:"finished_at"`
+	Paths      []string          `json:"paths"`
+	Engines    map[string]string `json:"engines"`
+	Stats      Stats             `json:"stats"`
+	Findings   []Finding         `json:"findings"`
+	Software   []Software        `json:"software"`
+	Errors     []string          `json:"errors,omitempty"`
 }
 
 // New returns an empty report stamped with the current version.

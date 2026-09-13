@@ -18,6 +18,7 @@ import (
 	"github.com/brightcolor/malwatch/internal/clamav"
 	"github.com/brightcolor/malwatch/internal/cms"
 	"github.com/brightcolor/malwatch/internal/knownfiles"
+	"github.com/brightcolor/malwatch/internal/phpinfo"
 	"github.com/brightcolor/malwatch/internal/report"
 	"github.com/brightcolor/malwatch/internal/rules"
 	"github.com/brightcolor/malwatch/internal/sigs"
@@ -46,6 +47,9 @@ type Options struct {
 	// WPScanTokenFile names a file holding it and wins when both are set.
 	WPScanToken     string
 	WPScanTokenFile string
+	// PHPBinary names the PHP of the website; the report then carries its
+	// version, so the panel can tell which releases the site can take.
+	PHPBinary string
 
 	IgnoreRules []string
 	Whitelist   map[string]bool
@@ -88,6 +92,13 @@ func Run(opts Options) (*report.Report, error) {
 	}
 
 	rep := report.New(opts.Paths)
+	if opts.PHPBinary != "" {
+		if v, err := phpinfo.Version(opts.PHPBinary, 10*time.Second); err != nil {
+			rep.Errors = append(rep.Errors, "PHP-Version nicht ermittelbar: "+err.Error())
+		} else {
+			rep.PHPVersion = v
+		}
+	}
 
 	sigDB, err := sigs.Load(opts.SignatureDir)
 	if err != nil {
@@ -504,8 +515,14 @@ func collectSoftware(rep *report.Report, opts *Options, known *knownfiles.Index)
 			var latest string
 			if inst.Kind == "core" {
 				latest = lookup.Latest(inst.Product, inst.Version)
+				if inst.Product == "wordpress" {
+					entry.LatestInBranch = lookup.WordPressBranchLatest(inst.Version)
+					entry.LatestRequiresPHP = lookup.WordPressRequiresPHP()
+				}
 			} else {
-				latest = lookup.LatestPlugin(inst.Kind, inst.Slug)
+				info := lookup.LatestPluginInfo(inst.Kind, inst.Slug)
+				latest = info.Version
+				entry.LatestRequiresWP, entry.LatestRequiresPHP = info.RequiresWP, info.RequiresPHP
 			}
 			entry.Latest = latest
 			if latest == "" {

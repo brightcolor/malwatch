@@ -21,6 +21,8 @@ type Lookup struct {
 	// errs collects lookups that failed, so the report can say "unknown"
 	// instead of silently treating an install as current.
 	errs []string
+	// wporg is the address of api.wordpress.org; the tests point it elsewhere.
+	wporg string
 }
 
 // NewLookup returns a lookup with a bounded timeout.
@@ -31,6 +33,7 @@ func NewLookup(cache *Cache, timeout time.Duration) *Lookup {
 	return &Lookup{
 		client: &http.Client{Timeout: timeout},
 		cache:  cache,
+		wporg:  "https://api.wordpress.org",
 	}
 }
 
@@ -58,24 +61,146 @@ func (l *Lookup) Latest(product, current string) string {
 	return pickBranch(versions, current)
 }
 
+// PluginInfo is what wordpress.org says about the newest release of a plugin
+// or theme: its version and what it asks of a site.
+type PluginInfo struct {
+	Version     string
+	RequiresWP  string
+	RequiresPHP string
+}
+
+// LatestPluginInfo returns the newest release of a WordPress plugin or theme
+// with its requirements. An empty Version means wordpress.org does not list
+// it, which is the normal case for paid and custom plugins.
+func (l *Lookup) LatestPluginInfo(kind, slug string) PluginInfo {
+	key := kind + "-info:" + slug
+	if v, ok := l.cache.Get(key); ok {
+		var info PluginInfo
+		if len(v) > 0 {
+			info.Version = v[0]
+		}
+		if len(v) > 2 {
+			info.RequiresWP, info.RequiresPHP = v[1], v[2]
+		}
+		return info
+	}
+	info, err := l.fetchWordPressExtra(kind, slug)
+	if err != nil {
+		l.cache.Set(key, nil)
+		return PluginInfo{}
+	}
+	l.cache.Set(key, []string{info.Version, info.RequiresWP, info.RequiresPHP})
+	return info
+}
+
 // LatestPlugin returns the newest version of a WordPress plugin or theme.
 func (l *Lookup) LatestPlugin(kind, slug string) string {
-	key := kind + ":" + slug
-	if v, ok := l.cache.Get(key); ok {
-		if len(v) == 0 {
-			return ""
-		}
-		return v[0]
+	return l.LatestPluginInfo(kind, slug).Version
+}
+
+func (l *Lookup) fetchWordPressExtra(kind, slug string) (PluginInfo, error) {
+	base := l.wporg + "/plugins/info/1.2/?action=plugin_information"
+	if kind == "theme" {
+		base = l.wporg + "/themes/info/1.2/?action=theme_information"
 	}
-	v, err := l.fetchWordPressExtra(kind, slug)
-	if err != nil {
-		// A plugin that is not on wordpress.org is the normal case for paid
-		// and custom plugins. It is recorded as unknown, not as an error.
-		l.cache.Set(key, nil)
+	u := base + "&request[slug]=" + url.QueryEscape(slug) +
+		"&request[fields][sections]=0&request[fields][description]=0&request[fields][versions]=0"
+
+	var payload struct {
+		Version     string          `json:"version"`
+		Requires    looseString     `json:"requires"`
+		RequiresPHP looseString     `json:"requires_php"`
+		Error       json.RawMessage `json:"error"`
+	}
+	if err := l.getJSON(u, &payload); err != nil {
+		return PluginInfo{}, err
+	}
+	if payload.Version == "" {
+		return PluginInfo{}, fmt.Errorf("nicht im Verzeichnis")
+	}
+	return PluginInfo{
+		Version:     payload.Version,
+		RequiresWP:  string(payload.Requires),
+		RequiresPHP: string(payload.RequiresPHP),
+	}, nil
+}
+
+// looseString reads a field wordpress.org sends as a string, as a number, or
+// as false when a release names nothing.
+type looseString string
+
+func (s *looseString) UnmarshalJSON(raw []byte) error {
+	var text string
+	if json.Unmarshal(raw, &text) == nil {
+		*s = looseString(strings.TrimSpace(text))
+		return nil
+	}
+	var number json.Number
+	if json.Unmarshal(raw, &number) == nil {
+		*s = looseString(number.String())
+		return nil
+	}
+	*s = ""
+	return nil
+}
+
+// WordPressBranchLatest returns the newest WordPress release on the major and
+// minor branch of current - what an update reaches without a new major
+// version - or "" when the list could not be loaded or holds nothing newer.
+func (l *Lookup) WordPressBranchLatest(current string) string {
+	best := ""
+	for _, v := range l.wordpressReleases() {
+		if !SameBranch(v, current, 2) || Compare(v, current) <= 0 {
+			continue
+		}
+		if best == "" || Compare(v, best) > 0 {
+			best = v
+		}
+	}
+	return best
+}
+
+// wordpressReleases lists every WordPress release wordpress.org knows.
+func (l *Lookup) wordpressReleases() []string {
+	const key = "wordpress-releases"
+	if v, ok := l.cache.Get(key); ok {
+		return v
+	}
+	var statuses map[string]string
+	if err := l.getJSON(l.wporg+"/core/stable-check/1.0/", &statuses); err != nil {
+		l.note("WordPress: Liste der Versionen nicht ladbar (%v)", err)
+		return nil
+	}
+	out := make([]string, 0, len(statuses))
+	for v := range statuses {
+		out = append(out, v)
+	}
+	sort.Strings(out)
+	l.cache.Set(key, out)
+	return out
+}
+
+// WordPressRequiresPHP returns the PHP version the newest WordPress release
+// asks for, or "" when unknown.
+func (l *Lookup) WordPressRequiresPHP() string {
+	const key = "wordpress-requires-php"
+	if v, ok := l.cache.Get(key); ok {
+		if len(v) > 0 {
+			return v[0]
+		}
 		return ""
 	}
-	l.cache.Set(key, []string{v})
-	return v
+	var payload struct {
+		Offers []struct {
+			PHPVersion string `json:"php_version"`
+		} `json:"offers"`
+	}
+	if err := l.getJSON(l.wporg+"/core/version-check/1.7/", &payload); err != nil || len(payload.Offers) == 0 {
+		return ""
+	}
+	php := payload.Offers[0].PHPVersion
+	l.cache.Set(key, []string{php})
+	return php
 }
 
 // pickBranch chooses the newest version on the same major branch as current.
@@ -161,7 +286,7 @@ func (l *Lookup) wordpressCore() ([]string, error) {
 			Current string `json:"current"`
 		} `json:"offers"`
 	}
-	if err := l.getJSON("https://api.wordpress.org/core/version-check/1.7/", &payload); err != nil {
+	if err := l.getJSON(l.wporg+"/core/version-check/1.7/", &payload); err != nil {
 		return nil, err
 	}
 	var out []string
@@ -347,27 +472,6 @@ func (l *Lookup) packagist(pkg string) ([]string, error) {
 		return nil, fmt.Errorf("keine stabile Version im Paketverzeichnis")
 	}
 	return out, nil
-}
-
-func (l *Lookup) fetchWordPressExtra(kind, slug string) (string, error) {
-	base := "https://api.wordpress.org/plugins/info/1.2/?action=plugin_information"
-	if kind == "theme" {
-		base = "https://api.wordpress.org/themes/info/1.2/?action=theme_information"
-	}
-	u := base + "&request[slug]=" + url.QueryEscape(slug) +
-		"&request[fields][sections]=0&request[fields][description]=0&request[fields][versions]=0"
-
-	var payload struct {
-		Version string          `json:"version"`
-		Error   json.RawMessage `json:"error"`
-	}
-	if err := l.getJSON(u, &payload); err != nil {
-		return "", err
-	}
-	if payload.Version == "" {
-		return "", fmt.Errorf("nicht im Verzeichnis")
-	}
-	return payload.Version, nil
 }
 
 func isPreRelease(v string) bool {

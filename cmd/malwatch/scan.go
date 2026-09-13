@@ -53,6 +53,7 @@ func cmdScan(args []string) int {
 	noClamAV := fs.Bool("no-clamav", false, "")
 	noVuln := fs.Bool("no-vuln-scan", false, "")
 	wpscanTokenFile := fs.String("wpscan-token-file", "", "")
+	phpBinary := fs.String("php", "", "")
 	offline := fs.Bool("offline", false, "")
 
 	asJSON := fs.Bool("json", false, "")
@@ -127,6 +128,7 @@ func cmdScan(args []string) int {
 		// line every user of the machine could read it out of /proc.
 		WPScanToken:     os.Getenv("MALWATCH_WPSCAN_TOKEN"),
 		WPScanTokenFile: *wpscanTokenFile,
+		PHPBinary:       *phpBinary,
 		Offline:         *offline,
 		IgnoreRules:     ignore,
 		Whitelist:       whitelist,

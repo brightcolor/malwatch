@@ -35,6 +35,7 @@ Prüfstufen:
   --no-plugin-version-scan Plugins und Themes nicht prüfen
   --no-clamav              ClamAV nicht zusätzlich verwenden
   --no-vuln-scan           keine Suche nach bekannten Schwachstellen
+  --php=BINARY             PHP der Website; der Bericht nennt ihre Version
   --wpscan-token-file=DATEI
                            API-Schlüssel für WPScan aus dieser Datei lesen,
                            ersatzweise aus der Umgebungsvariablen
