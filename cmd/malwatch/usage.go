@@ -12,6 +12,7 @@ const usageText = `malwatch %s - Scanner für Schadcode und veraltete Web-Softwa
 Aufruf:
   malwatch scan --path=/var/www [Optionen]
   malwatch repair --path=/var/www/web1/web --backup-dir=… [Optionen]
+  malwatch upgrade --path=/var/www/web12/web --plan=… --run-as=… --php=… [Optionen]
   malwatch quarantine add|list|restore|delete|export --quarantine-dir=… [Optionen]
   malwatch update [--sig-dir=…]
   malwatch whitelist --file=/pfad/zur/datei.php [--whitelist-path=…]
@@ -76,6 +77,24 @@ Wiederherstellung (repair):
                            Version nicht mehr anbietet (Vorgabe: keep)
   --domain=DOMAIN          Website, der die Installation gehört
 
+Aktualisieren (upgrade):
+  --path=PFAD              Webstamm der Website; jede Installation im Plan
+                           liegt darunter
+  --plan=DATEI             JSON mit Installationen, Adressen und Zielversionen
+  --run-as=BENUTZER:GRUPPE Benutzer der Website für WP-CLI; root wird
+                           abgewiesen, bei --dry-run verzichtbar
+  --php=BINARY             PHP der Website, für Anforderungen und WP-CLI
+  --wp-cli=PFAD            WP-CLI (Vorgabe: /usr/local/bin/wp)
+  --connect=ADRESSE        Ziel der Nachprüfung, host oder host:port
+                           (Vorgabe: 127.0.0.1)
+  --quarantine-dir=PFAD    wohin ersetzte Ordner und Datenbank-Exporte gehen
+                           (entfällt nur bei --dry-run)
+  --staging-dir=PFAD       wo die Archive vor dem Tausch liegen
+  --domain=DOMAIN          Website, der die Installationen gehören
+  --progress=DATEI         laufender Zustand als JSON, für die Oberfläche
+  --dry-run                holen, prüfen, Seiten abrufen, vor dem Tausch anhalten
+  --vendor-base=URL        andere Bezugsadresse, für Tests
+
 Quarantäne verwalten (quarantine):
   malwatch quarantine add     --path=… --quarantine-dir=… --file=… [Optionen]
   malwatch quarantine list    --quarantine-dir=… [--json] [--out=…]
@@ -135,6 +154,13 @@ Rückgabecodes von repair:
      Herstellerversion unverändert stehen geblieben (--no-original)
   3  der Lauf ist gescheitert; die Website blieb unverändert,
      sofern der Abbruch vor dem Tauschen kam
+
+Rückgabecodes von upgrade:
+  0  jedes Element aktualisiert, beim Probelauf ohne Einwand
+  2  mindestens ein Element abgelehnt, zurückgeholt oder gescheitert;
+     dort steht der alte Stand
+  3  der Lauf ist gescheitert, oder eine Website blieb nach dem
+     Zurückholen fehlerhaft
 
 Rückgabecodes von quarantine:
   0  die Aktion ist für jede --file bzw. --id gelungen
