@@ -717,7 +717,13 @@ CREATE TABLE IF NOT EXISTS `malwatch_database` (
   `sys_perm_other` varchar(5) DEFAULT NULL,
   `server_id` int(11) unsigned NOT NULL DEFAULT '0',
   `parent_domain_id` int(11) unsigned NOT NULL DEFAULT '0',
-  `database_name` varchar(64) NOT NULL DEFAULT '',
+  -- Die Sortierfolge steht hier ausdruecklich: ISPConfig fuehrt
+  -- web_database mit utf8mb4_unicode_ci, die Tabellen von malwatch stehen
+  -- auf utf8mb4_general_ci. Die Auswahl der Datenbanken verbindet beide
+  -- Spalten, und MySQL bricht eine Verbindung ueber zwei Sortierfolgen mit
+  -- "Illegal mix of collations" ab - die Seite zeigte daraufhin keine
+  -- einzige Datenbank.
+  `database_name` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '',
   `table_count` int(11) unsigned NOT NULL DEFAULT '0',
   `bytes` bigint(20) unsigned NOT NULL DEFAULT '0',
   `last_write` datetime DEFAULT NULL,
@@ -728,6 +734,16 @@ CREATE TABLE IF NOT EXISTS `malwatch_database` (
   UNIQUE KEY `server_database` (`server_id`,`database_name`),
   KEY `parent_domain_id` (`parent_domain_id`)
 ) DEFAULT CHARSET=utf8mb4 AUTO_INCREMENT=1 ;
+
+-- Und dieselbe Sortierfolge fuer eine Installation, die die Tabelle schon
+-- angelegt hat, bevor sie hier stand.
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_database` MODIFY COLUMN `database_name` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT ''''',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_database' AND COLUMN_NAME = 'database_name'
+    AND COLLATION_NAME = 'utf8mb4_unicode_ci');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 -- dump packt das Webverzeichnis einer Website mit ihren Datenbanken; siehe
 -- malwatch_runner::build_arguments und malwatch_ingest::ingest_dump.

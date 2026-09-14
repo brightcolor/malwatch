@@ -2,6 +2,27 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.17.0] – 2026-09-15
+
+### Neu
+
+**Dumps.** Die neue Seite „Dumps“ packt eine Website in ein tar.gz und stellt
+es zum Herunterladen bereit: das Webverzeichnis, die angehakten Datenbanken
+und auf Wunsch die Protokolle. Die Auswahl zeigt je Datenbank Größe, Zahl der
+Tabellen, die WordPress-Installation, zu der sie gehört, und den letzten
+Schreibzugriff; beim Öffnen der Seite ist alles angehakt. Diese Angaben sammelt
+der stündliche Lauf auf dem Server.
+
+Ein Dump liegt sieben Tage, danach räumt derselbe Lauf ihn weg. Der Verweis
+zum Herunterladen gilt so lange und lässt sich mehrfach benutzen. Vor dem
+Packen vergleicht der Lauf die geschätzte Größe mit dem freien Platz und hält
+an, wenn es eng wird. Scheitert eine Datenbank, endet der Lauf, und das halbe
+Archiv wird gelöscht.
+
+Der Scanner bekommt dafür den Befehl `malwatch dump`; das Panel reiht ihn über
+die bestehende Warteschlange ein und zeigt den Fortschritt wie bei einer
+Prüfung.
+
 ## [0.16.3] – 2026-09-14
 
 ### Geändert

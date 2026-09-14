@@ -994,6 +994,11 @@ grep -q "''dump''" "$root/install/schema.sql" \
 	|| fail "job_kind kennt die Auftragsart dump nicht"
 grep -q "'/dumps'" "$root/install/installer.php" \
 	|| fail "der Installer legt <state_dir>/dumps nicht an"
+# Die eine Spalte, die gegen eine Spalte von ISPConfig verbunden wird, traegt
+# deren Sortierfolge. Ohne sie bricht die Abfrage der Auswahl mit "Illegal mix
+# of collations" ab, und die Seite zeigt keine einzige Datenbank.
+grep -q 'COLLATE utf8mb4_unicode_ci' "$root/install/schema.sql" \
+	|| fail "malwatch_database.database_name traegt nicht die Sortierfolge von ISPConfigs web_database"
 grep -q "/dumps" "$root/server/lib/classes/malwatch_runner.inc.php" \
 	|| fail "der Runner stellt <state_dir>/dumps nicht sicher"
 

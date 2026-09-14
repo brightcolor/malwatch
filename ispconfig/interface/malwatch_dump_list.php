@@ -98,11 +98,13 @@ $app->tpl->setVar($wb);
 $app->tpl->setVar(malwatch_attr_texts($wb, array('btn_create_txt', 'confirm_create_txt',
 	'btn_delete_txt', 'confirm_delete_txt', 'hint_select_txt')));
 
-// The websites of the status page, in its order, so both pages name the same
-// sites in the same way.
-$sites = malwatch_status_rows($app);
+// Every website of the server, by name. The status page shows the ones that
+// need attention; a dump is asked for by name, and the one website somebody
+// wants to pack is as likely to be the quiet one.
+$sites = $app->db->queryAllRecords(
+	"SELECT domain_id, domain FROM web_domain WHERE type = 'vhost' AND active = 'y' ORDER BY domain");
 $site_rows = array();
-foreach ($sites as $site) {
+foreach ((array) $sites as $site) {
 	$id = $app->functions->intval($site['domain_id']);
 	if ($domain_id < 1) {
 		$domain_id = $id;

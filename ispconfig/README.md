@@ -89,6 +89,28 @@ Scheitert die Nachprüfung, holt malwatch den alten Stand zurück und meldet es
 dem Betreiber, bei eingeschaltetem „Kunde benachrichtigen“ auch dem Kunden. Den
 Pfad zu WP-CLI trägt **Security > Einstellungen**.
 
+## Dumps
+
+**Security > Dumps** packt eine Website in ein `tar.gz`: das Webverzeichnis,
+die angehakten Datenbanken und auf Wunsch das Protokollverzeichnis.
+
+Die Auswahl zeigt je Datenbank ihre Größe, die Zahl der Tabellen, die
+WordPress-Installation, zu der sie gehört, und den letzten Schreibzugriff.
+Diese Angaben sammelt der stündliche Lauf; nach dem Einspielen stehen sie ab
+seinem ersten Durchgang bereit.
+
+Im Archiv liegen `web/`, mit Häkchen `protokolle/`, je Datenbank
+`datenbanken/<name>.sql` und der Bericht `dump.json` mit Zahlen und Prüfsumme.
+
+Ein Dump liegt sieben Tage unter `/var/lib/malwatch/dumps`, lesbar für root und
+das Panel. Der Verweis zum Herunterladen gilt so lange und lässt sich mehrfach
+benutzen; danach räumt der stündliche Lauf Archiv und Zeile weg. „Löschen“ in
+der Liste nimmt die Zeile sofort heraus, das Archiv holt derselbe Lauf.
+
+Vor dem Packen vergleicht der Lauf die geschätzte Größe mit dem freien Platz
+und hält an, wenn es eng wird. Ein Dump trägt Kundendaten, in den Protokollen
+die Adressen der Besucher und bei einer befallenen Website den Schadcode.
+
 ## Aktionen
 
 Je Website einzeln schaltbar, jede mit eigener Mindeststufe:
