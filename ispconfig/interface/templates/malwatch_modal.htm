@@ -26,7 +26,7 @@
 				<button type="button" class="close" data-dismiss="modal" aria-label="{tmpl_var name='btn_cancel_txt'}"><span aria-hidden="true">&times;</span></button>
 				<h4 class="modal-title" id="mw-modal-title"></h4>
 			</div>
-			<div class="modal-body">
+			<div class="mw-modal-body">
 				<p class="mw-modal-text" id="mw-modal-text"></p>
 				<p class="mw-modal-detail" hidden></p>
 			</div>
@@ -42,8 +42,12 @@
 <style>
 /* Flaeche, Rahmen und Knoepfe setzt das Theme ueber .modal-content und .btn,
    im hellen wie im dunklen. Hier steht nur, was der Inhalt braucht. */
-.mw-modal .modal-body p{margin:0;max-width:64ch;line-height:1.55}
-.mw-modal .modal-body .mw-modal-detail{
+/* Eine eigene Klasse mit den Massen von Bootstraps .modal-body: ispconfig.js
+   schreibt die Liste offener Aenderungen in jedes .modal-body der Seite
+   (check_wiring 46). */
+.mw-modal .mw-modal-body{position:relative;padding:15px}
+.mw-modal .mw-modal-body p{margin:0;max-width:64ch;line-height:1.55}
+.mw-modal .mw-modal-body .mw-modal-detail{
 	margin-top:10px;font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:12px;
 	word-break:break-all;opacity:.8;
 }

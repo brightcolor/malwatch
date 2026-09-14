@@ -2,6 +2,19 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.16.2] – 2026-09-14
+
+### Behoben
+
+**Knöpfe mit Rückfrage öffnen den Dialog wieder.** „Reparatur starten“,
+„Updates starten“, „In Quarantäne verschieben“, „Endgültig löschen“ und die
+übrigen Knöpfe mit Rückfrage blieben im Panel seit 0.15.0 ohne Wirkung, ebenso
+seit 0.16.1 der Hinweis bei Knöpfen ohne Häkchen. ISPConfig fragt nach dem Laden
+einer Seite fortlaufend die offenen Änderungen ab und schreibt die Antwort in
+jedes Element mit der Klasse `modal-body`, auch in den Dialog von malwatch. Der
+Dialog verlor dadurch seinen Text, und das Öffnen brach ab. Sein Inhalt trägt
+jetzt eine eigene Klasse.
+
 ## [0.16.1] – 2026-09-14
 
 ### Behoben

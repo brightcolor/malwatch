@@ -954,6 +954,20 @@ for tpl in "$root"/interface/templates/*.htm; do
 	done < "$tmpdir/needs_selection"
 done
 
+# 46. Keine Vorlage vergibt eine Klasse, die ispconfig.js seitenweit
+#     beschreibt. Nach jedem Laden einer Seite und dann fortlaufend fragt das
+#     Panel datalogstatus.php ab und schreibt die Antwort in jedes
+#     .modal-body ($('.modal-body').html(...)); .notification und
+#     .notification_text blendet es ein und aus. Der Dialog in
+#     malwatch_modal.htm verlor so seinen Text, das Fuellen brach ab, und jeder
+#     Knopf mit Rueckfrage blieb im Panel ohne Wirkung.
+for tpl in "$root"/interface/templates/*.htm; do
+	[ -f "$tpl" ] || continue
+	if grep -qE 'class="([^"]* )?(modal-body|notification|notification_text)( [^"]*)?"' "$tpl"; then
+		fail "$(basename "$tpl") vergibt modal-body, notification oder notification_text; ispconfig.js beschreibt jedes Element mit dieser Klasse"
+	fi
+done
+
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'
 fi
