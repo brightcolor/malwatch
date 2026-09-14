@@ -968,6 +968,20 @@ for tpl in "$root"/interface/templates/*.htm; do
 	fi
 done
 
+# 47. Die Rueckfrage von "Reparatur starten" nennt, was angehakt ist. Das
+#     Skript der Reparaturseite setzt data-mw-confirm aus den Bausteinen
+#     data-mw-q-* am Seitenelement zusammen. Mit einem festen Satz zaehlte der
+#     Dialog Kern, Plugins und Themes auf, auch wenn nur ein Plugin angehakt war.
+#     Dass jeder Baustein in beiden Sprachdateien steht und maskiert ankommt,
+#     pruefen 9, 36 und 41.
+repair_tpl="$root/interface/templates/malwatch_repair_start.htm"
+for piece in replace replace-one core-one core-many plugin-one plugin-many theme-one theme-many two three safety no-original; do
+	grep -q "data-mw-q-$piece=\"{tmpl_var name='confirm_" "$repair_tpl" \
+		|| fail "malwatch_repair_start.htm fehlt der Baustein data-mw-q-$piece fuer die Rueckfrage der Reparatur"
+done
+grep -q "setAttribute('data-mw-confirm'" "$repair_tpl" \
+	|| fail "malwatch_repair_start.htm setzt die Rueckfrage der Reparatur nicht aus den angehakten Elementen zusammen"
+
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'
 fi

@@ -179,6 +179,9 @@ $hintless = strpos($out, 'data-mw-hint=""') !== false;
 $no_close = strpos($out, 'mw-needs-selection') !== false
 	&& preg_match('/mw-modal-close"[^>]*>\s*</', $out) === 1;
 
+// The repair page builds its question from pieces of its language file.
+$pieceless = preg_match('/data-mw-q-[a-z-]+=""/', $out) === 1;
+
 $why = '';
 if ($broken) {
 	$why = 'fatal in the output';
@@ -198,6 +201,8 @@ if ($broken) {
 	$why = 'button with an empty hint';
 } elseif ($no_close) {
 	$why = 'dialog without a close label';
+} elseif ($pieceless) {
+	$why = 'repair question piece without text';
 }
 
 if ($why !== '') {

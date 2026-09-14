@@ -58,7 +58,23 @@ $wb['hint_select_folder_txt'] = 'Tick elements in this folder first. The box in 
 
 $wb['btn_dry_run_txt'] = 'Dry run - only show what would happen';
 $wb['btn_start_txt'] = 'Start the repair';
-$wb['confirm_start_txt'] = 'Replace core, plugins and themes with the originals? The website is switched off for the duration, everything replaced is backed up first, and elements without an original are handled the way you chose above.';
+$wb['confirm_start_txt'] = 'Replace the ticked elements with the originals? The website is switched off during the repair, everything replaced is backed up first, and elements without an original are handled the way you chose above.';
+// The page script builds the question from the ticked elements in the reach
+// of the button. {list} is the list with counts, {n} the count of one kind,
+// {a}, {b} and {c} are the parts of the list. confirm_start_txt stays on the
+// button until the script runs.
+$wb['confirm_replace_txt'] = 'Replace {list} with the originals?';
+$wb['confirm_replace_one_txt'] = 'Replace {list} with the original?';
+$wb['confirm_core_one_txt'] = 'the core';
+$wb['confirm_core_many_txt'] = '{n} cores';
+$wb['confirm_plugin_one_txt'] = '1 plugin';
+$wb['confirm_plugin_many_txt'] = '{n} plugins';
+$wb['confirm_theme_one_txt'] = '1 theme';
+$wb['confirm_theme_many_txt'] = '{n} themes';
+$wb['confirm_list_two_txt'] = '{a} and {b}';
+$wb['confirm_list_three_txt'] = '{a}, {b} and {c}';
+$wb['confirm_safety_txt'] = 'The website is switched off during the repair, and everything replaced is backed up first.';
+$wb['confirm_no_original_txt'] = 'Elements without an original are handled the way you chose above.';
 
 $wb['msg_repair_txt'] = 'The restore was queued. The website is switched off in the meantime.';
 $wb['msg_repair_dry_txt'] = 'The dry run was queued. Nothing is changed.';

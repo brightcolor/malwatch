@@ -105,7 +105,19 @@
 #mw-repair .mw-folderhead .btn{padding:3px 10px;font-size:12px;line-height:1.5}
 </style>
 
-<div id="mw-repair" data-mw-selection>
+<!--
+	The question of "Reparatur starten" is put together by the script below
+	from these pieces: every ticked kind with its count ({n}), joined by
+	data-mw-q-two or data-mw-q-three ({a}, {b}, {c}) and set into
+	data-mw-q-replace, or data-mw-q-replace-one for a single element ({list}).
+-->
+<div id="mw-repair" data-mw-selection
+	data-mw-q-replace="{tmpl_var name='confirm_replace_txt'}" data-mw-q-replace-one="{tmpl_var name='confirm_replace_one_txt'}"
+	data-mw-q-core-one="{tmpl_var name='confirm_core_one_txt'}" data-mw-q-core-many="{tmpl_var name='confirm_core_many_txt'}"
+	data-mw-q-plugin-one="{tmpl_var name='confirm_plugin_one_txt'}" data-mw-q-plugin-many="{tmpl_var name='confirm_plugin_many_txt'}"
+	data-mw-q-theme-one="{tmpl_var name='confirm_theme_one_txt'}" data-mw-q-theme-many="{tmpl_var name='confirm_theme_many_txt'}"
+	data-mw-q-two="{tmpl_var name='confirm_list_two_txt'}" data-mw-q-three="{tmpl_var name='confirm_list_three_txt'}"
+	data-mw-q-safety="{tmpl_var name='confirm_safety_txt'}" data-mw-q-no-original="{tmpl_var name='confirm_no_original_txt'}">
 
 <p class="mw-sub">{tmpl_var name='intro_txt'}</p>
 
@@ -300,15 +312,75 @@
 		}
 	}
 
+	// The question of "Reparatur starten" names what its button reaches: the
+	// ticked rows of its folder, or of the whole page for the button below the
+	// folders. The dialog reads data-mw-confirm when the button is clicked;
+	// with nothing ticked the button shows its hint instead.
+	function piece(name) {
+		return root.getAttribute('data-mw-q-' + name) || '';
+	}
+
+	function fill(text, token, value) {
+		return text.split(token).join(value);
+	}
+
+	function question(scope) {
+		var kinds = ['core', 'plugin', 'theme'];
+		var count = { core: 0, plugin: 0, theme: 0 };
+		var total = 0;
+		var withoutOriginal = 0;
+		var ticked = scope.querySelectorAll('.mw-pick:checked');
+		for (var i = 0; i < ticked.length; i++) {
+			// An only[] value reads kind or kind:slug, each with @folder.
+			var kind = ticked[i].value.split(/[:@]/)[0];
+			if (!count.hasOwnProperty(kind)) { continue; }
+			count[kind]++;
+			total++;
+			var tr = ticked[i].closest('tr');
+			if (tr && tr.getAttribute('data-has-original') !== '1') { withoutOriginal++; }
+		}
+		var parts = [];
+		for (var k = 0; k < kinds.length; k++) {
+			var n = count[kinds[k]];
+			if (n === 1) {
+				parts.push(piece(kinds[k] + '-one'));
+			} else if (n > 1) {
+				parts.push(fill(piece(kinds[k] + '-many'), '{n}', String(n)));
+			}
+		}
+		if (parts.length === 0) { return ''; }
+		var list = parts[0];
+		if (parts.length === 2) {
+			list = fill(fill(piece('two'), '{a}', parts[0]), '{b}', parts[1]);
+		} else if (parts.length === 3) {
+			list = fill(fill(fill(piece('three'), '{a}', parts[0]), '{b}', parts[1]), '{c}', parts[2]);
+		}
+		var text = fill(piece(total === 1 ? 'replace-one' : 'replace'), '{list}', list) + ' ' + piece('safety');
+		if (withoutOriginal > 0) { text += ' ' + piece('no-original'); }
+		return text;
+	}
+
+	function updateQuestions() {
+		var buttons = root.querySelectorAll('.mw-needs-selection[data-mw-confirm]');
+		for (var b = 0; b < buttons.length; b++) {
+			var text = question(buttons[b].closest('[data-mw-scope]') || root);
+			if (text !== '') { buttons[b].setAttribute('data-mw-confirm', text); }
+		}
+	}
+
 	var modeInputs = root.querySelectorAll('input[name="mode"], input[name="no_original"]');
 	for (var i = 0; i < modeInputs.length; i++) {
 		modeInputs[i].addEventListener('change', updateAll);
 	}
 	// Ticks change through the rows and through the toggles of
 	// malwatch_selection.htm, which announces both as mw-selection.
-	root.addEventListener('mw-selection', updateAll);
+	root.addEventListener('mw-selection', function () {
+		updateAll();
+		updateQuestions();
+	});
 
 	updateAll();
+	updateQuestions();
 })();
 </script>
 

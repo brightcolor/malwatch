@@ -2,6 +2,16 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.16.3] – 2026-09-14
+
+### Geändert
+
+**Die Rückfrage der Reparatur nennt, was angehakt ist.** „Reparatur starten“
+zählt im Dialog nur die angehakten Arten mit ihrer Anzahl auf, etwa „Kern und
+3 Plugins durch die Originale ersetzen?“. Im Kopf eines Ordners zählt der
+Ordner, beim Knopf unten die ganze Seite. Der Satz zu Elementen ohne Original
+steht nur dabei, wenn so ein Element angehakt ist.
+
 ## [0.16.2] – 2026-09-14
 
 ### Behoben

@@ -58,7 +58,23 @@ $wb['hint_select_folder_txt'] = 'Bitte zuerst Elemente in diesem Ordner anhaken.
 
 $wb['btn_dry_run_txt'] = 'Probelauf — nur zeigen, was geschähe';
 $wb['btn_start_txt'] = 'Reparatur starten';
-$wb['confirm_start_txt'] = 'Kern, Plugins und Themes durch die Originale ersetzen? Die Website wird dafür kurz abgeschaltet, alles Ersetzte wird vorher gesichert, und Elemente ohne Original werden nach Ihrer Auswahl oben behandelt.';
+$wb['confirm_start_txt'] = 'Die angehakten Elemente durch die Originale ersetzen? Die Website ist während der Reparatur abgeschaltet, alles Ersetzte wird vorher gesichert, und Elemente ohne Original werden nach Ihrer Auswahl oben behandelt.';
+// Die Rückfrage setzt das Skript der Seite aus den angehakten Elementen im
+// Bereich des Knopfs zusammen. {list} ist die Aufzählung mit Anzahl, {n} die
+// Anzahl einer Art, {a}, {b} und {c} sind die Teile der Aufzählung.
+// confirm_start_txt steht im Knopf, bis das Skript läuft.
+$wb['confirm_replace_txt'] = '{list} durch die Originale ersetzen?';
+$wb['confirm_replace_one_txt'] = '{list} durch das Original ersetzen?';
+$wb['confirm_core_one_txt'] = 'Kern';
+$wb['confirm_core_many_txt'] = '{n} Kerne';
+$wb['confirm_plugin_one_txt'] = '1 Plugin';
+$wb['confirm_plugin_many_txt'] = '{n} Plugins';
+$wb['confirm_theme_one_txt'] = '1 Theme';
+$wb['confirm_theme_many_txt'] = '{n} Themes';
+$wb['confirm_list_two_txt'] = '{a} und {b}';
+$wb['confirm_list_three_txt'] = '{a}, {b} und {c}';
+$wb['confirm_safety_txt'] = 'Die Website ist während der Reparatur abgeschaltet, alles Ersetzte wird vorher gesichert.';
+$wb['confirm_no_original_txt'] = 'Elemente ohne Original werden nach Ihrer Auswahl oben behandelt.';
 
 $wb['msg_repair_txt'] = 'Die Wiederherstellung wurde eingeplant. Die Website ist währenddessen abgeschaltet.';
 $wb['msg_repair_dry_txt'] = 'Der Probelauf wurde eingeplant. Es wird nichts geändert.';

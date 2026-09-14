@@ -192,7 +192,10 @@ $app->tpl->setVar($wb);
 // attributes, and a straight double quote would end the attribute. See
 // malwatch_attr_texts().
 $app->tpl->setVar(malwatch_attr_texts($wb, array('btn_start_txt', 'confirm_start_txt',
-	'hint_select_txt', 'hint_select_folder_txt')));
+	'hint_select_txt', 'hint_select_folder_txt',
+	'confirm_replace_txt', 'confirm_replace_one_txt', 'confirm_core_one_txt', 'confirm_core_many_txt',
+	'confirm_plugin_one_txt', 'confirm_plugin_many_txt', 'confirm_theme_one_txt', 'confirm_theme_many_txt',
+	'confirm_list_two_txt', 'confirm_list_three_txt', 'confirm_safety_txt', 'confirm_no_original_txt')));
 
 $app->tpl->setVar('domain_id', $domain_id);
 $app->tpl->setVar('domain', $app->functions->htmlentities($web['domain']));
