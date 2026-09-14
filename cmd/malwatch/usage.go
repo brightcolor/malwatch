@@ -137,6 +137,24 @@ Quarantäne verwalten (quarantine):
                            die Standardausgabe (die ZIP-Datei bei export
                            bleibt --zip, unabhängig von --out)
 
+Website packen (dump):
+  malwatch dump --path=… --archive=… [--logs=…] [--db=… …] [Optionen]
+
+  --path=PFAD              Webverzeichnis der Website
+  --archive=DATEI          Zieldatei, ein tar.gz
+  --logs=PFAD              Protokollverzeichnis, kommt als protokolle/ dazu
+  --db=NAME                Datenbank, mehrfach angebbar, landet als
+                           datenbanken/NAME.sql im Archiv
+  --db-defaults=DATEI      Zugangsdaten für mysqldump; ohne sie arbeitet es
+                           als der Benutzer des Laufs über den Socket
+  --min-free=BYTES         zusätzlicher freier Platz, den der Lauf stehen
+                           lässt (zu der eigenen Schätzung plus einem Zehntel)
+  --progress=DATEI         laufender Zustand als JSON, für die Oberfläche
+  --expect=ZAHL            erwartete Dateizahl, Nenner des Fortschritts
+  --json                   Bericht als JSON ausgeben
+  --out=DATEI              Bericht in eine Datei schreiben (das Archiv bleibt
+                           --archive, unabhängig von --out)
+
 Regelkatalog ausgeben (rules):
   --json                   Katalog als JSON ausgeben (derzeit erforderlich)
   --out=DATEI              Katalog in eine Datei schreiben statt auf die

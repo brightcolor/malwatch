@@ -62,7 +62,10 @@ type Options struct {
 	// MinFree is space the run leaves untouched on top of its own estimate,
 	// for example the size the panel knows the databases will add.
 	MinFree int64
-	Dumper  Dumper
+	// Expect is the file count the caller knows from the last scan of this
+	// website; it is the denominator the panel shows while the run packs.
+	Expect int
+	Dumper Dumper
 	// Free measures the free space; nil means FreeSpace. A test puts its own
 	// in, so the gate answers the same on every machine.
 	Free     func(path string) (int64, error)
@@ -171,13 +174,13 @@ func pack(tw *tar.Writer, opts Options, rep *Report) (string, error) {
 	}
 
 	step(opts.Progress, 1, phases, "Dateien")
-	if err := packTree(tw, opts.WebRoot, prefixWeb, rep, opts.Progress); err != nil {
+	if err := packTree(tw, opts.WebRoot, prefixWeb, rep, opts.Progress, opts.Expect); err != nil {
 		return "files", err
 	}
 
 	if opts.LogRoot != "" {
 		step(opts.Progress, 2, phases, "Protokolle")
-		if err := packTree(tw, opts.LogRoot, prefixLogs, rep, opts.Progress); err != nil {
+		if err := packTree(tw, opts.LogRoot, prefixLogs, rep, opts.Progress, opts.Expect); err != nil {
 			return "files", err
 		}
 	}
@@ -198,8 +201,10 @@ func pack(tw *tar.Writer, opts Options, rep *Report) (string, error) {
 	return "", nil
 }
 
-// packTree walks one directory into the archive under prefix.
-func packTree(tw *tar.Writer, root, prefix string, rep *Report, pw *progress.Writer) error {
+// packTree walks one directory into the archive under prefix. expect is the
+// file count the caller knows from the last scan, as the denominator the
+// panel shows; 0 lets the counter run without one.
+func packTree(tw *tar.Writer, root, prefix string, rep *Report, pw *progress.Writer, expect int) error {
 	return filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -237,7 +242,7 @@ func packTree(tw *tar.Writer, root, prefix string, rep *Report, pw *progress.Wri
 		rep.Files++
 		rep.Bytes += info.Size()
 		if pw != nil {
-			pw.File(name, rep.Files, 0)
+			pw.File(name, rep.Files, expect)
 		}
 		in, err := os.Open(path)
 		if err != nil {

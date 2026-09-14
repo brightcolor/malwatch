@@ -25,6 +25,8 @@ func run(args []string) int {
 		return cmdUpgrade(args[1:])
 	case "quarantine":
 		return cmdQuarantine(args[1:])
+	case "dump":
+		return cmdDump(args[1:])
 	case "update":
 		return cmdUpdate(args[1:])
 	case "rules":
