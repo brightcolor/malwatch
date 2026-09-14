@@ -59,6 +59,7 @@ class malwatch_ingest
 
 		$new_findings = $this->store_findings($job, $report, $scan_id, $sys_groupid);
 		$this->store_software($job, $report, $scan_id, $sys_groupid);
+		$this->store_php_version($job, $report);
 
 		$app->dbmaster->query('UPDATE malwatch_scan SET new_findings = ? WHERE scan_id = ?',
 			$new_findings, $scan_id);
@@ -113,6 +114,7 @@ class malwatch_ingest
 		// The rows keep pointing at the last real scan of the website.
 		$scan_id = is_array($site) ? intval($site['last_scan_id']) : 0;
 		$this->store_software($job, $report, $scan_id, $sys_groupid);
+		$this->store_php_version($job, $report);
 		$this->apply_vulncheck_state($job, $site);
 
 		$software = isset($report['software']) && is_array($report['software']) ? $report['software'] : array();
@@ -1034,6 +1036,9 @@ class malwatch_ingest
 
 			$version = (string) $entry['version'];
 			$latest = (string) (isset($entry['latest']) ? $entry['latest'] : '');
+			$requires_wp = substr((string) (isset($entry['latest_requires_wp']) ? $entry['latest_requires_wp'] : ''), 0, 32);
+			$requires_php = substr((string) (isset($entry['latest_requires_php']) ? $entry['latest_requires_php'] : ''), 0, 32);
+			$in_branch = substr((string) (isset($entry['latest_in_branch']) ? $entry['latest_in_branch'] : ''), 0, 64);
 
 			// vulnerabilities_checked is missing from a report of a scanner
 			// before 0.13.0 and false for a run with the lookup switched off.
@@ -1063,15 +1068,19 @@ class malwatch_ingest
 					// checked in this run. The pages say so next to it.
 					$app->dbmaster->query(
 						'UPDATE malwatch_software SET scan_id = ?, installed_version = ?, latest_version = ?, '
+						. 'latest_requires_wp = ?, latest_requires_php = ?, latest_in_branch = ?, '
 						. "outdated = ?, version_unknown = ?, vuln_unchecked = 'y', last_seen = ? WHERE software_id = ?",
-						$scan_id, $version, $latest, $outdated, $unknown, $now, intval($existing['software_id']));
+						$scan_id, $version, $latest, $requires_wp, $requires_php, $in_branch,
+						$outdated, $unknown, $now, intval($existing['software_id']));
 					continue;
 				}
 				$app->dbmaster->query(
 					'UPDATE malwatch_software SET scan_id = ?, installed_version = ?, latest_version = ?, '
+					. 'latest_requires_wp = ?, latest_requires_php = ?, latest_in_branch = ?, '
 					. 'outdated = ?, version_unknown = ?, vuln_count = ?, vuln_nofix = ?, vuln_severity = ?, '
 					. 'vuln_fixed_in = ?, vuln_unchecked = ?, vulns = ?, last_seen = ? WHERE software_id = ?',
-					$scan_id, $version, $latest, $outdated, $unknown, $vuln_count, $vuln_nofix, $vuln_severity,
+					$scan_id, $version, $latest, $requires_wp, $requires_php, $in_branch,
+					$outdated, $unknown, $vuln_count, $vuln_nofix, $vuln_severity,
 					$vuln_fixed_in, $vuln_checked ? 'n' : 'y', $vuln_json, $now, intval($existing['software_id']));
 				continue;
 			}
@@ -1079,12 +1088,13 @@ class malwatch_ingest
 			$app->dbmaster->query(
 				'INSERT INTO malwatch_software (sys_userid, sys_groupid, sys_perm_user, sys_perm_group, sys_perm_other, '
 				. 'server_id, parent_domain_id, domain, scan_id, install_path, path_hash, product, software_kind, slug, '
-				. 'installed_version, latest_version, outdated, version_unknown, vuln_count, vuln_nofix, vuln_severity, '
+				. 'installed_version, latest_version, latest_requires_wp, latest_requires_php, latest_in_branch, '
+				. 'outdated, version_unknown, vuln_count, vuln_nofix, vuln_severity, '
 				. 'vuln_fixed_in, vuln_unchecked, vulns, last_seen) '
-				. "VALUES (1, ?, 'riud', 'r', '', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+				. "VALUES (1, ?, 'riud', 'r', '', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 				$sys_groupid, intval($conf['server_id']), $domain_id, (string) $job['domain'], $scan_id,
 				substr($path, 0, 1024), $hash, substr((string) $entry['product'], 0, 64), substr($kind, 0, 16),
-				substr($slug, 0, 128), $version, $latest, $outdated, $unknown,
+				substr($slug, 0, 128), $version, $latest, $requires_wp, $requires_php, $in_branch, $outdated, $unknown,
 				$vuln_count, $vuln_nofix, $vuln_severity, $vuln_fixed_in, $vuln_checked ? 'n' : 'y', $vuln_json, $now);
 		}
 
@@ -1136,6 +1146,23 @@ class malwatch_ingest
 		}
 		$json = json_encode($out, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
 		return $json === false ? '[]' : $json;
+	}
+
+	/**
+	 * Keeps the PHP version the scanner read for the website. A report without
+	 * one leaves the stored value where it is: a runner before this version
+	 * passes no --php.
+	 */
+	private function store_php_version($job, $report)
+	{
+		global $app;
+
+		$php = isset($report['php_version']) ? (string) $report['php_version'] : '';
+		if (!preg_match('/^\d+\.\d+(\.\d+)?$/', $php)) {
+			return;
+		}
+		$app->dbmaster->query('UPDATE malwatch_site SET php_version = ? WHERE parent_domain_id = ?',
+			$php, intval($job['parent_domain_id']));
 	}
 
 	/** Converts an RFC 3339 timestamp into a MySQL datetime. */
