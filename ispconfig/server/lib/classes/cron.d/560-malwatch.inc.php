@@ -86,6 +86,13 @@ class cronjob_malwatch extends cronjob
 				$this->finish_repair($job, $repair_id);
 				continue;
 			}
+			if ($kind === 'upgrade') {
+				$upgrade_id = $app->malwatch_ingest->ingest_upgrade($job);
+				$app->malwatch_runner->clear_marker($job);
+				@unlink(preg_replace('/\.json$/', '.plan.json', (string) $job['result_file']));
+				$this->finish_upgrade($job, $upgrade_id);
+				continue;
+			}
 			if ($kind === 'quarantine') {
 				$app->malwatch_ingest->ingest_quarantine($job);
 				$app->malwatch_runner->clear_marker($job);
@@ -151,6 +158,35 @@ class cronjob_malwatch extends cronjob
 			$this->create_job(is_array($site) ? $site : array('parent_domain_id' => $job['parent_domain_id']),
 				$web, 'schedule');
 		}
+	}
+
+	/**
+	 * After an upgrade: the notifications about whatever came back or failed,
+	 * and a check of the website, so versions, flaws and state describe what
+	 * is installed now. A dry run changed nothing and needs neither.
+	 */
+	private function finish_upgrade($job, $upgrade_id)
+	{
+		global $app;
+
+		$options = json_decode((string) $job['options'], true);
+		if (is_array($options) && !empty($options['dry_run'])) {
+			return;
+		}
+
+		// A missing report is a run nobody can vouch for: notify_upgrade()
+		// tells the operator with upgrade_id 0 as well.
+		$app->malwatch_actions->notify_upgrade($job, $upgrade_id);
+
+		$web = $app->malwatch_helper->get_web($job['parent_domain_id']);
+		if (!is_array($web)) {
+			return;
+		}
+		$site = $app->malwatch_helper->get_site($job['parent_domain_id']);
+		if (!is_array($site)) {
+			$site = array('excludes' => '', 'max_age' => 0, 'version_scan' => 'y');
+		}
+		$this->create_job($site, $web, 'schedule', 'vulncheck');
 	}
 
 	/** Creates jobs for websites whose schedule has come round. */

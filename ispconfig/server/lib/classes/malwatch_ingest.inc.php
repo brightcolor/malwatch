@@ -15,7 +15,7 @@ class malwatch_ingest
 	 * allowed - check 38 in tests/check_wiring.sh compares the two.
 	 */
 	private static $entry_kinds = array('file', 'dir');
-	private static $origins = array('manual', 'auto', 'repair');
+	private static $origins = array('manual', 'auto', 'repair', 'upgrade');
 
 	/**
 	 * Ingests the result of one job. Returns the scan id, or 0 on failure.
@@ -323,6 +323,154 @@ class malwatch_ingest
 			"UPDATE malwatch_job SET job_status = 'done', finished_at = NOW() WHERE job_id = ?",
 			intval($job['job_id']));
 		return $repair_id;
+	}
+
+	/**
+	 * Reads the report of an upgrade into malwatch_upgrade and its elements,
+	 * brings malwatch_software to the new versions and indexes what the run
+	 * filed into quarantine.
+	 *
+	 * Returns the upgrade_id, or 0 when there was no readable report.
+	 */
+	public function ingest_upgrade($job)
+	{
+		global $app;
+
+		$app->uses('malwatch_helper');
+		$helper = $app->malwatch_helper;
+
+		$file = (string) $job['result_file'];
+		$report = is_file($file) ? json_decode((string) file_get_contents($file), true) : null;
+		if (!is_array($report) || !isset($report['schema'])) {
+			$helper->fail_job($job['job_id'], 'Das Update hat keinen lesbaren Bericht hinterlassen. '
+				. $this->tail_log($job));
+			return 0;
+		}
+		if (intval($report['schema']) !== self::SCHEMA) {
+			$helper->fail_job($job['job_id'], 'Der Bericht hat Format ' . intval($report['schema'])
+				. ', erwartet wird ' . self::SCHEMA . '. Bitte Erweiterung und Scanner auf denselben Stand bringen.');
+			return 0;
+		}
+
+		$web = $helper->get_web($job['parent_domain_id']);
+		$sys_groupid = is_array($web) ? intval($web['sys_groupid']) : 0;
+		$elements = isset($report['elements']) && is_array($report['elements']) ? $report['elements'] : array();
+		$errors = isset($report['errors']) && is_array($report['errors']) ? $report['errors'] : array();
+		$dry_run = !empty($report['dry_run']);
+
+		$counts = array('updated' => 0, 'refused' => 0, 'rolled_back' => 0, 'failed' => 0);
+		foreach ($elements as $element) {
+			$outcome = (string) (isset($element['outcome']) ? $element['outcome'] : '');
+			if ($outcome === 'updated' || $outcome === 'refused' || $outcome === 'rolled_back') {
+				$counts[$outcome]++;
+			} elseif ($outcome === 'failed' || $outcome === 'rollback_failed') {
+				$counts['failed']++;
+			}
+		}
+
+		$app->dbmaster->query(
+			'INSERT INTO malwatch_upgrade (sys_userid, sys_groupid, sys_perm_user, sys_perm_group, sys_perm_other, '
+			. 'server_id, job_id, parent_domain_id, domain, started_at, finished_at, dry_run, php_version, '
+			. 'count_updated, count_refused, count_rolled_back, count_failed, exit_code, errors, raw_report) '
+			. "VALUES (1, ?, 'riud', 'r', '', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+			$sys_groupid, intval($job['server_id']), intval($job['job_id']), intval($job['parent_domain_id']),
+			(string) $job['domain'],
+			$this->to_datetime(isset($report['started_at']) ? $report['started_at'] : ''),
+			$this->to_datetime(isset($report['finished_at']) ? $report['finished_at'] : ''),
+			$dry_run ? 'y' : 'n',
+			substr((string) (isset($report['php_version']) ? $report['php_version'] : ''), 0, 32),
+			$counts['updated'], $counts['refused'], $counts['rolled_back'], $counts['failed'],
+			intval($job['exit_code']), implode("\n", array_slice($errors, 0, 20)), (string) file_get_contents($file));
+		$upgrade_id = intval($app->dbmaster->insertID());
+
+		foreach ($elements as $element) {
+			$ids = isset($element['quarantine_ids']) && is_array($element['quarantine_ids'])
+				? $element['quarantine_ids'] : array();
+			$app->dbmaster->query(
+				'INSERT INTO malwatch_upgrade_element (sys_userid, sys_groupid, sys_perm_user, sys_perm_group, '
+				. 'sys_perm_other, server_id, upgrade_id, parent_domain_id, install_path, element_kind, slug, '
+				. 'from_version, to_version, outcome, message, quarantine_ids, db_export_id) '
+				. "VALUES (1, ?, 'riud', 'r', '', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+				$sys_groupid, intval($job['server_id']), $upgrade_id, intval($job['parent_domain_id']),
+				substr((string) (isset($element['install']) ? $element['install'] : ''), 0, 1024),
+				substr((string) (isset($element['kind']) ? $element['kind'] : ''), 0, 16),
+				substr((string) (isset($element['slug']) ? $element['slug'] : ''), 0, 190),
+				substr((string) (isset($element['from']) ? $element['from'] : ''), 0, 64),
+				substr((string) (isset($element['to']) ? $element['to'] : ''), 0, 64),
+				substr((string) (isset($element['outcome']) ? $element['outcome'] : ''), 0, 32),
+				mb_substr((string) (isset($element['message']) ? $element['message'] : ''), 0, 255, 'UTF-8'),
+				substr(implode(',', $ids), 0, 1024),
+				substr((string) (isset($element['db_export_id']) ? $element['db_export_id'] : ''), 0, 64));
+
+			// The daily check afterwards confirms it; until then the page shows
+			// the version that is installed now.
+			if (!$dry_run && (string) (isset($element['outcome']) ? $element['outcome'] : '') === 'updated') {
+				$app->dbmaster->query(
+					'UPDATE malwatch_software SET installed_version = ? WHERE parent_domain_id = ? '
+					. 'AND path_hash = ? AND software_kind = ? AND slug = ?',
+					substr((string) $element['to'], 0, 64), intval($job['parent_domain_id']),
+					$helper->path_hash((string) (isset($element['path']) ? $element['path'] : '')),
+					(string) $element['kind'], (string) (isset($element['slug']) ? $element['slug'] : ''));
+			}
+
+			$this->index_upgrade_entries($job, $report, $element, $ids, $sys_groupid);
+		}
+
+		$summary = sprintf('Update: %d aktualisiert, %d abgelehnt, %d zurückgeholt, %d gescheitert.',
+			$counts['updated'], $counts['refused'], $counts['rolled_back'], $counts['failed']);
+		$code = intval($job['exit_code']);
+		if ($code === 0 || $code === 2) {
+			$app->dbmaster->query(
+				"UPDATE malwatch_job SET job_status = 'done', finished_at = NOW(), job_log = ? WHERE job_id = ?",
+				$summary, intval($job['job_id']));
+		} else {
+			$helper->fail_job($job['job_id'], trim($summary . ' ' . implode(' ', array_slice($errors, 0, 3))
+				. ' ' . $this->tail_log($job)));
+		}
+
+		// The report names paths of a customer; it is not kept once it is read.
+		@unlink($file);
+		@unlink(preg_replace('/\.json$/', '.log', $file));
+		return $upgrade_id;
+	}
+
+	/**
+	 * Indexes the quarantine entries of one upgrade element, the way
+	 * ingest_repair does for a repair: complete_quarantine_index() fills in
+	 * size and path from the listing of the store afterwards. A database export
+	 * gets a row of its own.
+	 */
+	private function index_upgrade_entries($job, $report, $element, array $ids, $sys_groupid)
+	{
+		global $app;
+
+		$export = (string) (isset($element['db_export_id']) ? $element['db_export_id'] : '');
+		if ($export !== '') {
+			$ids[] = $export;
+		}
+		$to = (string) (isset($element['to']) ? $element['to'] : '');
+		foreach ($ids as $entry_id) {
+			$entry_id = (string) $entry_id;
+			if ($entry_id === '') {
+				continue;
+			}
+			$existing = $app->dbmaster->queryOneRecord(
+				'SELECT quarantine_id FROM malwatch_quarantine WHERE server_id = ? AND entry_id = ?',
+				intval($job['server_id']), $entry_id);
+			if (is_array($existing)) {
+				continue;
+			}
+			$reason = $entry_id === $export
+				? 'Datenbank vor dem Kern-Update auf ' . $to
+				: 'Vor dem Update auf ' . $to . ' abgelegt';
+			$app->dbmaster->query(
+				'INSERT INTO malwatch_quarantine (sys_userid, sys_groupid, sys_perm_user, sys_perm_group, '
+				. 'sys_perm_other, server_id, parent_domain_id, domain, entry_id, entry_kind, rel_path, '
+				. 'origin, reason, rule_id, severity, files, bytes, created_at) '
+				. "VALUES (1, ?, 'riud', 'r', '', ?, ?, ?, ?, 'file', '', 'upgrade', ?, '', '', 0, 0, ?)",
+				$sys_groupid, intval($job['server_id']), intval($job['parent_domain_id']), (string) $job['domain'],
+				$entry_id, $reason, $this->to_datetime(isset($report['finished_at']) ? $report['finished_at'] : ''));
+		}
 	}
 
 	/**
