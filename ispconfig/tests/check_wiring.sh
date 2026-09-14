@@ -624,6 +624,9 @@ for tpl in "$root"/interface/templates/*.htm "$root"/interface/*.php; do
 	if grep -q 'malwatch_repair_start\.php?domain_id=' "$tpl"; then
 		fail "$(basename "$tpl") verlinkt repair_start mit domain_id=, die Seite liest id="
 	fi
+	if grep -q 'malwatch_upgrade_start\.php?domain_id=' "$tpl"; then
+		fail "$(basename "$tpl") verlinkt upgrade_start mit domain_id=, die Seite liest id="
+	fi
 	if grep -qE 'malwatch_quarantine_download\.php\?(id|domain_id)=' "$tpl"; then
 		fail "$(basename "$tpl") verlinkt quarantine_download mit id=/domain_id=, die Seite liest token="
 	fi
