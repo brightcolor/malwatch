@@ -202,6 +202,24 @@ $form['tabs']['settings'] = array(
 			'width' => '40',
 			'maxlength' => '128'
 		),
+		// The command line of WP-CLI. The runner hands it to malwatch upgrade;
+		// a core update that raises the database needs it. Empty means the
+		// default, /usr/local/bin/wp.
+		'wp_cli_path' => array(
+			'datatype' => 'VARCHAR',
+			'formtype' => 'TEXT',
+			'default' => '/usr/local/bin/wp',
+			'validators' => array(
+				array(
+					'type' => 'REGEX',
+					'regex' => '/^(\/[a-zA-Z0-9\/_.-]{2,250})?$/',
+					'errmsg' => 'wp_cli_path_error_regex'
+				)
+			),
+			'value' => '',
+			'width' => '40',
+			'maxlength' => '255'
+		),
 		// The template does not use the auto-generated widget for either
 		// field below - the "choice card" markup in malwatch_config_edit.htm
 		// is hand-written, because none of tform's stock formtypes render a

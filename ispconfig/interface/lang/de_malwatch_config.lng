@@ -112,3 +112,6 @@ $wb['wpscan_token_error_regex'] = 'Der WPScan-Schlüssel besteht aus Buchstaben,
 
 $wb['btn_save_txt'] = 'Einstellungen speichern';
 $wb['btn_cancel_txt'] = 'Abbrechen';
+$wb['wp_cli_path_txt'] = 'WP-CLI';
+$wb['wp_cli_path_hint_txt'] = 'Pfad zu WP-CLI auf dem Server. Updates exportieren und heben damit die Datenbank an, wenn ein Kern-Update das verlangt. Ein leeres Feld steht für /usr/local/bin/wp.';
+$wb['wp_cli_path_error_regex'] = 'Der Pfad zu WP-CLI muss ein absoluter Pfad sein.';

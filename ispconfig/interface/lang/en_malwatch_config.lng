@@ -111,3 +111,6 @@ $wb['wpscan_token_error_regex'] = 'The WPScan token consists of letters, digits,
 
 $wb['btn_save_txt'] = 'Save settings';
 $wb['btn_cancel_txt'] = 'Cancel';
+$wb['wp_cli_path_txt'] = 'WP-CLI';
+$wb['wp_cli_path_hint_txt'] = 'Path to WP-CLI on the server. Updates use it to export and raise the database when a core update asks for it. An empty field stands for /usr/local/bin/wp.';
+$wb['wp_cli_path_error_regex'] = 'The path to WP-CLI must be an absolute path.';
