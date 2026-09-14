@@ -1,0 +1,115 @@
+<!--
+	Selecting rows that are grouped by folder, shared by the pages "Updates"
+	and "Reparatur". A template includes it once, at its end.
+
+	The page element carries data-mw-selection, every row checkbox the class
+	mw-pick, and every folder data-mw-scope. Inside a folder the controls act
+	on that folder, outside every folder on the whole page:
+	- a checkbox with data-mw-toggle ticks every row or none and shows which
+	- a button with data-mw-invert inverts the ticks
+	- a button with the class mw-needs-selection is greyed out while nothing
+	  is ticked
+	- an element with data-mw-count shows data-template with {n} filled in,
+	  or data-none while nothing is ticked
+	After every change the page element receives the event mw-selection.
+-->
+<style>
+.mw-selectbar{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center}
+.mw-selectbar label{display:inline-flex;gap:6px;align-items:center;margin:0;font-weight:400;cursor:pointer}
+.mw-selectbar input[type=checkbox]{margin:0}
+.mw-invert{padding:0;border:0;background:none;color:inherit;font:inherit;text-decoration:underline;text-underline-offset:2px;cursor:pointer}
+.mw-invert:focus-visible{outline:2px solid var(--cic-accent,#dd630d);outline-offset:2px}
+</style>
+
+<script>
+(function () {
+	var roots = document.querySelectorAll('[data-mw-selection]');
+	for (var r = 0; r < roots.length; r++) {
+		setUp(roots[r]);
+	}
+
+	function setUp(root) {
+		if (root.getAttribute('data-mw-selection-ready') === '1') { return; }
+		root.setAttribute('data-mw-selection-ready', '1');
+
+		function scopeOf(el) {
+			var scope = el.closest('[data-mw-scope]');
+			return scope && root.contains(scope) ? scope : root;
+		}
+
+		function picks(scope) {
+			return scope.querySelectorAll('.mw-pick');
+		}
+
+		// Counted once per scope for each refresh: a large website has forty
+		// folders and several hundred rows.
+		function counter() {
+			var known = [];
+			return function (scope) {
+				for (var i = 0; i < known.length; i++) {
+					if (known[i].scope === scope) { return known[i]; }
+				}
+				var list = picks(scope);
+				var ticked = 0;
+				for (var j = 0; j < list.length; j++) {
+					if (list[j].checked) { ticked++; }
+				}
+				var state = { scope: scope, all: list.length, ticked: ticked };
+				known.push(state);
+				return state;
+			};
+		}
+
+		function refresh() {
+			var stateOf = counter();
+			var toggles = root.querySelectorAll('[data-mw-toggle]');
+			for (var t = 0; t < toggles.length; t++) {
+				var s = stateOf(scopeOf(toggles[t]));
+				toggles[t].checked = s.all > 0 && s.ticked === s.all;
+				toggles[t].indeterminate = s.ticked > 0 && s.ticked < s.all;
+			}
+			var buttons = root.querySelectorAll('.mw-needs-selection');
+			for (var b = 0; b < buttons.length; b++) {
+				buttons[b].disabled = stateOf(scopeOf(buttons[b])).ticked === 0;
+			}
+			var counts = root.querySelectorAll('[data-mw-count]');
+			for (var c = 0; c < counts.length; c++) {
+				var n = stateOf(scopeOf(counts[c])).ticked;
+				counts[c].textContent = n > 0
+					? (counts[c].getAttribute('data-template') || '').replace('{n}', String(n))
+					: (counts[c].getAttribute('data-none') || '');
+			}
+			var changed = document.createEvent('Event');
+			changed.initEvent('mw-selection', false, false);
+			root.dispatchEvent(changed);
+		}
+
+		function setAll(scope, value) {
+			var list = picks(scope);
+			for (var i = 0; i < list.length; i++) {
+				if (!list[i].disabled) { list[i].checked = value(list[i].checked); }
+			}
+			refresh();
+		}
+
+		root.addEventListener('change', function (event) {
+			var target = event.target;
+			if (target.hasAttribute('data-mw-toggle')) {
+				var on = target.checked;
+				setAll(scopeOf(target), function () { return on; });
+			} else if (target.classList.contains('mw-pick')) {
+				refresh();
+			}
+		});
+
+		root.addEventListener('click', function (event) {
+			var button = event.target.closest ? event.target.closest('[data-mw-invert]') : null;
+			if (!button || !root.contains(button)) { return; }
+			event.preventDefault();
+			setAll(scopeOf(button), function (was) { return !was; });
+		});
+
+		refresh();
+	}
+})();
+</script>

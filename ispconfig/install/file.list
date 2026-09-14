@@ -45,6 +45,9 @@ c:interface/templates/malwatch_quarantine_list.htm:interface/web/security/templa
 c:interface/templates/malwatch_repair_start.htm:interface/web/security/templates/malwatch_repair_start.htm
 c:interface/templates/malwatch_upgrade_start.htm:interface/web/security/templates/malwatch_upgrade_start.htm
 c:interface/templates/malwatch_vuln_list.htm:interface/web/security/templates/malwatch_vuln_list.htm
+# Shared parts, included by the pages above.
+c:interface/templates/malwatch_modal.htm:interface/web/security/templates/malwatch_modal.htm
+c:interface/templates/malwatch_selection.htm:interface/web/security/templates/malwatch_selection.htm
 
 c:interface/lang/de_malwatch.lng:interface/web/security/lib/lang/de_malwatch.lng
 c:interface/lang/en_malwatch.lng:interface/web/security/lib/lang/en_malwatch.lng

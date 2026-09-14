@@ -1187,6 +1187,10 @@ class malwatch_ingest
 			$requires_wp = substr((string) (isset($entry['latest_requires_wp']) ? $entry['latest_requires_wp'] : ''), 0, 32);
 			$requires_php = substr((string) (isset($entry['latest_requires_php']) ? $entry['latest_requires_php'] : ''), 0, 32);
 			$in_branch = substr((string) (isset($entry['latest_in_branch']) ? $entry['latest_in_branch'] : ''), 0, 64);
+			// Every newer release, the target versions of the page "Updates". A
+			// report of a scanner before 0.15.0 names none; the page then offers
+			// the newest and the lowest fixing release, as before.
+			$versions = malwatch_helper::release_list(isset($entry['versions']) ? $entry['versions'] : null);
 
 			// vulnerabilities_checked is missing from a report of a scanner
 			// before 0.13.0 and false for a run with the lookup switched off.
@@ -1216,18 +1220,18 @@ class malwatch_ingest
 					// checked in this run. The pages say so next to it.
 					$app->dbmaster->query(
 						'UPDATE malwatch_software SET scan_id = ?, installed_version = ?, latest_version = ?, '
-						. 'latest_requires_wp = ?, latest_requires_php = ?, latest_in_branch = ?, '
+						. 'latest_requires_wp = ?, latest_requires_php = ?, latest_in_branch = ?, versions = ?, '
 						. "outdated = ?, version_unknown = ?, vuln_unchecked = 'y', last_seen = ? WHERE software_id = ?",
-						$scan_id, $version, $latest, $requires_wp, $requires_php, $in_branch,
+						$scan_id, $version, $latest, $requires_wp, $requires_php, $in_branch, $versions,
 						$outdated, $unknown, $now, intval($existing['software_id']));
 					continue;
 				}
 				$app->dbmaster->query(
 					'UPDATE malwatch_software SET scan_id = ?, installed_version = ?, latest_version = ?, '
-					. 'latest_requires_wp = ?, latest_requires_php = ?, latest_in_branch = ?, '
+					. 'latest_requires_wp = ?, latest_requires_php = ?, latest_in_branch = ?, versions = ?, '
 					. 'outdated = ?, version_unknown = ?, vuln_count = ?, vuln_nofix = ?, vuln_severity = ?, '
 					. 'vuln_fixed_in = ?, vuln_unchecked = ?, vulns = ?, last_seen = ? WHERE software_id = ?',
-					$scan_id, $version, $latest, $requires_wp, $requires_php, $in_branch,
+					$scan_id, $version, $latest, $requires_wp, $requires_php, $in_branch, $versions,
 					$outdated, $unknown, $vuln_count, $vuln_nofix, $vuln_severity,
 					$vuln_fixed_in, $vuln_checked ? 'n' : 'y', $vuln_json, $now, intval($existing['software_id']));
 				continue;
@@ -1236,13 +1240,14 @@ class malwatch_ingest
 			$app->dbmaster->query(
 				'INSERT INTO malwatch_software (sys_userid, sys_groupid, sys_perm_user, sys_perm_group, sys_perm_other, '
 				. 'server_id, parent_domain_id, domain, scan_id, install_path, path_hash, product, software_kind, slug, '
-				. 'installed_version, latest_version, latest_requires_wp, latest_requires_php, latest_in_branch, '
+				. 'installed_version, latest_version, latest_requires_wp, latest_requires_php, latest_in_branch, versions, '
 				. 'outdated, version_unknown, vuln_count, vuln_nofix, vuln_severity, '
 				. 'vuln_fixed_in, vuln_unchecked, vulns, last_seen) '
-				. "VALUES (1, ?, 'riud', 'r', '', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+				. "VALUES (1, ?, 'riud', 'r', '', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 				$sys_groupid, intval($conf['server_id']), $domain_id, (string) $job['domain'], $scan_id,
 				substr($path, 0, 1024), $hash, substr((string) $entry['product'], 0, 64), substr($kind, 0, 16),
-				substr($slug, 0, 128), $version, $latest, $requires_wp, $requires_php, $in_branch, $outdated, $unknown,
+				substr($slug, 0, 128), $version, $latest, $requires_wp, $requires_php, $in_branch, $versions,
+				$outdated, $unknown,
 				$vuln_count, $vuln_nofix, $vuln_severity, $vuln_fixed_in, $vuln_checked ? 'n' : 'y', $vuln_json, $now);
 		}
 

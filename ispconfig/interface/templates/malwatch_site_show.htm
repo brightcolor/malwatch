@@ -210,21 +210,25 @@
 	</tmpl_if>
 	<tmpl_if name="has_findings">
 	<button class="btn btn-danger formbutton-default" type="button"
-		onclick="if(!confirm('{tmpl_var name='confirm_delete_all_txt'}')){event.stopPropagation();return false;} document.getElementById('malwatch_action').value='delete_all';"
+		data-mw-confirm="{tmpl_var name='confirm_delete_all_txt'}" data-mw-title="{tmpl_var name='delete_all_txt'}"
+		data-mw-ok="{tmpl_var name='delete_one_txt'}" data-mw-danger="1"
+		data-mw-set-malwatch_action="delete_all"
 		data-submit-form="pageForm" data-form-action="security/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='delete_all_txt'}</button>
 	</tmpl_if>
 	<span class="mw-sep"></span>
 	<a class="btn btn-default formbutton-default" href="#" data-load-content="security/malwatch_site_edit.php?domain_id={tmpl_var name='domain_id'}">{tmpl_var name='settings_txt'}</a>
 	<tmpl_unless name="site_active">
 		<button class="btn btn-default formbutton-success" type="button"
-			onclick="if(!confirm('{tmpl_var name='confirm_enable_txt'}')){event.stopPropagation();return false;} document.getElementById('malwatch_action').value='enable_site';"
+			data-mw-confirm="{tmpl_var name='confirm_enable_txt'}" data-mw-title="{tmpl_var name='enable_site_txt'}"
+			data-mw-ok="{tmpl_var name='enable_site_txt'}"
+			data-mw-set-malwatch_action="enable_site"
 			data-submit-form="pageForm" data-form-action="security/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='enable_site_txt'}</button>
 	</tmpl_unless>
 </div>
 
 <tmpl_if name="has_quarantine">
 <p class="mw-quarantine-hint"><small class="text-muted">{tmpl_var name='quarantine_hint'}</small>
-	<a href="#" data-load-content="security/malwatch_quarantine_list.php">{tmpl_var name='quarantine_hint_link_txt'}</a></p>
+	<a href="#" data-load-content="security/malwatch_quarantine_list.php?site={tmpl_var name='domain_id'}">{tmpl_var name='quarantine_hint_link_txt'}</a></p>
 </tmpl_if>
 
 <tmpl_if name="running_job_id">
@@ -473,14 +477,16 @@
 				<div class="mw-facts">
 				<tmpl_if name="is_ignored">
 					<button class="btn btn-default formbutton-default formbutton-narrow" type="button"
-						onclick="document.getElementById('malwatch_action').value='reopen';document.getElementById('malwatch_finding_id').value='{tmpl_var name='full_path'}';"
+						data-mw-set-malwatch_action="reopen" data-mw-set-malwatch_finding_id="{tmpl_var name='full_path'}"
 						data-submit-form="pageForm" data-form-action="security/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='reopen_txt'}</button>
 				<tmpl_else>
 					<button class="btn btn-default formbutton-default formbutton-narrow" type="button"
-						onclick="document.getElementById('malwatch_action').value='ignore';document.getElementById('malwatch_finding_id').value='{tmpl_var name='full_path'}';"
+						data-mw-set-malwatch_action="ignore" data-mw-set-malwatch_finding_id="{tmpl_var name='full_path'}"
 						data-submit-form="pageForm" data-form-action="security/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='ignore_txt'}</button>
 					<button class="btn btn-danger btn-xs" type="button"
-						onclick="if(!confirm('{tmpl_var name='confirm_delete_one_txt'}')){event.stopPropagation();return false;} document.getElementById('malwatch_action').value='delete_one';document.getElementById('malwatch_finding_id').value='{tmpl_var name='full_path'}';"
+						data-mw-confirm="{tmpl_var name='confirm_delete_one_txt'}" data-mw-title="{tmpl_var name='delete_one_txt'}"
+						data-mw-detail="{tmpl_var name='full_path'}" data-mw-ok="{tmpl_var name='delete_one_txt'}" data-mw-danger="1"
+						data-mw-set-malwatch_action="delete_one" data-mw-set-malwatch_finding_id="{tmpl_var name='full_path'}"
 						data-submit-form="pageForm" data-form-action="security/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='delete_one_txt'}</button>
 				</tmpl_if>
 				</div>
@@ -673,3 +679,5 @@
 </div></div>
 
 </div>
+
+<tmpl_include file="templates/malwatch_modal.htm">

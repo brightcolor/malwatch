@@ -2,8 +2,9 @@
 
 /**
  * The page "Updates" of one website: every WordPress core, plugin and theme
- * with a newer release at wordpress.org, a target version per row, a dry run
- * and the start.
+ * with a newer release at wordpress.org, grouped by the folder of its
+ * installation, a target version per row, a dry run and the start - for every
+ * folder at once or for one.
  *
  * Reached as malwatch_upgrade_start.php?id=<domain_id>, optionally with
  * &software_id=<id> to preselect one row. id=, the name malwatch_site_show.php
@@ -56,8 +57,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 				$choices[$software_id] = (string) $versions[$software_id];
 			}
 		}
+		// The buttons of a folder name it; the buttons below every folder
+		// leave it empty.
+		$folder = isset($_POST['folder']) ? (string) $_POST['folder'] : '';
 		// malwatch_queue_upgrade() accepts only versions this page offers.
-		$result = malwatch_queue_upgrade($app, $domain_id, $choices, $action === 'upgrade_dry', $wb);
+		$result = malwatch_queue_upgrade($app, $domain_id, $choices, $action === 'upgrade_dry', $wb, $folder);
 		if (is_int($result)) {
 			$message = sprintf($action === 'upgrade_dry' ? $wb['msg_dry_txt'] : $wb['msg_queued_txt'], $result);
 		} else {
@@ -68,40 +72,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // --- Rows --------------------------------------------------------------------
 list($installs, $hidden) = malwatch_upgrade_candidates($app, $domain_id, $wb);
-$scan_base = rtrim(malwatch_scan_path($web), '/');
-$labels = array('latest' => $wb['offer_latest_txt'], 'minimal' => $wb['offer_minimal_txt']);
+$scan_base = malwatch_scan_path($web);
 
 $blocks = array();
 $selected_count = 0;
 $row_count = 0;
 foreach ($installs as $install) {
 	$rows = array();
+	$block_count = 0;
 	foreach ($install['rows'] as $row) {
 		// The options go out as one escaped string: the template loops over
 		// installations and rows already, and every value in it is escaped
 		// here.
 		$options_html = '';
-		$default = '';
 		$default_closes = '';
-		foreach ($labels as $which => $label) {
-			$offer = $row['offers'][$which];
-			if ($offer === null) {
-				continue;
+		foreach ($row['offers']['choices'] as $choice) {
+			$is_default = $choice['version'] === $row['offers']['default'];
+			if ($is_default) {
+				$default_closes = $choice['closes'];
 			}
-			if ($default === '') {
-				$default = $offer['version'];
-				$default_closes = $offer['closes'];
-			}
-			$options_html .= '<option value="' . $app->functions->htmlentities($offer['version']) . '"'
-				. ' data-closes="' . $app->functions->htmlentities($offer['closes']) . '"'
-				. ($default === $offer['version'] ? ' selected' : '') . '>'
-				. $app->functions->htmlentities($offer['version'] . ' · ' . $label) . '</option>';
+			$label = $choice['mark'] !== '' ? $choice['version'] . ' · ' . $choice['mark'] : $choice['version'];
+			$options_html .= '<option value="' . $app->functions->htmlentities($choice['version']) . '"'
+				. ' data-closes="' . $app->functions->htmlentities($choice['closes']) . '"'
+				. ($is_default ? ' selected' : '') . '>'
+				. $app->functions->htmlentities($label) . '</option>';
 		}
 
-		$can_update = $default !== '';
+		$can_update = count($row['offers']['choices']) > 0;
 		$checked = malwatch_upgrade_checked($row, $can_update, $preselect);
 		if ($can_update) {
 			$row_count++;
+			$block_count++;
 		}
 		if ($checked) {
 			$selected_count++;
@@ -125,10 +126,19 @@ foreach ($installs as $install) {
 			'note' => $app->functions->htmlentities($note),
 		);
 	}
-	$rel = trim((string) substr($install['path'], strlen($scan_base)), '/');
+	// The folder names the installation for the buttons of this block; an
+	// installation outside the scan path has none, and its block only
+	// takes part in the buttons below every folder.
+	$folder = malwatch_install_folder($install['path'], $scan_base);
+	$rel = trim((string) substr($install['path'], strlen(rtrim($scan_base, '/'))), '/');
 	$blocks[] = array(
-		'install_label' => $app->functions->htmlentities($rel === '' ? $wb['install_root_txt'] : '/' . $rel),
+		'install_label' => $app->functions->htmlentities($folder === '.' || $rel === '' ? $wb['install_root_txt'] : '/' . $rel),
 		'core_version' => $app->functions->htmlentities($install['core_version']),
+		'folder' => $app->functions->htmlentities($folder),
+		'has_folder' => $folder !== '' ? 1 : 0,
+		'has_updatable' => $block_count > 0 ? 1 : 0,
+		'folder_template' => $app->functions->htmlentities(
+			sprintf($wb['selected_template_txt'], number_format($block_count, 0, ',', '.'))),
 		'rows' => $rows,
 	);
 }
@@ -138,12 +148,8 @@ $app->tpl->newTemplate('form.tpl.htm');
 $app->tpl->setInclude('content_tpl', 'templates/malwatch_upgrade_start.htm');
 $app->tpl->setVar($wb);
 
-// Both end up inside alert('…') and confirm('…') in an onclick attribute.
-foreach (array('err_no_selection_txt', 'confirm_start_txt') as $js_key) {
-	if (isset($wb[$js_key])) {
-		$app->tpl->setVar($js_key, malwatch_js_text($app, $wb[$js_key]));
-	}
-}
+// The dialog reads both from data-mw-* attributes; see malwatch_attr_texts().
+$app->tpl->setVar(malwatch_attr_texts($wb, array('btn_start_txt', 'confirm_start_txt')));
 
 $app->tpl->setVar('domain_id', $domain_id);
 $app->tpl->setVar('back_label', sprintf($wb['back_txt'], $app->functions->htmlentities($web['domain'])));
@@ -153,10 +159,14 @@ $app->tpl->setVar('has_hidden', $hidden > 0 ? 1 : 0);
 $app->tpl->setVar('hidden_line', $app->functions->htmlentities(
 	sprintf($wb['hidden_txt'], number_format($hidden, 0, ',', '.'))));
 
+// A button stays greyed out while nothing in its reach is ticked, and the
+// counters then say what to do; malwatch_selection.htm keeps both current.
 $selected_template = sprintf($wb['selected_template_txt'], number_format($row_count, 0, ',', '.'));
 $app->tpl->setVar('selected_template', $app->functions->htmlentities($selected_template));
-$app->tpl->setVar('selected_line',
-	$app->functions->htmlentities(str_replace('{n}', (string) $selected_count, $selected_template)));
+$app->tpl->setVar('selected_none', $app->functions->htmlentities($wb['selected_none_txt']));
+$app->tpl->setVar('selected_line', $app->functions->htmlentities($selected_count > 0
+	? str_replace('{n}', (string) $selected_count, $selected_template) : $wb['selected_none_txt']));
+$app->tpl->setVar('none_selected', $selected_count > 0 ? 0 : 1);
 
 $app->tpl->setVar('message', $app->functions->htmlentities($message));
 $app->tpl->setVar('error', $app->functions->htmlentities($error));

@@ -256,6 +256,28 @@ class malwatch_helper
 	}
 
 	/**
+	 * The target versions a report lists for one element, as JSON for
+	 * malwatch_software.versions: plain release numbers of at most 32
+	 * characters, at most 500 of them. '' when there are none.
+	 */
+	public static function release_list($versions)
+	{
+		if (!is_array($versions)) {
+			return '';
+		}
+		$kept = array();
+		foreach ($versions as $version) {
+			if (is_string($version) && strlen($version) <= 32 && preg_match('/^[0-9]+(\.[0-9]+)*$/', $version)) {
+				$kept[] = $version;
+				if (count($kept) === 500) {
+					break;
+				}
+			}
+		}
+		return count($kept) > 0 ? json_encode($kept) : '';
+	}
+
+	/**
 	 * How long an upgrade waits after an exchange before it checks the site.
 	 *
 	 * PHP keeps running the compiled old files until OPcache looks at them

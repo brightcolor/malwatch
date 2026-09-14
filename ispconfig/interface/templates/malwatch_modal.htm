@@ -1,0 +1,170 @@
+<!--
+	The dialog that asks before an action, shared by the Security pages. A
+	template includes it once, at its end.
+
+	A button asks when it carries its question in data-mw-confirm, next to
+	data-mw-title, data-mw-ok and, where it helps, data-mw-detail (one line in
+	monospace, such as a path) and data-mw-danger (a red confirm button).
+	data-mw-set-ID="value" writes the value into the field with that id before
+	the panel posts the form, on buttons with and without a question. A value
+	in an attribute reaches the page as text; the browser never runs it.
+
+	The page escapes the language lines it puts there (malwatch_attr_texts());
+	the cancel label comes from its own language file (btn_cancel_txt).
+-->
+<div class="modal fade mw-modal" tabindex="-1" role="dialog" aria-labelledby="mw-modal-title" aria-describedby="mw-modal-text" aria-hidden="true">
+	<div class="modal-dialog" role="document">
+		<div class="modal-content">
+			<div class="modal-header">
+				<button type="button" class="close" data-dismiss="modal" aria-label="{tmpl_var name='btn_cancel_txt'}"><span aria-hidden="true">&times;</span></button>
+				<h4 class="modal-title" id="mw-modal-title"></h4>
+			</div>
+			<div class="modal-body">
+				<p class="mw-modal-text" id="mw-modal-text"></p>
+				<p class="mw-modal-detail" hidden></p>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-default formbutton-default mw-modal-cancel" data-dismiss="modal">{tmpl_var name='btn_cancel_txt'}</button>
+				<button type="button" class="btn btn-danger mw-modal-ok"></button>
+			</div>
+		</div>
+	</div>
+</div>
+
+<style>
+/* Flaeche, Rahmen und Knoepfe setzt das Theme ueber .modal-content und .btn,
+   im hellen wie im dunklen. Hier steht nur, was der Inhalt braucht. */
+.mw-modal .modal-body p{margin:0;max-width:64ch;line-height:1.55}
+.mw-modal .modal-body .mw-modal-detail{
+	margin-top:10px;font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:12px;
+	word-break:break-all;opacity:.8;
+}
+.mw-modal .modal-footer .btn{white-space:normal}
+</style>
+
+<script>
+(function ($) {
+	// Every page brings its own copy of the dialog, and the one in use lives
+	// directly in <body>: inside #pageContent an ancestor with a stacking
+	// context of its own can keep a fixed dialog below the panel's header. A
+	// copy from an earlier page goes; if it is still open, it closes first, so
+	// the page does not stay locked for scrolling.
+	var copies = document.querySelectorAll('.mw-modal');
+	var fresh = null;
+	for (var i = 0; i < copies.length; i++) {
+		if (copies[i].parentNode === document.body) {
+			if ($ && $.fn.modal && $(copies[i]).hasClass('in')) {
+				$(copies[i]).removeClass('fade').modal('hide');
+			}
+			document.body.removeChild(copies[i]);
+		} else {
+			fresh = copies[i];
+		}
+	}
+	if (fresh) {
+		document.body.appendChild(fresh);
+		// Enter belongs to the focused button of the dialog. ispconfig.js
+		// answers Enter with a click on the save button of the form behind it.
+		fresh.addEventListener('keypress', function (event) { event.stopPropagation(); });
+		// Esc closes the dialog. Bootstrap 3.3.0 checks the key code alone,
+		// and a key event can arrive with the name Escape and code 0.
+		fresh.addEventListener('keydown', function (event) {
+			if ((event.key === 'Escape' || event.keyCode === 27) && $ && $.fn.modal) {
+				$(fresh).modal('hide');
+			}
+		});
+	}
+
+	// The panel loads every page by AJAX and runs this script each time; the
+	// listeners below are set up once.
+	if (window.mwModalReady) { return; }
+	window.mwModalReady = true;
+
+	var pending = null;    // the button whose question is open
+	var confirmed = false; // its confirm button was clicked
+	var passing = null;    // the button whose click goes on to the panel
+
+	function dialog() {
+		return document.querySelector('body > .mw-modal');
+	}
+
+	function setFields(button) {
+		for (var i = 0; i < button.attributes.length; i++) {
+			var name = button.attributes[i].name;
+			if (name.indexOf('data-mw-set-') === 0) {
+				var field = document.getElementById(name.slice(12));
+				if (field) { field.value = button.attributes[i].value; }
+			}
+		}
+	}
+
+	function ask(button) {
+		var modal = dialog();
+		// Without the dialog the click stops here: the question comes first.
+		if (!modal || !$ || !$.fn.modal) { return; }
+		pending = button;
+		confirmed = false;
+		modal.querySelector('.modal-title').textContent = button.getAttribute('data-mw-title') || '';
+		modal.querySelector('.mw-modal-text').textContent = button.getAttribute('data-mw-confirm') || '';
+		var detail = modal.querySelector('.mw-modal-detail');
+		detail.textContent = button.getAttribute('data-mw-detail') || '';
+		detail.hidden = detail.textContent === '';
+		var ok = modal.querySelector('.mw-modal-ok');
+		ok.textContent = button.getAttribute('data-mw-ok') || button.textContent;
+		ok.className = button.hasAttribute('data-mw-danger')
+			? 'btn btn-danger mw-modal-ok'
+			: 'btn btn-default formbutton-success mw-modal-ok';
+		$(modal).modal('show');
+	}
+
+	// Capture phase: this runs before a button's own onclick and before the
+	// panel's handler for [data-submit-form], which listens in the bubble
+	// phase (ispconfig.js).
+	document.addEventListener('click', function (event) {
+		var target = event.target;
+		if (target && target.nodeType !== 1) { target = target.parentNode; }
+		if (!target || !target.closest) { return; }
+
+		if (target.closest('.mw-modal-ok')) {
+			if (pending) {
+				confirmed = true;
+				$(dialog()).modal('hide');
+			}
+			return;
+		}
+
+		var button = target.closest('a[data-submit-form], button[data-submit-form]');
+		if (!button) { return; }
+		if (button.hasAttribute('data-mw-confirm') && button !== passing) {
+			event.preventDefault();
+			event.stopPropagation();
+			ask(button);
+			return;
+		}
+		setFields(button);
+	}, true);
+
+	if (!$) { return; }
+
+	$(document).on('shown.bs.modal', '.mw-modal', function () {
+		var cancel = this.querySelector('.mw-modal-cancel');
+		if (cancel) { cancel.focus(); }
+	});
+
+	// The form goes out once the dialog has closed: the panel then replaces
+	// the page, and a dialog still fading out would leave its backdrop behind.
+	$(document).on('hidden.bs.modal', '.mw-modal', function () {
+		var button = confirmed ? pending : null;
+		pending = null;
+		confirmed = false;
+		if (button && document.body.contains(button)) {
+			passing = button;
+			try {
+				button.click();
+			} finally {
+				passing = null;
+			}
+		}
+	});
+})(window.jQuery);
+</script>

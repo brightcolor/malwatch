@@ -105,9 +105,11 @@ for tpl in "$root"/interface/templates/*.htm; do
 done
 
 # 8. A button that submits must name the form and the action, otherwise the
-#    click is silently ignored.
+#    click is silently ignored. The shared dialog is left out: it submits
+#    nothing itself, its script names data-submit-form only as a selector.
 for tpl in "$root"/interface/templates/*.htm; do
 	[ -f "$tpl" ] || continue
+	[ "$(basename "$tpl")" = "malwatch_modal.htm" ] && continue
 	subs=$(grep -c 'data-submit-form' "$tpl" || true)
 	acts=$(grep -c 'data-form-action' "$tpl" || true)
 	if [ "$subs" != "$acts" ]; then
@@ -616,8 +618,14 @@ fi
 #     malwatch_quarantine_download.php liest dagegen token=, nicht id= oder
 #     domain_id= - der Download haengt an einem Exportauftrag, nicht an einer
 #     Website.
+#
+#     malwatch_quarantine_list.php liest site=: die Website, auf die sich die
+#     Liste beschraenkt.
 for tpl in "$root"/interface/templates/*.htm "$root"/interface/*.php; do
 	[ -f "$tpl" ] || continue
+	if grep -qE 'malwatch_quarantine_list\.php\?(id|domain_id)=' "$tpl"; then
+		fail "$(basename "$tpl") verlinkt quarantine_list mit id=/domain_id=, die Seite liest site="
+	fi
 	if grep -q 'malwatch_site_show\.php?domain_id=' "$tpl"; then
 		fail "$(basename "$tpl") verlinkt site_show mit domain_id=, die Seite liest id="
 	fi
@@ -839,25 +847,60 @@ if [ -f "$usage" ]; then
 	done < "$tmpdir/cmdwords"
 fi
 
-# 41. Jeder Satz, den eine Vorlage in ein confirm() oder alert() innerhalb
-#     eines onclick-Attributs setzt, geht vorher durch malwatch_js_text().
+# 41. Rueckfragen laufen ueber den Dialog in malwatch_modal.htm.
 #
-#     $app->tpl->setVar($wb) reicht eine Zeile aus der Sprachdatei genau so
-#     durch, wie sie dasteht. Ein Apostroph darin - "the customer's files" ist
-#     die naheliegende englische Formulierung - schliesst die
-#     JavaScript-Zeichenkette zu frueh, und die Schaltflaeche tut lautlos gar
-#     nichts. Heute enthaelt keine Sprachdatei einen; die Pruefung gilt der
-#     naechsten Textaenderung, die es besser formulieren will.
+#     a) Keine Vorlage ruft confirm() oder alert() auf. Der Dialog des
+#        Browsers passt zu keinem Theme des Panels, und sein Satz musste als
+#        JavaScript-Zeichenkette in ein onclick-Attribut, wo ein Apostroph den
+#        Knopf lautlos lahmlegte.
+#     b) Ein Satz aus der Sprachdatei in einem data-mw-*-Attribut geht vorher
+#        durch malwatch_attr_texts(). setVar($wb) reicht ihn roh durch, und ein
+#        gerades Anfuehrungszeichen beendet das Attribut mitten im Satz;
+#        de_malwatch_quarantine.lng schreibt „Größe" mit einem.
+#     c) Eine Vorlage mit data-mw-confirm oder data-mw-set-* bindet den Dialog
+#        ein. Dessen Skript fragt nach und fuellt die Felder; ohne es geht der
+#        Klick ohne Rueckfrage an das Panel.
+modal_tpl="$root/interface/templates/malwatch_modal.htm"
+[ -f "$modal_tpl" ] || fail "interface/templates/malwatch_modal.htm fehlt, die Rueckfragen haben keinen Dialog"
+grep -lq 'data-mw-confirm=' "$root"/interface/templates/*.htm 2>/dev/null \
+	|| fail "check_wiring 41 findet keinen Knopf mit data-mw-confirm mehr; die Pruefung liefe ins Leere"
+
 for tpl in "$root"/interface/templates/*.htm; do
 	[ -f "$tpl" ] || continue
-	page="$root/interface/$(basename "$tpl" .htm).php"
-	[ -f "$page" ] || continue
+	name=$(basename "$tpl")
 
-	for key in $(grep -ohE "(confirm|alert)\('\{tmpl_var name='[a-z_]+'\}" "$tpl" \
-		| sed -E "s/.*name='([a-z_]+)'.*/\1/" | sort -u); do
-		grep -q "malwatch_js_text" "$page" && grep -q "'$key'" "$page" \
-			|| fail "$(basename "$tpl") setzt {$key} in ein confirm()/alert(), $(basename "$page") schickt den Text nicht durch malwatch_js_text()"
-	done
+	if grep -nE '(confirm|alert) *\(' "$tpl" | grep -vqE "^[0-9]+:$comment_start"; then
+		fail "$name ruft confirm() oder alert() auf; Rueckfragen gehen ueber malwatch_modal.htm"
+	fi
+
+	[ "$tpl" = "$modal_tpl" ] && continue
+
+	page="$root/interface/$(basename "$tpl" .htm).php"
+	if [ -f "$page" ]; then
+		for key in $(grep -ohE 'data-mw-[a-z_-]+="[^"]*"' "$tpl" | grep -oE "name='[a-z_]+_txt'" \
+			| sed -E "s/name='([a-z_]+)'/\1/" | sort -u); do
+			grep -q "malwatch_attr_texts" "$page" && grep -q "'$key'" "$page" \
+				|| fail "$name setzt {$key} in ein data-mw-Attribut, $(basename "$page") schickt den Text nicht durch malwatch_attr_texts()"
+		done
+	fi
+
+	if grep -qE 'data-mw-(confirm|set-)' "$tpl"; then
+		grep -qE "tmpl_include file=['\"]templates/malwatch_modal\.htm['\"]" "$tpl" \
+			|| fail "$name hat Knoepfe mit data-mw-*, bindet malwatch_modal.htm aber nicht ein"
+	fi
+done
+
+# 42. Eine Vorlage mit Umschaltern (data-mw-toggle, data-mw-invert,
+#     data-mw-count) bindet malwatch_selection.htm ein. Ohne dessen Skript
+#     schalten die Umschalter nichts, und die Knoepfe der Ordner bleiben so
+#     ausgegraut, wie die Seite sie ausliefert.
+for tpl in "$root"/interface/templates/*.htm; do
+	[ -f "$tpl" ] || continue
+	[ "$(basename "$tpl")" = "malwatch_selection.htm" ] && continue
+	if grep -qE 'data-mw-(toggle|invert|count)' "$tpl"; then
+		grep -qE "tmpl_include file=['\"]templates/malwatch_selection\.htm['\"]" "$tpl" \
+			|| fail "$(basename "$tpl") hat Umschalter, bindet malwatch_selection.htm aber nicht ein"
+	fi
 done
 
 if [ "$status" -eq 0 ]; then

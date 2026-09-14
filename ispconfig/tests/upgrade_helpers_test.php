@@ -49,6 +49,13 @@ expect_same('opcache off', malwatch_helper::opcache_settle(array("opcache.enable
 $refused = malwatch_helper::opcache_settle(array(), "php_admin_flag[opcache.validate_timestamps] = off\n");
 expect_same('timestamps off refused', isset($refused['error']) && strpos($refused['error'], 'validate_timestamps') !== false, true);
 
+// The releases a report lists as target versions: plain release numbers,
+// stored as JSON.
+expect_same('release list', malwatch_helper::release_list(
+	array('6.6.2', '6.5.5', 'trunk', '6.6-RC1', 7, str_repeat('1.', 20) . '1')), '["6.6.2","6.5.5"]');
+expect_same('release list that is none', malwatch_helper::release_list('6.6.2'), '');
+expect_same('empty release list', malwatch_helper::release_list(array()), '');
+
 if ($failures > 0) {
 	exit(1);
 }

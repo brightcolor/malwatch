@@ -4,8 +4,9 @@
  * The repair page: a real decision instead of the old two-button pair on the
  * site detail page. An operator picks how vendor files get replaced and
  * what happens to elements nobody can download an original for, sees
- * exactly which elements of the last scan that touches, and only then
- * starts a dry run or the real thing.
+ * exactly which elements of the last scan that touches, grouped by the folder
+ * of their WordPress installation, and only then starts a dry run or the real
+ * thing - for every folder at once or for one.
  *
  * Reached as malwatch_repair_start.php?id=<domain_id> - the same parameter
  * name malwatch_site_show.php reads, not domain_id=, which has sent every
@@ -49,27 +50,34 @@ if (!is_array($web)) {
 // --- Elements of the last scan ----------------------------------------------
 // The element list is malwatch_software as of the last run, not a fresh
 // filesystem read: repairing what a scan never saw would let an operator
-// approve a table that does not match what actually happens next.
+// approve a table that does not match what actually happens next. WordPress
+// only - the repair has an original to fetch for nothing else.
 $software = $app->db->queryAllRecords(
-	"SELECT * FROM malwatch_software WHERE parent_domain_id = ? "
-	. "ORDER BY FIELD(software_kind, 'core', 'plugin', 'theme'), product ASC, slug ASC",
+	"SELECT * FROM malwatch_software WHERE parent_domain_id = ? AND product = 'wordpress' "
+	. "ORDER BY FIELD(software_kind, 'core', 'plugin', 'theme'), slug ASC",
 	$domain_id);
+$scan_base = malwatch_scan_path($web);
 
 // The --only value each row would contribute, kept alongside the display
 // row so the POST handler below can whitelist against exactly what this
 // page offered - the same defence malwatch_queue_quarantine() applies to
-// file paths, here applied to element filters.
+// file paths, here applied to element filters. Each value names the folder
+// of its installation after @: a site with forty installations carries the
+// same plugin many times, and a tick repairs it in that one folder.
 $known_only = array();
-$element_rows = array();
-// Not every row starts checked (see is_checked below), so the initial
-// "X von Y ausgewählt" cannot just read Y twice - it would claim every
-// element is selected on a website where some never are by default.
-$initial_checked = 0;
+$folders = array();
 if (is_array($software)) {
 	foreach ($software as $row) {
 		$kind = (string) $row['software_kind'];
 		$slug = (string) $row['slug'];
-		$only_value = $slug !== '' ? $kind . ':' . $slug : $kind;
+		$install = $kind === 'core'
+			? (string) $row['install_path'] : malwatch_install_of((string) $row['install_path'], $kind);
+		$folder = $install !== '' ? malwatch_install_folder($install, $scan_base) : '';
+		// Outside the scan path there is no folder --only could name.
+		if ($folder === '') {
+			continue;
+		}
+		$only_value = ($slug !== '' ? $kind . ':' . $slug : $kind) . '@' . $folder;
 		$known_only[$only_value] = true;
 
 		// version_unknown is the honest signal available before a repair
@@ -77,32 +85,48 @@ if (is_array($software)) {
 		// currently ships, which is exactly when nothing can be fetched to
 		// replace this element with - a paid plugin or a hand-built theme.
 		$has_original = $row['version_unknown'] !== 'y';
-		if ($has_original) {
-			$initial_checked++;
-		}
 
 		$name = (string) $row['product'];
 		if ($slug !== '') {
 			$name .= ' / ' . $slug;
 		}
 
-		$element_rows[] = array(
+		$folders[$folder][] = array(
 			'only_value' => $app->functions->htmlentities($only_value),
 			'kind_label' => $app->functions->htmlentities(
 				isset($wb['kind_' . $kind . '_txt']) ? $wb['kind_' . $kind . '_txt'] : $kind),
 			'name' => $app->functions->htmlentities($name),
 			'installed_version' => $app->functions->htmlentities((string) $row['installed_version']),
 			'has_original' => $has_original ? 1 : 0,
-			// Preselected exactly when there is something to replace it
-			// with - an element flagged "kein Original" is never chosen
-			// for the operator, only by them.
-			'is_checked' => $has_original ? 1 : 0,
-			// Matches the page's own defaults (mode=replace, checked mirrors
-			// has_original) so the column is never blank before the script
-			// below re-derives it from whatever the operator actually picks.
-			'what_label' => $app->functions->htmlentities($has_original ? $wb['what_replace_txt'] : $wb['what_untouched_txt']),
+			// Nothing starts ticked: the operator picks what a repair touches.
+			// The script below re-derives the column from every tick.
+			'what_label' => $app->functions->htmlentities($wb['what_untouched_txt']),
 		);
 	}
+}
+
+// The web root first, the folders after it by name. A folder named like a
+// number comes back from the array as an integer, hence the casts.
+uksort($folders, function ($a, $b) {
+	$a = (string) $a;
+	$b = (string) $b;
+	if ($a === '.' || $b === '.') {
+		return $a === $b ? 0 : ($a === '.' ? -1 : 1);
+	}
+	return strcmp($a, $b);
+});
+$element_blocks = array();
+$element_count = 0;
+foreach ($folders as $folder => $rows) {
+	$folder = (string) $folder;
+	$element_count += count($rows);
+	$element_blocks[] = array(
+		'install_label' => $app->functions->htmlentities($folder === '.' ? $wb['install_root_txt'] : '/' . $folder),
+		'folder' => $app->functions->htmlentities($folder),
+		'folder_template' => $app->functions->htmlentities(
+			sprintf($wb['selected_template_txt'], number_format(count($rows), 0, ',', '.'))),
+		'elements' => $rows,
+	);
 }
 
 $message = '';
@@ -126,6 +150,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 				}
 			}
 		}
+		// The buttons of a folder start the ticked elements of that folder;
+		// the buttons below every folder leave the field empty.
+		$only = malwatch_only_in_folder($only, isset($_POST['folder']) ? (string) $_POST['folder'] : '');
 
 		if (count($only) === 0) {
 			$error = $wb['err_no_selection_txt'];
@@ -161,31 +188,24 @@ $app->tpl->setInclude('content_tpl', 'templates/malwatch_repair_start.htm');
 $app->tpl->setVar($wb);
 
 // Overwritten right after setVar($wb), which passes a sentence on exactly as
-// the language file wrote it: these two end up inside confirm('…') and
-// alert('…') in an onclick attribute, where one apostrophe kills the button
-// without a sound. See malwatch_js_text().
-foreach (array('err_no_selection_txt', 'confirm_start_txt') as $js_key) {
-	// isset und kein leerer Rueckfall: ein Tippfehler in der Liste soll die
-	// Zeichenkette lassen, wie sie war, nicht den Text loeschen.
-	if (isset($wb[$js_key])) {
-		$app->tpl->setVar($js_key, malwatch_js_text($app, $wb[$js_key]));
-	}
-}
+// the language file wrote it: the dialog reads these two from data-mw-*
+// attributes, and a straight double quote would end the attribute. See
+// malwatch_attr_texts().
+$app->tpl->setVar(malwatch_attr_texts($wb, array('btn_start_txt', 'confirm_start_txt')));
 
 $app->tpl->setVar('domain_id', $domain_id);
 $app->tpl->setVar('domain', $app->functions->htmlentities($web['domain']));
 $app->tpl->setVar('back_label', sprintf($wb['back_txt'], $app->functions->htmlentities($web['domain'])));
-$app->tpl->setVar('has_elements', count($element_rows) > 0 ? 1 : 0);
-$app->tpl->setLoop('elements', $element_rows);
+$app->tpl->setVar('has_elements', $element_count > 0 ? 1 : 0);
+$app->tpl->setLoop('blocks', $element_blocks);
 
-// {n} stays in place for the script's own live counter; the total is fixed
-// for as long as the page is open, so it is the only part filled in twice -
-// once for that template, once (with the real starting count, not every
-// row - see is_checked above) for what renders before any script runs.
-$selected_template = sprintf($wb['selected_template_txt'], number_format(count($element_rows), 0, ',', '.'));
+// {n} stays in place for the live counters of malwatch_selection.htm; the
+// totals are fixed for as long as the page is open. Nothing starts ticked, so
+// every counter opens on the line that says what to do, and every button
+// greyed out.
+$selected_template = sprintf($wb['selected_template_txt'], number_format($element_count, 0, ',', '.'));
 $app->tpl->setVar('selected_template', $app->functions->htmlentities($selected_template));
-$app->tpl->setVar('selected_line',
-	$app->functions->htmlentities(str_replace('{n}', (string) $initial_checked, $selected_template)));
+$app->tpl->setVar('selected_none', $app->functions->htmlentities($wb['selected_none_txt']));
 
 $app->tpl->setVar('quiet_body', sprintf($wb['quiet_body_txt'],
 	'<a href="#" data-load-content="security/malwatch_quarantine_list.php">'

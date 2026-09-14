@@ -16,7 +16,7 @@
    Themes lesbar bleiben. Ein Block je WordPress-Installation. */
 #mw-upgrade .mw-back{margin:0 0 10px}
 #mw-upgrade .mw-sub{margin:6px 0 16px;opacity:.72;font-size:13px;max-width:76ch}
-#mw-upgrade .mw-install{margin:18px 0 6px;font-size:14px;font-weight:600;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+#mw-upgrade .mw-install{margin:0;font-size:14px;font-weight:600;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
 #mw-upgrade .mw-install small{font-weight:400;opacity:.72}
 #mw-upgrade .table{table-layout:auto}
 #mw-upgrade .table > thead > tr > th,
@@ -36,30 +36,65 @@
 	border-radius:3px;opacity:.85;font-size:13px;background:var(--cic-head,rgba(128,128,128,.07));
 }
 #mw-upgrade .mw-savebar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:14px}
-#mw-upgrade .mw-selcount{font-size:13px;opacity:.72;font-variant-numeric:tabular-nums;white-space:nowrap}
+#mw-upgrade .mw-selcount{font-size:13px;opacity:.72;font-variant-numeric:tabular-nums}
 #mw-upgrade input[type=checkbox]{accent-color:var(--cic-accent,#dd630d)}
+/* Ein Ordner: Kopfzeile mit Name, Zaehler und seinen Knoepfen, darunter die
+   Tabelle. Die Knoepfe sind kleiner als die unten, die fuer alle Ordner
+   gelten. */
+#mw-upgrade .mw-pagebar{margin:0 0 4px;font-size:13px}
+#mw-upgrade .mw-folder{margin-top:22px}
+#mw-upgrade .mw-folderhead{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:center;justify-content:space-between;margin:0 0 6px}
+#mw-upgrade .mw-folderhead .mw-selectbar{font-size:13px}
+#mw-upgrade .mw-folderhead .btn{padding:3px 10px;font-size:12px;line-height:1.5}
 </style>
 
-<div id="mw-upgrade">
+<div id="mw-upgrade" data-mw-selection>
 
 <p class="mw-sub">{tmpl_var name='intro_txt'}</p>
 
 <!--
 	No form of our own: the panel wraps the whole content area in pageForm and
 	posts it by AJAX (see malwatch_repair_start.htm). selected[] and
-	version[<software_id>] are read by name.
+	version[<software_id>] are read by name. folder names the installation
+	whose buttons were pressed; the buttons below every folder leave it empty.
 -->
 <input type="hidden" name="id" value="{tmpl_var name='domain_id'}" />
 <input type="hidden" name="malwatch_action" id="mw-action" value="" />
+<input type="hidden" name="folder" id="mw-folder" value="" />
 
 <tmpl_if name="has_blocks">
+<div class="mw-selectbar mw-pagebar">
+	<label><input type="checkbox" data-mw-toggle /> {tmpl_var name='select_all_txt'}</label>
+	<button type="button" class="mw-invert" data-mw-invert>{tmpl_var name='invert_txt'}</button>
+	<span class="mw-selcount" data-mw-count data-template="{tmpl_var name='selected_template'}" data-none="{tmpl_var name='selected_none'}">{tmpl_var name='selected_line'}</span>
+</div>
+
 <tmpl_loop name="blocks">
-<p class="mw-install">{tmpl_var name='install_label'} <small>WordPress {tmpl_var name='core_version'}</small></p>
+<div class="mw-folder" data-mw-scope>
+<div class="mw-folderhead">
+	<p class="mw-install">{tmpl_var name='install_label'} <small>WordPress {tmpl_var name='core_version'}</small></p>
+	<tmpl_if name="has_updatable">
+	<div class="mw-selectbar">
+		<button type="button" class="mw-invert" data-mw-invert>{tmpl_var name='invert_txt'}</button>
+		<span class="mw-selcount" data-mw-count data-template="{tmpl_var name='folder_template'}" data-none="{tmpl_var name='selected_none'}">{tmpl_var name='selected_none'}</span>
+		<tmpl_if name="has_folder">
+		<button class="btn btn-default formbutton-default mw-needs-selection" type="button" disabled
+			data-mw-set-mw-action="upgrade_dry" data-mw-set-mw-folder="{tmpl_var name='folder'}"
+			data-submit-form="pageForm" data-form-action="security/malwatch_upgrade_start.php?id={tmpl_var name='domain_id'}">{tmpl_var name='btn_dry_run_txt'}</button>
+		<button class="btn btn-danger mw-needs-selection" type="button" disabled
+			data-mw-confirm="{tmpl_var name='confirm_start_txt'}" data-mw-title="{tmpl_var name='btn_start_txt'}"
+			data-mw-detail="{tmpl_var name='install_label'}" data-mw-ok="{tmpl_var name='btn_start_txt'}" data-mw-danger="1"
+			data-mw-set-mw-action="upgrade" data-mw-set-mw-folder="{tmpl_var name='folder'}"
+			data-submit-form="pageForm" data-form-action="security/malwatch_upgrade_start.php?id={tmpl_var name='domain_id'}">{tmpl_var name='btn_start_txt'}</button>
+		</tmpl_if>
+	</div>
+	</tmpl_if>
+</div>
 <div class="table-wrapper">
 <table class="table">
 	<thead class="dark">
 		<tr>
-			<th style="width:28px">&nbsp;</th>
+			<th style="width:28px"><tmpl_if name="has_updatable"><input type="checkbox" data-mw-toggle title="{tmpl_var name='select_folder_txt'}" aria-label="{tmpl_var name='select_folder_txt'}" /></tmpl_if></th>
 			<th>{tmpl_var name='col_element_txt'}</th>
 			<th>{tmpl_var name='col_installed_txt'}</th>
 			<th>{tmpl_var name='col_target_txt'}</th>
@@ -68,7 +103,7 @@
 	<tbody>
 		<tmpl_loop name="rows">
 		<tr<tmpl_unless name="can_update"> class="mw-disabled"</tmpl_unless>>
-			<td><tmpl_if name="can_update"><input type="checkbox" class="mw-up-check" name="selected[]" value="{tmpl_var name='software_id'}" <tmpl_if name="is_checked">checked</tmpl_if> /></tmpl_if></td>
+			<td><tmpl_if name="can_update"><input type="checkbox" class="mw-pick" name="selected[]" value="{tmpl_var name='software_id'}" <tmpl_if name="is_checked">checked</tmpl_if> /></tmpl_if></td>
 			<td><span class="mw-kind">{tmpl_var name='kind_label'}</span><b>{tmpl_var name='name'}</b>
 				<tmpl_if name="has_vulns"><span class="label label-danger">{tmpl_var name='vuln_label'}</span></tmpl_if></td>
 			<td><span class="mw-mono">{tmpl_var name='installed'}</span></td>
@@ -84,6 +119,7 @@
 	</tbody>
 </table>
 </div>
+</div>
 </tmpl_loop>
 <tmpl_if name="has_hidden"><p class="mw-sub">{tmpl_var name='hidden_line'}</p></tmpl_if>
 <tmpl_else>
@@ -94,13 +130,15 @@
 
 <tmpl_if name="has_blocks">
 <div class="mw-savebar">
-	<button class="btn btn-default formbutton-default" type="button"
-		onclick="if(!mwUpgradeSelected()){alert('{tmpl_var name='err_no_selection_txt'}');event.stopPropagation();return false;} document.getElementById('mw-action').value='upgrade_dry';"
+	<button class="btn btn-default formbutton-default mw-needs-selection" type="button"<tmpl_if name="none_selected"> disabled</tmpl_if>
+		data-mw-set-mw-action="upgrade_dry" data-mw-set-mw-folder=""
 		data-submit-form="pageForm" data-form-action="security/malwatch_upgrade_start.php?id={tmpl_var name='domain_id'}">{tmpl_var name='btn_dry_run_txt'}</button>
-	<button class="btn btn-danger" type="button"
-		onclick="if(!mwUpgradeSelected()){alert('{tmpl_var name='err_no_selection_txt'}');event.stopPropagation();return false;} if(!confirm('{tmpl_var name='confirm_start_txt'}')){event.stopPropagation();return false;} document.getElementById('mw-action').value='upgrade';"
+	<button class="btn btn-danger mw-needs-selection" type="button"<tmpl_if name="none_selected"> disabled</tmpl_if>
+		data-mw-confirm="{tmpl_var name='confirm_start_txt'}" data-mw-title="{tmpl_var name='btn_start_txt'}"
+		data-mw-ok="{tmpl_var name='btn_start_txt'}" data-mw-danger="1"
+		data-mw-set-mw-action="upgrade" data-mw-set-mw-folder=""
 		data-submit-form="pageForm" data-form-action="security/malwatch_upgrade_start.php?id={tmpl_var name='domain_id'}">{tmpl_var name='btn_start_txt'}</button>
-	<span class="mw-selcount" id="mw-up-count" data-template="{tmpl_var name='selected_template'}">{tmpl_var name='selected_line'}</span>
+	<span class="mw-selcount" data-mw-count data-template="{tmpl_var name='selected_template'}" data-none="{tmpl_var name='selected_none'}">{tmpl_var name='selected_line'}</span>
 </div>
 </tmpl_if>
 
@@ -110,35 +148,26 @@
 (function () {
 	var root = document.getElementById('mw-upgrade');
 	if (!root) { return; }
-	var count = document.getElementById('mw-up-count');
-	var template = count ? (count.getAttribute('data-template') || '') : '';
-
-	// The guard of both buttons: a click with nothing selected is caught
-	// before the request goes out.
-	window.mwUpgradeSelected = function () {
-		return root.querySelectorAll('.mw-up-check:checked').length;
-	};
-
-	function refresh() {
-		if (count) {
-			count.textContent = template.replace('{n}', String(window.mwUpgradeSelected()));
-		}
-	}
 
 	// What a target version fixes travels on its option; the line below the
-	// select follows the choice.
+	// select follows the choice. Bound through jQuery where the panel has it:
+	// select2, which the panel lays over every select, reports a new choice
+	// as a jQuery event only.
+	function follow() {
+		var option = this.options[this.selectedIndex];
+		var hint = this.parentNode.querySelector('.mw-closes');
+		if (hint && option) { hint.textContent = option.getAttribute('data-closes') || ''; }
+	}
 	var selects = root.querySelectorAll('.mw-up-version');
-	for (var i = 0; i < selects.length; i++) {
-		selects[i].addEventListener('change', function () {
-			var option = this.options[this.selectedIndex];
-			var hint = this.parentNode.querySelector('.mw-closes');
-			if (hint && option) { hint.textContent = option.getAttribute('data-closes') || ''; }
-		});
+	if (window.jQuery) {
+		window.jQuery(selects).on('change', follow);
+	} else {
+		for (var i = 0; i < selects.length; i++) {
+			selects[i].addEventListener('change', follow);
+		}
 	}
-	var checks = root.querySelectorAll('.mw-up-check');
-	for (var j = 0; j < checks.length; j++) {
-		checks[j].addEventListener('change', refresh);
-	}
-	refresh();
 })();
 </script>
+
+<tmpl_include file="templates/malwatch_selection.htm">
+<tmpl_include file="templates/malwatch_modal.htm">

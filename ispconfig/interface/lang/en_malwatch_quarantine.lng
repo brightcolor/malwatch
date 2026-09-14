@@ -13,6 +13,17 @@ $wb['btn_delete_selected_txt'] = 'Delete selected for good';
 // whole table: only what is on screen can be ticked (see pager_hint_txt).
 $wb['toolbar_selected_txt'] = '{n} of %s selected · %s on disk';
 $wb['select_all_txt'] = 'Select every entry on this page';
+// Shown in the bar while nothing is ticked. The buttons that act on the
+// selection stay greyed out until then.
+$wb['toolbar_none_txt'] = 'Tick entries to act on them · %s on disk';
+$wb['btn_cancel_txt'] = 'Cancel';
+
+// The overview above the list, one row per website.
+$wb['overview_all_txt'] = 'All websites';
+$wb['overview_no_site_txt'] = 'no website';
+$wb['col_entries_txt'] = 'Entries';
+$wb['col_disk_txt'] = 'On disk';
+$wb['col_latest_txt'] = 'Latest entry';
 
 $wb['col_what_txt'] = 'What';
 $wb['col_website_txt'] = 'Website';
@@ -57,7 +68,6 @@ $wb['confirm_restore_selected_txt'] = 'Put the selected entries back onto their 
 $wb['confirm_restore_one_txt'] = 'Put this entry back onto the website? It is live again the moment it lands, malicious code included. The finding goes back on the list afterwards, and the website no longer counts as clean.';
 $wb['confirm_delete_selected_txt'] = 'Permanently delete the selected entries from quarantine? This is the last copy of those files. Afterwards they are gone, for the customer too, and nobody can undo that.';
 $wb['confirm_delete_one_txt'] = 'Permanently delete this entry from quarantine? This is the last copy of that file. Afterwards it is gone, for the customer too, and nobody can undo that.';
-$wb['confirm_none_selected_txt'] = 'No entry was selected.';
 
 $wb['msg_restore_one_txt'] = 'The entry is being restored. Once it is back on the website, the finding is back on the list.';
 $wb['msg_restore_many_txt'] = '%s entries are being restored. Once they are back on their websites, the findings are back on the list.';

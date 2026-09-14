@@ -131,6 +131,7 @@ $wb['confirm_delete_all_txt'] = 'Alle offenen Funde dieser Website in Quarantän
 $wb['quarantine_hint_one_txt'] = 'Ein Eintrag dieser Website liegt in Quarantäne.';
 $wb['quarantine_hint_many_txt'] = '%s Einträge dieser Website liegen in Quarantäne.';
 $wb['quarantine_hint_link_txt'] = 'Ansehen';
+$wb['btn_cancel_txt'] = 'Abbrechen';
 $wb['phase_scanning_txt'] = 'Dateien werden geprüft';
 $wb['phase_detect_txt'] = 'Erkennen';
 $wb['phase_fetch_txt'] = 'Holen';

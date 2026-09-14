@@ -69,11 +69,13 @@ func BuildPlan(root string) (Plan, error) {
 }
 
 // Filter narrows Elements to what only names - "core", or "plugin:elementor"
-// for one specific slug. An empty only leaves the plan as it is.
+// for one specific slug, either one limited to the installation in a folder
+// with @ ("plugin:elementor@blog"). An empty only leaves the plan as it is.
 //
 // A filter that matches nothing is an error rather than a silent no-op: a
 // typo in --only must not quietly repair everything, or quietly repair
-// nothing while looking like it ran.
+// nothing while looking like it ran. Every filter an element matches counts
+// as matched, so "plugin:akismet" next to "plugin:akismet@blog" is no error.
 func (p Plan) Filter(only []string) (Plan, error) {
 	if len(only) == 0 {
 		return p, nil
@@ -83,12 +85,15 @@ func (p Plan) Filter(only []string) (Plan, error) {
 	out := p
 	out.Elements = nil
 	for _, el := range p.Elements {
+		hit := false
 		for i, f := range only {
-			if elementMatches(el, f) {
+			if elementMatches(p.Root, el, f) {
 				matched[i] = true
-				out.Elements = append(out.Elements, el)
-				break
+				hit = true
 			}
+		}
+		if hit {
+			out.Elements = append(out.Elements, el)
 		}
 	}
 	for i, f := range only {
@@ -99,11 +104,45 @@ func (p Plan) Filter(only []string) (Plan, error) {
 	return out, nil
 }
 
-// elementMatches reports whether filter names el: either its kind alone
-// ("plugin") or kind and slug together ("plugin:elementor").
-func elementMatches(el Element, filter string) bool {
-	if kind, slug, ok := strings.Cut(filter, ":"); ok {
+// elementMatches reports whether filter names el: its kind alone ("plugin")
+// or kind and slug together ("plugin:elementor"), each optionally followed by
+// @ and the folder of its WordPress installation below root
+// ("plugin:elementor@blog", "core@." for an installation in root itself).
+func elementMatches(root string, el Element, filter string) bool {
+	name, folder, scoped := strings.Cut(filter, "@")
+	if scoped {
+		dir, ok := installFolder(root, folder)
+		if !ok || installOf(el) != dir {
+			return false
+		}
+	}
+	if kind, slug, ok := strings.Cut(name, ":"); ok {
 		return el.Kind == kind && el.Slug == slug
 	}
-	return el.Kind == filter
+	return el.Kind == name
+}
+
+// installFolder resolves the folder of a filter below root. An empty folder,
+// an absolute one and one that climbs out of root name no installation.
+func installFolder(root, folder string) (string, bool) {
+	rel := filepath.FromSlash(folder)
+	if folder == "" || filepath.IsAbs(rel) || filepath.VolumeName(rel) != "" {
+		return "", false
+	}
+	rel = filepath.Clean(rel)
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", false
+	}
+	return filepath.Join(root, rel), true
+}
+
+// installOf is the directory of the WordPress installation el belongs to: the
+// core's own directory, three levels above a plugin or theme
+// (<installation>/<content directory>/plugins/<slug>).
+func installOf(el Element) string {
+	dir := filepath.Clean(el.Path)
+	if el.Kind == "core" {
+		return dir
+	}
+	return filepath.Dir(filepath.Dir(filepath.Dir(dir)))
 }

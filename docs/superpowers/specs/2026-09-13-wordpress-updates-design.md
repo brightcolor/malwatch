@@ -403,8 +403,9 @@ einer Demo-Website; danach steht die Funktion allen Websites offen.
 
 ## Nachtrag zum Umsetzungsplan (14.09.2026)
 
-Beim Planen haben sich sieben Punkte geklärt, beim Abnahmetest und bei den
-ersten Läufen im Panel drei weitere. Sie gelten vor dem Text oben:
+Beim Planen haben sich sieben Punkte geklärt, beim Abnahmetest, bei den ersten
+Läufen im Panel und mit den Wünschen danach fünf weitere. Sie gelten vor dem
+Text oben:
 
 1. Der Befehl heißt `malwatch upgrade`; `malwatch update` lädt seit jeher die
    Signaturen. Die Kennungen im Addon folgen: `job_kind = 'upgrade'`,
@@ -440,3 +441,13 @@ ersten Läufen im Panel drei weitere. Sie gelten vor dem Text oben:
     lehnt ihr Element ab, und die übrigen laufen weiter. Eine Prüfsumme, die
     nicht passt, beendet den Lauf weiterhin (0.14.3). Beides gilt vor dem Text
     zu Phase 3 und zur Seite oben.
+11. Wählbar ist jede stabile Version über der installierten (0.15.0). Der
+    Scanner fragt die Liste mit `request[fields][versions]=1` bei wordpress.org
+    ab, beim Kern nimmt er `stable-check`, und liefert sie als
+    `Software.versions`; das Addon legt sie in `malwatch_software.versions` ab.
+    Eine neueste Version, die mehr PHP verlangt, fehlt in der Auswahl. Eine,
+    die ein neueres WordPress verlangt, steht mit diesem Vermerk darin, weil
+    ein Kern-Update im selben Lauf sie erfüllen kann.
+12. Die Seite „Updates“ und die Reparaturseite gliedern nach Installation, und
+    jeder Ordner startet seine angehakten Elemente für sich. `repair --only`
+    nimmt dafür den Ordner nach `@` (0.15.0).

@@ -7,6 +7,12 @@
  *
  *   php /usr/local/ispconfig/extensions/malwatch/tests/render_pages.php [domain_id]
  *
+ * MW_SECURITY_DIR renders a build before it is installed: copy its files the
+ * way install/file.list places them below interface/web/security in another
+ * directory, and link that directory's ../../lib to the panel's lib.
+ *
+ *   MW_SECURITY_DIR=/root/mwstage/interface/web/security php render_pages.php
+ *
  * This cannot run in CI, because it needs a real ISPConfig and a real
  * database. It is here because a page that passes php -l can still be broken
  * in every way that matters: a missing form definition, a template that is
@@ -37,6 +43,8 @@ $pages = array(
 	'malwatch_scan_list.php',
 	'malwatch_config_edit.php',
 	'malwatch_quarantine_list.php',
+	// The website with the most entries; see the child below.
+	'malwatch_quarantine_list.php?site=quarantined',
 	'malwatch_repair_start.php',
 	'malwatch_upgrade_start.php',
 	'malwatch_vuln_list.php',
@@ -62,7 +70,18 @@ if ($mw_page === '') {
 
 // Child process: render one page.
 error_reporting(E_ALL & ~E_NOTICE & ~E_DEPRECATED);
-chdir('/usr/local/ispconfig/interface/web/security');
+$mw_dir = getenv('MW_SECURITY_DIR');
+if (!is_string($mw_dir) || $mw_dir === '') {
+	$mw_dir = '/usr/local/ispconfig/interface/web/security';
+}
+chdir($mw_dir);
+
+$mw_file = $mw_page;
+$mw_query = array();
+if (strpos($mw_page, '?') !== false) {
+	list($mw_file, $mw_query_string) = explode('?', $mw_page, 2);
+	parse_str($mw_query_string, $mw_query);
+}
 
 require '/usr/local/ispconfig/interface/lib/config.inc.php';
 require '/usr/local/ispconfig/interface/lib/app.inc.php';
@@ -70,6 +89,14 @@ require '/usr/local/ispconfig/interface/lib/app.inc.php';
 if ($domain_id < 1) {
 	$web = $app->db->queryOneRecord("SELECT domain_id FROM web_domain WHERE type = 'vhost' ORDER BY domain_id LIMIT 1");
 	$domain_id = is_array($web) ? (int) $web['domain_id'] : 0;
+}
+
+// Filtered by the website with the most entries, so the filter runs on rows
+// that exist. An empty quarantine leaves the list unfiltered.
+if (isset($mw_query['site']) && $mw_query['site'] === 'quarantined') {
+	$busiest = $app->db->queryOneRecord(
+		'SELECT parent_domain_id FROM malwatch_quarantine GROUP BY parent_domain_id ORDER BY COUNT(*) DESC LIMIT 1');
+	$mw_query['site'] = is_array($busiest) ? (string) $busiest['parent_domain_id'] : '';
 }
 
 $_SESSION['s']['user'] = array(
@@ -82,19 +109,19 @@ $_SESSION['s']['language'] = 'de';
 $_SESSION['s']['theme'] = 'default';
 
 $_SERVER['REQUEST_METHOD'] = 'GET';
-$_SERVER['SCRIPT_FILENAME'] = '/usr/local/ispconfig/interface/web/security/' . $mw_page;
-$_SERVER['SCRIPT_NAME'] = '/security/' . $mw_page;
+$_SERVER['SCRIPT_FILENAME'] = $mw_dir . '/' . $mw_file;
+$_SERVER['SCRIPT_NAME'] = '/security/' . $mw_file;
 $_SERVER['REQUEST_URI'] = '/security/' . $mw_page;
-$_GET = $_REQUEST = array('id' => $domain_id, 'domain_id' => $domain_id);
+$_GET = $_REQUEST = array_merge(array('id' => $domain_id, 'domain_id' => $domain_id), $mw_query);
 $_POST = array();
 
 ob_start();
 try {
-	include $mw_page;
+	include $mw_file;
 	$out = ob_get_clean();
 } catch (\Throwable $e) {
 	ob_end_clean();
-	printf("%-28s FATAL %s @ %s:%d\n", $mw_page, $e->getMessage(), basename($e->getFile()), $e->getLine());
+	printf("%-46s FATAL %s @ %s:%d\n", $mw_page, $e->getMessage(), basename($e->getFile()), $e->getLine());
 	exit(1);
 }
 
@@ -109,12 +136,34 @@ $denied = (strpos($out, 'alert-danger') !== false && stripos($out, 'Berechtigung
 // what an overridden onShowNew() that calls onShowEnd() itself produces.
 $tabs = substr_count($out, 'content-tab-wrapper');
 
-if ($broken || $denied || $length < 400 || $tabs > 1) {
-	$why = $broken ? 'fatal in the output' : ($denied ? 'permission error box' : ($tabs > 1 ? 'rendered ' . $tabs . ' times' : 'too little content'));
-	printf("%-28s FAIL  %6d bytes  (%s)\n", $mw_page, $length, $why);
+// The dialog takes its cancel label from the language file of the page that
+// includes it; a page without the line renders a blank button.
+$no_cancel = preg_match('/mw-modal-cancel"[^>]*>\s*</', $out) === 1;
+
+// A filtered list marks its website in the overview.
+$unmarked = isset($mw_query['site']) && $mw_query['site'] !== ''
+	&& preg_match('/\?site=' . preg_quote($mw_query['site'], '/') . '"[^>]*aria-current="true"/', $out) !== 1;
+
+$why = '';
+if ($broken) {
+	$why = 'fatal in the output';
+} elseif ($denied) {
+	$why = 'permission error box';
+} elseif ($tabs > 1) {
+	$why = 'rendered ' . $tabs . ' times';
+} elseif ($length < 400) {
+	$why = 'too little content';
+} elseif ($no_cancel) {
+	$why = 'dialog without a cancel label';
+} elseif ($unmarked) {
+	$why = 'website ' . $mw_query['site'] . ' not marked in the overview';
+}
+
+if ($why !== '') {
+	printf("%-46s FAIL  %6d bytes  (%s)\n", $mw_page, $length, $why);
 	echo '   ', substr(preg_replace('/\s+/', ' ', strip_tags($out)), 0, 300), "\n";
 	exit(1);
 }
 
-printf("%-28s ok    %6d bytes\n", $mw_page, $length);
+printf("%-46s ok    %6d bytes\n", $mw_page, $length);
 exit(0);

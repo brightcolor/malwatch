@@ -2,6 +2,52 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.15.0] – 2026-09-14
+
+### Neu
+
+**Rückfragen als Dialog im Panel.** Löschen, Zurückholen, Reparieren,
+Aktualisieren, eine Website wieder einschalten und „Auf die bestehenden Funde
+anwenden“ fragen in einem Dialog im Stil des Panels nach. Er nennt die Aktion
+und bei einer einzelnen Datei ihren Pfad. Bei Aktionen, die Dateien bewegen,
+ist der Bestätigen-Knopf rot; der Fokus liegt zuerst auf „Abbrechen“, Esc
+schließt. Knöpfe, die eine Auswahl brauchen, bleiben ausgegraut, bis etwas
+angehakt ist.
+
+**Quarantäne je Website.** Über der Liste steht eine Übersicht mit Einträgen,
+Größe auf der Platte und jüngstem Eintrag je Website, die meisten Einträge
+zuerst. Ein Klick zeigt nur die Einträge dieser Website, mit Blättern und allen
+Aktionen. Der Hinweis auf der Seite einer Website führt direkt dorthin.
+
+**Updates und Reparatur je Ordner.** Beide Seiten gliedern nach
+WordPress-Installation. Jeder Ordner hat Probelauf und Start für seine
+angehakten Elemente, dazu „Alle auswählen“ und „Auswahl umkehren“ für den
+Ordner und für die ganze Seite. Beide Seiten starten ohne Häkchen; der Verweis
+„Aktualisieren“ einer Softwarezeile hakt weiter sein Element an.
+
+**Jede veröffentlichte Version wählbar.** Die Seite „Updates“ listet jede
+stabile Version über der installierten, die neueste zuerst. „Neueste passende“
+bleibt vorgewählt, „kleinste, die alle Lücken schließt“ ist markiert. Der
+Scanner holt die Liste bei wordpress.org und liefert sie mit dem nächsten
+Abgleich einer Website. Ob eine ältere Version zu PHP und WordPress der Website
+passt, prüft der Lauf nach dem Holen.
+
+**`repair --only` mit Ordner.** `--only=plugin:akismet@blog` repariert das
+Plugin allein in der Installation im Ordner `blog` unter `--path`,
+`--only=core@.` den Kern in `--path` selbst.
+
+### Behoben
+
+**Ein Häkchen der Reparaturseite traf jeden Ordner.** Die Seite übergab
+`--only=plugin:akismet`, und der Lauf reparierte das Plugin in jeder
+Installation der Website, die es enthielt. Jetzt nennt jeder Wert seinen
+Ordner.
+
+**Pfade mit Apostroph in den Knöpfen einer Fundzeile.** Die Knöpfe setzten den
+Pfad in ein Skript im `onclick`-Attribut, und ein Apostroph im Dateinamen
+konnte dort beim Klick eigenen Code ausführen. Die Werte stehen jetzt als Text
+in Attributen.
+
 ## [0.14.3] – 2026-09-14
 
 ### Geändert

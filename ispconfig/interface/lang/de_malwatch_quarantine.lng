@@ -14,6 +14,17 @@ $wb['btn_delete_selected_txt'] = 'Ausgewählte endgültig löschen';
 // was zu sehen ist (siehe pager_hint_txt).
 $wb['toolbar_selected_txt'] = '{n} von %s ausgewählt · %s auf der Platte';
 $wb['select_all_txt'] = 'Alle Einträge auf dieser Seite auswählen';
+// Steht in der Leiste, solange nichts angehakt ist. Die Knöpfe, die mit der
+// Auswahl arbeiten, sind bis dahin ausgegraut.
+$wb['toolbar_none_txt'] = 'Einträge zum Bearbeiten anhaken · %s auf der Platte';
+$wb['btn_cancel_txt'] = 'Abbrechen';
+
+// Die Übersicht über der Liste, eine Zeile je Website.
+$wb['overview_all_txt'] = 'Alle Websites';
+$wb['overview_no_site_txt'] = 'ohne Website';
+$wb['col_entries_txt'] = 'Einträge';
+$wb['col_disk_txt'] = 'Auf der Platte';
+$wb['col_latest_txt'] = 'Jüngster Eintrag';
 
 $wb['col_what_txt'] = 'Was';
 $wb['col_website_txt'] = 'Website';
@@ -58,7 +69,6 @@ $wb['confirm_restore_selected_txt'] = 'Ausgewählte Einträge zurück auf die We
 $wb['confirm_restore_one_txt'] = 'Diesen Eintrag zurück auf die Website legen? Er ist damit sofort wieder aktiv, Schadcode inbegriffen. Der Fund steht danach wieder in der Liste, und die Website gilt nicht mehr als sauber.';
 $wb['confirm_delete_selected_txt'] = 'Ausgewählte Einträge endgültig aus der Quarantäne löschen? Das ist die letzte Kopie dieser Dateien. Danach sind sie weg, auch für den Kunden, und das kann niemand rückgängig machen.';
 $wb['confirm_delete_one_txt'] = 'Diesen Eintrag endgültig aus der Quarantäne löschen? Das ist die letzte Kopie dieser Datei. Danach ist sie weg, auch für den Kunden, und das kann niemand rückgängig machen.';
-$wb['confirm_none_selected_txt'] = 'Es wurde kein Eintrag ausgewählt.';
 
 $wb['msg_restore_one_txt'] = 'Der Eintrag wird zurückgeholt. Sobald er wieder auf der Website liegt, steht der Fund wieder in der Liste.';
 $wb['msg_restore_many_txt'] = '%s Einträge werden zurückgeholt. Sobald sie wieder auf ihren Websites liegen, stehen die Funde wieder in der Liste.';

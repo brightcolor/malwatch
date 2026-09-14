@@ -62,18 +62,24 @@ func (l *Lookup) Latest(product, current string) string {
 }
 
 // PluginInfo is what wordpress.org says about the newest release of a plugin
-// or theme: its version and what it asks of a site.
+// or theme: its version, what it asks of a site, and every stable release up
+// to it, newest first.
 type PluginInfo struct {
 	Version     string
 	RequiresWP  string
 	RequiresPHP string
+	Versions    []string
 }
 
 // LatestPluginInfo returns the newest release of a WordPress plugin or theme
-// with its requirements. An empty Version means wordpress.org does not list
-// it, which is the normal case for paid and custom plugins.
+// with its requirements and its earlier releases. An empty Version means
+// wordpress.org does not list it, which is the normal case for paid and
+// custom plugins.
 func (l *Lookup) LatestPluginInfo(kind, slug string) PluginInfo {
-	key := kind + "-info:" + slug
+	// The entry holds version, both requirements and then the releases. Its
+	// key differs from the one before the releases were kept, so an older
+	// cache file is asked again rather than read without them.
+	key := kind + "-release:" + slug
 	if v, ok := l.cache.Get(key); ok {
 		var info PluginInfo
 		if len(v) > 0 {
@@ -82,6 +88,9 @@ func (l *Lookup) LatestPluginInfo(kind, slug string) PluginInfo {
 		if len(v) > 2 {
 			info.RequiresWP, info.RequiresPHP = v[1], v[2]
 		}
+		if len(v) > 3 {
+			info.Versions = append([]string(nil), v[3:]...)
+		}
 		return info
 	}
 	info, err := l.fetchWordPressExtra(kind, slug)
@@ -89,7 +98,7 @@ func (l *Lookup) LatestPluginInfo(kind, slug string) PluginInfo {
 		l.cache.Set(key, nil)
 		return PluginInfo{}
 	}
-	l.cache.Set(key, []string{info.Version, info.RequiresWP, info.RequiresPHP})
+	l.cache.Set(key, append([]string{info.Version, info.RequiresWP, info.RequiresPHP}, info.Versions...))
 	return info
 }
 
@@ -104,12 +113,13 @@ func (l *Lookup) fetchWordPressExtra(kind, slug string) (PluginInfo, error) {
 		base = l.wporg + "/themes/info/1.2/?action=theme_information"
 	}
 	u := base + "&request[slug]=" + url.QueryEscape(slug) +
-		"&request[fields][sections]=0&request[fields][description]=0&request[fields][versions]=0"
+		"&request[fields][sections]=0&request[fields][description]=0&request[fields][versions]=1"
 
 	var payload struct {
 		Version     string          `json:"version"`
 		Requires    looseString     `json:"requires"`
 		RequiresPHP looseString     `json:"requires_php"`
+		Versions    json.RawMessage `json:"versions"`
 		Error       json.RawMessage `json:"error"`
 	}
 	if err := l.getJSON(u, &payload); err != nil {
@@ -122,7 +132,58 @@ func (l *Lookup) fetchWordPressExtra(kind, slug string) (PluginInfo, error) {
 		Version:     payload.Version,
 		RequiresWP:  string(payload.Requires),
 		RequiresPHP: string(payload.RequiresPHP),
+		Versions:    stableReleases(releaseNames(payload.Versions), payload.Version),
 	}, nil
+}
+
+// releaseNames reads the keys of the versions object wordpress.org sends. A
+// plugin without tagged releases sends an empty list or false instead.
+func releaseNames(raw json.RawMessage) []string {
+	var byName map[string]json.RawMessage
+	if len(raw) == 0 || json.Unmarshal(raw, &byName) != nil {
+		return nil
+	}
+	names := make([]string, 0, len(byName))
+	for name := range byName {
+		names = append(names, name)
+	}
+	return names
+}
+
+// stableRelease matches a plain release number; trunk and pre-releases such as
+// 5.4-beta1 do not.
+var stableRelease = regexp.MustCompile(`^[0-9]+(\.[0-9]+)*$`)
+
+// stableReleases keeps the plain release numbers up to latest, newest first.
+// A tag above the release wordpress.org names as current is not the plugin's
+// published version yet. An empty latest keeps every release.
+func stableReleases(names []string, latest string) []string {
+	var out []string
+	for _, v := range names {
+		if !stableRelease.MatchString(v) || (latest != "" && Compare(v, latest) > 0) {
+			continue
+		}
+		out = append(out, v)
+	}
+	sort.Slice(out, func(i, j int) bool { return Compare(out[i], out[j]) > 0 })
+	return out
+}
+
+// Newer keeps the releases above installed, in the order given.
+func Newer(versions []string, installed string) []string {
+	var out []string
+	for _, v := range versions {
+		if Compare(v, installed) > 0 {
+			out = append(out, v)
+		}
+	}
+	return out
+}
+
+// WordPressNewer lists every WordPress release above current, newest first:
+// the rest of its own branch and every branch above it.
+func (l *Lookup) WordPressNewer(current string) []string {
+	return Newer(stableReleases(l.wordpressReleases(), ""), current)
 }
 
 // looseString reads a field wordpress.org sends as a string, as a number, or

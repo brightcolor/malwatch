@@ -65,11 +65,15 @@ Dienst für Kunden einbindet.
 
 ## Updates
 
-Die Seite **Updates** einer Website listet je WordPress-Installation Kern,
-Plugins und Themes mit neuerer Version bei wordpress.org. Jede Zeile bietet die
-neueste passende Version und die kleinste, die alle bekannten Lücken schließt.
+Die Seite **Updates** einer Website gliedert nach WordPress-Installation und
+listet je Ordner Kern, Plugins und Themes mit neuerer Version bei wordpress.org.
+Jede Zeile bietet jede veröffentlichte Version über der installierten an:
+vorgewählt ist die neueste passende, markiert die kleinste, die alle bekannten
+Lücken schließt. Die Liste der Versionen liefert der tägliche Abgleich.
 Die Seite startet ohne Auswahl; der Verweis „Aktualisieren“ einer Softwarezeile
-hakt dieses Element an.
+hakt dieses Element an. Jeder Ordner hat Probelauf und Start für seine
+angehakten Elemente, die Knöpfe unter der Liste gelten für alle Ordner. Die
+Reparaturseite ist genauso nach Ordnern gegliedert.
 Der Runner schreibt eine Plandatei und startet `malwatch upgrade` als Benutzer
 der Website mit ihrer PHP-Version; die Nachprüfung verbindet sich mit der IP des
 Vhosts. Vor der Nachprüfung wartet malwatch `opcache.revalidate_freq` des

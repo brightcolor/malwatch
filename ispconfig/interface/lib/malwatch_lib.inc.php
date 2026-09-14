@@ -370,6 +370,45 @@ function malwatch_install_of($element_path, $kind)
 }
 
 /**
+ * The folder of a WordPress installation below the scan path of its website:
+ * "blog" or "campus/blog", "." for an installation in the scan path itself and
+ * "" for a path outside it. The pages "Updates" and "Reparatur" group by it,
+ * and repair --only names it after @.
+ */
+function malwatch_install_folder($install_path, $scan_base)
+{
+	$base = rtrim((string) $scan_base, '/');
+	$path = rtrim((string) $install_path, '/');
+	if ($base === '' || ($path !== $base && strpos($path, $base . '/') !== 0)) {
+		return '';
+	}
+	$rel = trim((string) substr($path, strlen($base)), '/');
+	return $rel === '' ? '.' : $rel;
+}
+
+/**
+ * The --only values of one folder, for the buttons of that folder. An empty
+ * folder keeps every value. The folder starts after the first @, where repair
+ * --only cuts as well: a slug carries none, a folder name may.
+ */
+function malwatch_only_in_folder(array $only, $folder)
+{
+	$folder = (string) $folder;
+	if ($folder === '') {
+		return array_values($only);
+	}
+	$kept = array();
+	foreach ($only as $value) {
+		$value = (string) $value;
+		$at = strpos($value, '@');
+		if ($at !== false && substr($value, $at + 1) === $folder) {
+			$kept[] = $value;
+		}
+	}
+	return $kept;
+}
+
+/**
  * What an update to $version does about the known flaws of a software row:
  * "schließt alle 7 Lücken", "schließt 5 von 7, für 2 gibt es keine Korrektur",
  * "behoben erst ab 6.5.2". Empty for a row without known flaws.
@@ -402,6 +441,13 @@ function malwatch_upgrade_closes_label(array $row, $version, array $wb)
  * a newer release exists. minimal is vuln_fixed_in, the lowest release that
  * fixes every known flaw with a fix, offered once when it equals latest.
  *
+ * choices are the target versions the select lists, newest first: latest,
+ * minimal and every release in versions above the installed one. mark names
+ * the two offers. A newest release that needs more PHP stays out, since a run
+ * cannot change PHP; one that needs a newer WordPress stays in with that mark,
+ * because a core update in the same run can meet it. default is the choice
+ * the select starts on: latest, else minimal, else the newest other choice.
+ *
  * A function of its arguments alone, so tests/upgrade_offers_test.php can call
  * it without a panel.
  */
@@ -409,7 +455,12 @@ function malwatch_upgrade_offers(array $row, $core_version, $php, array $wb)
 {
 	$installed = (string) $row['installed_version'];
 	$kind = (string) $row['software_kind'];
-	$out = array('latest' => null, 'minimal' => null, 'reason' => '');
+	$out = array('latest' => null, 'minimal' => null, 'reason' => '', 'choices' => array(), 'default' => '');
+
+	// The versions the select lists, before sorting, and the marks some carry.
+	$versions = array();
+	$marks = array();
+	$withheld = '';
 
 	$latest = $kind === 'core' ? (string) $row['latest_in_branch'] : (string) $row['latest_version'];
 	if ($latest !== '' && version_compare($latest, $installed, '>')) {
@@ -417,10 +468,16 @@ function malwatch_upgrade_offers(array $row, $core_version, $php, array $wb)
 		$needs_wp = $kind === 'core' ? '' : (string) $row['latest_requires_wp'];
 		if ($needs_php !== '' && (string) $php !== '' && version_compare((string) $php, $needs_php, '<')) {
 			$out['reason'] = sprintf($wb['needs_php_txt'], $latest, $needs_php, $php);
+			$withheld = $latest;
 		} elseif ($needs_wp !== '' && (string) $core_version !== '' && version_compare((string) $core_version, $needs_wp, '<')) {
 			$out['reason'] = sprintf($wb['needs_wp_txt'], $latest, $needs_wp, $core_version);
+			$withheld = $latest;
+			$versions[] = $latest;
+			$marks[$latest] = sprintf($wb['needs_wp_short_txt'], $needs_wp);
 		} else {
 			$out['latest'] = array('version' => $latest, 'closes' => malwatch_upgrade_closes_label($row, $latest, $wb));
+			$versions[] = $latest;
+			$marks[$latest] = $wb['offer_latest_txt'];
 		}
 	}
 
@@ -428,6 +485,56 @@ function malwatch_upgrade_offers(array $row, $core_version, $php, array $wb)
 	if ($minimal !== '' && version_compare($minimal, $installed, '>')
 		&& ($out['latest'] === null || $out['latest']['version'] !== $minimal)) {
 		$out['minimal'] = array('version' => $minimal, 'closes' => malwatch_upgrade_closes_label($row, $minimal, $wb));
+		$versions[] = $minimal;
+		if (!isset($marks[$minimal])) {
+			$marks[$minimal] = $wb['offer_minimal_txt'];
+		}
+	}
+
+	$listed = json_decode((string) (isset($row['versions']) ? $row['versions'] : ''), true);
+	if (is_array($listed)) {
+		foreach ($listed as $version) {
+			if (is_string($version) && preg_match('/^[0-9]+(\.[0-9]+)*$/', $version)) {
+				$versions[] = $version;
+			}
+		}
+	}
+
+	$seen = array();
+	foreach ($versions as $version) {
+		$version = (string) $version;
+		if (isset($seen[$version]) || !version_compare($version, $installed, '>')) {
+			continue;
+		}
+		// The newest release, when it needs more PHP than the site runs.
+		if ($version === $withheld && !isset($marks[$version])) {
+			continue;
+		}
+		$seen[$version] = true;
+		$out['choices'][] = array(
+			'version' => $version,
+			'closes' => malwatch_upgrade_closes_label($row, $version, $wb),
+			'mark' => isset($marks[$version]) ? $marks[$version] : '',
+		);
+	}
+	usort($out['choices'], function ($a, $b) {
+		return version_compare($b['version'], $a['version']);
+	});
+
+	if ($out['latest'] !== null) {
+		$out['default'] = $out['latest']['version'];
+	} elseif ($out['minimal'] !== null) {
+		$out['default'] = $out['minimal']['version'];
+	} else {
+		foreach ($out['choices'] as $choice) {
+			if ($choice['version'] !== $withheld) {
+				$out['default'] = $choice['version'];
+				break;
+			}
+		}
+		if ($out['default'] === '' && count($out['choices']) > 0) {
+			$out['default'] = $out['choices'][0]['version'];
+		}
 	}
 	return $out;
 }
@@ -467,7 +574,7 @@ function malwatch_upgrade_candidates($app, $domain_id, array $wb, $limit = 50)
 		}
 		$manual_only = (string) $row['version_unknown'] === 'y' && intval($row['vuln_count']) > 0;
 		$offers = malwatch_upgrade_offers($row, $installs[$path]['core_version'], $php, $wb);
-		if ($offers['latest'] === null && $offers['minimal'] === null && $offers['reason'] === '' && !$manual_only) {
+		if (count($offers['choices']) === 0 && $offers['reason'] === '' && !$manual_only) {
 			continue;
 		}
 		$installs[$path]['rows'][] = array(
@@ -526,12 +633,14 @@ function malwatch_upgrade_checked(array $row, $can_update, $preselect)
  * $choices maps software_id to a version. A version counts only when this
  * page offers it for that row right now: the offers are computed again here
  * from the database, so a changed form field cannot slip another version into
- * the plan. Returns the number of queued elements, or a German message.
+ * the plan. $folder (see malwatch_install_folder()) keeps the rows of that one
+ * installation, for the buttons of a folder. Returns the number of queued
+ * elements, or a German message.
  */
-function malwatch_queue_upgrade($app, $domain_id, array $choices, $dry_run, array $wb)
+function malwatch_queue_upgrade($app, $domain_id, array $choices, $dry_run, array $wb, $folder = '')
 {
 	$domain_id = $app->functions->intval($domain_id);
-	$web = $app->db->queryOneRecord('SELECT php FROM web_domain WHERE domain_id = ?', $domain_id);
+	$web = $app->db->queryOneRecord('SELECT * FROM web_domain WHERE domain_id = ?', $domain_id);
 	if (!is_array($web)) {
 		return $wb['err_site_not_found_txt'];
 	}
@@ -539,14 +648,16 @@ function malwatch_queue_upgrade($app, $domain_id, array $choices, $dry_run, arra
 		return $wb['err_no_php_txt'];
 	}
 
+	$scan_base = malwatch_scan_path($web);
 	list($installs) = malwatch_upgrade_candidates($app, $domain_id, $wb, 100000);
 	$offered = array();
 	foreach ($installs as $install) {
+		if ((string) $folder !== '' && malwatch_install_folder($install['path'], $scan_base) !== (string) $folder) {
+			continue;
+		}
 		foreach ($install['rows'] as $row) {
-			foreach (array('latest', 'minimal') as $which) {
-				if ($row['offers'][$which] !== null) {
-					$offered[$row['software_id']][$row['offers'][$which]['version']] = true;
-				}
+			foreach ($row['offers']['choices'] as $choice) {
+				$offered[$row['software_id']][$choice['version']] = true;
 			}
 		}
 	}
@@ -1032,28 +1143,79 @@ function malwatch_duration($seconds)
 }
 
 /**
- * A sentence that is safe between single quotes inside an onclick attribute.
+ * Language lines for the data-mw-* attributes of a button, escaped for HTML.
  *
- * Every confirm() and alert() on these pages sits in an HTML attribute and
- * takes its text from a language file, and $app->tpl->setVar($wb) hands those
- * over exactly as written. One apostrophe - "the customer's files" is the
- * obvious way to write that line in English - closes the JavaScript string
- * early and leaves the button doing nothing at all, silently. The language
- * files are ours and none of them holds one today; this is a trap laid for
- * the next person who writes a better sentence, not a hole.
+ * The dialog in templates/malwatch_modal.htm reads its title, question and
+ * button label from those attributes. $app->tpl->setVar($wb) hands a line over
+ * exactly as the language file wrote it, and one straight double quote ends
+ * the attribute in the middle of the sentence. A key the language file lacks
+ * is left out.
  *
- * Both escapes, in this order: the JavaScript one first, so the backslash it
- * adds is what the HTML escape then carries through the attribute. The
- * browser undoes the HTML layer before the JavaScript parser ever sees the
- * text, which is why the order cannot be the other way round.
+ * Pass the result to $app->tpl->setVar() after setVar($wb).
  */
-function malwatch_js_text($app, $text)
+function malwatch_attr_texts(array $wb, array $keys)
 {
-	$escaped = str_replace(
-		array('\\', "'", "\r\n", "\n", "\r"),
-		array('\\\\', "\\'", '\\n', '\\n', '\\n'),
-		(string) $text);
-	return $app->functions->htmlentities($escaped);
+	$texts = array();
+	foreach ($keys as $key) {
+		if (isset($wb[$key])) {
+			$texts[$key] = htmlspecialchars((string) $wb[$key], ENT_QUOTES, 'UTF-8');
+		}
+	}
+	return $texts;
+}
+
+/**
+ * The quarantine by website: one row per parent_domain_id, the most entries
+ * first, equal counts by name.
+ *
+ * $groups are the rows of a GROUP BY parent_domain_id over malwatch_quarantine
+ * with the columns site, domain, entries, bytes (archive_bytes) and latest
+ * (created_at). The entries without a website carry parent_domain_id 0 and
+ * share the row "ohne Website".
+ */
+function malwatch_quarantine_overview(array $groups, array $wb)
+{
+	$rows = array();
+	foreach ($groups as $group) {
+		$site = intval($group['site']);
+		$rows[] = array(
+			'site' => $site,
+			'label' => $site === 0 ? $wb['overview_no_site_txt'] : (string) $group['domain'],
+			'entries' => intval($group['entries']),
+			'bytes' => (float) $group['bytes'],
+			'latest' => (string) $group['latest'],
+		);
+	}
+	usort($rows, function ($a, $b) {
+		if ($a['entries'] !== $b['entries']) {
+			return $a['entries'] > $b['entries'] ? -1 : 1;
+		}
+		return strcmp($a['label'], $b['label']);
+	});
+	return $rows;
+}
+
+/**
+ * The website the parameter site= narrows the quarantine list to.
+ *
+ * Returns its parent_domain_id when the overview lists it, 0 for the entries
+ * without a website. Everything else shows the whole list and returns -1: no
+ * parameter, one that is not a plain number, and a website with nothing left
+ * in quarantine, which is where a filtered list lands once its last entry is
+ * gone.
+ */
+function malwatch_quarantine_site($param, array $overview)
+{
+	if (!is_string($param) || !preg_match('/^[0-9]+$/', $param)) {
+		return -1;
+	}
+	$site = intval($param);
+	foreach ($overview as $row) {
+		if ($row['site'] === $site) {
+			return $site;
+		}
+	}
+	return -1;
 }
 
 /**

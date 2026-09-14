@@ -43,6 +43,15 @@ $wb['quiet_body_txt'] = 'Jedes angefasste Verzeichnis liegt hinterher vollständ
 $wb['quiet_quarantine_link_txt'] = 'Quarantäne';
 
 $wb['selected_template_txt'] = '{n} von %s Elementen ausgewählt';
+// Steht dort, solange nichts angehakt ist; beide Knöpfe sind bis dahin
+// ausgegraut.
+$wb['selected_none_txt'] = 'Elemente zum Reparieren anhaken';
+$wb['select_all_txt'] = 'Alle auswählen';
+$wb['select_folder_txt'] = 'Alle Elemente dieses Ordners auswählen';
+$wb['invert_txt'] = 'Auswahl umkehren';
+$wb['install_root_txt'] = 'Webstamm';
+$wb['btn_dry_run_short_txt'] = 'Probelauf';
+$wb['btn_cancel_txt'] = 'Abbrechen';
 
 $wb['btn_dry_run_txt'] = 'Probelauf — nur zeigen, was geschähe';
 $wb['btn_start_txt'] = 'Reparatur starten';

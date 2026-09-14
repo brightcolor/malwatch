@@ -518,11 +518,13 @@ func collectSoftware(rep *report.Report, opts *Options, known *knownfiles.Index)
 				if inst.Product == "wordpress" {
 					entry.LatestInBranch = lookup.WordPressBranchLatest(inst.Version)
 					entry.LatestRequiresPHP = lookup.WordPressRequiresPHP()
+					entry.Versions = lookup.WordPressNewer(inst.Version)
 				}
 			} else {
 				info := lookup.LatestPluginInfo(inst.Kind, inst.Slug)
 				latest = info.Version
 				entry.LatestRequiresWP, entry.LatestRequiresPHP = info.RequiresWP, info.RequiresPHP
+				entry.Versions = cms.Newer(info.Versions, inst.Version)
 			}
 			entry.Latest = latest
 			if latest == "" {

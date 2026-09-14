@@ -139,7 +139,9 @@
 <div class="mw-quiet">
 	<span>{tmpl_var name='apply_existing_intro'}</span>
 	<button class="btn btn-default formbutton-default formbutton-narrow" type="button"
-		onclick="if(!confirm('{tmpl_var name='confirm_apply_existing'}')){event.stopPropagation();return false;} document.getElementById('mw-action').value='apply_existing';"
+		data-mw-confirm="{tmpl_var name='confirm_apply_existing'}" data-mw-title="{tmpl_var name='btn_apply_existing_txt'}"
+		data-mw-ok="{tmpl_var name='btn_apply_existing_txt'}" data-mw-danger="1"
+		data-mw-set-mw-action="apply_existing"
 		data-submit-form="pageForm" data-form-action="security/malwatch_config_edit.php">{tmpl_var name='btn_apply_existing_txt'}</button>
 </div>
 </tmpl_if>
@@ -337,3 +339,5 @@
 	}
 })();
 </script>
+
+<tmpl_include file="templates/malwatch_modal.htm">

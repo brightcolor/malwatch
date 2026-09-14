@@ -24,7 +24,7 @@
 #mw-quarantine .mw-sub{margin:6px 0 16px;opacity:.72;font-size:13px;max-width:76ch}
 #mw-quarantine .mw-actbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 4px}
 #mw-quarantine .mw-actbar .mw-grow{flex:1 1 auto}
-#mw-quarantine .mw-selcount{font-size:13px;opacity:.72;font-variant-numeric:tabular-nums;white-space:nowrap}
+#mw-quarantine .mw-selcount{font-size:13px;opacity:.72;font-variant-numeric:tabular-nums}
 
 /* Dichter als die Vorlage des Themes: bei zwoelf Zeilen mit je 140 Pixeln
    sieht man vier Eintraege und scrollt fuer den Rest. */
@@ -96,6 +96,16 @@
 #mw-quarantine .mw-pager{display:flex;flex-wrap:wrap;gap:9px;align-items:center;margin-top:12px}
 #mw-quarantine .mw-pager .mw-range{font-size:13px;opacity:.72;font-variant-numeric:tabular-nums}
 #mw-quarantine .mw-pager .mw-hint{font-size:12.5px;opacity:.66}
+
+/* Die Uebersicht je Website. Die gewaehlte Zeile traegt kraeftigere Schrift
+   und links eine Linie in der Akzentfarbe. Ab etwa zehn Websites scrollt die
+   Uebersicht in sich, damit die Liste darunter im Blick bleibt. Steht nach
+   .table-wrapper, dessen overflow-x sonst gewaenne. */
+#mw-quarantine .mw-overview{max-height:22em;overflow:auto;margin:0 0 18px}
+#mw-quarantine .mw-overview .table{margin:0}
+#mw-quarantine .mw-overview th.num,#mw-quarantine .mw-overview td.num{text-align:right;white-space:nowrap}
+#mw-quarantine .mw-overview tr.mw-current > td{font-weight:600;background:var(--cic-hover,rgba(128,128,128,.12))}
+#mw-quarantine .mw-overview tr.mw-current > td:first-child{box-shadow:inset 3px 0 0 var(--cic-accent,#dd630d)}
 </style>
 
 <div id="mw-quarantine">
@@ -104,29 +114,63 @@
 
 <tmpl_if name="has_entries">
 
+<div class="table-wrapper mw-overview">
+<table class="table">
+	<thead class="dark">
+		<tr>
+			<th>{tmpl_var name='col_website_txt'}</th>
+			<th class="num">{tmpl_var name='col_entries_txt'}</th>
+			<th class="num">{tmpl_var name='col_disk_txt'}</th>
+			<th>{tmpl_var name='col_latest_txt'}</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tr<tmpl_if name="all_current"> class="mw-current"</tmpl_if>>
+			<td><a href="#" data-load-content="security/malwatch_quarantine_list.php"<tmpl_if name="all_current"> aria-current="true"</tmpl_if>>{tmpl_var name='overview_all_txt'}</a></td>
+			<td class="num">{tmpl_var name='total_entries'}</td>
+			<td class="num">{tmpl_var name='total_disk'}</td>
+			<td>{tmpl_var name='total_latest'}</td>
+		</tr>
+		<tmpl_loop name="overview">
+		<tr<tmpl_if name="current"> class="mw-current"</tmpl_if>>
+			<td><a href="#" data-load-content="security/malwatch_quarantine_list.php?site={tmpl_var name='site'}"<tmpl_if name="current"> aria-current="true"</tmpl_if>>{tmpl_var name='label'}</a></td>
+			<td class="num">{tmpl_var name='entries'}</td>
+			<td class="num">{tmpl_var name='disk'}</td>
+			<td>{tmpl_var name='latest'}</td>
+		</tr>
+		</tmpl_loop>
+	</tbody>
+</table>
+</div>
+
 <!--
 	No form of our own: the panel wraps the whole content area in one form
 	called pageForm and posts it by AJAX. entry_id carries the single row a
 	row button targets; the checkboxes below feed ids[] for the toolbar
 	buttons, and the action page prefers entry_id over ids[] whenever a row
 	button set it, so a box left checked from an earlier click never rides
-	along with a single-row action.
+	along with a single-row action. Every button writes both fields through
+	its data-mw-set-* attributes (templates/malwatch_modal.htm).
 -->
 <input type="hidden" name="entry_id" id="mw-entry-id" value="" />
 <input type="hidden" name="malwatch_action" id="mw-action" value="" />
 
 <div class="mw-actbar">
-	<button class="btn btn-default formbutton-default" type="button"
-		onclick="if(!mwQuarantineSelected()){alert('{tmpl_var name='confirm_none_selected_txt'}');event.stopPropagation();return false;} if(!confirm('{tmpl_var name='confirm_restore_selected_txt'}')){event.stopPropagation();return false;} document.getElementById('mw-entry-id').value='';document.getElementById('mw-action').value='restore';"
-		data-submit-form="pageForm" data-form-action="security/malwatch_quarantine_list.php">{tmpl_var name='btn_restore_selected_txt'}</button>
-	<button class="btn btn-default formbutton-default" type="button"
-		onclick="if(!mwQuarantineSelected()){alert('{tmpl_var name='confirm_none_selected_txt'}');event.stopPropagation();return false;} document.getElementById('mw-entry-id').value='';document.getElementById('mw-action').value='download';"
-		data-submit-form="pageForm" data-form-action="security/malwatch_quarantine_list.php">{tmpl_var name='btn_download_selected_txt'}</button>
-	<button class="btn btn-danger" type="button"
-		onclick="if(!mwQuarantineSelected()){alert('{tmpl_var name='confirm_none_selected_txt'}');event.stopPropagation();return false;} if(!confirm('{tmpl_var name='confirm_delete_selected_txt'}')){event.stopPropagation();return false;} document.getElementById('mw-entry-id').value='';document.getElementById('mw-action').value='delete';"
-		data-submit-form="pageForm" data-form-action="security/malwatch_quarantine_list.php">{tmpl_var name='btn_delete_selected_txt'}</button>
+	<button class="btn btn-default formbutton-default mw-needs-selection" type="button" disabled
+		data-mw-confirm="{tmpl_var name='confirm_restore_selected_txt'}" data-mw-title="{tmpl_var name='btn_restore_selected_txt'}"
+		data-mw-ok="{tmpl_var name='btn_restore_txt'}" data-mw-danger="1"
+		data-mw-set-mw-entry-id="" data-mw-set-mw-action="restore"
+		data-submit-form="pageForm" data-form-action="security/malwatch_quarantine_list.php{tmpl_var name='site_query'}">{tmpl_var name='btn_restore_selected_txt'}</button>
+	<button class="btn btn-default formbutton-default mw-needs-selection" type="button" disabled
+		data-mw-set-mw-entry-id="" data-mw-set-mw-action="download"
+		data-submit-form="pageForm" data-form-action="security/malwatch_quarantine_list.php{tmpl_var name='site_query'}">{tmpl_var name='btn_download_selected_txt'}</button>
+	<button class="btn btn-danger mw-needs-selection" type="button" disabled
+		data-mw-confirm="{tmpl_var name='confirm_delete_selected_txt'}" data-mw-title="{tmpl_var name='btn_delete_selected_txt'}"
+		data-mw-ok="{tmpl_var name='btn_delete_txt'}" data-mw-danger="1"
+		data-mw-set-mw-entry-id="" data-mw-set-mw-action="delete"
+		data-submit-form="pageForm" data-form-action="security/malwatch_quarantine_list.php{tmpl_var name='site_query'}">{tmpl_var name='btn_delete_selected_txt'}</button>
 	<span class="mw-grow"></span>
-	<span class="mw-selcount" id="mw-selcount" data-template="{tmpl_var name='selected_template'}">{tmpl_var name='selected_line'}</span>
+	<span class="mw-selcount" id="mw-selcount" data-template="{tmpl_var name='selected_template'}" data-none="{tmpl_var name='selected_none'}">{tmpl_var name='selected_none'}</span>
 </div>
 
 <div class="table-wrapper marginTop15">
@@ -168,8 +212,10 @@
 			<td class="mw-acts">
 				<div class="mw-qacts">
 					<button class="btn btn-default formbutton-default" type="button"
-						onclick="if(!confirm('{tmpl_var name='confirm_restore_one_txt'}')){event.stopPropagation();return false;} document.getElementById('mw-entry-id').value='{tmpl_var name='row_key'}';document.getElementById('mw-action').value='restore';"
-						data-submit-form="pageForm" data-form-action="security/malwatch_quarantine_list.php">{tmpl_var name='btn_restore_txt'}</button>
+						data-mw-confirm="{tmpl_var name='confirm_restore_one_txt'}" data-mw-title="{tmpl_var name='btn_restore_txt'}"
+						data-mw-detail="{tmpl_var name='detail'}" data-mw-ok="{tmpl_var name='btn_restore_txt'}" data-mw-danger="1"
+						data-mw-set-mw-entry-id="{tmpl_var name='row_key'}" data-mw-set-mw-action="restore"
+						data-submit-form="pageForm" data-form-action="security/malwatch_quarantine_list.php{tmpl_var name='site_query'}">{tmpl_var name='btn_restore_txt'}</button>
 					<tmpl_if name="dl_ready">
 						<a class="btn btn-default formbutton-default" href="security/malwatch_quarantine_download.php?token={tmpl_var name='dl_token'}">{tmpl_var name='dl_ready_label'}</a>
 					</tmpl_if>
@@ -178,12 +224,14 @@
 					</tmpl_if>
 					<tmpl_if name="dl_normal">
 						<button class="btn btn-default formbutton-default" type="button"
-							onclick="document.getElementById('mw-entry-id').value='{tmpl_var name='row_key'}';document.getElementById('mw-action').value='download';"
-							data-submit-form="pageForm" data-form-action="security/malwatch_quarantine_list.php">{tmpl_var name='btn_download_txt'}</button>
+							data-mw-set-mw-entry-id="{tmpl_var name='row_key'}" data-mw-set-mw-action="download"
+							data-submit-form="pageForm" data-form-action="security/malwatch_quarantine_list.php{tmpl_var name='site_query'}">{tmpl_var name='btn_download_txt'}</button>
 					</tmpl_if>
 					<button class="btn btn-danger btn-xs" type="button"
-						onclick="if(!confirm('{tmpl_var name='confirm_delete_one_txt'}')){event.stopPropagation();return false;} document.getElementById('mw-entry-id').value='{tmpl_var name='row_key'}';document.getElementById('mw-action').value='delete';"
-						data-submit-form="pageForm" data-form-action="security/malwatch_quarantine_list.php">{tmpl_var name='btn_delete_txt'}</button>
+						data-mw-confirm="{tmpl_var name='confirm_delete_one_txt'}" data-mw-title="{tmpl_var name='btn_delete_txt'}"
+						data-mw-detail="{tmpl_var name='detail'}" data-mw-ok="{tmpl_var name='btn_delete_txt'}" data-mw-danger="1"
+						data-mw-set-mw-entry-id="{tmpl_var name='row_key'}" data-mw-set-mw-action="delete"
+						data-submit-form="pageForm" data-form-action="security/malwatch_quarantine_list.php{tmpl_var name='site_query'}">{tmpl_var name='btn_delete_txt'}</button>
 				</div>
 			</td>
 		</tr>
@@ -196,11 +244,11 @@
 <div class="mw-pager">
 	<tmpl_if name="has_prev_page">
 		<a class="btn btn-default formbutton-default" href="#"
-			data-load-content="security/malwatch_quarantine_list.php?page={tmpl_var name='prev_page'}">{tmpl_var name='btn_prev_page_txt'}</a>
+			data-load-content="security/malwatch_quarantine_list.php?page={tmpl_var name='prev_page'}{tmpl_var name='site_param'}">{tmpl_var name='btn_prev_page_txt'}</a>
 	</tmpl_if>
 	<tmpl_if name="has_next_page">
 		<a class="btn btn-default formbutton-default" href="#"
-			data-load-content="security/malwatch_quarantine_list.php?page={tmpl_var name='next_page'}">{tmpl_var name='btn_next_page_txt'}</a>
+			data-load-content="security/malwatch_quarantine_list.php?page={tmpl_var name='next_page'}{tmpl_var name='site_param'}">{tmpl_var name='btn_next_page_txt'}</a>
 	</tmpl_if>
 	<span class="mw-range">{tmpl_var name='pager_range'}</span>
 	<span class="mw-hint">{tmpl_var name='pager_hint_txt'}</span>
@@ -229,13 +277,6 @@
 	var root = document.getElementById('mw-quarantine');
 	if (!root) { return; }
 
-	// Counts checked boxes for the toolbar buttons' own guard - a click on
-	// "Ausgewaehlte loeschen" with nothing checked would otherwise post an
-	// empty action and land on the server's generic "nothing selected" error.
-	window.mwQuarantineSelected = function () {
-		return root.querySelectorAll('.mw-check:checked').length;
-	};
-
 	var span = document.getElementById('mw-selcount');
 	var boxes = root.querySelectorAll('.mw-check');
 	if (!span || !boxes.length) { return; }
@@ -245,11 +286,18 @@
 	// it - "von 51 ausgewaehlt", the size in use - came from the language
 	// file already filled in and does not need to travel over again.
 	var template = span.getAttribute('data-template') || '';
+	// While nothing is ticked the bar says so, and the three buttons that act
+	// on the selection stay greyed out.
+	var none = span.getAttribute('data-none') || '';
+	var needSelection = root.querySelectorAll('.mw-needs-selection');
 	var all = document.getElementById('mw-check-all');
 
 	function update() {
 		var checked = root.querySelectorAll('.mw-check:checked').length;
-		span.textContent = template.replace('{n}', String(checked));
+		span.textContent = checked > 0 ? template.replace('{n}', String(checked)) : none;
+		for (var k = 0; k < needSelection.length; k++) {
+			needSelection[k].disabled = checked === 0;
+		}
 		// The header box follows the rows as well as leading them: unticking
 		// one row must not leave a ticked box on top claiming all of them.
 		if (all) {
@@ -268,5 +316,9 @@
 			update();
 		});
 	}
+
+	update();
 })();
 </script>
+
+<tmpl_include file="templates/malwatch_modal.htm">

@@ -130,6 +130,7 @@ $wb['confirm_delete_all_txt'] = 'Move every open finding of this website to quar
 $wb['quarantine_hint_one_txt'] = 'One entry of this website is in quarantine.';
 $wb['quarantine_hint_many_txt'] = '%s entries of this website are in quarantine.';
 $wb['quarantine_hint_link_txt'] = 'View';
+$wb['btn_cancel_txt'] = 'Cancel';
 $wb['phase_scanning_txt'] = 'Checking files';
 $wb['phase_detect_txt'] = 'Detect';
 $wb['phase_fetch_txt'] = 'Fetch';

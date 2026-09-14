@@ -13,6 +13,9 @@ $wb = array(
 	'closes_later_txt' => 'behoben erst ab %s',
 	'needs_php_txt' => '%s braucht PHP %s, die Website läuft mit %s',
 	'needs_wp_txt' => '%s braucht WordPress %s, installiert ist %s',
+	'needs_wp_short_txt' => 'braucht WordPress %s',
+	'offer_latest_txt' => 'neueste passende',
+	'offer_minimal_txt' => 'kleinste, die alle Lücken schließt',
 );
 
 $failures = 0;
@@ -31,8 +34,13 @@ function software_row(array $fields)
 	return array_merge(array(
 		'software_kind' => 'plugin', 'installed_version' => '5.3.0', 'latest_version' => '',
 		'latest_in_branch' => '', 'latest_requires_wp' => '', 'latest_requires_php' => '',
-		'vuln_count' => 0, 'vuln_nofix' => 0, 'vuln_fixed_in' => '', 'version_unknown' => 'n',
+		'vuln_count' => 0, 'vuln_nofix' => 0, 'vuln_fixed_in' => '', 'version_unknown' => 'n', 'versions' => '',
 	), $fields);
+}
+
+function choice_versions(array $offers)
+{
+	return array_map(function ($choice) { return $choice['version']; }, $offers['choices']);
 }
 
 // The newest release fits the site and fixes both flaws.
@@ -41,6 +49,7 @@ $o = malwatch_upgrade_offers(software_row(array('latest_version' => '5.3.7', 'la
 expect_same('latest offered', $o['latest']['version'], '5.3.7');
 expect_same('latest closes all', $o['latest']['closes'], 'schließt alle 2 Lücken');
 expect_same('minimal offered', $o['minimal']['version'], '5.3.1');
+expect_same('offers are the choices without a release list', choice_versions($o), array('5.3.7', '5.3.1'));
 
 // The newest release asks for more PHP than the site runs.
 $o = malwatch_upgrade_offers(software_row(array('installed_version' => '3.18.0', 'latest_version' => '3.25.1',
@@ -83,6 +92,39 @@ expect_same('current: reason', $o['reason'], '');
 $o = malwatch_upgrade_offers(software_row(array('latest_version' => '5.3.7', 'latest_requires_php' => '8.1')),
 	'6.6.2', '', $wb);
 expect_same('unknown php', $o['latest']['version'], '5.3.7');
+
+// Every release above the installed one is a choice, newest first. The two
+// offers carry their mark, and a release below the fix says so.
+$o = malwatch_upgrade_offers(software_row(array('installed_version' => '5.3.0', 'latest_version' => '5.3.7',
+	'vuln_count' => 2, 'vuln_fixed_in' => '5.3.4',
+	'versions' => '["5.3.7","5.3.5","5.3.4","5.3.2","5.3.0","5.2.9","trunk","5.4-beta1"]')), '6.6.2', '8.2.10', $wb);
+expect_same('choices newest first', choice_versions($o), array('5.3.7', '5.3.5', '5.3.4', '5.3.2'));
+expect_same('latest marked', $o['choices'][0]['mark'], 'neueste passende');
+expect_same('plain release', $o['choices'][1]['mark'], '');
+expect_same('minimal marked', $o['choices'][2]['mark'], 'kleinste, die alle Lücken schließt');
+expect_same('release below the fix', $o['choices'][3]['closes'], 'behoben erst ab 5.3.4');
+expect_same('starts on latest', $o['default'], '5.3.7');
+
+// A newest release that needs more PHP stays out of the choices, since the
+// run cannot change PHP; the select starts on the fix.
+$o = malwatch_upgrade_offers(software_row(array('installed_version' => '3.18.0', 'latest_version' => '3.25.1',
+	'latest_requires_php' => '8.1', 'vuln_count' => 7, 'vuln_fixed_in' => '3.18.2',
+	'versions' => '["3.25.1","3.20.0","3.18.2"]')), '6.6.2', '7.4.33', $wb);
+expect_same('release needing more php left out', choice_versions($o), array('3.20.0', '3.18.2'));
+expect_same('starts on the fix', $o['default'], '3.18.2');
+
+// One that needs a newer WordPress stays a choice with that mark: a core
+// update in the same run can meet it, and phase 3 checks.
+$o = malwatch_upgrade_offers(software_row(array('installed_version' => '1.0', 'latest_version' => '2.0',
+	'latest_requires_wp' => '6.6', 'versions' => '["2.0","1.5"]')), '6.4.5', '8.2.10', $wb);
+expect_same('release needing a newer wordpress marked', $o['choices'][0]['mark'], 'braucht WordPress 6.6');
+expect_same('starts below it', $o['default'], '1.5');
+
+// Nothing newer in the list either: no choice, nothing to start on.
+$o = malwatch_upgrade_offers(software_row(array('latest_version' => '5.3.0', 'versions' => '["5.3.0","5.2.9"]')),
+	'6.6.2', '8.2.10', $wb);
+expect_same('current: no choices', $o['choices'], array());
+expect_same('current: no default', $o['default'], '');
 
 expect_same('plugin install', malwatch_install_of('/w/blog/wp-content/plugins/akismet', 'plugin'), '/w/blog');
 expect_same('theme install', malwatch_install_of('/w/inhalt/themes/vier', 'theme'), '/w');

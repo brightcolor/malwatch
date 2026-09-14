@@ -10,6 +10,9 @@
  * not parent_domain_id, is what the cron on that machine reads. Selecting
  * entries from several websites at once is expected here, unlike the
  * per-website actions on malwatch_site_show.php.
+ *
+ * An overview above the list counts the entries per website, and site=
+ * narrows the list to one of them (0 for the entries without a website).
  */
 
 require_once '../../lib/config.inc.php';
@@ -91,21 +94,72 @@ $app->tpl->setInclude('content_tpl', 'templates/malwatch_quarantine_list.htm');
 $app->tpl->setVar($wb);
 
 // Overwritten right after setVar($wb), which passes a sentence on exactly as
-// the language file wrote it: these five end up inside confirm('…') and
-// alert('…') in an onclick attribute, where one apostrophe kills the button
-// without a sound. See malwatch_js_text().
-foreach (array('confirm_none_selected_txt', 'confirm_restore_selected_txt', 'confirm_delete_selected_txt',
-	'confirm_restore_one_txt', 'confirm_delete_one_txt') as $js_key) {
-	// isset und kein leerer Rueckfall: ein Tippfehler in der Liste soll die
-	// Zeichenkette lassen, wie sie war, nicht den Text loeschen.
-	if (isset($wb[$js_key])) {
-		$app->tpl->setVar($js_key, malwatch_js_text($app, $wb[$js_key]));
+// the language file wrote it: the dialog reads these from data-mw-*
+// attributes, and a straight double quote would end the attribute. See
+// malwatch_attr_texts().
+$app->tpl->setVar(malwatch_attr_texts($wb, array(
+	'btn_restore_selected_txt', 'btn_delete_selected_txt', 'btn_restore_txt', 'btn_delete_txt',
+	'confirm_restore_selected_txt', 'confirm_delete_selected_txt', 'confirm_restore_one_txt',
+	'confirm_delete_one_txt')));
+
+// One query serves the overview, the heading and the pager: the entries per
+// website with their size on disk and the newest of them.
+$groups = $app->db->queryAllRecords(
+	'SELECT parent_domain_id AS site, MAX(domain) AS domain, COUNT(*) AS entries, '
+	. 'COALESCE(SUM(archive_bytes),0) AS bytes, MAX(created_at) AS latest '
+	. 'FROM malwatch_quarantine GROUP BY parent_domain_id');
+$overview = malwatch_quarantine_overview(is_array($groups) ? $groups : array(), $wb);
+$site = malwatch_quarantine_site(isset($_REQUEST['site']) ? $_REQUEST['site'] : null, $overview);
+
+$total_count = 0;
+$total_bytes = 0.0;
+$total_latest = '';
+$list_count = 0;
+foreach ($overview as $group) {
+	$total_count += $group['entries'];
+	$total_bytes += $group['bytes'];
+	// created_at is a DATETIME, and its text sorts in time order.
+	if ($group['latest'] > $total_latest) {
+		$total_latest = $group['latest'];
+	}
+	if ($group['site'] === $site) {
+		$list_count = $group['entries'];
 	}
 }
+if ($site < 0) {
+	$list_count = $total_count;
+}
 
-$totals = $app->db->queryOneRecord('SELECT COUNT(*) AS n, COALESCE(SUM(archive_bytes),0) AS b FROM malwatch_quarantine');
-$total_count = is_array($totals) ? $app->functions->intval($totals['n']) : 0;
-$total_bytes = is_array($totals) ? (float) $totals['b'] : 0.0;
+// archive_bytes stays 0 until a quarantine run has listed an entry, the same
+// wait the size column of the list shows as "noch unbekannt".
+$disk_label = function ($bytes) use ($wb) {
+	return $bytes > 0 ? malwatch_bytes($bytes) : $wb['size_unknown_txt'];
+};
+$when_label = function ($datetime) {
+	$stamp = $datetime !== '' ? strtotime($datetime) : false;
+	return ($stamp !== false && $stamp > 0) ? malwatch_when($stamp) : '–';
+};
+
+$overview_rows = array();
+foreach ($overview as $group) {
+	$overview_rows[] = array(
+		'site' => $group['site'],
+		'label' => $app->functions->htmlentities($group['label']),
+		'entries' => number_format($group['entries'], 0, ',', '.'),
+		'disk' => $app->functions->htmlentities($disk_label($group['bytes'])),
+		'latest' => $app->functions->htmlentities($when_label($group['latest'])),
+		'current' => $group['site'] === $site ? 1 : 0,
+	);
+}
+$app->tpl->setLoop('overview', $overview_rows);
+$app->tpl->setVar('all_current', $site < 0 ? 1 : 0);
+$app->tpl->setVar('total_entries', number_format($total_count, 0, ',', '.'));
+$app->tpl->setVar('total_disk', $app->functions->htmlentities($disk_label($total_bytes)));
+$app->tpl->setVar('total_latest', $app->functions->htmlentities($when_label($total_latest)));
+
+// Every action and every page of the list keeps the website it is narrowed to.
+$app->tpl->setVar('site_query', $site >= 0 ? '?site=' . $site : '');
+$app->tpl->setVar('site_param', $site >= 0 ? '&amp;site=' . $site : '');
 
 $app->tpl->setVar('has_entries', $total_count > 0 ? 1 : 0);
 if ($total_count === 0) {
@@ -122,7 +176,7 @@ if ($total_count === 0) {
 // nothing said they existed. 500 a page keeps the ordinary case - one page -
 // looking exactly as it did.
 $per_page = 500;
-$pages = $total_count > 0 ? (int) ceil($total_count / $per_page) : 1;
+$pages = $list_count > 0 ? (int) ceil($list_count / $per_page) : 1;
 $page = $app->functions->intval(isset($_REQUEST['page']) ? $_REQUEST['page'] : 1);
 if ($page < 1) {
 	$page = 1;
@@ -188,9 +242,12 @@ if (is_array($token_rows)) {
 // $per_page is a constant above and $offset comes from an intval'd request
 // value, so both are safe to write into the statement directly - the panel's
 // db class does not bind LIMIT parameters.
-$rows = $app->db->queryAllRecords(
-	'SELECT * FROM malwatch_quarantine ORDER BY quarantine_id DESC LIMIT ' . (int) $per_page
-	. ' OFFSET ' . (int) $offset);
+$order = ' ORDER BY quarantine_id DESC LIMIT ' . (int) $per_page . ' OFFSET ' . (int) $offset;
+if ($site >= 0) {
+	$rows = $app->db->queryAllRecords('SELECT * FROM malwatch_quarantine WHERE parent_domain_id = ?' . $order, $site);
+} else {
+	$rows = $app->db->queryAllRecords('SELECT * FROM malwatch_quarantine' . $order);
+}
 
 $entry_rows = array();
 if (is_array($rows)) {
@@ -241,6 +298,10 @@ if (is_array($rows)) {
 			'kind_label' => $app->functions->htmlentities(
 				$row['entry_kind'] === 'dir' ? $wb['kind_dir_txt'] : $wb['kind_file_txt']),
 			'path' => $app->functions->htmlentities($path),
+			// The line under the question of the dialog: the dialog stands
+			// apart from the row it asks about.
+			'detail' => $app->functions->htmlentities(
+				((string) $row['domain'] !== '' ? $row['domain'] . ' · ' : '') . $path),
 			'domain' => $app->functions->htmlentities((string) $row['domain']),
 			'domain_id' => $domain_id,
 			'has_domain_link' => $domain_id > 0 ? 1 : 0,
@@ -270,7 +331,9 @@ $app->tpl->setLoop('entries', $entry_rows);
 $selected_template = sprintf($wb['toolbar_selected_txt'],
 	number_format(count($entry_rows), 0, ',', '.'), malwatch_bytes($total_bytes));
 $app->tpl->setVar('selected_template', $app->functions->htmlentities($selected_template));
-$app->tpl->setVar('selected_line', $app->functions->htmlentities(str_replace('{n}', '0', $selected_template)));
+// The line while nothing is ticked, which is how the page opens.
+$app->tpl->setVar('selected_none',
+	$app->functions->htmlentities(sprintf($wb['toolbar_none_txt'], malwatch_bytes($total_bytes))));
 
 $app->tpl->setVar('has_pager', $pages > 1 ? 1 : 0);
 $app->tpl->setVar('has_prev_page', $page > 1 ? 1 : 0);
@@ -280,7 +343,7 @@ $app->tpl->setVar('next_page', $page + 1);
 $app->tpl->setVar('pager_range', $app->functions->htmlentities(sprintf($wb['pager_range_txt'],
 	number_format(count($entry_rows) > 0 ? $offset + 1 : 0, 0, ',', '.'),
 	number_format($offset + count($entry_rows), 0, ',', '.'),
-	number_format($total_count, 0, ',', '.'))));
+	number_format($list_count, 0, ',', '.'))));
 
 $app->tpl->setVar('message', $app->functions->htmlentities($message));
 $app->tpl->setVar('error', $app->functions->htmlentities($error));

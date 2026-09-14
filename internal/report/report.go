@@ -92,7 +92,12 @@ type Software struct {
 	// LatestInBranch is, for the WordPress core, the newest release on the
 	// installed major and minor branch.
 	LatestInBranch string `json:"latest_in_branch,omitempty"`
-	Outdated       bool   `json:"outdated"`
+	// Versions are the stable releases above the installed one, newest
+	// first: for a plugin or theme every release wordpress.org lists up to
+	// its current one, for the WordPress core every newer release. The page
+	// "Updates" offers them as target versions.
+	Versions []string `json:"versions,omitempty"`
+	Outdated bool     `json:"outdated"`
 	// Unknown marks an install whose latest version could not be determined,
 	// so a missing "outdated" flag is not mistaken for "up to date".
 	Unknown bool `json:"unknown,omitempty"`

@@ -153,7 +153,10 @@ Herstellerdateien nur darüber, statt den alten Ordner vorher zu leeren —
 nützlich, wenn eigene Anpassungen im selben Verzeichnis liegen und erhalten
 bleiben sollen, auf Kosten der Gewissheit, die ein vollständiger Austausch
 gibt. `--only=core` bzw. `--only=plugin:elementor` beschränkt den Lauf auf
-einzelne Elemente und ist mehrfach angebbar.
+einzelne Elemente und ist mehrfach angebbar. Mit `@` und einem Ordner unter
+`--path` gilt ein Wert allein für die Installation dort:
+`--only=plugin:elementor@blog`, `--only=core@.` für die Installation in
+`--path` selbst.
 
 Unangetastet bleiben:
 
@@ -317,6 +320,9 @@ stammt.
   eigene Rechner sie beim Entpacken genauso einsammelt wie dieser Server sie
   gefunden hat.
 - **Endgültig löschen** entfernt einen Eintrag von der Platte.
+
+Eine Übersicht über der Liste zählt die Einträge je Website mit ihrer Größe auf
+der Platte; ein Klick auf eine Website zeigt nur deren Einträge.
 
 Nichts räumt von selbst auf: ein Eintrag bleibt liegen, bis jemand ihn löscht
 oder zurückholt. Dieselbe Ablage steht auch von der Kommandozeile aus über

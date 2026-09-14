@@ -107,16 +107,11 @@ include $lng_file;
 $app->tpl->setVar($wb);
 
 // Overwritten right after setVar($wb), which passes a sentence on exactly as
-// the language file wrote it: these three end up inside confirm('…') in an
-// onclick attribute, where one apostrophe kills the button without a sound.
-// See malwatch_js_text().
-foreach (array('confirm_delete_all_txt', 'confirm_enable_txt', 'confirm_delete_one_txt') as $js_key) {
-	// isset und kein leerer Rueckfall: ein Tippfehler in der Liste soll die
-	// Zeichenkette lassen, wie sie war, nicht den Text loeschen.
-	if (isset($wb[$js_key])) {
-		$app->tpl->setVar($js_key, malwatch_js_text($app, $wb[$js_key]));
-	}
-}
+// the language file wrote it: the dialog reads these from data-mw-*
+// attributes, and a straight double quote would end the attribute. See
+// malwatch_attr_texts().
+$app->tpl->setVar(malwatch_attr_texts($wb, array('confirm_delete_all_txt', 'confirm_enable_txt',
+	'confirm_delete_one_txt', 'delete_all_txt', 'delete_one_txt', 'enable_site_txt')));
 
 $site = $app->db->queryOneRecord('SELECT * FROM malwatch_site WHERE parent_domain_id = ?', $domain_id);
 $last_scan = $app->db->queryOneRecord(

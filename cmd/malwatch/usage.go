@@ -73,7 +73,9 @@ Wiederherstellung (repair):
   --vendor-base=URL        andere Bezugsadresse, für Tests
   --mode=MODUS             replace oder overlay (Vorgabe: replace)
   --only=ELEMENT           nur dieses Element behandeln, mehrfach angebbar
-                           (z. B. core, plugin:elementor)
+                           (z. B. core, plugin:elementor); mit @ORDNER nur in
+                           der Installation dieses Ordners unter --path
+                           (plugin:elementor@blog, core@. für --path selbst)
   --no-original=WERT       keep oder quarantine, wenn der Hersteller diese
                            Version nicht mehr anbietet (Vorgabe: keep)
   --domain=DOMAIN          Website, der die Installation gehört

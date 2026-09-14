@@ -490,12 +490,11 @@ class page_action extends tform_actions
 		if ($apply_count > 0) {
 			$formatted = number_format($apply_count, 0, ',', '.');
 			$app->tpl->setVar('apply_existing_intro', $app->functions->htmlentities(sprintf($wb['apply_existing_intro_txt'], $formatted)));
-			// Not htmlentities like the line above it: this one ends up inside
-			// confirm('…') in an onclick attribute, and htmlentities alone
-			// turns an apostrophe into &#039;, which the browser hands the
-			// JavaScript parser back as a plain quote. See malwatch_js_text().
+			// The dialog reads the question and the button label from data-mw-*
+			// attributes; see malwatch_attr_texts().
 			$app->tpl->setVar('confirm_apply_existing',
-				malwatch_js_text($app, sprintf($wb['confirm_apply_existing_txt'], $formatted)));
+				$app->functions->htmlentities(sprintf($wb['confirm_apply_existing_txt'], $formatted)));
+			$app->tpl->setVar(malwatch_attr_texts($wb, array('btn_apply_existing_txt')));
 		}
 	}
 }

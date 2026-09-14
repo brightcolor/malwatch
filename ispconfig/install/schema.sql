@@ -591,6 +591,15 @@ SET @mw := (SELECT IF(COUNT(*) = 0,
   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_software' AND COLUMN_NAME = 'latest_in_branch');
 PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
+-- Die veröffentlichten Versionen über der installierten, neueste zuerst, als
+-- JSON. Die Seite „Updates" bietet sie als Zielversionen an.
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_software` ADD COLUMN `versions` mediumtext AFTER `latest_in_branch`',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_software' AND COLUMN_NAME = 'versions');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
 -- Die PHP-Version der Website, wie Scan und Abgleich sie zuletzt gelesen haben.
 SET @mw := (SELECT IF(COUNT(*) = 0,
   'ALTER TABLE `malwatch_site` ADD COLUMN `php_version` varchar(32) NOT NULL DEFAULT '''' AFTER `last_state`',

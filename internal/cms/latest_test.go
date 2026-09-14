@@ -18,9 +18,18 @@ func fakeWordPressOrg(t *testing.T) *Lookup {
 				_, _ = w.Write([]byte(`{"error":"Plugin not found."}`))
 				return
 			}
-			_, _ = w.Write([]byte(`{"version":"5.3.3","requires":"6.2","requires_php":"7.2"}`))
+			// wordpress.org sends the list of releases only when asked for it.
+			versions := ""
+			if r.URL.Query().Get("request[fields][versions]") == "1" {
+				versions = `,"versions":{"trunk":"x","4.2.5":"x","5.1":"x","5.3":"x","5.3.2":"x","5.3.3":"x","5.4-beta1":"x","5.4":"x"}`
+			}
+			_, _ = w.Write([]byte(`{"version":"5.3.3","requires":"6.2","requires_php":"7.2"` + versions + `}`))
 		case strings.HasPrefix(r.URL.Path, "/themes/info/1.2/"):
-			_, _ = w.Write([]byte(`{"version":"1.2","requires":false,"requires_php":false}`))
+			versions := ""
+			if r.URL.Query().Get("request[fields][versions]") == "1" {
+				versions = `,"versions":{"1.0":"x","1.1":"x","1.2":"x"}`
+			}
+			_, _ = w.Write([]byte(`{"version":"1.2","requires":false,"requires_php":false` + versions + `}`))
 		case r.URL.Path == "/core/stable-check/1.0/":
 			_, _ = w.Write([]byte(`{"6.4.2":"insecure","6.4.4":"insecure","6.4.5":"outdated","6.5.3":"outdated","7.1":"latest"}`))
 		case r.URL.Path == "/core/version-check/1.7/":
@@ -37,10 +46,10 @@ func fakeWordPressOrg(t *testing.T) *Lookup {
 
 func TestLatestPluginInfoCarriesTheRequirements(t *testing.T) {
 	l := fakeWordPressOrg(t)
-	if got := l.LatestPluginInfo("plugin", "akismet"); got != (PluginInfo{Version: "5.3.3", RequiresWP: "6.2", RequiresPHP: "7.2"}) {
+	if got := l.LatestPluginInfo("plugin", "akismet"); got.Version != "5.3.3" || got.RequiresWP != "6.2" || got.RequiresPHP != "7.2" {
 		t.Errorf("plugin = %+v", got)
 	}
-	if got := l.LatestPluginInfo("theme", "twentytwentyfour"); got != (PluginInfo{Version: "1.2"}) {
+	if got := l.LatestPluginInfo("theme", "twentytwentyfour"); got.Version != "1.2" || got.RequiresWP != "" || got.RequiresPHP != "" {
 		t.Errorf("theme with false requirements = %+v", got)
 	}
 	if got := l.LatestPlugin("plugin", "bezahlt"); got != "" {
