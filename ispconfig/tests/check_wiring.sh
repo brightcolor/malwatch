@@ -982,6 +982,21 @@ done
 grep -q "setAttribute('data-mw-confirm'" "$repair_tpl" \
 	|| fail "malwatch_repair_start.htm setzt die Rueckfrage der Reparatur nicht aus den angehakten Elementen zusammen"
 
+# 48. Ablage und Auftragsart des Dumps haengen zusammen: ohne die Tabellen
+#     laeuft der Auftrag ins Leere, ohne das Verzeichnis findet der Lauf sein
+#     Ziel nicht, und ohne die Auftragsart nimmt der Runner den Zweig fuer
+#     einen Prueflauf.
+grep -q "CREATE TABLE IF NOT EXISTS \`malwatch_dump\`" "$root/install/schema.sql" \
+	|| fail "schema.sql kennt die Tabelle malwatch_dump nicht"
+grep -q "CREATE TABLE IF NOT EXISTS \`malwatch_database\`" "$root/install/schema.sql" \
+	|| fail "schema.sql kennt die Tabelle malwatch_database nicht"
+grep -q "''dump''" "$root/install/schema.sql" \
+	|| fail "job_kind kennt die Auftragsart dump nicht"
+grep -q "'/dumps'" "$root/install/installer.php" \
+	|| fail "der Installer legt <state_dir>/dumps nicht an"
+grep -q "/dumps" "$root/server/lib/classes/malwatch_runner.inc.php" \
+	|| fail "der Runner stellt <state_dir>/dumps nicht sicher"
+
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'
 fi

@@ -666,3 +666,75 @@ CREATE TABLE IF NOT EXISTS `malwatch_upgrade_element` (
   PRIMARY KEY (`element_id`),
   KEY `upgrade_id` (`upgrade_id`)
 ) DEFAULT CHARSET=utf8mb4 AUTO_INCREMENT=1 ;
+
+--
+-- Ein Dump einer Website: das gepackte Archiv, sein Token und wie lange es
+-- liegt. Eine Zeile je Lauf, nach dem Muster von malwatch_upgrade. Der Token
+-- steht auch im Dateinamen unter <state_dir>/dumps.
+--
+CREATE TABLE IF NOT EXISTS `malwatch_dump` (
+  `dump_id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `sys_userid` int(11) unsigned NOT NULL DEFAULT '0',
+  `sys_groupid` int(11) unsigned NOT NULL DEFAULT '0',
+  `sys_perm_user` varchar(5) DEFAULT NULL,
+  `sys_perm_group` varchar(5) DEFAULT NULL,
+  `sys_perm_other` varchar(5) DEFAULT NULL,
+  `server_id` int(11) unsigned NOT NULL DEFAULT '0',
+  `job_id` int(11) unsigned NOT NULL DEFAULT '0',
+  `parent_domain_id` int(11) unsigned NOT NULL DEFAULT '0',
+  `domain` varchar(255) NOT NULL DEFAULT '',
+  `dump_state` enum('pending','running','done','error') NOT NULL DEFAULT 'pending',
+  `token` varchar(64) NOT NULL DEFAULT '',
+  `archive_path` varchar(255) NOT NULL DEFAULT '',
+  `archive_bytes` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `file_count` int(11) unsigned NOT NULL DEFAULT '0',
+  `database_count` int(11) unsigned NOT NULL DEFAULT '0',
+  `with_logs` enum('n','y') NOT NULL DEFAULT 'n',
+  `error_reason` varchar(32) NOT NULL DEFAULT '',
+  `job_log` text,
+  `created_at` datetime DEFAULT NULL,
+  `ready_at` datetime DEFAULT NULL,
+  `expires_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`dump_id`),
+  KEY `token` (`token`),
+  KEY `server_state` (`server_id`,`dump_state`),
+  KEY `parent_domain_id` (`parent_domain_id`)
+) DEFAULT CHARSET=utf8mb4 AUTO_INCREMENT=1 ;
+
+--
+-- Was ueber die Datenbanken einer Website bekannt ist: Groesse, Zahl der
+-- Tabellen, letzter Schreibzugriff und die Installation, die sie benutzt.
+-- Gefuellt vom stuendlichen Lauf (cron.d/560-malwatch.inc.php,
+-- collect_databases); die Seite "Dumps" macht daraus die Markierungen in der
+-- Auswahl.
+--
+CREATE TABLE IF NOT EXISTS `malwatch_database` (
+  `database_id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `sys_userid` int(11) unsigned NOT NULL DEFAULT '0',
+  `sys_groupid` int(11) unsigned NOT NULL DEFAULT '0',
+  `sys_perm_user` varchar(5) DEFAULT NULL,
+  `sys_perm_group` varchar(5) DEFAULT NULL,
+  `sys_perm_other` varchar(5) DEFAULT NULL,
+  `server_id` int(11) unsigned NOT NULL DEFAULT '0',
+  `parent_domain_id` int(11) unsigned NOT NULL DEFAULT '0',
+  `database_name` varchar(64) NOT NULL DEFAULT '',
+  `table_count` int(11) unsigned NOT NULL DEFAULT '0',
+  `bytes` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `last_write` datetime DEFAULT NULL,
+  `used_kind` varchar(16) NOT NULL DEFAULT '',
+  `used_by` varchar(255) NOT NULL DEFAULT '',
+  `checked_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`database_id`),
+  UNIQUE KEY `server_database` (`server_id`,`database_name`),
+  KEY `parent_domain_id` (`parent_domain_id`)
+) DEFAULT CHARSET=utf8mb4 AUTO_INCREMENT=1 ;
+
+-- dump packt das Webverzeichnis einer Website mit ihren Datenbanken; siehe
+-- malwatch_runner::build_arguments und malwatch_ingest::ingest_dump.
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_job` MODIFY COLUMN `job_kind` enum(''scan'',''repair'',''quarantine'',''vulncheck'',''upgrade'',''dump'') NOT NULL DEFAULT ''scan''',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_job' AND COLUMN_NAME = 'job_kind'
+    AND COLUMN_TYPE LIKE '%''dump''%');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;

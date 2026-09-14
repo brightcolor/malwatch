@@ -37,6 +37,7 @@ class malwatch_runner
 		$runs_dir = $state_dir . '/runs';
 		$this->ensure_shared_dir($runs_dir);
 		$this->ensure_shared_dir($state_dir . '/spool');
+		$this->ensure_shared_dir($state_dir . '/dumps');
 		$result_file = $runs_dir . '/job-' . intval($job['job_id']) . '.json';
 		$log_file = $runs_dir . '/job-' . intval($job['job_id']) . '.log';
 		$done_file = $this->done_file($result_file);

@@ -237,7 +237,9 @@ class malwatch_installer extends extension_installer_base
 			@chmod(self::STATE_DIR, 0750);
 		}
 
-		foreach (array('/runs', '/spool') as $sub) {
+		// dumps steht neben runs und spool: das Panel liefert das Archiv selbst
+		// aus und muss es lesen koennen, der Rest des Servers nicht.
+		foreach (array('/runs', '/spool', '/dumps') as $sub) {
 			$dir = self::STATE_DIR . $sub;
 			if (!is_dir($dir)) {
 				// mkdir() setzt das Setgid-Bit nur mit einer vierstelligen
