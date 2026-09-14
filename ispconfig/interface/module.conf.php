@@ -57,6 +57,15 @@ $items[] = array(
 	'html_id' => 'security_quarantine'
 );
 
+// Dumps stehen hinter der Quarantäne: beide holen etwas von der Platte des
+// Servers, und beide liefern eine Datei aus.
+$items[] = array(
+	'title'   => 'Dumps',
+	'target'  => 'content',
+	'link'    => 'security/malwatch_dump_list.php',
+	'html_id' => 'security_dumps'
+);
+
 $items[] = array(
 	'title'   => 'Prüfläufe',
 	'target'  => 'content',

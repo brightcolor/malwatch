@@ -30,6 +30,12 @@ c:interface/malwatch_repair_start.php:interface/web/security/malwatch_repair_sta
 c:interface/malwatch_upgrade_start.php:interface/web/security/malwatch_upgrade_start.php
 c:interface/malwatch_upgrade_versions.php:interface/web/security/malwatch_upgrade_versions.php
 c:interface/malwatch_vuln_list.php:interface/web/security/malwatch_vuln_list.php
+c:interface/malwatch_dump_list.php:interface/web/security/malwatch_dump_list.php
+c:interface/malwatch_dump_databases.php:interface/web/security/malwatch_dump_databases.php
+c:interface/malwatch_dump_download.php:interface/web/security/malwatch_dump_download.php
+c:interface/templates/malwatch_dump_list.htm:interface/web/security/templates/malwatch_dump_list.htm
+c:interface/lang/de_malwatch_dump.lng:interface/web/security/lib/lang/de_malwatch_dump.lng
+c:interface/lang/en_malwatch_dump.lng:interface/web/security/lib/lang/en_malwatch_dump.lng
 
 c:interface/list/malwatch_finding.list.php:interface/web/security/list/malwatch_finding.list.php
 c:interface/list/malwatch_scan.list.php:interface/web/security/list/malwatch_scan.list.php

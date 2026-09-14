@@ -997,6 +997,22 @@ grep -q "'/dumps'" "$root/install/installer.php" \
 grep -q "/dumps" "$root/server/lib/classes/malwatch_runner.inc.php" \
 	|| fail "der Runner stellt <state_dir>/dumps nicht sicher"
 
+# 49. Das Archiv geht ueber eine eigene Seite heraus: sie prueft die
+#     Administratorrechte und nimmt ihren Schluessel aus token=, und die Liste
+#     verweist genauso darauf. Fehlt eines davon, zeigt die Liste einen Knopf,
+#     der ins Leere fuehrt.
+dump_dl="$root/interface/malwatch_dump_download.php"
+if [ -f "$dump_dl" ]; then
+	grep -q 'is_admin' "$dump_dl" \
+		|| fail "malwatch_dump_download.php prueft die Administratorrechte nicht"
+	grep -qE "_(REQUEST|GET)\['token'\]" "$dump_dl" \
+		|| fail "malwatch_dump_download.php liest den Schluessel nicht aus token="
+else
+	fail "interface/malwatch_dump_download.php fehlt; der Verweis der Dump-Liste ginge ins Leere"
+fi
+grep -q 'malwatch_dump_download.php?token=' "$root/interface/templates/malwatch_dump_list.htm" \
+	|| fail "malwatch_dump_list.htm verweist nicht mit token= auf die Downloadseite"
+
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'
 fi

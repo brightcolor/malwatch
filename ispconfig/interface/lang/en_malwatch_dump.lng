@@ -1,0 +1,65 @@
+<?php
+$wb['lede_txt'] = 'Dumps';
+$wb['sub_txt'] = 'A dump packs the web directory of a website together with the ticked databases into a tar.gz and offers it for download. Seven days later the hourly run clears it away.';
+
+$wb['create_head_txt'] = 'Create a dump';
+$wb['website_txt'] = 'Website';
+$wb['with_logs_txt'] = 'Take the logs along';
+$wb['btn_create_txt'] = 'Create dump';
+$wb['confirm_create_txt'] = 'Pack this website now? The run reads the web directory and the ticked databases; the website stays reachable throughout.';
+
+$wb['db_head_txt'] = 'Databases';
+$wb['db_none_txt'] = 'ISPConfig lists no database for this website.';
+// Shown above the list while the hourly run has not looked at these
+// databases yet.
+$wb['db_hint_pending_txt'] = 'Size, tables and marks arrive with the next hourly run.';
+// The marks per row: %s is the number of tables, the path of the installation
+// or the date.
+$wb['db_tables_txt'] = '%s tables';
+$wb['db_no_tables_txt'] = 'no tables';
+$wb['db_used_wordpress_txt'] = 'WordPress %s';
+$wb['db_write_txt'] = 'last written %s';
+
+$wb['select_all_txt'] = 'Select all';
+$wb['invert_txt'] = 'Invert selection';
+$wb['selected_template_txt'] = '{n} of %s databases selected';
+$wb['selected_none_txt'] = 'no database ticked';
+$wb['hint_select_txt'] = 'Choose a website first.';
+$wb['btn_cancel_txt'] = 'Cancel';
+$wb['btn_close_txt'] = 'Close';
+
+$wb['list_head_txt'] = 'Dumps on disk';
+$wb['col_website_txt'] = 'Website';
+$wb['col_created_txt'] = 'Created';
+$wb['col_state_txt'] = 'State';
+$wb['col_size_txt'] = 'Size';
+$wb['col_content_txt'] = 'Content';
+$wb['col_valid_txt'] = 'Valid';
+$wb['no_dumps_txt'] = 'No dump is ready yet.';
+
+$wb['dump_state_pending_txt'] = 'waiting';
+$wb['dump_state_running_txt'] = 'running';
+$wb['dump_state_done_txt'] = 'ready';
+$wb['dump_state_error_txt'] = 'failed';
+$wb['dump_content_txt'] = '%s files, %s databases';
+$wb['dump_with_logs_txt'] = 'with logs';
+$wb['dump_valid_txt'] = 'valid until %s';
+
+$wb['btn_download_txt'] = 'Download';
+$wb['btn_delete_txt'] = 'Delete';
+$wb['confirm_delete_txt'] = 'Delete this dump now? The archive goes from disk, and the link to it stops working.';
+
+$wb['footnote_txt'] = 'What a dump holds.';
+$wb['footnote_body_txt'] = 'The files of the website and the ticked databases, so customer data; the logs carry the addresses of the visitors, and on an infected website the malicious code travels with it. The archive sits on disk readable by root and the panel alone, and only someone signed in here can fetch it.';
+
+$wb['msg_queued_txt'] = 'The dump of %s is queued. Once it is ready, the link appears in the list.';
+$wb['msg_deleted_txt'] = 'The dump is off the list. The hourly run takes the archive from disk.';
+$wb['err_invalid_site_txt'] = 'Invalid website.';
+$wb['err_site_not_found_txt'] = 'The website was not found.';
+$wb['err_busy_txt'] = 'A dump for this website is already running.';
+$wb['err_unknown_action_txt'] = 'There is no such action. Please reload the page.';
+$wb['err_not_found_txt'] = 'This dump was not found. The hourly run has most likely cleared it away already.';
+
+$wb['err_dl_bad_link_txt'] = 'This link is incomplete. Please fetch the dump again from the list.';
+$wb['err_dl_expired_txt'] = 'This link is no longer valid. A dump lies there for seven days; after that, start a new one from the list.';
+$wb['err_dl_gone_txt'] = 'The archive is no longer on disk. Start a new dump from the list.';

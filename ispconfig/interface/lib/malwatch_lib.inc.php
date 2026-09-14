@@ -910,6 +910,112 @@ function malwatch_insert_quarantine_job($app, $server_id, array $options)
 	), 'job_id');
 }
 
+/**
+ * The databases ISPConfig assigns to one website, with whatever the hourly
+ * run has learned about them.
+ *
+ * ISPConfig's own list leads: a database handed to the website an hour ago
+ * belongs in the picker before anything has measured it. The row from
+ * malwatch_database is joined on and may well be missing, which is what
+ * malwatch_dump_database_rows() reads as "no marks yet".
+ */
+function malwatch_dump_databases($app, array $web)
+{
+	$domain_id = $app->functions->intval($web['domain_id']);
+	if ($domain_id < 1) {
+		return array();
+	}
+
+	$rows = $app->db->queryAllRecords(
+		'SELECT d.database_name, m.table_count, m.bytes, m.last_write, m.used_kind, m.used_by, m.checked_at '
+		. 'FROM web_database d '
+		. 'LEFT JOIN malwatch_database m ON m.server_id = d.server_id AND m.database_name = d.database_name '
+		. "WHERE d.parent_domain_id = ? AND d.active = 'y' AND d.type = 'mysql' "
+		. 'ORDER BY d.database_name', $domain_id);
+
+	return is_array($rows) ? $rows : array();
+}
+
+/**
+ * Queues a dump of one website and returns its dump_id, or 0.
+ *
+ * The row comes first and the job second: the job carries the dump_id, and
+ * the scanner's report is worthless to the panel without a row to write it
+ * into. The token names the archive on disk and stands in the download link,
+ * so it is minted here, before anything can hand it out.
+ *
+ * min_free rides along because the panel knows what the databases weigh and
+ * the scanner does not: its own estimate covers the files it is about to
+ * walk, and a database of eight gigabytes would otherwise pass a check that
+ * only looked at the web directory.
+ */
+function malwatch_queue_dump($app, array $web, array $databases, $with_logs)
+{
+	$domain_id = $app->functions->intval($web['domain_id']);
+	$server_id = $app->functions->intval($web['server_id']);
+	$path = malwatch_scan_path($web);
+	if ($domain_id < 1 || $path === '') {
+		return 0;
+	}
+
+	$token = bin2hex(random_bytes(20));
+	$app->db->query(
+		'INSERT INTO malwatch_dump (sys_userid, sys_groupid, sys_perm_user, sys_perm_group, sys_perm_other, '
+		. 'server_id, parent_domain_id, domain, dump_state, token, with_logs, created_at) '
+		. "VALUES (?, ?, 'riud', 'r', '', ?, ?, ?, 'pending', ?, ?, ?)",
+		$app->functions->intval($_SESSION['s']['user']['userid']),
+		$app->functions->intval($_SESSION['s']['user']['default_group']),
+		$server_id, $domain_id, (string) $web['domain'], $token,
+		$with_logs === 'y' ? 'y' : 'n', date('Y-m-d H:i:s'));
+
+	$dump_id = $app->functions->intval($app->db->insertID());
+	if ($dump_id < 1) {
+		return 0;
+	}
+
+	// What the chosen databases weigh, as far as the hourly run has measured;
+	// a fifth on top, because a dump is bigger than the tables it reads.
+	$min_free = 0.0;
+	foreach ($databases as $name) {
+		$row = $app->db->queryOneRecord(
+			'SELECT bytes FROM malwatch_database WHERE server_id = ? AND database_name = ?',
+			$server_id, $name);
+		if (is_array($row)) {
+			$min_free += (float) $row['bytes'];
+		}
+	}
+
+	$logs = '';
+	if ($with_logs === 'y' && isset($web['document_root']) && (string) $web['document_root'] !== '') {
+		$logs = rtrim((string) $web['document_root'], '/') . '/log';
+	}
+
+	$app->db->datalogInsert('malwatch_job', array(
+		'sys_userid' => $_SESSION['s']['user']['userid'],
+		'sys_groupid' => $app->functions->intval($_SESSION['s']['user']['default_group']),
+		'sys_perm_user' => 'riud',
+		'sys_perm_group' => 'r',
+		'sys_perm_other' => '',
+		'server_id' => $server_id,
+		'parent_domain_id' => $domain_id,
+		'domain' => $web['domain'],
+		'scan_path' => $path,
+		'job_source' => 'manual',
+		'job_kind' => 'dump',
+		'job_status' => 'pending',
+		'options' => json_encode(array(
+			'dump_id' => $dump_id,
+			'token' => $token,
+			'databases' => array_values($databases),
+			'logs' => $logs,
+			'min_free' => (int) round($min_free * 1.2),
+		)),
+		'created_at' => date('Y-m-d H:i:s'),
+	), 'job_id');
+
+	return $dump_id;
+}
+
 /** The directory of a website that actually holds the customer's files. */
 function malwatch_scan_path($web)
 {

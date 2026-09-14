@@ -1,0 +1,65 @@
+<?php
+$wb['lede_txt'] = 'Dumps';
+$wb['sub_txt'] = 'Ein Dump packt das Webverzeichnis einer Website mit den angehakten Datenbanken in ein tar.gz und legt es zum Herunterladen bereit. Sieben Tage später räumt der stündliche Lauf ihn wieder weg.';
+
+$wb['create_head_txt'] = 'Neuen Dump anlegen';
+$wb['website_txt'] = 'Website';
+$wb['with_logs_txt'] = 'Protokolle mitnehmen';
+$wb['btn_create_txt'] = 'Dump erstellen';
+$wb['confirm_create_txt'] = 'Diese Website jetzt packen? Der Lauf liest das Webverzeichnis und die angehakten Datenbanken; die Website bleibt dabei erreichbar.';
+
+$wb['db_head_txt'] = 'Datenbanken';
+$wb['db_none_txt'] = 'Für diese Website führt ISPConfig keine Datenbank.';
+// Steht über der Liste, solange der stündliche Lauf diese Datenbanken noch
+// nicht angesehen hat.
+$wb['db_hint_pending_txt'] = 'Größe, Tabellen und Markierungen kommen mit dem nächsten stündlichen Lauf dazu.';
+// Die Markierungen je Zeile: %s ist die Zahl der Tabellen, der Pfad der
+// Installation bzw. das Datum.
+$wb['db_tables_txt'] = '%s Tabellen';
+$wb['db_no_tables_txt'] = 'keine Tabellen';
+$wb['db_used_wordpress_txt'] = 'WordPress %s';
+$wb['db_write_txt'] = 'zuletzt geschrieben %s';
+
+$wb['select_all_txt'] = 'Alle auswählen';
+$wb['invert_txt'] = 'Auswahl umkehren';
+$wb['selected_template_txt'] = '{n} von %s Datenbanken ausgewählt';
+$wb['selected_none_txt'] = 'keine Datenbank angehakt';
+$wb['hint_select_txt'] = 'Bitte zuerst eine Website wählen.';
+$wb['btn_cancel_txt'] = 'Abbrechen';
+$wb['btn_close_txt'] = 'Schließen';
+
+$wb['list_head_txt'] = 'Vorhandene Dumps';
+$wb['col_website_txt'] = 'Website';
+$wb['col_created_txt'] = 'Angelegt';
+$wb['col_state_txt'] = 'Zustand';
+$wb['col_size_txt'] = 'Größe';
+$wb['col_content_txt'] = 'Inhalt';
+$wb['col_valid_txt'] = 'Gültig';
+$wb['no_dumps_txt'] = 'Es liegt noch kein Dump bereit.';
+
+$wb['dump_state_pending_txt'] = 'wartet';
+$wb['dump_state_running_txt'] = 'läuft';
+$wb['dump_state_done_txt'] = 'fertig';
+$wb['dump_state_error_txt'] = 'gescheitert';
+$wb['dump_content_txt'] = '%s Dateien, %s Datenbanken';
+$wb['dump_with_logs_txt'] = 'mit Protokollen';
+$wb['dump_valid_txt'] = 'gültig bis %s';
+
+$wb['btn_download_txt'] = 'Herunterladen';
+$wb['btn_delete_txt'] = 'Löschen';
+$wb['confirm_delete_txt'] = 'Diesen Dump jetzt löschen? Das Archiv verschwindet von der Platte, und der Verweis darauf gilt nicht mehr.';
+
+$wb['footnote_txt'] = 'Was in einem Dump steckt.';
+$wb['footnote_body_txt'] = 'Die Dateien der Website und die angehakten Datenbanken, also Kundendaten; in den Protokollen stehen die Adressen der Besucher, und bei einer befallenen Website liegt der Schadcode mit im Archiv. Das Archiv liegt nur für root und das Panel lesbar auf der Platte, und herunterladen kann es nur, wer hier angemeldet ist.';
+
+$wb['msg_queued_txt'] = 'Der Dump von %s ist eingereiht. Sobald er fertig ist, steht der Verweis in der Liste.';
+$wb['msg_deleted_txt'] = 'Der Dump ist aus der Liste. Das Archiv nimmt der stündliche Lauf von der Platte.';
+$wb['err_invalid_site_txt'] = 'Ungültige Website.';
+$wb['err_site_not_found_txt'] = 'Die Website wurde nicht gefunden.';
+$wb['err_busy_txt'] = 'Für diese Website läuft bereits ein Dump.';
+$wb['err_unknown_action_txt'] = 'Diese Aktion gibt es nicht. Bitte laden Sie die Seite neu.';
+$wb['err_not_found_txt'] = 'Dieser Dump wurde nicht gefunden. Wahrscheinlich hat der stündliche Lauf ihn schon weggeräumt.';
+
+$wb['err_dl_bad_link_txt'] = 'Dieser Verweis ist unvollständig. Holen Sie den Dump bitte über die Liste erneut.';
+$wb['err_dl_expired_txt'] = 'Dieser Verweis gilt nicht mehr. Ein Dump liegt sieben Tage; danach legen Sie in der Liste einen neuen an.';
+$wb['err_dl_gone_txt'] = 'Das Archiv liegt nicht mehr auf der Platte. Legen Sie in der Liste einen neuen Dump an.';

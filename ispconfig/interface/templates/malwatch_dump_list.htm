@@ -1,0 +1,205 @@
+<div class='page-header'>
+	<h1>{tmpl_var name='lede_txt'}</h1>
+</div>
+
+<tmpl_if name="message">
+	<div class="alert alert-success">{tmpl_var name='message'}</div>
+</tmpl_if>
+<tmpl_if name="error">
+	<div class="alert alert-danger">{tmpl_var name='error'}</div>
+</tmpl_if>
+
+<style>
+/* Dieselbe Regel wie auf den anderen Seiten des Addons: gedaempfte Schrift
+   ueber Deckkraft, Linien und Flaechen als durchscheinendes Grau, damit
+   helles und dunkles Theme lesbar bleiben. */
+#mw-dumps .mw-sub{margin:6px 0 16px;opacity:.72;font-size:13px;max-width:76ch}
+#mw-dumps .mw-sec{font-size:15px;font-weight:600;margin:20px 0 6px}
+#mw-dumps .mw-form{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:flex-end;margin-bottom:10px}
+#mw-dumps .mw-form label{font-weight:400;margin:0}
+#mw-dumps select.form-control{min-width:26ch;max-width:100%}
+#mw-dumps .mw-dblist{
+	max-height:22em;overflow:auto;border:1px solid var(--cic-line-soft,rgba(128,128,128,.35));
+	border-radius:3px;padding:8px 10px;margin:0 0 10px;
+}
+#mw-dumps .mw-db{display:grid;grid-template-columns:auto 1fr;gap:8px;padding:4px 0}
+#mw-dumps .mw-db + .mw-db{border-top:1px solid var(--cic-line-soft,rgba(128,128,128,.2))}
+#mw-dumps .mw-dbname{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:12.5px;font-weight:600}
+#mw-dumps .mw-dbfacts{font-size:12px;opacity:.78;display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:1px}
+#mw-dumps .mw-used{color:var(--cic-accent-text,#dd630d)}
+#mw-dumps .table{table-layout:auto}
+#mw-dumps .table > thead > tr > th,
+#mw-dumps .table > tbody > tr > td{padding:6px 10px;vertical-align:middle}
+#mw-dumps td.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+#mw-dumps .mw-msg{font-size:12px;opacity:.8;margin-top:2px}
+#mw-dumps .table-wrapper{overflow-x:auto}
+#mw-dumps .mw-quiet{
+	margin-top:16px;padding:12px 15px;border:1px solid var(--cic-line-soft,rgba(128,128,128,.35));
+	border-radius:3px;opacity:.85;font-size:13px;background:var(--cic-head,rgba(128,128,128,.07));
+}
+#mw-dumps input[type=checkbox]{accent-color:var(--cic-accent,#dd630d)}
+#mw-dumps .mw-selcount{font-size:13px;opacity:.72;font-variant-numeric:tabular-nums}
+</style>
+
+<div id="mw-dumps" data-mw-selection data-mw-rows="security/malwatch_dump_databases.php">
+
+<p class="mw-sub">{tmpl_var name='sub_txt'}</p>
+
+<!--
+	No form of our own: the panel wraps the whole content area in one form
+	called pageForm and posts it by AJAX (see malwatch_repair_start.htm for the
+	same note). id names the website, malwatch_action the button that was
+	pressed, dump_id the row a delete button targets.
+-->
+<input type="hidden" name="malwatch_action" id="mw-action" value="" />
+<input type="hidden" name="dump_id" id="mw-dump-id" value="" />
+
+<p class="mw-sec">{tmpl_var name='create_head_txt'}</p>
+<div class="mw-form">
+	<label>
+		{tmpl_var name='website_txt'}<br>
+		<select class="form-control" name="id" id="mw-dump-site">
+			<tmpl_loop name="sites">
+			<option value="{tmpl_var name='site_id'}"<tmpl_if name="selected"> selected</tmpl_if>>{tmpl_var name='site_domain'}</option>
+			</tmpl_loop>
+		</select>
+	</label>
+	<label><input type="checkbox" name="with_logs" value="y" /> {tmpl_var name='with_logs_txt'}</label>
+</div>
+
+<p class="mw-sec">{tmpl_var name='db_head_txt'}</p>
+<tmpl_if name="has_databases">
+<tmpl_if name="has_pending">
+	<p class="mw-sub" style="margin-top:0">{tmpl_var name='db_hint_pending_txt'}</p>
+</tmpl_if>
+<div class="mw-selectbar">
+	<label><input type="checkbox" data-mw-toggle checked /> {tmpl_var name='select_all_txt'}</label>
+	<button type="button" class="mw-invert" data-mw-invert>{tmpl_var name='invert_txt'}</button>
+	<span class="mw-selcount" data-mw-count data-template="{tmpl_var name='selected_template'}" data-none="{tmpl_var name='selected_none'}">{tmpl_var name='selected_none'}</span>
+</div>
+<div class="mw-dblist" id="mw-dump-databases">
+	<tmpl_loop name="databases">
+	<div class="mw-db">
+		<input type="checkbox" class="mw-pick" name="databases[]" value="{tmpl_var name='name'}" checked />
+		<div>
+			<div class="mw-dbname">{tmpl_var name='name'}</div>
+			<div class="mw-dbfacts">
+				<span>{tmpl_var name='size_label'}</span>
+				<span>{tmpl_var name='tables_label'}</span>
+				<span class="mw-used">{tmpl_var name='used_label'}</span>
+				<span>{tmpl_var name='write_label'}</span>
+			</div>
+		</div>
+	</div>
+	</tmpl_loop>
+</div>
+<tmpl_else>
+<p class="mw-sub" id="mw-dump-databases">{tmpl_var name='db_none_txt'}</p>
+</tmpl_if>
+
+<div class="mw-selectbar">
+	<button class="btn btn-default formbutton-success" type="button"
+		data-mw-confirm="{tmpl_var name='confirm_create_txt'}" data-mw-title="{tmpl_var name='btn_create_txt'}"
+		data-mw-ok="{tmpl_var name='btn_create_txt'}"
+		data-mw-set-mw-action="dump_start" data-mw-set-mw-dump-id=""
+		data-submit-form="pageForm" data-form-action="security/malwatch_dump_list.php">{tmpl_var name='btn_create_txt'}</button>
+</div>
+
+<p class="mw-sec">{tmpl_var name='list_head_txt'}</p>
+<tmpl_if name="has_dumps">
+<div class="table-wrapper">
+<table class="table">
+	<thead class="dark">
+		<tr>
+			<th>{tmpl_var name='col_website_txt'}</th>
+			<th>{tmpl_var name='col_created_txt'}</th>
+			<th>{tmpl_var name='col_state_txt'}</th>
+			<th>{tmpl_var name='col_size_txt'}</th>
+			<th>{tmpl_var name='col_content_txt'}</th>
+			<th>{tmpl_var name='col_valid_txt'}</th>
+			<th>&nbsp;</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tmpl_loop name="dumps">
+		<tr>
+			<td>{tmpl_var name='domain'}</td>
+			<td class="num">{tmpl_var name='created'}</td>
+			<td>
+				{tmpl_var name='state_label'}
+				<tmpl_if name="has_message"><div class="mw-msg">{tmpl_var name='message'}</div></tmpl_if>
+			</td>
+			<td class="num">{tmpl_var name='size_label'}</td>
+			<td>{tmpl_var name='content_label'}</td>
+			<td class="num">{tmpl_var name='valid_label'}</td>
+			<td>
+				<tmpl_if name="can_download">
+					<a class="btn btn-default formbutton-default" href="security/malwatch_dump_download.php?token={tmpl_var name='token'}">{tmpl_var name='btn_download_txt'}</a>
+				</tmpl_if>
+				<button class="btn btn-danger btn-xs" type="button"
+					data-mw-confirm="{tmpl_var name='confirm_delete_txt'}" data-mw-title="{tmpl_var name='btn_delete_txt'}"
+					data-mw-detail="{tmpl_var name='domain'}" data-mw-ok="{tmpl_var name='btn_delete_txt'}" data-mw-danger="1"
+					data-mw-set-mw-action="dump_delete" data-mw-set-mw-dump-id="{tmpl_var name='dump_id'}"
+					data-submit-form="pageForm" data-form-action="security/malwatch_dump_list.php">{tmpl_var name='btn_delete_txt'}</button>
+			</td>
+		</tr>
+		</tmpl_loop>
+	</tbody>
+</table>
+</div>
+<tmpl_else>
+<p class="mw-sub">{tmpl_var name='no_dumps_txt'}</p>
+</tmpl_if>
+
+<div class="mw-quiet">
+	<strong>{tmpl_var name='footnote_txt'}</strong>
+	{tmpl_var name='footnote_body_txt'}
+</div>
+
+</div>
+
+<script>
+(function () {
+	var root = document.getElementById('mw-dumps');
+	var select = document.getElementById('mw-dump-site');
+	if (!root || !select) { return; }
+	var $ = window.jQuery;
+
+	// Another website means other databases. They come from a small page of
+	// their own, the same way "Weitere Versionen laden" fetches its versions
+	// on the page "Updates"; the ticks start set, as they do on a fresh load.
+	function load() {
+		if (!$) { return; }
+		$.ajax({ url: root.getAttribute('data-mw-rows') + '?id=' + encodeURIComponent(select.value), dataType: 'json', cache: false })
+			.done(function (data) {
+				var box = document.getElementById('mw-dump-databases');
+				if (!box || !data || !data.rows) { return; }
+				var html = '';
+				for (var i = 0; i < data.rows.length; i++) {
+					var row = data.rows[i];
+					html += '<div class="mw-db"><input type="checkbox" class="mw-pick" name="databases[]" value="'
+						+ row.name_attr + '" checked /><div><div class="mw-dbname">' + row.name
+						+ '</div><div class="mw-dbfacts"><span>' + row.size_label + '</span><span>'
+						+ row.tables_label + '</span><span class="mw-used">' + row.used_label
+						+ '</span><span>' + row.write_label + '</span></div></div></div>';
+				}
+				box.innerHTML = html;
+				box.className = data.rows.length > 0 ? 'mw-dblist' : 'mw-sub';
+				if (data.rows.length === 0) { box.textContent = data.none; }
+				// The counter and the toggles read the ticks again.
+				var changed = document.createEvent('Event');
+				changed.initEvent('change', true, false);
+				box.dispatchEvent(changed);
+			});
+	}
+
+	if ($) {
+		$(select).on('change', load);
+	} else {
+		select.addEventListener('change', load);
+	}
+})();
+</script>
+
+<tmpl_include file="templates/malwatch_selection.htm">
+<tmpl_include file="templates/malwatch_modal.htm">
