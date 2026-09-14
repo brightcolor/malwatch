@@ -229,14 +229,14 @@ Dump abläuft.
 Neue Tabelle `malwatch_dump`: `dump_id`, die sechs `sys_`-Spalten,
 `server_id`, `parent_domain_id`, `domain`, `job_id`, `dump_state`
 enum('pending','running','done','error'), `token` varchar(64), `archive_path`
-varchar(255), `archive_bytes` bigint, `files` int, `databases` int,
+varchar(255), `archive_bytes` bigint, `file_count` int, `database_count` int,
 `with_logs` enum('n','y'), `error_reason` varchar(32), `job_log` text,
 `created_at`, `ready_at`, `expires_at`, Schlüssel auf `token` und auf
 `(server_id, dump_state)`.
 
 Neue Tabelle `malwatch_database`: `database_id`, die sechs `sys_`-Spalten,
-`server_id`, `parent_domain_id`, `database_name` varchar(64), `tables` int,
-`bytes` bigint, `last_write` datetime NULL, `used_kind` varchar(16) (leer oder
+`server_id`, `parent_domain_id`, `database_name` varchar(64), `table_count`
+int, `bytes` bigint, `last_write` datetime NULL, `used_kind` varchar(16) (leer oder
 `wordpress`), `used_by` varchar(255) (Pfad der Installation), `checked_at`
 datetime, eindeutiger Schlüssel auf `(server_id, database_name)`, Schlüssel
 auf `parent_domain_id`.
