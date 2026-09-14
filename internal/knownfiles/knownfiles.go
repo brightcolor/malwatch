@@ -47,7 +47,8 @@ type Index struct {
 type entry struct {
 	root  string
 	label string
-	// files maps a slash separated relative path to a lower case MD5.
+	// files maps a slash separated relative path to one or more lower case
+	// MD5 values, separated by commas (see SumMatches).
 	files map[string]string
 	// complete says the list covers everything the vendor puts in this
 	// directory, so anything else below it does not come from the vendor.
@@ -155,7 +156,7 @@ func (i *Index) Check(path string, content []byte) (Status, string) {
 			continue
 		}
 		sum := md5.Sum(content)
-		if hex.EncodeToString(sum[:]) == want {
+		if SumMatches(want, hex.EncodeToString(sum[:])) {
 			return Original, e.label
 		}
 		return Modified, e.label
@@ -168,6 +169,18 @@ func (i *Index) Check(path string, content []byte) (Status, string) {
 		}
 	}
 	return Unknown, ""
+}
+
+// SumMatches reports whether sum is one of the MD5 values of a checksum list
+// entry. wordpress.org lists several for a plugin file that changed between
+// two builds of the same release; the entry holds them separated by commas.
+func SumMatches(entry, sum string) bool {
+	for _, want := range strings.Split(entry, ",") {
+		if want != "" && want == sum {
+			return true
+		}
+	}
+	return false
 }
 
 // relativeTo returns the slash separated path of file below root.

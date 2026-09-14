@@ -82,3 +82,17 @@ func TestVerifyStagedTellsAMissingListFromABrokenOne(t *testing.T) {
 		t.Errorf("a core without a list has to fail: %v", err)
 	}
 }
+
+func TestVerifyTreeAcceptsAnyListedSum(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "readme.txt"), "readme build 2")
+
+	listed := md5Of("readme build 1") + "," + md5Of("readme build 2")
+	if err := VerifyTree(dir, map[string]string{"readme.txt": listed}); err != nil {
+		t.Errorf("a file matching the second listed sum failed: %v", err)
+	}
+	other := md5Of("readme build 1") + "," + md5Of("readme build 3")
+	if err := VerifyTree(dir, map[string]string{"readme.txt": other}); err == nil {
+		t.Error("a file matching no listed sum verified")
+	}
+}

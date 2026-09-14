@@ -2,6 +2,17 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.14.2] – 2026-09-14
+
+### Behoben
+
+**Prüfsummenlisten mit mehreren Werten je Datei.** wordpress.org nennt für eine
+Plugin-Datei, die sich zwischen zwei Builds derselben Version geändert hat,
+mehrere gültige MD5-Werte. malwatch las davon nur einen und verwarf die ganze
+Liste: Ein Update brach in der Prüfung ab, und der Scan verglich die Dateien
+dieses Plugins mit keiner Liste. Jetzt gilt eine Datei als Original, wenn sie
+einem der genannten Werte entspricht, wie bei WP-CLI.
+
 ## [0.14.1] – 2026-09-14
 
 ### Behoben

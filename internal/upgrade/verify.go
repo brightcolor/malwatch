@@ -40,7 +40,7 @@ func VerifyTree(dir string, sums map[string]string) error {
 			return fmt.Errorf("%s fehlt im geladenen Archiv", name)
 		}
 		sum := md5.Sum(raw)
-		if hex.EncodeToString(sum[:]) != strings.ToLower(sums[name]) {
+		if !knownfiles.SumMatches(strings.ToLower(sums[name]), hex.EncodeToString(sum[:])) {
 			return fmt.Errorf("%s weicht von der Prüfsumme ab", name)
 		}
 	}

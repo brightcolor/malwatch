@@ -108,7 +108,27 @@ func coreOnly(files map[string]string) map[string]string {
 	return out
 }
 
-// WordPressPlugin returns path to MD5 for one plugin release.
+// md5Values is the md5 of a plugin checksum entry: one value, or a list when
+// the file changed between two builds of the same release. wordpress.org
+// counts every listed value as the original.
+type md5Values []string
+
+func (m *md5Values) UnmarshalJSON(raw []byte) error {
+	var one string
+	if err := json.Unmarshal(raw, &one); err == nil {
+		*m = md5Values{one}
+		return nil
+	}
+	var many []string
+	if err := json.Unmarshal(raw, &many); err != nil {
+		return err
+	}
+	*m = many
+	return nil
+}
+
+// WordPressPlugin returns path to MD5 for one plugin release. A file with
+// several valid sums carries them separated by commas; SumMatches reads that.
 func (f *Fetcher) WordPressPlugin(slug, version string) (map[string]string, error) {
 	if !safeSlug(slug) || !safeVersion(version) {
 		return nil, fmt.Errorf("unplausibler Name oder Version")
@@ -124,7 +144,7 @@ func (f *Fetcher) WordPressPlugin(slug, version string) (map[string]string, erro
 	}
 	var payload struct {
 		Files map[string]struct {
-			MD5 string `json:"md5"`
+			MD5 md5Values `json:"md5"`
 		} `json:"files"`
 	}
 	if err := json.Unmarshal(raw, &payload); err != nil {
@@ -132,8 +152,14 @@ func (f *Fetcher) WordPressPlugin(slug, version string) (map[string]string, erro
 	}
 	out := make(map[string]string, len(payload.Files))
 	for path, sums := range payload.Files {
-		if sums.MD5 != "" {
-			out[path] = strings.ToLower(sums.MD5)
+		var values []string
+		for _, v := range sums.MD5 {
+			if v = strings.ToLower(strings.TrimSpace(v)); v != "" {
+				values = append(values, v)
+			}
+		}
+		if len(values) > 0 {
+			out[path] = strings.Join(values, ",")
 		}
 	}
 	if len(out) == 0 {
