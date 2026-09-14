@@ -206,6 +206,32 @@ als JSON. Sie wird geschrieben und dann umbenannt, sodass ein mitlesendes
 Programm nie ein halbes Dokument sieht. `malwatch scan` kennt denselben
 Schalter.
 
+## Aktualisieren
+
+`upgrade` bringt WordPress-Kern, Plugins und Themes auf eine Zielversion von
+wordpress.org. Welche Elemente auf welche Version gehen, steht in einer
+Plandatei:
+
+```json
+{"schema":1,"installs":[{"path":"/var/www/web1/web","url":"https://beispiel.de/",
+  "elements":[{"kind":"core","version":"6.4.5"},{"kind":"plugin","slug":"akismet","version":"5.3.3"}]}]}
+```
+
+```
+malwatch upgrade --path=/var/www/web1/web --plan=plan.json --run-as=web1:client1 \
+                 --php=/usr/bin/php8.2 --quarantine-dir=/var/lib/malwatch/quarantine
+```
+
+Je Element:
+
+1. Archiv laden, Prüfsummen und Anforderungen prüfen
+2. die Datenbank exportieren, wenn ein Kern-Update sie anhebt
+3. den alten Ordner in die Quarantäne legen, den neuen einsetzen, die Datenbank anheben
+4. Startseite und Anmeldeseite abrufen und bei einem Fehler den alten Stand zurückholen
+
+WP-CLI läuft als `--run-as`; root wird abgewiesen. `--dry-run` hält vor dem
+Tausch an. Die Rückgabecodes stehen in `malwatch --help`.
+
 ## Quarantäne verwalten
 
 Was `repair` beim Tauschen ersetzt und was von Hand aus einem Fund entfernt

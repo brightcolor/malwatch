@@ -2,6 +2,35 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.14.0] – 2026-09-14
+
+### Neu
+
+**WordPress-Updates aus dem Panel.** Die Seite „Updates“ einer Website bietet
+für den WordPress-Kern und für Plugins und Themes mit neuerer Version bei
+wordpress.org je zwei Zielversionen an: die neueste, deren Anforderungen an
+WordPress- und PHP-Version die Website erfüllt, und die kleinste, die alle
+bekannten Lücken schließt. Beim Kern ist die neueste die jüngste Version seines
+Zweigs. Jede Angabe nennt, welche Lücken sie schließt.
+
+**Der Befehl `malwatch upgrade`.** Er liest eine Plandatei, lädt die
+Zielversionen, prüft Prüfsummen und Anforderungen, legt den alten Stand in die
+Quarantäne und tauscht ihn, während WordPress den Wartungsmodus zeigt. Hebt ein
+Kern-Update die Datenbank an, exportiert WP-CLI sie vorher als Benutzer der
+Website und hebt sie danach an. Anschließend ruft malwatch Startseite und
+Anmeldeseite ab; antwortet eine davon mit einem Serverfehler, ohne Antwort oder
+mit leerer Seite, kommt der alte Stand zurück, die Datenbank eingeschlossen.
+
+**Meldungen.** Zurückholen und Fehler gehen per Mail an den Betreiber und, wenn
+für die Website „Kunde benachrichtigen“ eingeschaltet ist, an den Kunden. Die
+Seite der Website zeigt den Fortschritt je Element und die letzten zehn Läufe.
+
+**Scan und Abgleich** nennen die PHP-Version der Website (`--php`), je Software
+die Anforderungen der neuesten Version und beim Kern die neueste Version des
+Zweigs.
+
+**Einstellungen:** Pfad zu WP-CLI.
+
 ## [0.13.2] – 2026-09-13
 
 ### Geändert

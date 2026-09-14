@@ -63,6 +63,19 @@ WPScan-API-Schlüssel eintragen. Der Runner legt den Schlüssel als
 Dateinamen. Laut WPScan braucht einen Enterprise-Tarif, wer die Daten in einen
 Dienst für Kunden einbindet.
 
+## Updates
+
+Die Seite **Updates** einer Website listet je WordPress-Installation Kern,
+Plugins und Themes mit neuerer Version bei wordpress.org. Jede Zeile bietet die
+neueste passende Version und die kleinste, die alle bekannten Lücken schließt.
+Der Runner schreibt eine Plandatei und startet `malwatch upgrade` als Benutzer
+der Website mit ihrer PHP-Version; die Nachprüfung verbindet sich mit der IP des
+Vhosts.
+
+Scheitert die Nachprüfung, holt malwatch den alten Stand zurück und meldet es
+dem Betreiber, bei eingeschaltetem „Kunde benachrichtigen“ auch dem Kunden. Den
+Pfad zu WP-CLI trägt **Security > Einstellungen**.
+
 ## Aktionen
 
 Je Website einzeln schaltbar, jede mit eigener Mindeststufe:
