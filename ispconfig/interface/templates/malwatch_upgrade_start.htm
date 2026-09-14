@@ -48,7 +48,7 @@
 #mw-upgrade .mw-folderhead .btn{padding:3px 10px;font-size:12px;line-height:1.5}
 </style>
 
-<div id="mw-upgrade" data-mw-selection>
+<div id="mw-upgrade" data-mw-selection data-mw-loading="{tmpl_var name='versions_loading_txt'}" data-mw-failed="{tmpl_var name='versions_failed_txt'}">
 
 <p class="mw-sub">{tmpl_var name='intro_txt'}</p>
 
@@ -109,7 +109,8 @@
 			<td><span class="mw-mono">{tmpl_var name='installed'}</span></td>
 			<td>
 				<tmpl_if name="can_update">
-				<select class="form-control mw-up-version" name="version[{tmpl_var name='software_id'}]">{tmpl_var name='options_html'}</select>
+				<select class="form-control mw-up-version" name="version[{tmpl_var name='software_id'}]"
+					data-mw-versions="security/malwatch_upgrade_versions.php?id={tmpl_var name='domain_id'}&amp;software_id={tmpl_var name='software_id'}">{tmpl_var name='options_html'}</select>
 				<div class="mw-closes">{tmpl_var name='closes'}</div>
 				</tmpl_if>
 				<tmpl_if name="has_note"><div class="mw-note">{tmpl_var name='note'}</div></tmpl_if>
@@ -148,22 +149,83 @@
 (function () {
 	var root = document.getElementById('mw-upgrade');
 	if (!root) { return; }
+	var $ = window.jQuery;
+	var loadingText = root.getAttribute('data-mw-loading') || '';
+	var failedText = root.getAttribute('data-mw-failed') || '';
+
+	// select2, which the panel lays over every select, shows the choice on
+	// its own; these two keep it in step with the select.
+	function widget(select) {
+		return ($ && $(select).data('select2')) ? $(select) : null;
+	}
+	function show(select, value) {
+		select.value = value;
+		var w = widget(select);
+		if (w) { w.select2('val', value); }
+	}
 
 	// What a target version fixes travels on its option; the line below the
-	// select follows the choice. Bound through jQuery where the panel has it:
-	// select2, which the panel lays over every select, reports a new choice
-	// as a jQuery event only.
-	function follow() {
-		var option = this.options[this.selectedIndex];
-		var hint = this.parentNode.querySelector('.mw-closes');
+	// select follows the choice.
+	function closesFor(select) {
+		var option = select.options[select.selectedIndex];
+		var hint = select.parentNode.querySelector('.mw-closes');
 		if (hint && option) { hint.textContent = option.getAttribute('data-closes') || ''; }
 	}
+
+	// "Weitere Versionen laden" puts the choice back, fetches every version of
+	// this row and opens the list again with all of them. A failed request
+	// says so in the same entry, and choosing it tries again.
+	function loadAll(select) {
+		var chosen = select.getAttribute('data-mw-chosen') || '';
+		var more = select.querySelector('option[data-mw-more]');
+		show(select, chosen);
+		if (!more || more.getAttribute('data-mw-busy') === '1') { return; }
+		more.setAttribute('data-mw-busy', '1');
+		more.textContent = loadingText;
+		function failed() {
+			more.textContent = failedText;
+			more.removeAttribute('data-mw-busy');
+		}
+		if (!$) { failed(); return; }
+		$.ajax({ url: select.getAttribute('data-mw-versions'), dataType: 'json', cache: false })
+			.done(function (data) {
+				if (!data || !data.choices || !data.choices.length) { failed(); return; }
+				while (select.options.length) { select.remove(0); }
+				for (var i = 0; i < data.choices.length; i++) {
+					var option = document.createElement('option');
+					option.value = data.choices[i].version;
+					option.textContent = data.choices[i].label;
+					option.setAttribute('data-closes', data.choices[i].closes);
+					select.appendChild(option);
+				}
+				show(select, chosen);
+				var w = widget(select);
+				if (w) { w.select2('open'); }
+			})
+			.fail(failed);
+	}
+
+	// Bound through jQuery where the panel has it: select2 reports a new
+	// choice as a jQuery event only.
+	function changed() {
+		var option = this.options[this.selectedIndex];
+		if (option && option.hasAttribute('data-mw-more')) {
+			loadAll(this);
+			return;
+		}
+		this.setAttribute('data-mw-chosen', this.value);
+		closesFor(this);
+	}
+
 	var selects = root.querySelectorAll('.mw-up-version');
-	if (window.jQuery) {
-		window.jQuery(selects).on('change', follow);
+	for (var i = 0; i < selects.length; i++) {
+		selects[i].setAttribute('data-mw-chosen', selects[i].value);
+	}
+	if ($) {
+		$(selects).on('change', changed);
 	} else {
-		for (var i = 0; i < selects.length; i++) {
-			selects[i].addEventListener('change', follow);
+		for (var j = 0; j < selects.length; j++) {
+			selects[j].addEventListener('change', changed);
 		}
 	}
 })();

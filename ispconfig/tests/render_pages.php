@@ -38,6 +38,8 @@ $mw_page = isset($argv[2]) ? $argv[2] : '';
 $pages = array(
 	'status.php',
 	'malwatch_site_show.php',
+	// Opened at a section, as the buttons of the vulnerability list do.
+	'malwatch_site_show.php?show=vulns',
 	'malwatch_site_edit.php',
 	'malwatch_finding_list.php',
 	'malwatch_scan_list.php',
@@ -47,6 +49,8 @@ $pages = array(
 	'malwatch_quarantine_list.php?site=quarantined',
 	'malwatch_repair_start.php',
 	'malwatch_upgrade_start.php',
+	// JSON for "Weitere Versionen laden", for a row with a release list.
+	'malwatch_upgrade_versions.php?software_id=listed',
 	'malwatch_vuln_list.php',
 );
 
@@ -99,6 +103,14 @@ if (isset($mw_query['site']) && $mw_query['site'] === 'quarantined') {
 	$mw_query['site'] = is_array($busiest) ? (string) $busiest['parent_domain_id'] : '';
 }
 
+// A row of the website that has a release list, the case the JSON exists for.
+if (isset($mw_query['software_id']) && $mw_query['software_id'] === 'listed') {
+	$listed = $app->db->queryOneRecord(
+		"SELECT software_id FROM malwatch_software WHERE parent_domain_id = ? AND product = 'wordpress' "
+		. "AND versions IS NOT NULL AND versions != '' ORDER BY software_id", $domain_id);
+	$mw_query['software_id'] = is_array($listed) ? (string) $listed['software_id'] : '';
+}
+
 $_SESSION['s']['user'] = array(
 	'userid' => 1, 'typ' => 'admin', 'active' => 1, 'default_group' => 1,
 	'groups' => '1', 'modules' => 'dashboard,security,admin', 'language' => 'de',
@@ -125,6 +137,20 @@ try {
 	exit(1);
 }
 
+// The version list is JSON: it carries choices and nothing of the panel.
+if ($mw_file === 'malwatch_upgrade_versions.php') {
+	$doc = json_decode($out, true);
+	$count = (is_array($doc) && isset($doc['choices']) && is_array($doc['choices'])) ? count($doc['choices']) : -1;
+	if ($count < 1) {
+		printf("%-46s FAIL  %6d bytes  (%s)\n", $mw_page, strlen($out),
+			$count < 0 ? 'no JSON with choices' : 'no version in the JSON');
+		echo '   ', substr(preg_replace('/\s+/', ' ', $out), 0, 300), "\n";
+		exit(1);
+	}
+	printf("%-46s ok    %6d bytes  (%d versions)\n", $mw_page, strlen($out), $count);
+	exit(0);
+}
+
 $length = strlen(trim($out));
 $broken = (stripos($out, 'Fatal error') !== false || stripos($out, 'Uncaught') !== false);
 
@@ -144,6 +170,9 @@ $no_cancel = preg_match('/mw-modal-cancel"[^>]*>\s*</', $out) === 1;
 $unmarked = isset($mw_query['site']) && $mw_query['site'] !== ''
 	&& preg_match('/\?site=' . preg_quote($mw_query['site'], '/') . '"[^>]*aria-current="true"/', $out) !== 1;
 
+// A page opened at a section says which one its script scrolls to.
+$unjumped = isset($mw_query['show']) && strpos($out, 'data-mw-jump="mw-') === false;
+
 $why = '';
 if ($broken) {
 	$why = 'fatal in the output';
@@ -157,6 +186,8 @@ if ($broken) {
 	$why = 'dialog without a cancel label';
 } elseif ($unmarked) {
 	$why = 'website ' . $mw_query['site'] . ' not marked in the overview';
+} elseif ($unjumped) {
+	$why = 'no section to open at for show=' . $mw_query['show'];
 }
 
 if ($why !== '') {

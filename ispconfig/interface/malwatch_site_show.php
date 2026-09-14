@@ -136,6 +136,9 @@ $app->tpl->setVar('configured', is_array($site) ? 1 : 0);
 $app->tpl->setVar('busy', is_array($job) ? 1 : 0);
 $app->tpl->setVar('busy_status', is_array($job) ? $app->functions->htmlentities($job['job_status']) : '');
 $app->tpl->setVar('has_quarantine', $quarantine_count > 0 ? 1 : 0);
+// show= from the buttons of the vulnerability list: the section the page
+// opens at, see malwatch_site_jump().
+$app->tpl->setVar('jump_to', malwatch_site_jump(isset($_GET['show']) ? $_GET['show'] : ''));
 $app->tpl->setVar('quarantine_hint', $quarantine_count === 1
 	? $wb['quarantine_hint_one_txt']
 	: sprintf($wb['quarantine_hint_many_txt'], number_format($quarantine_count, 0, ',', '.')));

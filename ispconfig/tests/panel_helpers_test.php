@@ -74,6 +74,13 @@ expect_same('every folder', malwatch_only_in_folder($only, ''), $only);
 expect_same('folder with an @', malwatch_only_in_folder(array('plugin:akismet@alt@2024', 'core@2024'), 'alt@2024'),
 	array('plugin:akismet@alt@2024'));
 
+// show= on the website page names the section it opens at.
+expect_same('jump to the vulnerabilities', malwatch_site_jump('vulns'), 'mw-software');
+expect_same('jump to the malware findings', malwatch_site_jump('malware'), 'mw-findings');
+expect_same('no jump', malwatch_site_jump(''), '');
+expect_same('unknown section', malwatch_site_jump('findings'), '');
+expect_same('parameter that is no string', malwatch_site_jump(array('vulns')), '');
+
 if ($failures > 0) {
 	exit(1);
 }

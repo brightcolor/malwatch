@@ -194,6 +194,15 @@ foreach ((array) $install_rows as $row) {
 	);
 }
 
+// Open malware findings per website, for the button next to the vulnerability
+// buttons. One query for the whole list: thirty websites, one number each.
+$open_findings = array();
+$finding_rows = $app->db->queryAllRecords(
+	"SELECT parent_domain_id, COUNT(*) AS n FROM malwatch_finding WHERE finding_state = 'open' GROUP BY parent_domain_id");
+foreach ((array) $finding_rows as $finding_row) {
+	$open_findings[$app->functions->intval($finding_row['parent_domain_id'])] = $app->functions->intval($finding_row['n']);
+}
+
 $severities = array('low', 'medium', 'high', 'critical');
 $list = array();
 foreach ((array) $site_rows as $site) {
@@ -203,10 +212,14 @@ foreach ((array) $site_rows as $site) {
 	$installs_n = $app->functions->intval($site['installs']);
 	$flaws_n = $app->functions->intval($site['flaws']);
 	$shown = isset($by_site[$domain_id]) ? $by_site[$domain_id] : array();
+	$findings_n = isset($open_findings[$domain_id]) ? $open_findings[$domain_id] : 0;
 
 	$list[] = array(
 		'domain' => $app->functions->htmlentities((string) $site['domain']),
 		'domain_id' => $domain_id,
+		'has_findings' => $findings_n > 0 ? 1 : 0,
+		'findings_label' => $app->functions->htmlentities(
+			sprintf($wb['btn_findings_txt'], number_format($findings_n, 0, ',', '.'))),
 		'site_severity_label' => $app->functions->htmlentities($worst !== ''
 			? malwatch_severity_label($wb, $worst) : $wb['vuln_unrated_txt']),
 		'site_severity_class' => $worst !== '' ? malwatch_severity_class($worst) : 'label-default',

@@ -44,7 +44,9 @@ also innerhalb einer Minute, das Ergebnis erscheint, sobald der Lauf fertig ist.
 ## Schwachstellen
 
 **Security > Schwachstellen** gliedert nach Websites: je Website ihre
-Installationen mit bekannten Lücken, die schwerste Einstufung zuerst. Die Seite
+Installationen mit bekannten Lücken, die schwerste Einstufung zuerst. In der
+Zeile jeder Website führen Knöpfe zu ihren Updates, zu ihren Lücken und, bei
+offenen Funden, zu den Malware-Funden auf ihrer Seite. Die Seite
 der Website listet die Lücken einzeln, jede mit CVE-Nummer, der Version, die
 sie behebt, und einem Verweis auf ihren Eintrag.
 
@@ -69,7 +71,9 @@ Die Seite **Updates** einer Website gliedert nach WordPress-Installation und
 listet je Ordner Kern, Plugins und Themes mit neuerer Version bei wordpress.org.
 Jede Zeile bietet jede veröffentlichte Version über der installierten an:
 vorgewählt ist die neueste passende, markiert die kleinste, die alle bekannten
-Lücken schließt. Die Liste der Versionen liefert der tägliche Abgleich.
+Lücken schließt. Die Liste der Versionen liefert der tägliche Abgleich. Das
+Feld zeigt zuerst eine kurze Auswahl, dazu die neueste Version jeder der fünf
+neuesten Hauptversionen; „Weitere Versionen laden …“ holt die übrigen.
 Die Seite startet ohne Auswahl; der Verweis „Aktualisieren“ einer Softwarezeile
 hakt dieses Element an. Jeder Ordner hat Probelauf und Start für seine
 angehakten Elemente, die Knöpfe unter der Liste gelten für alle Ordner. Die

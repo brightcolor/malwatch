@@ -432,7 +432,24 @@
 <input type="hidden" name="malwatch_action" id="malwatch_action" value="" />
 
 
-<p class="fieldset-legend">{tmpl_var name='findings_txt'}</p>
+<tmpl_if name="jump_to">
+<!--
+	Opened from a button of the vulnerability list: the page comes into view at
+	the section it names. The panel scrolls to the top of every page it loads
+	(ispconfig.js); that scroll stops first.
+-->
+<div hidden data-mw-jump="{tmpl_var name='jump_to'}"></div>
+<script>
+(function () {
+	var marker = document.querySelector('[data-mw-jump]');
+	var target = marker ? document.getElementById(marker.getAttribute('data-mw-jump')) : null;
+	if (!target) { return; }
+	if (window.jQuery) { window.jQuery('html, body').stop(true); }
+	target.scrollIntoView();
+})();
+</script>
+</tmpl_if>
+<p class="fieldset-legend" id="mw-findings">{tmpl_var name='findings_txt'}</p>
 <tmpl_if name="has_findings">
 <p>
 	<strong>{tmpl_var name='finding_open_files'}</strong> {tmpl_var name='affected_files_txt'},
@@ -527,7 +544,7 @@
 #mw-run .mw-step-rollback_failed{color:var(--cic-danger,#c9302c);font-weight:600}
 </style>
 
-<p class="fieldset-legend">{tmpl_var name='software_txt'}</p>
+<p class="fieldset-legend" id="mw-software">{tmpl_var name='software_txt'}</p>
 <div class="table-wrapper marginTop15">
 <table class="table">
 	<thead class="dark">

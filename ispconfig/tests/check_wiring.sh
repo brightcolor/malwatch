@@ -903,6 +903,33 @@ for tpl in "$root"/interface/templates/*.htm; do
 	fi
 done
 
+# 43. Eine Seite, die JSON liefert, laedt keine Vorlage und prueft die
+#     Administratorrechte - dieselbe Regel wie Pruefung 18, fuer jede Seite
+#     mit Content-Type application/json. Die Versionen hinter "Weitere
+#     Versionen laden" auf der Seite "Updates" liefert
+#     malwatch_upgrade_versions.php.
+for page in "$root"/interface/*.php; do
+	grep -q 'Content-Type: application/json' "$page" || continue
+	if grep -q 'newTemplate\|tpl_defaults' "$page"; then
+		fail "$(basename "$page") liefert JSON und laedt eine Vorlage"
+	fi
+	grep -q 'is_admin' "$page" || fail "$(basename "$page") liefert JSON und prueft die Administratorrechte nicht"
+done
+[ -f "$root/interface/malwatch_upgrade_versions.php" ] \
+	|| fail "interface/malwatch_upgrade_versions.php fehlt; \"Weitere Versionen laden\" bekaeme keine Antwort"
+
+# 44. Ein Verweis mit show= auf die Seite einer Website nennt einen Abschnitt,
+#     den malwatch_site_jump() kennt. Mit einem Tippfehler oeffnete die Seite
+#     oben, und der Knopf saehe aus, als taete er, was er verspricht.
+jump_function=$(sed -n '/^function malwatch_site_jump/,/^}/p' "$root/interface/lib/malwatch_lib.inc.php")
+for tpl in "$root"/interface/templates/*.htm; do
+	[ -f "$tpl" ] || continue
+	for show in $(grep -o 'malwatch_site_show\.php?id=[^"]*show=[a-z]*' "$tpl" | sed 's/.*show=//' | sort -u); do
+		printf '%s\n' "$jump_function" | grep -q "'$show' =>" \
+			|| fail "$(basename "$tpl") verlinkt show=$show, malwatch_site_jump() kennt diesen Abschnitt nicht"
+	done
+done
+
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'
 fi

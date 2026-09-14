@@ -51,3 +51,8 @@ $wb['vuln_unfixed_txt'] = 'no fix yet';
 $wb['vuln_unrated_txt'] = 'not rated';
 $wb['vuln_more_txt'] = '… and %s more';
 $wb['open_upgrades_txt'] = 'Updates for this website';
+// The buttons in the row of a website. The third appears with open findings
+// only and names their number.
+$wb['btn_updates_txt'] = 'Updates';
+$wb['btn_vulns_txt'] = 'Vulnerabilities';
+$wb['btn_findings_txt'] = 'Malware findings (%s)';

@@ -28,6 +28,7 @@ c:interface/malwatch_quarantine_list.php:interface/web/security/malwatch_quarant
 c:interface/malwatch_quarantine_download.php:interface/web/security/malwatch_quarantine_download.php
 c:interface/malwatch_repair_start.php:interface/web/security/malwatch_repair_start.php
 c:interface/malwatch_upgrade_start.php:interface/web/security/malwatch_upgrade_start.php
+c:interface/malwatch_upgrade_versions.php:interface/web/security/malwatch_upgrade_versions.php
 c:interface/malwatch_vuln_list.php:interface/web/security/malwatch_vuln_list.php
 
 c:interface/list/malwatch_finding.list.php:interface/web/security/list/malwatch_finding.list.php

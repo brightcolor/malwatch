@@ -18,6 +18,11 @@ $wb['col_installed_txt'] = 'Installiert';
 $wb['col_target_txt'] = 'Zielversion';
 $wb['offer_latest_txt'] = 'neueste passende';
 $wb['offer_minimal_txt'] = 'kleinste, die alle Lücken schließt';
+// Die neueste Version einer Hauptversion, etwa „neueste 6.8“ oder „neueste 4.x“.
+$wb['offer_major_txt'] = 'neueste %s';
+$wb['more_versions_txt'] = 'Weitere Versionen laden …';
+$wb['versions_loading_txt'] = 'Versionen werden geladen …';
+$wb['versions_failed_txt'] = 'Laden fehlgeschlagen, erneut versuchen';
 $wb['manual_only_txt'] = 'nur von Hand: nicht bei wordpress.org';
 $wb['install_root_txt'] = 'Webstamm';
 $wb['kind_core_txt'] = 'Kern';

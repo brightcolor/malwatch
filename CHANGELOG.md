@@ -2,6 +2,24 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.16.0] – 2026-09-14
+
+### Neu
+
+**Kurze Versionsliste mit Nachladen.** Das Auswahlfeld der Seite „Updates“
+zeigt die neueste passende Version, die kleinste, die alle Lücken schließt, und
+die neueste Version jeder der fünf neuesten Hauptversionen: beim Kern je x.y,
+bei Plugins und Themes je erster Stelle. „Weitere Versionen laden …“ am Ende
+holt die übrigen Versionen für dieses eine Feld. Auf einer Website mit 515
+Feldern trug die Seite zuvor gut 25.000 Einträge und jetzt gut 2.000; das Panel
+ist entsprechend schneller bereit, und das erste Öffnen eines Felds folgt
+spürbar schneller.
+
+**Knöpfe in der Schwachstellen-Liste.** Jede Website hat in ihrer Zeile die
+Knöpfe „Updates“, „Lücken“ und, bei offenen Funden, „Malware-Funde“ mit deren
+Zahl. „Lücken“ und „Malware-Funde“ öffnen die Seite der Website direkt beim
+Abschnitt „Software“ oder „Funde“.
+
 ## [0.15.0] – 2026-09-14
 
 ### Neu

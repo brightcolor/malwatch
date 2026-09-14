@@ -39,6 +39,10 @@
 #mw-vulns details.mw-siteblock > summary:focus-visible{outline:2px solid var(--cic-accent,#dd630d);outline-offset:-2px}
 #mw-vulns .mw-domain{font-weight:600;font-size:14px;word-break:break-word}
 #mw-vulns .mw-meta{display:flex;flex-wrap:wrap;gap:2px 14px;font-size:12.5px;font-variant-numeric:tabular-nums}
+/* Die Knoepfe einer Website stehen rechts in ihrer Zeile. Ein Klick darauf
+   oeffnet die Seite, der Block bleibt dabei zu. */
+#mw-vulns .mw-sitebtns{display:flex;flex-wrap:wrap;gap:6px;margin-left:auto;align-self:center}
+#mw-vulns .mw-sitebtns .btn{padding:2px 9px;font-size:12px;line-height:1.5}
 /* Der Pfeil zeigt, dass der Block aufgeht; gedreht, wenn er offen ist. */
 #mw-vulns .mw-domain::after{content:"\25B8";display:inline-block;margin-left:8px;opacity:.6;transition:transform .15s}
 #mw-vulns details[open] > summary .mw-domain::after{transform:rotate(90deg)}
@@ -104,6 +108,11 @@
 			<span class="mw-meta">
 				<span>{tmpl_var name='installs_label'}</span>
 				<span>{tmpl_var name='flaws_label'}</span>
+			</span>
+			<span class="mw-sitebtns">
+				<a class="btn btn-default formbutton-default" href="#" data-load-content="security/malwatch_upgrade_start.php?id={tmpl_var name='domain_id'}">{tmpl_var name='btn_updates_txt'}</a>
+				<a class="btn btn-default formbutton-default" href="#" data-load-content="security/malwatch_site_show.php?id={tmpl_var name='domain_id'}&amp;show=vulns">{tmpl_var name='btn_vulns_txt'}</a>
+				<tmpl_if name="has_findings"><a class="btn btn-danger" href="#" data-load-content="security/malwatch_site_show.php?id={tmpl_var name='domain_id'}&amp;show=malware">{tmpl_var name='findings_label'}</a></tmpl_if>
 			</span>
 		</summary>
 		<div class="mw-body">

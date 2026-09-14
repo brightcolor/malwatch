@@ -51,3 +51,8 @@ $wb['vuln_unfixed_txt'] = 'bisher ohne Korrektur';
 $wb['vuln_unrated_txt'] = 'nicht eingestuft';
 $wb['vuln_more_txt'] = '… und %s weitere';
 $wb['open_upgrades_txt'] = 'Updates für diese Website';
+// Die Knöpfe in der Zeile einer Website. Der dritte erscheint nur mit offenen
+// Funden und nennt ihre Zahl.
+$wb['btn_updates_txt'] = 'Updates';
+$wb['btn_vulns_txt'] = 'Lücken';
+$wb['btn_findings_txt'] = 'Malware-Funde (%s)';

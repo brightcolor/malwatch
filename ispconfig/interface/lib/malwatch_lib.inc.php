@@ -536,7 +536,49 @@ function malwatch_upgrade_offers(array $row, $core_version, $php, array $wb)
 			$out['default'] = $out['choices'][0]['version'];
 		}
 	}
+
+	// The select opens short: the offers above, the default, and the newest
+	// release of each of the five newest major versions - x.y for the core,
+	// the first number for a plugin or theme. A list of several hundred
+	// releases in each of five hundred selects kept the page busy for
+	// seconds; short counts what the full list holds beyond it.
+	$majors = array();
+	foreach ($out['choices'] as $i => $choice) {
+		$parts = explode('.', $choice['version']);
+		$major = $kind === 'core' ? $parts[0] . '.' . (isset($parts[1]) ? $parts[1] : '0') : $parts[0] . '.x';
+		if (isset($majors[$major]) || count($majors) === 5) {
+			continue;
+		}
+		$majors[$major] = true;
+		if ($choice['mark'] === '') {
+			$out['choices'][$i]['mark'] = sprintf($wb['offer_major_txt'], $major);
+		}
+		$out['choices'][$i]['newest_of_major'] = true;
+	}
+	$out['short'] = array();
+	foreach ($out['choices'] as $i => $choice) {
+		$out['choices'][$i]['label'] = $choice['mark'] !== '' ? $choice['version'] . ' · ' . $choice['mark'] : $choice['version'];
+		unset($out['choices'][$i]['newest_of_major']);
+		if ($choice['mark'] !== '' || $choice['version'] === $out['default']) {
+			$out['short'][] = $out['choices'][$i];
+		}
+	}
+	$out['more'] = count($out['short']) < count($out['choices']);
 	return $out;
+}
+
+/**
+ * The section of the website page a link opens at: show=vulns the software
+ * with its vulnerabilities, show=malware the malware findings. The id of that
+ * section, '' for the top of the page.
+ */
+function malwatch_site_jump($param)
+{
+	if (!is_string($param)) {
+		return '';
+	}
+	$sections = array('vulns' => 'mw-software', 'malware' => 'mw-findings');
+	return isset($sections[$param]) ? $sections[$param] : '';
 }
 
 /**

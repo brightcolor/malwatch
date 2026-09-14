@@ -83,19 +83,27 @@ foreach ($installs as $install) {
 	foreach ($install['rows'] as $row) {
 		// The options go out as one escaped string: the template loops over
 		// installations and rows already, and every value in it is escaped
-		// here.
+		// here. The short list only: with every release in every select a
+		// large website sent 25,000 options, and select2 kept the page busy
+		// for seconds. "Weitere Versionen laden" at its end fetches the rest
+		// of this row from malwatch_upgrade_versions.php.
 		$options_html = '';
 		$default_closes = '';
-		foreach ($row['offers']['choices'] as $choice) {
+		foreach ($row['offers']['short'] as $choice) {
 			$is_default = $choice['version'] === $row['offers']['default'];
 			if ($is_default) {
 				$default_closes = $choice['closes'];
 			}
-			$label = $choice['mark'] !== '' ? $choice['version'] . ' · ' . $choice['mark'] : $choice['version'];
 			$options_html .= '<option value="' . $app->functions->htmlentities($choice['version']) . '"'
 				. ' data-closes="' . $app->functions->htmlentities($choice['closes']) . '"'
 				. ($is_default ? ' selected' : '') . '>'
-				. $app->functions->htmlentities($label) . '</option>';
+				. $app->functions->htmlentities($choice['label']) . '</option>';
+		}
+		if ($row['offers']['more']) {
+			// A value no row offers: sent by a browser without the script,
+			// malwatch_queue_upgrade() leaves the row out.
+			$options_html .= '<option value="__more__" data-mw-more="1">'
+				. $app->functions->htmlentities($wb['more_versions_txt']) . '</option>';
 		}
 
 		$can_update = count($row['offers']['choices']) > 0;
@@ -148,8 +156,10 @@ $app->tpl->newTemplate('form.tpl.htm');
 $app->tpl->setInclude('content_tpl', 'templates/malwatch_upgrade_start.htm');
 $app->tpl->setVar($wb);
 
-// The dialog reads both from data-mw-* attributes; see malwatch_attr_texts().
-$app->tpl->setVar(malwatch_attr_texts($wb, array('btn_start_txt', 'confirm_start_txt')));
+// The dialog and the loading of more versions read these from data-mw-*
+// attributes; see malwatch_attr_texts().
+$app->tpl->setVar(malwatch_attr_texts($wb, array('btn_start_txt', 'confirm_start_txt',
+	'versions_loading_txt', 'versions_failed_txt')));
 
 $app->tpl->setVar('domain_id', $domain_id);
 $app->tpl->setVar('back_label', sprintf($wb['back_txt'], $app->functions->htmlentities($web['domain'])));
