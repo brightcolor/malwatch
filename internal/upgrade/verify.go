@@ -47,16 +47,25 @@ func VerifyTree(dir string, sums map[string]string) error {
 	return nil
 }
 
+// unavailableError is a checksum list that could not be loaded - a network
+// error, a server error, an answer that does not parse. The element stays out
+// and the other elements go on. A list that loads and does not match the
+// archive is a plain error and ends the run.
+type unavailableError struct{ err error }
+
+func (e unavailableError) Error() string { return e.err.Error() }
+
+func (e unavailableError) Unwrap() error { return e.err }
+
 // verifyStaged verifies the staged tree of one element. unverified is true
 // when no list covers it: a theme, or a plugin wordpress.org keeps no list
-// for. Every other failure to get a list is an error: a release that cannot
-// be verified for a reason nobody knows stays out.
+// for. A list that cannot be loaded comes back as unavailableError.
 func verifyStaged(cs Checksums, el PlanElement, locale, dir string) (unverified bool, err error) {
 	switch el.Kind {
 	case "core":
 		sums, err := cs.WordPressCore(el.Version, locale)
 		if err != nil {
-			return false, fmt.Errorf("Prüfsummen für WordPress %s nicht ladbar: %w", el.Version, err)
+			return false, unavailableError{fmt.Errorf("Prüfsummen für WordPress %s nicht ladbar: %w", el.Version, err)}
 		}
 		return false, VerifyTree(dir, sums)
 	case "plugin":
@@ -65,7 +74,7 @@ func verifyStaged(cs Checksums, el PlanElement, locale, dir string) (unverified 
 			return true, nil
 		}
 		if err != nil {
-			return false, fmt.Errorf("Prüfsummen für %s %s nicht ladbar: %w", label(el), el.Version, err)
+			return false, unavailableError{fmt.Errorf("Prüfsummen für %s %s nicht ladbar: %w", label(el), el.Version, err)}
 		}
 		return false, VerifyTree(dir, sums)
 	}

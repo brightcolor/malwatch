@@ -17,10 +17,12 @@ func md5Of(s string) string {
 }
 
 // fakeChecksums answers from maps keyed "6.4.5" and "akismet@5.3.3". A plugin
-// without a list is ErrNotPublished, a core without a list a server error.
+// without a list is ErrNotPublished, a core without a list a server error, and
+// so is a plugin named in failing.
 type fakeChecksums struct {
 	core    map[string]map[string]string
 	plugins map[string]map[string]string
+	failing map[string]bool
 }
 
 func (f fakeChecksums) WordPressCore(version, locale string) (map[string]string, error) {
@@ -31,6 +33,9 @@ func (f fakeChecksums) WordPressCore(version, locale string) (map[string]string,
 }
 
 func (f fakeChecksums) WordPressPlugin(slug, version string) (map[string]string, error) {
+	if f.failing[slug+"@"+version] {
+		return nil, fmt.Errorf("HTTP 500")
+	}
 	if sums, ok := f.plugins[slug+"@"+version]; ok {
 		return sums, nil
 	}

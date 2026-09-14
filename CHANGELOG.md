@@ -2,6 +2,20 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.14.3] – 2026-09-14
+
+### Geändert
+
+**Die Seite „Updates“ startet ohne Auswahl.** Bisher waren alle Zeilen mit
+Lücken angehakt, auf einer großen Website Hunderte Elemente. Ausgewählt wird
+jetzt von Hand; der Verweis „Aktualisieren“ einer Softwarezeile hakt sein
+Element an.
+
+**Eine nicht ladbare Prüfsummenliste lehnt nur ihr Element ab.** Ein Netzfehler
+oder eine kaputte Antwort von wordpress.org hielt bisher den ganzen Lauf an.
+Jetzt wird dieses Element mit Grund abgelehnt, die übrigen laufen weiter. Eine
+Prüfsumme, die nicht passt, beendet den Lauf weiterhin.
+
 ## [0.14.2] – 2026-09-14
 
 ### Behoben

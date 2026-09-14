@@ -68,6 +68,8 @@ Dienst für Kunden einbindet.
 Die Seite **Updates** einer Website listet je WordPress-Installation Kern,
 Plugins und Themes mit neuerer Version bei wordpress.org. Jede Zeile bietet die
 neueste passende Version und die kleinste, die alle bekannten Lücken schließt.
+Die Seite startet ohne Auswahl; der Verweis „Aktualisieren“ einer Softwarezeile
+hakt dieses Element an.
 Der Runner schreibt eine Plandatei und startet `malwatch upgrade` als Benutzer
 der Website mit ihrer PHP-Version; die Nachprüfung verbindet sich mit der IP des
 Vhosts. Vor der Nachprüfung wartet malwatch `opcache.revalidate_freq` des

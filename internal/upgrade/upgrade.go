@@ -235,8 +235,9 @@ func (r *runner) fetch() error {
 }
 
 // verify holds every fetched release against its checksums and checks what it
-// asks of the site. A checksum that does not match ends the run; a
-// requirement the site does not meet turns the element down.
+// asks of the site. A checksum that does not match ends the run; a checksum
+// list that cannot be loaded and a requirement the site does not meet turn
+// the element down.
 func (r *runner) verify() error {
 	for _, it := range r.items {
 		if !it.open() {
@@ -248,7 +249,12 @@ func (r *runner) verify() error {
 			continue
 		}
 		unverified, err := verifyStaged(r.opts.Checksums, it.el, it.locale, it.staged)
-		if err != nil {
+		var unavailable unavailableError
+		switch {
+		case errors.As(err, &unavailable):
+			r.refuse(it, unavailable.Error())
+			continue
+		case err != nil:
 			return fmt.Errorf("%s %s: %w", label(it.el), it.el.Version, err)
 		}
 		it.rep.Unverified = unverified

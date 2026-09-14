@@ -99,7 +99,7 @@ foreach ($installs as $install) {
 		}
 
 		$can_update = $default !== '';
-		$checked = $can_update && ($preselect > 0 ? $row['software_id'] === $preselect : $row['vuln_count'] > 0);
+		$checked = malwatch_upgrade_checked($row, $can_update, $preselect);
 		if ($can_update) {
 			$row_count++;
 		}

@@ -511,6 +511,16 @@ function malwatch_upgrade_candidates($app, $domain_id, array $wb, $limit = 50)
 }
 
 /**
+ * Whether the page "Updates" ticks a row when it opens: only the element whose
+ * row link opened the page. Everything else waits for the operator, so
+ * "Updates starten" queues what was ticked on purpose.
+ */
+function malwatch_upgrade_checked(array $row, $can_update, $preselect)
+{
+	return $can_update && intval($preselect) > 0 && intval($row['software_id']) === intval($preselect);
+}
+
+/**
  * Queues an upgrade of the chosen rows of one website.
  *
  * $choices maps software_id to a version. A version counts only when this

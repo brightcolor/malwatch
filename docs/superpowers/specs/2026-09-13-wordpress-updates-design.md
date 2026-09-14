@@ -403,8 +403,8 @@ einer Demo-Website; danach steht die Funktion allen Websites offen.
 
 ## Nachtrag zum Umsetzungsplan (14.09.2026)
 
-Beim Planen haben sich sieben Punkte geklärt, beim Abnahmetest ein achter. Sie
-gelten vor dem Text oben:
+Beim Planen haben sich sieben Punkte geklärt, beim Abnahmetest und bei den
+ersten Läufen im Panel drei weitere. Sie gelten vor dem Text oben:
 
 1. Der Befehl heißt `malwatch upgrade`; `malwatch update` lädt seit jeher die
    Signaturen. Die Kennungen im Addon folgen: `job_kind = 'upgrade'`,
@@ -431,3 +431,12 @@ gelten vor dem Text oben:
    der Website plus eine Sekunde und lehnt ein Update ab, wenn der Pool keine
    Zeitstempel prüft. Gefunden hat das der CI-Abnahmetest zu 0.14.0; behoben in
    0.14.1.
+9. Eine Prüfsummenliste von wordpress.org kann für eine Plugin-Datei mehrere
+   MD5-Werte nennen, wenn sich die Datei zwischen zwei Builds derselben Version
+   geändert hat. Die Datei gilt als Original, wenn sie einem davon entspricht,
+   wie bei WP-CLI (0.14.2).
+10. Die Seite „Updates“ startet ohne angehakte Zeile; allein `&software_id=`
+    hakt sein Element an. Eine Prüfsummenliste, die sich nicht laden lässt,
+    lehnt ihr Element ab, und die übrigen laufen weiter. Eine Prüfsumme, die
+    nicht passt, beendet den Lauf weiterhin (0.14.3). Beides gilt vor dem Text
+    zu Phase 3 und zur Seite oben.

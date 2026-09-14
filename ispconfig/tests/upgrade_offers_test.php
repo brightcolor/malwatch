@@ -88,6 +88,13 @@ expect_same('plugin install', malwatch_install_of('/w/blog/wp-content/plugins/ak
 expect_same('theme install', malwatch_install_of('/w/inhalt/themes/vier', 'theme'), '/w');
 expect_same('stray plugin path', malwatch_install_of('/w/wp-content/akismet', 'plugin'), '');
 
+// Nothing is ticked unless the row link of one element opened the page.
+$flawed = array('software_id' => 12, 'vuln_count' => 3);
+expect_same('flawed row stays unticked', malwatch_upgrade_checked($flawed, true, 0), false);
+expect_same('row link ticks its element', malwatch_upgrade_checked($flawed, true, 12), true);
+expect_same('row link ticks nothing else', malwatch_upgrade_checked($flawed, true, 13), false);
+expect_same('row without an offer stays unticked', malwatch_upgrade_checked($flawed, false, 12), false);
+
 if ($failures > 0) {
 	exit(1);
 }
