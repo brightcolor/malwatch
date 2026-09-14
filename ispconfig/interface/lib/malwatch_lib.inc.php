@@ -1281,6 +1281,154 @@ function malwatch_bytes($n)
 }
 
 /**
+ * Turns the databases of one website into the rows of the picker on the page
+ * "Dumps".
+ *
+ * Everything but the name comes from the hourly run (collect_databases in
+ * cron.d/560-malwatch.inc.php). A database it has not looked at yet carries
+ * its name alone and has_marks 0, so the page can say that size and marks
+ * follow with the next run instead of showing "0 B" as if it had measured.
+ */
+function malwatch_dump_database_rows(array $databases, array $wb)
+{
+	$rows = array();
+	foreach ($databases as $db) {
+		$name = isset($db['database_name']) ? (string) $db['database_name'] : '';
+		if ($name === '') {
+			continue;
+		}
+
+		$known = isset($db['checked_at']) && (string) $db['checked_at'] !== '';
+		$tables = isset($db['table_count']) ? (int) $db['table_count'] : 0;
+		$bytes = isset($db['bytes']) ? (float) $db['bytes'] : 0.0;
+		$write = isset($db['last_write']) ? (string) $db['last_write'] : '';
+		$kind = isset($db['used_kind']) ? (string) $db['used_kind'] : '';
+		$by = isset($db['used_by']) ? (string) $db['used_by'] : '';
+
+		$used = '';
+		if ($kind === 'wordpress' && $by !== '') {
+			$used = sprintf($wb['db_used_wordpress_txt'], $by);
+		}
+
+		$when = '';
+		$stamp = $write !== '' ? strtotime($write) : 0;
+		if ($stamp > 0) {
+			$when = sprintf($wb['db_write_txt'], date('d.m.Y', $stamp));
+		}
+
+		$tables_label = '';
+		if ($known) {
+			$tables_label = $tables > 0
+				? sprintf($wb['db_tables_txt'], number_format($tables, 0, ',', '.'))
+				: $wb['db_no_tables_txt'];
+		}
+
+		$rows[] = array(
+			'name' => $name,
+			'size_label' => $known ? malwatch_bytes($bytes) : '',
+			'tables_label' => $tables_label,
+			'used_label' => $used,
+			'write_label' => $when,
+			'has_marks' => $known ? 1 : 0,
+		);
+	}
+	return $rows;
+}
+
+/** The database names the page offered, in the order it showed them. */
+function malwatch_dump_known_names(array $databases)
+{
+	$names = array();
+	foreach ($databases as $db) {
+		$name = isset($db['database_name']) ? (string) $db['database_name'] : '';
+		if ($name !== '') {
+			$names[] = $name;
+		}
+	}
+	return $names;
+}
+
+/**
+ * Keeps the ticked names the page itself offered, in the order of that list.
+ *
+ * The same rule as the repair page: a name from anywhere else runs into
+ * nothing, and the order comes from the page rather than from the form, so
+ * the archive is laid out the way the list reads.
+ */
+function malwatch_dump_filter_names(array $posted, array $known)
+{
+	$wanted = array();
+	foreach ($posted as $name) {
+		if (is_string($name)) {
+			$wanted[$name] = true;
+		}
+	}
+
+	$out = array();
+	foreach ($known as $name) {
+		if (isset($wanted[$name])) {
+			$out[] = $name;
+		}
+	}
+	return $out;
+}
+
+/**
+ * Turns the dumps of a website into the rows of the list.
+ *
+ * A dump can be fetched while it is done, carries a token and its week is
+ * still running. $now exists for the test; the page leaves it out and gets
+ * the clock.
+ */
+function malwatch_dump_rows(array $dumps, array $wb, $now = 0)
+{
+	if ($now <= 0) {
+		$now = time();
+	}
+
+	$states = array(
+		'pending' => 'dump_state_pending_txt',
+		'running' => 'dump_state_running_txt',
+		'done' => 'dump_state_done_txt',
+		'error' => 'dump_state_error_txt',
+	);
+
+	$rows = array();
+	foreach ($dumps as $dump) {
+		$state = isset($dump['dump_state']) ? (string) $dump['dump_state'] : 'pending';
+		$key = isset($states[$state]) ? $states[$state] : 'dump_state_pending_txt';
+		$bytes = isset($dump['archive_bytes']) ? (float) $dump['archive_bytes'] : 0.0;
+		$token = isset($dump['token']) ? (string) $dump['token'] : '';
+		$expires = isset($dump['expires_at']) ? (string) $dump['expires_at'] : '';
+		$stamp = $expires !== '' ? strtotime($expires) : 0;
+
+		$content = '';
+		if ($state === 'done') {
+			$content = sprintf($wb['dump_content_txt'],
+				number_format(isset($dump['file_count']) ? (int) $dump['file_count'] : 0, 0, ',', '.'),
+				number_format(isset($dump['database_count']) ? (int) $dump['database_count'] : 0, 0, ',', '.'));
+			if (isset($dump['with_logs']) && (string) $dump['with_logs'] === 'y') {
+				$content .= ', ' . $wb['dump_with_logs_txt'];
+			}
+		}
+
+		$rows[] = array(
+			'dump_id' => isset($dump['dump_id']) ? (int) $dump['dump_id'] : 0,
+			'domain' => isset($dump['domain']) ? (string) $dump['domain'] : '',
+			'state' => $state,
+			'state_label' => isset($wb[$key]) ? $wb[$key] : $state,
+			'size_label' => ($state === 'done' && $bytes > 0) ? malwatch_bytes($bytes) : '',
+			'content_label' => $content,
+			'valid_label' => $stamp > 0 ? sprintf($wb['dump_valid_txt'], date('d.m.Y', $stamp)) : '',
+			'token' => $token,
+			'message' => isset($dump['job_log']) ? (string) $dump['job_log'] : '',
+			'can_download' => ($state === 'done' && $token !== '' && $stamp > $now) ? 1 : 0,
+		);
+	}
+	return $rows;
+}
+
+/**
  * Liefert die Websites, die etwas brauchen, und die Zahl der uebrigen.
  *
  * Der taegliche Schwachstellenabgleich zaehlt hier nicht als laufende
