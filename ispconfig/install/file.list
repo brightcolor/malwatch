@@ -62,6 +62,8 @@ c:interface/lang/de_malwatch_repair.lng:interface/web/security/lib/lang/de_malwa
 c:interface/lang/en_malwatch_repair.lng:interface/web/security/lib/lang/en_malwatch_repair.lng
 c:interface/lang/de_malwatch_vuln_list.lng:interface/web/security/lib/lang/de_malwatch_vuln_list.lng
 c:interface/lang/en_malwatch_vuln_list.lng:interface/web/security/lib/lang/en_malwatch_vuln_list.lng
+c:interface/lang/de_malwatch_upgrade.lng:interface/web/security/lib/lang/de_malwatch_upgrade.lng
+c:interface/lang/en_malwatch_upgrade.lng:interface/web/security/lib/lang/en_malwatch_upgrade.lng
 
 # --- Server ----------------------------------------------------------------
 # Module and plugin are symlinked so an update replaces them atomically.

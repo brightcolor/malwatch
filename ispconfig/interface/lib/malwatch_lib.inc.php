@@ -358,6 +358,206 @@ function malwatch_queue_vulnchecks($app)
 	return array($queued, $busy, $optout, $failed);
 }
 
+/** The WordPress installation a plugin or theme directory belongs to, '' for anything else. */
+function malwatch_install_of($element_path, $kind)
+{
+	$path = rtrim((string) $element_path, '/');
+	$parent = $kind === 'plugin' ? 'plugins' : ($kind === 'theme' ? 'themes' : '');
+	if ($parent === '' || basename(dirname($path)) !== $parent) {
+		return '';
+	}
+	return dirname(dirname(dirname($path)));
+}
+
+/**
+ * What an update to $version does about the known flaws of a software row:
+ * "schließt alle 7 Lücken", "schließt 5 von 7, für 2 gibt es keine Korrektur",
+ * "behoben erst ab 6.5.2". Empty for a row without known flaws.
+ */
+function malwatch_upgrade_closes_label(array $row, $version, array $wb)
+{
+	$count = intval($row['vuln_count']);
+	if ($count === 0) {
+		return '';
+	}
+	$nofix = intval($row['vuln_nofix']);
+	$fixed_in = (string) $row['vuln_fixed_in'];
+	if ($fixed_in !== '' && version_compare((string) $version, $fixed_in, '<')) {
+		return sprintf($wb['closes_later_txt'], $fixed_in);
+	}
+	if ($nofix > 0) {
+		return sprintf($wb['closes_some_txt'], $count - $nofix, $count, $nofix);
+	}
+	return $count === 1 ? $wb['closes_one_txt'] : sprintf($wb['closes_all_txt'], $count);
+}
+
+/**
+ * The target versions the page "Updates" offers for one software row.
+ *
+ * latest is the newest release the site can take: for a plugin or theme
+ * latest_version, when the site meets latest_requires_wp and
+ * latest_requires_php; for the core latest_in_branch. An unknown site version
+ * ($core_version or $php empty) checks nothing here - the scanner checks the
+ * fetched release in its phase 3. reason says why latest stays out although
+ * a newer release exists. minimal is vuln_fixed_in, the lowest release that
+ * fixes every known flaw with a fix, offered once when it equals latest.
+ *
+ * A function of its arguments alone, so tests/upgrade_offers_test.php can call
+ * it without a panel.
+ */
+function malwatch_upgrade_offers(array $row, $core_version, $php, array $wb)
+{
+	$installed = (string) $row['installed_version'];
+	$kind = (string) $row['software_kind'];
+	$out = array('latest' => null, 'minimal' => null, 'reason' => '');
+
+	$latest = $kind === 'core' ? (string) $row['latest_in_branch'] : (string) $row['latest_version'];
+	if ($latest !== '' && version_compare($latest, $installed, '>')) {
+		$needs_php = $kind === 'core' ? '' : (string) $row['latest_requires_php'];
+		$needs_wp = $kind === 'core' ? '' : (string) $row['latest_requires_wp'];
+		if ($needs_php !== '' && (string) $php !== '' && version_compare((string) $php, $needs_php, '<')) {
+			$out['reason'] = sprintf($wb['needs_php_txt'], $latest, $needs_php, $php);
+		} elseif ($needs_wp !== '' && (string) $core_version !== '' && version_compare((string) $core_version, $needs_wp, '<')) {
+			$out['reason'] = sprintf($wb['needs_wp_txt'], $latest, $needs_wp, $core_version);
+		} else {
+			$out['latest'] = array('version' => $latest, 'closes' => malwatch_upgrade_closes_label($row, $latest, $wb));
+		}
+	}
+
+	$minimal = (string) $row['vuln_fixed_in'];
+	if ($minimal !== '' && version_compare($minimal, $installed, '>')
+		&& ($out['latest'] === null || $out['latest']['version'] !== $minimal)) {
+		$out['minimal'] = array('version' => $minimal, 'closes' => malwatch_upgrade_closes_label($row, $minimal, $wb));
+	}
+	return $out;
+}
+
+/**
+ * The rows the page "Updates" lists for one website, grouped by WordPress
+ * installation: installations with known flaws first, at most $limit of them.
+ *
+ * A row appears when it has something to offer, a reason why its newest
+ * release stays out, or known flaws while wordpress.org does not list it
+ * (manual_only). Within an installation rows with known flaws come first.
+ * Returns array($installs, $hidden), $hidden being the installations left out.
+ */
+function malwatch_upgrade_candidates($app, $domain_id, array $wb, $limit = 50)
+{
+	$rows = $app->db->queryAllRecords(
+		"SELECT * FROM malwatch_software WHERE parent_domain_id = ? AND product = 'wordpress' "
+		. "ORDER BY FIELD(software_kind, 'core', 'plugin', 'theme'), slug ASC", $domain_id);
+	$site = $app->db->queryOneRecord('SELECT php_version FROM malwatch_site WHERE parent_domain_id = ?', $domain_id);
+	$php = is_array($site) ? (string) $site['php_version'] : '';
+
+	$installs = array();
+	foreach ((array) $rows as $row) {
+		if ((string) $row['software_kind'] === 'core') {
+			$path = rtrim((string) $row['install_path'], '/');
+			$installs[$path] = array('path' => $path, 'core_version' => (string) $row['installed_version'],
+				'flaws' => 0, 'rows' => array());
+		}
+	}
+
+	foreach ((array) $rows as $row) {
+		$kind = (string) $row['software_kind'];
+		$path = $kind === 'core' ? rtrim((string) $row['install_path'], '/')
+			: malwatch_install_of((string) $row['install_path'], $kind);
+		if (!isset($installs[$path])) {
+			continue;
+		}
+		$manual_only = (string) $row['version_unknown'] === 'y' && intval($row['vuln_count']) > 0;
+		$offers = malwatch_upgrade_offers($row, $installs[$path]['core_version'], $php, $wb);
+		if ($offers['latest'] === null && $offers['minimal'] === null && $offers['reason'] === '' && !$manual_only) {
+			continue;
+		}
+		$installs[$path]['rows'][] = array(
+			'software_id' => intval($row['software_id']),
+			'kind' => $kind,
+			'name' => $kind === 'core' ? 'WordPress' : (string) $row['slug'],
+			'installed' => (string) $row['installed_version'],
+			'vuln_count' => intval($row['vuln_count']),
+			'manual_only' => $manual_only,
+			'offers' => $offers,
+		);
+		$installs[$path]['flaws'] += intval($row['vuln_count']);
+	}
+
+	$kept = array();
+	foreach ($installs as $install) {
+		if (count($install['rows']) === 0) {
+			continue;
+		}
+		usort($install['rows'], function ($a, $b) {
+			$flawed = ($b['vuln_count'] > 0 ? 1 : 0) - ($a['vuln_count'] > 0 ? 1 : 0);
+			if ($flawed !== 0) {
+				return $flawed;
+			}
+			$order = array('core' => 0, 'plugin' => 1, 'theme' => 2);
+			if ($order[$a['kind']] !== $order[$b['kind']]) {
+				return $order[$a['kind']] - $order[$b['kind']];
+			}
+			return strcmp($a['name'], $b['name']);
+		});
+		$kept[] = $install;
+	}
+	usort($kept, function ($a, $b) {
+		if ($a['flaws'] !== $b['flaws']) {
+			return $a['flaws'] > $b['flaws'] ? -1 : 1;
+		}
+		return strcmp($a['path'], $b['path']);
+	});
+
+	return array(array_slice($kept, 0, $limit), max(0, count($kept) - $limit));
+}
+
+/**
+ * Queues an upgrade of the chosen rows of one website.
+ *
+ * $choices maps software_id to a version. A version counts only when this
+ * page offers it for that row right now: the offers are computed again here
+ * from the database, so a changed form field cannot slip another version into
+ * the plan. Returns the number of queued elements, or a German message.
+ */
+function malwatch_queue_upgrade($app, $domain_id, array $choices, $dry_run, array $wb)
+{
+	$domain_id = $app->functions->intval($domain_id);
+	$web = $app->db->queryOneRecord('SELECT php FROM web_domain WHERE domain_id = ?', $domain_id);
+	if (!is_array($web)) {
+		return $wb['err_site_not_found_txt'];
+	}
+	if ((string) $web['php'] === 'no') {
+		return $wb['err_no_php_txt'];
+	}
+
+	list($installs) = malwatch_upgrade_candidates($app, $domain_id, $wb, 100000);
+	$offered = array();
+	foreach ($installs as $install) {
+		foreach ($install['rows'] as $row) {
+			foreach (array('latest', 'minimal') as $which) {
+				if ($row['offers'][$which] !== null) {
+					$offered[$row['software_id']][$row['offers'][$which]['version']] = true;
+				}
+			}
+		}
+	}
+
+	$elements = array();
+	foreach ($choices as $software_id => $version) {
+		$software_id = $app->functions->intval($software_id);
+		$version = (string) $version;
+		if (isset($offered[$software_id][$version])) {
+			$elements[] = array('software_id' => $software_id, 'version' => $version);
+		}
+	}
+	if (count($elements) === 0) {
+		return $wb['err_no_selection_txt'];
+	}
+
+	$queued = malwatch_queue_job($app, $domain_id, 'upgrade',
+		array('elements' => $elements, 'dry_run' => $dry_run ? 1 : 0));
+	return $queued === true ? count($elements) : $queued;
+}
+
 /**
  * "alle behoben ab 5.9.2", or "2 von 3 behoben ab 5.9.2" when some flaws name
  * no fixed version - an update to that version leaves those where they are.

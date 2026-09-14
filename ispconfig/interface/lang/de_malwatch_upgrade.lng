@@ -1,0 +1,10 @@
+<?php
+$wb['closes_all_txt'] = 'schließt alle %s Lücken';
+$wb['closes_one_txt'] = 'schließt die bekannte Lücke';
+$wb['closes_some_txt'] = 'schließt %s von %s, für %s gibt es keine Korrektur';
+$wb['closes_later_txt'] = 'behoben erst ab %s';
+$wb['needs_php_txt'] = '%s braucht PHP %s, die Website läuft mit %s';
+$wb['needs_wp_txt'] = '%s braucht WordPress %s, installiert ist %s';
+$wb['err_site_not_found_txt'] = 'Die Website wurde nicht gefunden.';
+$wb['err_no_php_txt'] = 'Die Website läuft ohne PHP; WordPress lässt sich dort nicht aktualisieren.';
+$wb['err_no_selection_txt'] = 'Es wurde keine Version ausgewählt, die diese Seite anbietet.';

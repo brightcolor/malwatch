@@ -1,0 +1,10 @@
+<?php
+$wb['closes_all_txt'] = 'fixes all %s vulnerabilities';
+$wb['closes_one_txt'] = 'fixes the known vulnerability';
+$wb['closes_some_txt'] = 'fixes %s of %s, %s have no fix yet';
+$wb['closes_later_txt'] = 'fixed from %s on';
+$wb['needs_php_txt'] = '%s needs PHP %s, the website runs %s';
+$wb['needs_wp_txt'] = '%s needs WordPress %s, %s is installed';
+$wb['err_site_not_found_txt'] = 'The website was not found.';
+$wb['err_no_php_txt'] = 'The website runs without PHP; WordPress cannot be updated there.';
+$wb['err_no_selection_txt'] = 'No version this page offers was selected.';

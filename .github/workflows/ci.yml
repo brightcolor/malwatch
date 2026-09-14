@@ -41,6 +41,8 @@ jobs:
         run: sh ispconfig/tests/check_wiring.sh
       - name: Upgrade helpers
         run: php ispconfig/tests/upgrade_helpers_test.php
+      - name: Upgrade offers
+        run: php ispconfig/tests/upgrade_offers_test.php
 
   clean-cms:
     # The counter-check that matters: a freshly downloaded WordPress and
