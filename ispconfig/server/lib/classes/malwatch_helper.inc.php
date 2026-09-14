@@ -256,6 +256,88 @@ class malwatch_helper
 	}
 
 	/**
+	 * How long an upgrade waits after an exchange before it checks the site.
+	 *
+	 * PHP keeps running the compiled old files until OPcache looks at them
+	 * again, revalidate_freq seconds after it last did; a check before that
+	 * moment judges the old release. The value comes from the PHP-FPM
+	 * configuration of the website: php.ini, conf.d and the pool file, which
+	 * may override both. array('seconds' => n) or array('error' => reason).
+	 */
+	public function fpm_settle($web)
+	{
+		global $app, $conf;
+
+		if (!is_array($web) || (string) $web['php'] !== 'php-fpm') {
+			return array('seconds' => 3);
+		}
+		$id = intval(isset($web['server_php_id']) ? $web['server_php_id'] : 0);
+		$ini_file = '';
+		$pool_dir = '';
+		if ($id > 0) {
+			$row = $app->dbmaster->queryOneRecord(
+				'SELECT php_fpm_ini_dir, php_fpm_pool_dir FROM server_php WHERE server_php_id = ?', $id);
+			if (is_array($row)) {
+				$ini_file = rtrim((string) $row['php_fpm_ini_dir'], '/') . '/php.ini';
+				$pool_dir = rtrim((string) $row['php_fpm_pool_dir'], '/');
+			}
+		} else {
+			$app->uses('getconf');
+			$web_config = $app->getconf->get_server_config($conf['server_id'], 'web');
+			$ini_file = isset($web_config['php_fpm_ini_path']) ? (string) $web_config['php_fpm_ini_path'] : '';
+			$pool_dir = isset($web_config['php_fpm_pool_dir']) ? rtrim((string) $web_config['php_fpm_pool_dir'], '/') : '';
+		}
+
+		$texts = array();
+		if ($ini_file !== '' && is_file($ini_file)) {
+			$texts[] = (string) file_get_contents($ini_file);
+			$extra = glob(dirname($ini_file) . '/conf.d/*.ini');
+			if (is_array($extra)) {
+				sort($extra);
+				foreach ($extra as $file) {
+					$texts[] = (string) file_get_contents($file);
+				}
+			}
+		}
+		$pool = $pool_dir !== '' ? $pool_dir . '/web' . intval($web['domain_id']) . '.conf' : '';
+		$pool_text = ($pool !== '' && is_file($pool)) ? (string) file_get_contents($pool) : '';
+		return self::opcache_settle($texts, $pool_text);
+	}
+
+	/**
+	 * The wait for php.ini texts in load order and a pool configuration. A
+	 * later text wins over an earlier one and the pool over all of them, the
+	 * order PHP-FPM applies them in.
+	 */
+	public static function opcache_settle($ini_texts, $pool_text)
+	{
+		$values = array('opcache.enable' => '1', 'opcache.validate_timestamps' => '1', 'opcache.revalidate_freq' => '2');
+		$keys = 'opcache\.(?:enable|validate_timestamps|revalidate_freq)';
+		foreach ((array) $ini_texts as $text) {
+			if (preg_match_all('/^[ \t]*(' . $keys . ')[ \t]*=[ \t]*"?([^";\r\n]*?)"?[ \t]*(?:;.*)?$/m', (string) $text, $hits, PREG_SET_ORDER)) {
+				foreach ($hits as $hit) {
+					$values[$hit[1]] = trim($hit[2]);
+				}
+			}
+		}
+		if (preg_match_all('/^[ \t]*php_(?:admin_)?(?:value|flag)\[(' . $keys . ')\][ \t]*=[ \t]*"?([^";\r\n]*?)"?[ \t]*(?:;.*)?$/m', (string) $pool_text, $hits, PREG_SET_ORDER)) {
+			foreach ($hits as $hit) {
+				$values[$hit[1]] = trim($hit[2]);
+			}
+		}
+
+		$on = array('1', 'on', 'yes', 'true');
+		if (!in_array(strtolower($values['opcache.enable']), $on, true)) {
+			return array('seconds' => 0);
+		}
+		if (!in_array(strtolower($values['opcache.validate_timestamps']), $on, true)) {
+			return array('error' => 'In diesem PHP-Pool prüft OPcache keine Zeitstempel (opcache.validate_timestamps). '
+				. 'malwatch kann dort nicht erkennen, wann PHP die neuen Dateien liest, und aktualisiert die Website deshalb nicht.');
+		}
+		return array('seconds' => max(0, intval($values['opcache.revalidate_freq'])) + 1);
+	}
+
+	/**
 	 * Turns the elements of an upgrade job into the installations of its plan
 	 * file. Every element names a software row of this website; kind, slug and
 	 * path come from that row, the job carries nothing but its id and the

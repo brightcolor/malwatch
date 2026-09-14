@@ -60,6 +60,13 @@ type Options struct {
 
 	Now       func() time.Time // nil means time.Now
 	DBTimeout time.Duration    // bound of each WP-CLI call; zero means an hour
+
+	// Settle is the wait after an exchange and after a rollback before the
+	// pages are checked: PHP keeps running the compiled old files until
+	// OPcache looks at them again, revalidate_freq after it last did. The
+	// addon passes revalidate_freq of the pool of the website plus a second.
+	Settle time.Duration
+	Sleep  func(time.Duration) // nil means time.Sleep
 }
 
 // item is one element on its way through the run.
@@ -95,6 +102,9 @@ func Run(opts Options) (*report.Upgrade, error) {
 	}
 	if opts.DBTimeout <= 0 {
 		opts.DBTimeout = time.Hour
+	}
+	if opts.Sleep == nil {
+		opts.Sleep = time.Sleep
 	}
 	pw := opts.Progress
 	if pw == nil {
@@ -414,6 +424,9 @@ func (r *runner) upgradeOne(it *item, before []Probe) []Probe {
 		}
 	}
 
+	// The wait runs behind the maintenance page: until OPcache reads the new
+	// files, visitors would get the old release, and the check would judge it.
+	r.settle()
 	if err := LeaveMaintenance(install); err != nil {
 		r.pw.Log("warn", "%s: %v", install, err)
 	}
@@ -469,6 +482,7 @@ func (r *runner) rollBack(it *item, before, after []Probe, added []string, dump 
 			problems = append(problems, "Datenbank: "+err.Error())
 		}
 	}
+	r.settle()
 	if err := LeaveMaintenance(install); err != nil {
 		problems = append(problems, err.Error())
 	}
@@ -576,6 +590,15 @@ func anyJudgeable(probes []Probe) bool {
 		}
 	}
 	return false
+}
+
+// settle waits the time OPcache needs to read the files that changed on disk.
+func (r *runner) settle() {
+	if r.opts.Settle <= 0 {
+		return
+	}
+	r.pw.Log("info", "warte %s, bis PHP die neuen Dateien liest", r.opts.Settle)
+	r.opts.Sleep(r.opts.Settle)
 }
 
 // refuse turns an element down with its reason; nothing of it changes.

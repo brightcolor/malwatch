@@ -88,6 +88,9 @@ Aktualisieren (upgrade):
   --wp-cli=PFAD            WP-CLI (Vorgabe: /usr/local/bin/wp)
   --connect=ADRESSE        Ziel der Nachprüfung, host oder host:port
                            (Vorgabe: 127.0.0.1)
+  --settle=DAUER           Wartezeit nach Tausch und Zurückholen, bis PHP die
+                           neuen Dateien liest: revalidate_freq von OPcache
+                           plus 1 s (Vorgabe: 3s)
   --quarantine-dir=PFAD    wohin ersetzte Ordner und Datenbank-Exporte gehen
                            (entfällt nur bei --dry-run)
   --staging-dir=PFAD       wo die Archive vor dem Tausch liegen

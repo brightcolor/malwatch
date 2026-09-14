@@ -354,6 +354,12 @@ class malwatch_runner
 		if ($php === '') {
 			return $this->refuse_upgrade($job, 'Zur PHP-Version der Website liegt auf diesem Server kein PHP-Kommandozeilenprogramm.');
 		}
+		// PHP keeps running the compiled old files until OPcache reads them
+		// again; the check after the exchange waits that long.
+		$settle = $helper->fpm_settle($web);
+		if (isset($settle['error'])) {
+			return $this->refuse_upgrade($job, $settle['error']);
+		}
 
 		$installs = $helper->upgrade_installs($job, $web, $path, $options);
 		if (count($installs) === 0) {
@@ -386,6 +392,7 @@ class malwatch_runner
 			'--php=' . $php,
 			'--wp-cli=' . $this->wp_cli_path($config),
 			'--connect=' . malwatch_helper::connect_address($web),
+			'--settle=' . intval($settle['seconds']) . 's',
 			'--quarantine-dir=' . $state_dir . '/quarantine',
 			'--staging-dir=' . $staging,
 			'--domain=' . $job['domain'],

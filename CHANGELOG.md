@@ -2,6 +2,20 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.14.1] – 2026-09-14
+
+### Behoben
+
+**Die Nachprüfung nach einem Update bewertet den neuen Code.** PHP führt nach
+dem Tausch die übersetzten alten Dateien weiter aus, bis OPcache sie neu liest.
+Die Nachprüfung kam früher und bewertete deshalb den alten Stand: Ein Update,
+das die Website lahmlegt, galt als gelungen, und der alte Stand kam nicht
+zurück. `malwatch upgrade` wartet jetzt nach dem Tausch und nach dem
+Zurückholen die mit `--settle` genannte Zeit, beim Tausch noch im
+Wartungsmodus. Das Addon übergibt dafür `opcache.revalidate_freq` aus der
+PHP-FPM-Konfiguration der Website plus eine Sekunde und lehnt ein Update ab,
+wenn OPcache in diesem Pool keine Zeitstempel prüft.
+
 ## [0.14.0] – 2026-09-14
 
 ### Neu

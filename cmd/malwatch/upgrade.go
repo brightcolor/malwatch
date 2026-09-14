@@ -35,6 +35,7 @@ func cmdUpgrade(args []string) int {
 	asJSON := fs.Bool("json", false, "")
 	out := fs.String("out", "", "")
 	vendorBase := fs.String("vendor-base", "", "")
+	settleFlag := fs.String("settle", "3s", "")
 
 	if err := fs.Parse(args); err != nil {
 		return report.ExitError
@@ -58,6 +59,10 @@ func cmdUpgrade(args []string) int {
 		return report.ExitError
 	}
 
+	settle, err := time.ParseDuration(*settleFlag)
+	if err != nil || settle < 0 {
+		return refuse("--settle=%q ist keine gültige Wartezeit, etwa 3s.", *settleFlag)
+	}
 	if *phpBinary == "" {
 		return refuse("upgrade braucht --php, das PHP-Binary der Website.")
 	}
@@ -117,6 +122,7 @@ func cmdUpgrade(args []string) int {
 		Checksums: knownfiles.NewFetcher("", 30*time.Second),
 		Prober:    upgrade.NewProber(*connect, 20*time.Second),
 		Progress:  pw,
+		Settle:    settle,
 	})
 
 	if err := writeUpgradeReport(result, *out, *asJSON); err != nil {

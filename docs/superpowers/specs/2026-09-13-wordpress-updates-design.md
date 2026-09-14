@@ -403,7 +403,8 @@ einer Demo-Website; danach steht die Funktion allen Websites offen.
 
 ## Nachtrag zum Umsetzungsplan (14.09.2026)
 
-Beim Planen haben sich sieben Punkte geklärt. Sie gelten vor dem Text oben:
+Beim Planen haben sich sieben Punkte geklärt, beim Abnahmetest ein achter. Sie
+gelten vor dem Text oben:
 
 1. Der Befehl heißt `malwatch upgrade`; `malwatch update` lädt seit jeher die
    Signaturen. Die Kennungen im Addon folgen: `job_kind = 'upgrade'`,
@@ -422,3 +423,11 @@ Beim Planen haben sich sieben Punkte geklärt. Sie gelten vor dem Text oben:
 6. Der Datenbank-Export liegt als Quarantäne-Eintrag in dem Verzeichnis, das
    allein root betreten darf; das Archiv trägt die Rechte der Quarantäne.
 7. Quarantäne-Einträge eines Upgrades tragen den Ursprung `upgrade`.
+8. Nach dem Tausch und nach dem Zurückholen wartet der Lauf die Zeit aus
+   `--settle`, bevor er die Seiten abruft; beim Tausch läuft die Wartezeit noch
+   im Wartungsmodus. PHP führt mit OPcache die übersetzten alten Dateien weiter
+   aus, bis `opcache.revalidate_freq` seit der letzten Prüfung einer Datei
+   vergangen ist. Das Addon übergibt diesen Wert aus der PHP-FPM-Konfiguration
+   der Website plus eine Sekunde und lehnt ein Update ab, wenn der Pool keine
+   Zeitstempel prüft. Gefunden hat das der CI-Abnahmetest zu 0.14.0; behoben in
+   0.14.1.

@@ -37,6 +37,18 @@ expect_same('theme in a renamed content directory', malwatch_helper::install_of(
 expect_same('plugin outside plugins/', malwatch_helper::install_of($root . '/wp-content/akismet', 'plugin'), '');
 expect_same('core', malwatch_helper::install_of($root, 'core'), '');
 
+// The wait before the check: revalidate_freq of the pool plus one second.
+$php_ini = "[PHP]\nengine = On\n[opcache]\n;opcache.enable=1\n;opcache.revalidate_freq=0\n";
+expect_same('defaults', malwatch_helper::opcache_settle(array($php_ini), ''), array('seconds' => 3));
+expect_same('conf.d after php.ini', malwatch_helper::opcache_settle(
+	array("opcache.revalidate_freq=2\n", "opcache.revalidate_freq = 10 ; checked\n"), ''), array('seconds' => 11));
+expect_same('pool value wins', malwatch_helper::opcache_settle(
+	array("opcache.revalidate_freq=2\n"), "[web21]\nphp_admin_value[opcache.revalidate_freq] = 60\n"), array('seconds' => 61));
+expect_same('enable_cli is another key', malwatch_helper::opcache_settle(array("opcache.enable_cli=0\n"), ''), array('seconds' => 3));
+expect_same('opcache off', malwatch_helper::opcache_settle(array("opcache.enable=0\n"), ''), array('seconds' => 0));
+$refused = malwatch_helper::opcache_settle(array(), "php_admin_flag[opcache.validate_timestamps] = off\n");
+expect_same('timestamps off refused', isset($refused['error']) && strpos($refused['error'], 'validate_timestamps') !== false, true);
+
 if ($failures > 0) {
 	exit(1);
 }

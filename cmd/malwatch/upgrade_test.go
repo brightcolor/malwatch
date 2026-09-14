@@ -62,3 +62,18 @@ func TestUpgradeReportsARefusedPlan(t *testing.T) {
 		t.Errorf("the report does not name the refusal: %s", raw)
 	}
 }
+
+func TestUpgradeRefusesAnUnusableSettle(t *testing.T) {
+	root := t.TempDir()
+	for _, value := range []string{"drei", "-1s"} {
+		out := filepath.Join(t.TempDir(), "report.json")
+		code := cmdUpgrade([]string{
+			"--path=" + root, "--plan=" + filepath.Join(root, "plan.json"),
+			"--php=/usr/bin/php", "--dry-run", "--settle=" + value, "--json", "--out=" + out,
+		})
+		raw, _ := os.ReadFile(out)
+		if code != 3 || !strings.Contains(string(raw), "--settle") {
+			t.Errorf("--settle=%s: exit code %d, report %s", value, code, raw)
+		}
+	}
+}

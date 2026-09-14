@@ -232,6 +232,11 @@ Je Element:
 WP-CLI läuft als `--run-as`; root wird abgewiesen. `--dry-run` hält vor dem
 Tausch an. Die Rückgabecodes stehen in `malwatch --help`.
 
+Nach dem Tausch und nach einem Zurückholen wartet `upgrade` die Zeit aus
+`--settle` (Vorgabe `3s`), bevor es die Seiten abruft: So lange führt PHP mit
+OPcache die übersetzten alten Dateien weiter aus. Passend ist
+`opcache.revalidate_freq` plus eine Sekunde.
+
 ## Quarantäne verwalten
 
 Was `repair` beim Tauschen ersetzt und was von Hand aus einem Fund entfernt

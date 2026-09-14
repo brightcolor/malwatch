@@ -70,7 +70,10 @@ Plugins und Themes mit neuerer Version bei wordpress.org. Jede Zeile bietet die
 neueste passende Version und die kleinste, die alle bekannten Lücken schließt.
 Der Runner schreibt eine Plandatei und startet `malwatch upgrade` als Benutzer
 der Website mit ihrer PHP-Version; die Nachprüfung verbindet sich mit der IP des
-Vhosts.
+Vhosts. Vor der Nachprüfung wartet malwatch `opcache.revalidate_freq` des
+PHP-FPM-Pools plus eine Sekunde; den Wert liest der Runner aus php.ini, conf.d
+und der Pool-Datei der Website. Prüft OPcache dort keine Zeitstempel, lehnt der
+Runner das Update ab.
 
 Scheitert die Nachprüfung, holt malwatch den alten Stand zurück und meldet es
 dem Betreiber, bei eingeschaltetem „Kunde benachrichtigen“ auch dem Kunden. Den
