@@ -827,6 +827,24 @@ function malwatch_severity_class($severity)
 	return 'label-default';
 }
 
+/** The label class of an upgrade outcome. */
+function malwatch_upgrade_outcome_class($outcome)
+{
+	switch ((string) $outcome) {
+		case 'updated':
+			return 'label-success';
+		case 'would_update':
+			return 'label-info';
+		case 'refused':
+		case 'skipped':
+			return 'label-default';
+		case 'rolled_back':
+		case 'failed':
+			return 'label-warning';
+	}
+	return 'label-danger';
+}
+
 /** Short text listing which actions a website has switched on. */
 function malwatch_action_summary($wb, $row)
 {

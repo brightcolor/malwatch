@@ -127,7 +127,7 @@
 					</tmpl_loop>
 				</ul>
 				<tmpl_if name="has_more_installs"><p class="mw-dim mw-more">{tmpl_var name='more_installs_label'}</p></tmpl_if>
-				<p class="mw-sitelink"><a href="#" data-load-content="security/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='open_site_txt'}</a></p>
+				<p class="mw-sitelink"><a href="#" data-load-content="security/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='open_site_txt'}</a> · <a href="#" data-load-content="security/malwatch_upgrade_start.php?id={tmpl_var name='domain_id'}">{tmpl_var name='open_upgrades_txt'}</a></p>
 			</div>
 		</div>
 	</details>

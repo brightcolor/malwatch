@@ -213,6 +213,7 @@ $flaw_budget_total = 400;
 $flaw_budget = $flaw_budget_total;
 
 $software_rows = array();
+$has_upgrades = false;
 if (is_array($software)) {
 	foreach ($software as $row) {
 		$name = $row['product'];
@@ -231,6 +232,12 @@ if (is_array($software)) {
 			? malwatch_vuln_rows($app, $wb, $row['vulns'], $flaw_limit, $vuln_count)
 			: array(array(), 0);
 		$flaw_budget -= count($vulns);
+		// A newer release or known flaws, on something wordpress.org publishes.
+		$can_upgrade = (string) $row['product'] === 'wordpress' && $row['version_unknown'] !== 'y'
+			&& ($row['outdated'] === 'y' || $vuln_count > 0);
+		if ($can_upgrade) {
+			$has_upgrades = true;
+		}
 		$software_rows[] = array(
 			'name' => $app->functions->htmlentities($name),
 			'kind' => $app->functions->htmlentities($row['software_kind']),
@@ -255,11 +262,14 @@ if (is_array($software)) {
 			// the version stayed the same; without one nothing is known yet.
 			'vuln_unchecked_label' => $app->functions->htmlentities($vuln_count > 0
 				? $wb['vuln_incomplete_txt'] : $wb['vuln_unchecked_txt']),
+			'software_id' => $app->functions->intval($row['software_id']),
+			'can_upgrade' => $can_upgrade ? 1 : 0,
 		);
 	}
 }
 $app->tpl->setLoop('software', $software_rows);
 $app->tpl->setVar('has_software', count($software_rows) > 0);
+$app->tpl->setVar('has_upgrades', $has_upgrades ? 1 : 0);
 
 // Below the table: why an install shows a count without its list, and how many
 // installs the row limit left out.
@@ -283,6 +293,36 @@ if ($software_shown >= $software_limit) {
 $app->tpl->setVar('has_software_limit_note', $software_total > $software_shown ? 1 : 0);
 $app->tpl->setVar('software_limit_note', $app->functions->htmlentities(sprintf($wb['software_limit_note_txt'],
 	number_format($software_shown, 0, ',', '.'), number_format($software_total, 0, ',', '.'))));
+
+// --- Updates -------------------------------------------------------------------
+$upgrades = $app->db->queryAllRecords(
+	'SELECT * FROM malwatch_upgrade WHERE parent_domain_id = ? ORDER BY upgrade_id DESC LIMIT 10', $domain_id);
+$upgrade_rows = array();
+foreach ((array) $upgrades as $run) {
+	$elements = $app->db->queryAllRecords(
+		'SELECT * FROM malwatch_upgrade_element WHERE upgrade_id = ? ORDER BY element_id ASC LIMIT 100',
+		$app->functions->intval($run['upgrade_id']));
+	$lines = array();
+	foreach ((array) $elements as $element) {
+		$kind = (string) $element['element_kind'];
+		$outcome = (string) $element['outcome'];
+		$lines[] = array(
+			'name' => $app->functions->htmlentities($kind === 'core' ? 'WordPress' : $kind . ' ' . $element['slug']),
+			'versions' => $app->functions->htmlentities($element['from_version'] . ' → ' . $element['to_version']),
+			'outcome_label' => $app->functions->htmlentities(isset($wb['upgrade_outcome_' . $outcome . '_txt'])
+				? $wb['upgrade_outcome_' . $outcome . '_txt'] : $outcome),
+			'outcome_class' => malwatch_upgrade_outcome_class($outcome),
+			'message' => $app->functions->htmlentities((string) $element['message']),
+		);
+	}
+	$upgrade_rows[] = array(
+		'finished_at' => $app->functions->htmlentities(malwatch_datetime($run['finished_at'])),
+		'run_label' => $app->functions->htmlentities($run['dry_run'] === 'y' ? $wb['upgrade_dry_txt'] : $wb['upgrade_real_txt']),
+		'elements' => $lines,
+	);
+}
+$app->tpl->setLoop('upgrades', $upgrade_rows);
+$app->tpl->setVar('has_upgrade_history', count($upgrade_rows) > 0 ? 1 : 0);
 
 // --- History ---------------------------------------------------------------
 $scans = $app->db->queryAllRecords(

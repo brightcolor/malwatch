@@ -50,3 +50,4 @@ $wb['vuln_last_affected_txt'] = 'affects up to %s';
 $wb['vuln_unfixed_txt'] = 'no fix yet';
 $wb['vuln_unrated_txt'] = 'not rated';
 $wb['vuln_more_txt'] = '… and %s more';
+$wb['open_upgrades_txt'] = 'Updates for this website';

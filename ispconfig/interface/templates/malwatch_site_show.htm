@@ -204,6 +204,10 @@
 	-->
 	<a class="btn btn-default formbutton-default" href="#"
 		data-load-content="security/malwatch_repair_start.php?id={tmpl_var name='domain_id'}">{tmpl_var name='repair_txt'}</a>
+	<tmpl_if name="has_upgrades">
+	<a class="btn btn-default formbutton-default" href="#"
+		data-load-content="security/malwatch_upgrade_start.php?id={tmpl_var name='domain_id'}">{tmpl_var name='upgrades_txt'}</a>
+	</tmpl_if>
 	<tmpl_if name="has_findings">
 	<button class="btn btn-danger formbutton-default" type="button"
 		onclick="if(!confirm('{tmpl_var name='confirm_delete_all_txt'}')){event.stopPropagation();return false;} document.getElementById('malwatch_action').value='delete_all';"
@@ -230,6 +234,7 @@
 		<span class="mw-pct" id="mw-pct"></span>
 	</div>
 	<div class="mw-phases" id="mw-phases"></div>
+	<div class="mw-steps" id="mw-steps" style="display:none"></div>
 	<div class="mw-track"><div class="mw-fill mw-idle" id="mw-bar"></div></div>
 	<p class="mw-line" id="mw-line">…</p>
 	<div class="mw-log" id="mw-logwrap"><table id="mw-log"><tbody></tbody></table></div>
@@ -248,6 +253,17 @@
 	var repairPhases = ['{tmpl_var name="phase_detect_txt"}', '{tmpl_var name="phase_fetch_txt"}',
 		'{tmpl_var name="phase_verify_txt"}', '{tmpl_var name="phase_quarantine_txt"}',
 		'{tmpl_var name="phase_swap_txt"}'];
+	var upgradePhases = ['{tmpl_var name="phase_detect_txt"}', '{tmpl_var name="phase_fetch_txt"}',
+		'{tmpl_var name="phase_verify_txt"}', '{tmpl_var name="phase_upgrade_txt"}'];
+	var stepLabels = {
+		waiting: '{tmpl_var name="step_waiting_txt"}', fetched: '{tmpl_var name="step_fetched_txt"}',
+		verified: '{tmpl_var name="step_verified_txt"}', refused: '{tmpl_var name="step_refused_txt"}',
+		swapped: '{tmpl_var name="step_swapped_txt"}', database: '{tmpl_var name="step_database_txt"}',
+		updated: '{tmpl_var name="step_updated_txt"}', would_update: '{tmpl_var name="step_would_update_txt"}',
+		rolled_back: '{tmpl_var name="step_rolled_back_txt"}', failed: '{tmpl_var name="step_failed_txt"}',
+		rollback_failed: '{tmpl_var name="step_rollback_failed_txt"}', skipped: '{tmpl_var name="step_skipped_txt"}'
+	};
+	var finalStates = ['updated', 'would_update', 'refused', 'rolled_back', 'failed', 'rollback_failed', 'skipped'];
 	var scanningTxt = '{tmpl_var name="phase_scanning_txt"}';
 	var box = document.getElementById('mw-run');
 	var timer = null;
@@ -266,12 +282,17 @@
 	function draw(d) {
 		var p = d.progress || {};
 		var isRepair = (d.kind === 'repair');
+		var isUpgrade = (d.kind === 'upgrade');
+		var steps = p.steps || [];
 		var bar = document.getElementById('mw-bar');
 		var pct = null;
 
 		if (isRepair && p.elements_total) {
 			pct = Math.round((p.elements_done || 0) * 100 / p.elements_total);
-		} else if (!isRepair && p.files_total) {
+		} else if (isUpgrade && steps.length) {
+			var finished = steps.filter(function (s) { return finalStates.indexOf(s.state) >= 0; }).length;
+			pct = Math.round(finished * 100 / steps.length);
+		} else if (!isRepair && !isUpgrade && p.files_total) {
 			pct = Math.round((p.files_done || 0) * 100 / p.files_total);
 		}
 		if (pct !== null) {
@@ -290,18 +311,32 @@
 		}
 
 		var ph = document.getElementById('mw-phases');
-		if (isRepair) {
-			ph.innerHTML = repairPhases.map(function (n, i) {
+		var phases = isRepair ? repairPhases : (isUpgrade ? upgradePhases : null);
+		if (phases) {
+			ph.innerHTML = phases.map(function (n, i) {
 				var c = (i + 1) < (p.phase_index || 0) ? 'done'
 					: (i + 1) === (p.phase_index || 0) ? 'now' : '';
 				return '<span class="mw-ph ' + c + '">' + n + '</span>';
 			}).join('');
 			document.getElementById('mw-what').textContent =
-				repairPhases[(p.phase_index || 1) - 1] || repairPhases[0];
+				phases[(p.phase_index || 1) - 1] || phases[0];
 		} else {
 			ph.innerHTML = '';
 			document.getElementById('mw-what').textContent = scanningTxt;
 		}
+
+		// One line per element. Built from text nodes: slugs come off the
+		// customer's disk and may carry markup.
+		var list = document.getElementById('mw-steps');
+		list.textContent = '';
+		steps.forEach(function (s) {
+			var line = document.createElement('div');
+			line.className = 'mw-step mw-step-' + s.state;
+			var name = s.kind === 'core' ? 'WordPress' : s.kind + ' ' + (s.slug || '');
+			line.textContent = name + ' ' + (s.from || '') + ' → ' + (s.to || '') + ' · ' + (stepLabels[s.state] || s.state);
+			list.appendChild(line);
+		});
+		list.style.display = steps.length ? '' : 'none';
 
 		var parts = [];
 		var el = p.element || {};
@@ -479,6 +514,11 @@
 .mw-flaws .mw-flaw-more{margin:6px 0 0 30px}
 .mw-flaw-unchecked{display:block;margin-top:3px}
 .mw-flaw-note{margin:8px 0 0;font-size:12.5px;max-width:80ch}
+#mw-site .mw-uplink{margin-left:6px;font-size:12px;white-space:nowrap}
+.mw-upline{margin:2px 0;font-size:12.5px;line-height:1.5}
+#mw-run .mw-steps{margin:0 0 8px;font-size:12.5px;display:flex;flex-direction:column;gap:2px}
+#mw-run .mw-step-rolled_back,#mw-run .mw-step-failed{color:var(--cic-warn-lift,#b25f00)}
+#mw-run .mw-step-rollback_failed{color:var(--cic-danger,#c9302c);font-weight:600}
 </style>
 
 <p class="fieldset-legend">{tmpl_var name='software_txt'}</p>
@@ -498,6 +538,7 @@
 			<td>
 				<span class="mw-elname">{tmpl_var name='name'}</span> <small>({tmpl_var name='kind'})</small>
 				<tmpl_if name="has_vulns"><span class="label {tmpl_var name='vuln_worst_class'} mw-flawcount">{tmpl_var name='vuln_count_label'}</span></tmpl_if>
+				<tmpl_if name="can_upgrade"><a class="mw-uplink" href="#" data-load-content="security/malwatch_upgrade_start.php?id={tmpl_var name='domain_id'}&amp;software_id={tmpl_var name='software_id'}">{tmpl_var name='upgrade_row_txt'}</a></tmpl_if>
 				<tmpl_if name="is_vuln_unchecked"><small class="mw-flaw-dim mw-flaw-unchecked">{tmpl_var name='vuln_unchecked_label'}</small></tmpl_if>
 			</td>
 			<td class="num">
@@ -538,6 +579,34 @@
 </div>
 <tmpl_if name="has_software_limit_note"><p class="mw-flaw-dim mw-flaw-note">{tmpl_var name='software_limit_note'}</p></tmpl_if>
 <tmpl_if name="has_flaw_budget_note"><p class="mw-flaw-dim mw-flaw-note">{tmpl_var name='flaw_budget_note'}</p></tmpl_if>
+
+<tmpl_if name="has_upgrade_history">
+<p class="fieldset-legend">{tmpl_var name='upgrades_history_txt'}</p>
+<div class="table-wrapper marginTop15">
+<table class="table">
+	<thead class="dark">
+		<tr>
+			<th class="mw-tight">{tmpl_var name='finished_txt'}</th>
+			<th class="mw-tight">{tmpl_var name='upgrade_run_txt'}</th>
+			<th>{tmpl_var name='upgrade_elements_txt'}</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tmpl_loop name="upgrades">
+		<tr>
+			<td class="num mw-tight">{tmpl_var name='finished_at'}</td>
+			<td class="mw-tight">{tmpl_var name='run_label'}</td>
+			<td>
+				<tmpl_loop name="elements">
+				<div class="mw-upline"><span class="label {tmpl_var name='outcome_class'}">{tmpl_var name='outcome_label'}</span> {tmpl_var name='name'} <span class="mw-mono">{tmpl_var name='versions'}</span><tmpl_if name="message"> <small class="mw-flaw-dim">{tmpl_var name='message'}</small></tmpl_if></div>
+				</tmpl_loop>
+			</td>
+		</tr>
+		</tmpl_loop>
+	</tbody>
+</table>
+</div>
+</tmpl_if>
 
 <p class="fieldset-legend">{tmpl_var name='history_txt'}</p>
 <div class="table-wrapper marginTop15">
