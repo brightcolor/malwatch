@@ -249,22 +249,7 @@ class malwatch_actions
 
 	private function render($template, $language, $scan, $findings, $worst, $auto)
 	{
-		global $conf;
-
-		$language = preg_match('/^[a-z]{2}$/', (string) $language) ? $language : 'de';
-		$candidates = array(
-			$conf['rootpath'] . '/conf-custom/mail/' . $template . '_' . $language . '.txt',
-			$conf['rootpath'] . '/conf-custom/mail/' . $template . '_de.txt',
-			$conf['rootpath'] . '/conf/' . $template . '_' . $language . '.txt',
-			$conf['rootpath'] . '/conf/' . $template . '_de.txt',
-		);
-		$file = '';
-		foreach ($candidates as $candidate) {
-			if (is_file($candidate)) {
-				$file = $candidate;
-				break;
-			}
-		}
+		$file = $this->template_file($template, $language);
 		if ($file === '') {
 			return '';
 		}
@@ -305,6 +290,26 @@ class malwatch_actions
 		// queued something; a template written once for both cases needs a
 		// way to leave it out on the others, which a plain strtr() cannot do.
 		return $this->strip_optional_block($body, 'quarantine', !empty($auto));
+	}
+
+	/** The mail template for a language: custom first, then the shipped one, German as fallback. */
+	private function template_file($template, $language)
+	{
+		global $conf;
+
+		$language = preg_match('/^[a-z]{2}$/', (string) $language) ? $language : 'de';
+		$candidates = array(
+			$conf['rootpath'] . '/conf-custom/mail/' . $template . '_' . $language . '.txt',
+			$conf['rootpath'] . '/conf-custom/mail/' . $template . '_de.txt',
+			$conf['rootpath'] . '/conf/' . $template . '_' . $language . '.txt',
+			$conf['rootpath'] . '/conf/' . $template . '_de.txt',
+		);
+		foreach ($candidates as $candidate) {
+			if (is_file($candidate)) {
+				return $candidate;
+			}
+		}
+		return '';
 	}
 
 	/**
@@ -509,6 +514,154 @@ class malwatch_actions
 
 		$app->log('malwatch: website ' . $web['domain'] . ' disabled after ' . count($findings)
 			. ' new findings (' . $worst . ')', LOGLEVEL_WARN);
+	}
+
+	/**
+	 * Tells the operator about an upgrade that did not end cleanly - an element
+	 * taken back, one that failed, a site still broken after the rollback, a
+	 * run that failed, or a run without a readable report ($upgrade_id 0) - and
+	 * the customer as well when the website asks for it and an element is
+	 * concerned. A run whose elements were all updated, or refused before
+	 * anything changed, sends nothing; the page of the website shows it.
+	 */
+	public function notify_upgrade($job, $upgrade_id)
+	{
+		global $app;
+
+		$app->uses('malwatch_helper,getconf');
+		$helper = $app->malwatch_helper;
+
+		$upgrade = null;
+		$elements = array();
+		if ($upgrade_id > 0) {
+			$upgrade = $app->dbmaster->queryOneRecord(
+				'SELECT * FROM malwatch_upgrade WHERE upgrade_id = ?', intval($upgrade_id));
+			$elements = (array) $app->dbmaster->queryAllRecords(
+				'SELECT * FROM malwatch_upgrade_element WHERE upgrade_id = ? '
+				. "AND outcome IN ('rolled_back', 'failed', 'rollback_failed') ORDER BY element_id ASC",
+				intval($upgrade_id));
+		}
+		$run_failed = !is_array($upgrade) || intval($upgrade['exit_code']) === 3;
+		if (count($elements) === 0 && !$run_failed) {
+			return;
+		}
+
+		$broken = false;
+		foreach ($elements as $element) {
+			if ((string) $element['outcome'] === 'rollback_failed') {
+				$broken = true;
+			}
+		}
+		$errors = is_array($upgrade) ? trim((string) $upgrade['errors'])
+			: 'Der Lauf hat keinen lesbaren Bericht hinterlassen.';
+
+		$web = $helper->get_web($job['parent_domain_id']);
+		$site = $helper->get_site($job['parent_domain_id']);
+		$config = $helper->get_config();
+		$scan_like = array(
+			'sys_groupid' => is_array($web) ? intval($web['sys_groupid']) : 0,
+			'parent_domain_id' => intval($job['parent_domain_id']),
+			'domain' => (string) $job['domain'],
+			'scan_id' => 0,
+		);
+
+		$recipient = trim((string) $config['admin_email']);
+		if ($recipient === '') {
+			$global = $app->getconf->get_global_config('mail');
+			$recipient = isset($global['admin_mail']) ? trim((string) $global['admin_mail']) : '';
+		}
+		if ($recipient === '') {
+			$this->log_action($scan_like, 'error', '', count($elements), '',
+				'Keine Empfängeradresse hinterlegt, die Meldung zum Update wurde nicht versendet.');
+		} else {
+			$this->send_upgrade_mail($scan_like, $config, $recipient, 'notify_admin', 'malwatch_upgrade_notification',
+				'de', $this->upgrade_replacements($job, $elements, $errors, 'de'), count($elements), $broken);
+		}
+
+		if (count($elements) === 0 || !is_array($site) || (string) $site['notify_client'] !== 'y') {
+			return;
+		}
+		$client = $app->dbmaster->queryOneRecord(
+			'SELECT client.email, client.language FROM client, sys_group '
+			. 'WHERE sys_group.client_id = client.client_id AND sys_group.groupid = ?',
+			intval($scan_like['sys_groupid']));
+		$client_mail = is_array($client) ? trim((string) $client['email']) : '';
+		if ($client_mail === '') {
+			$this->log_action($scan_like, 'error', '', count($elements), '',
+				'Der Kunde hat keine E-Mail-Adresse, die Meldung zum Update wurde nicht versendet.');
+			return;
+		}
+		$language = (string) $client['language'] !== '' ? (string) $client['language'] : 'de';
+		$this->send_upgrade_mail($scan_like, $config, $client_mail, 'notify_client',
+			'malwatch_client_upgrade_notification', $language,
+			$this->upgrade_replacements($job, $elements, $errors, $language), count($elements), $broken);
+	}
+
+	/** The placeholders of an upgrade mail, the element lines in the language of the recipient. */
+	private function upgrade_replacements($job, array $elements, $errors, $language)
+	{
+		$labels = array(
+			'de' => array('rolled_back' => 'zurückgeholt', 'failed' => 'gescheitert, alter Stand zurück',
+				'rollback_failed' => 'Website nach dem Zurückholen fehlerhaft'),
+			'en' => array('rolled_back' => 'taken back', 'failed' => 'failed, previous state back',
+				'rollback_failed' => 'website still broken after the rollback'),
+		);
+		$set = isset($labels[$language]) ? $labels[$language] : $labels['de'];
+
+		$lines = array();
+		foreach ($elements as $element) {
+			$kind = (string) $element['element_kind'];
+			$name = $kind === 'core' ? 'WordPress' : $kind . ' ' . (string) $element['slug'];
+			$outcome = (string) $element['outcome'];
+			$line = '  ' . $name . ' ' . $element['from_version'] . ' → ' . $element['to_version'] . ': '
+				. (isset($set[$outcome]) ? $set[$outcome] : $outcome)
+				. "\n      " . $element['install_path'];
+			if ((string) $element['message'] !== '') {
+				$line .= "\n      " . $element['message'];
+			}
+			$lines[] = $line;
+		}
+		return array(
+			'{domain}' => (string) $job['domain'],
+			'{hostname}' => (string) php_uname('n'),
+			'{elements}' => implode("\n", $lines),
+			'{errors}' => (string) $errors,
+		);
+	}
+
+	/** Renders an upgrade template and hands it to the mailer of ISPConfig. */
+	private function send_upgrade_mail(array $scan_like, $config, $recipient, $type, $template, $language,
+		array $replace, $count, $broken)
+	{
+		global $app;
+
+		$app->uses('getconf,functions');
+		$global = $app->getconf->get_global_config('mail');
+		$sender = trim((string) $config['sender_email']);
+		if ($sender === '') {
+			$sender = isset($global['admin_mail']) && $global['admin_mail'] !== '' ? $global['admin_mail'] : 'root';
+		}
+
+		$file = $this->template_file($template, $language);
+		if ($file === '') {
+			$this->log_action($scan_like, 'error', '', $count, $recipient, 'Die Mailvorlage ' . $template . ' fehlt.');
+			return;
+		}
+		$body = strtr((string) file_get_contents($file), $replace);
+		$body = $this->strip_optional_block($body, 'broken', $broken);
+		$body = $this->strip_optional_block($body, 'errors', trim($replace['{errors}']) !== '');
+
+		$subject = 'malwatch: Update auf ' . $scan_like['domain'];
+		if (strpos($body, "\n\n") !== false) {
+			list($headers, $text) = explode("\n\n", $body, 2);
+			if (preg_match('/^Subject:\s*(.+)$/mi', $headers, $match)) {
+				$subject = trim($match[1]);
+			}
+			$body = $text;
+		}
+		$app->functions->mail($recipient, $subject, $body, $sender);
+		$this->log_action($scan_like, $type, '', $count, $recipient,
+			'Meldung zum Update: ' . $count . ' Element(e) zurückgeholt oder gescheitert.');
 	}
 
 	private function log_action($scan, $type, $worst, $count, $recipient, $detail)

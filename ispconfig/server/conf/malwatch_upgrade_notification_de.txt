@@ -1,0 +1,27 @@
+MIME-Version: 1.0
+Content-type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Subject: malwatch: Das Update auf {domain} braucht Aufmerksamkeit
+
+Das Update von WordPress auf der Website {domain} braucht Ihre Aufmerksamkeit.
+
+{broken_block}
+ACHTUNG: Die Website antwortet auch nach dem Zurückholen fehlerhaft und braucht
+jetzt Hilfe. Die übrigen Elemente dieses Laufs wurden nicht mehr begonnen.
+
+{/broken_block}
+Betroffene Elemente:
+
+{elements}
+
+{errors_block}
+Fehler des Laufs:
+
+{errors}
+
+{/errors_block}
+Ersetzte Ordner und Datenbank-Exporte liegen in der Quarantäne dieser Website.
+Die Einzelheiten stehen im ISPConfig-Panel unter Security auf der Seite der
+Website.
+
+Server: {hostname}

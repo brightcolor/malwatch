@@ -1,0 +1,23 @@
+MIME-Version: 1.0
+Content-type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Subject: Notice about the update of your website {domain}
+
+Hello,
+
+we updated WordPress on your website {domain}. For some of its parts the check
+afterwards showed an error, and for those we restored the previous state.
+
+{broken_block}
+Your website currently shows an error. We are looking into it and will get
+back to you.
+
+{/broken_block}
+Concerned:
+
+{elements}
+
+These parts stay on their previous release for now. We will schedule the
+update again once the cause is clear.
+
+Please get in touch if you have any questions.

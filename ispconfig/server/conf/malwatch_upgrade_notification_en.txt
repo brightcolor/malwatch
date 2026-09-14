@@ -1,0 +1,27 @@
+MIME-Version: 1.0
+Content-type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Subject: malwatch: the update on {domain} needs attention
+
+The WordPress update on the website {domain} needs your attention.
+
+{broken_block}
+IMPORTANT: The website still answers with errors after the rollback and needs
+help now. The remaining elements of this run were left unstarted.
+
+{/broken_block}
+Elements concerned:
+
+{elements}
+
+{errors_block}
+Errors of the run:
+
+{errors}
+
+{/errors_block}
+Replaced folders and database exports are kept in the quarantine of this
+website. The details are in the ISPConfig panel under Security, on the page of
+the website.
+
+Server: {hostname}

@@ -87,6 +87,10 @@ c:server/conf/malwatch_notification_de.txt:server/conf/malwatch_notification_de.
 c:server/conf/malwatch_notification_en.txt:server/conf/malwatch_notification_en.txt
 c:server/conf/malwatch_client_notification_de.txt:server/conf/malwatch_client_notification_de.txt
 c:server/conf/malwatch_client_notification_en.txt:server/conf/malwatch_client_notification_en.txt
+c:server/conf/malwatch_upgrade_notification_de.txt:server/conf/malwatch_upgrade_notification_de.txt
+c:server/conf/malwatch_upgrade_notification_en.txt:server/conf/malwatch_upgrade_notification_en.txt
+c:server/conf/malwatch_client_upgrade_notification_de.txt:server/conf/malwatch_client_upgrade_notification_de.txt
+c:server/conf/malwatch_client_upgrade_notification_en.txt:server/conf/malwatch_client_upgrade_notification_en.txt
 
 # Diagnostic tools. Not linked into the ISPConfig tree; they are run from
 # the extension directory when something needs checking.

@@ -1,0 +1,24 @@
+MIME-Version: 1.0
+Content-type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Subject: Hinweis zum Update Ihrer Website {domain}
+
+Guten Tag,
+
+wir haben WordPress auf Ihrer Website {domain} aktualisiert. Bei einigen
+Bestandteilen hat die Prüfung danach einen Fehler gezeigt; für diese haben wir
+den vorherigen Stand wiederhergestellt.
+
+{broken_block}
+Ihre Website zeigt derzeit einen Fehler. Wir kümmern uns darum und melden uns
+bei Ihnen.
+
+{/broken_block}
+Betroffen:
+
+{elements}
+
+Diese Bestandteile bleiben vorerst auf dem bisherigen Stand. Wir planen das
+Update neu, sobald die Ursache geklärt ist.
+
+Bei Fragen melden Sie sich gern.
