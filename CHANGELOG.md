@@ -2,6 +2,17 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.16.1] – 2026-09-14
+
+### Behoben
+
+**Knöpfe ohne Häkchen sagen, was fehlt.** Probelauf und Start auf den Seiten
+„Updates“ und „Reparatur“ sowie die Sammelaktionen der Quarantäne waren
+gesperrt, solange nichts angehakt war, und ein Klick darauf blieb ohne
+Rückmeldung. Die Knöpfe sehen jetzt normal aus. Ohne Häkchen öffnet ein Klick
+den Dialog mit „Bitte zuerst Elemente anhaken“ und dem Weg zum Anhaken, im Kopf
+eines Ordners zusammen mit dessen Pfad. Mit Häkchen geht es weiter wie bisher.
+
 ## [0.16.0] – 2026-09-14
 
 ### Neu

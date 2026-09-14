@@ -40,6 +40,11 @@ $wb['select_all_txt'] = 'Select all';
 $wb['select_folder_txt'] = 'Select every element in this folder';
 $wb['invert_txt'] = 'Invert selection';
 $wb['btn_cancel_txt'] = 'Cancel';
+$wb['btn_close_txt'] = 'Close';
+// Shown by the dialog on a click on dry run or start while nothing is ticked;
+// in the head of a folder hint_select_folder_txt.
+$wb['hint_select_txt'] = 'Tick elements first. "Select all" above the folders ticks every one.';
+$wb['hint_select_folder_txt'] = 'Tick elements in this folder first. The box in the table header ticks every one.';
 $wb['btn_dry_run_txt'] = 'Dry run';
 $wb['btn_start_txt'] = 'Start updates';
 $wb['confirm_start_txt'] = 'Update the selected elements now? The old folders go to quarantine, the website shows maintenance mode during the exchange, and if an error follows, the previous state comes back automatically.';

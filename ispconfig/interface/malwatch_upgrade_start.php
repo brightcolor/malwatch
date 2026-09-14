@@ -159,7 +159,7 @@ $app->tpl->setVar($wb);
 // The dialog and the loading of more versions read these from data-mw-*
 // attributes; see malwatch_attr_texts().
 $app->tpl->setVar(malwatch_attr_texts($wb, array('btn_start_txt', 'confirm_start_txt',
-	'versions_loading_txt', 'versions_failed_txt')));
+	'versions_loading_txt', 'versions_failed_txt', 'hint_select_txt', 'hint_select_folder_txt')));
 
 $app->tpl->setVar('domain_id', $domain_id);
 $app->tpl->setVar('back_label', sprintf($wb['back_txt'], $app->functions->htmlentities($web['domain'])));
@@ -169,8 +169,8 @@ $app->tpl->setVar('has_hidden', $hidden > 0 ? 1 : 0);
 $app->tpl->setVar('hidden_line', $app->functions->htmlentities(
 	sprintf($wb['hidden_txt'], number_format($hidden, 0, ',', '.'))));
 
-// A button stays greyed out while nothing in its reach is ticked, and the
-// counters then say what to do; malwatch_selection.htm keeps both current.
+// While nothing in its reach is ticked, a button answers a click with its hint
+// and the counters say what to do; malwatch_selection.htm keeps both current.
 $selected_template = sprintf($wb['selected_template_txt'], number_format($row_count, 0, ',', '.'));
 $app->tpl->setVar('selected_template', $app->functions->htmlentities($selected_template));
 $app->tpl->setVar('selected_none', $app->functions->htmlentities($wb['selected_none_txt']));

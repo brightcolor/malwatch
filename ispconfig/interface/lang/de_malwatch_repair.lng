@@ -43,8 +43,8 @@ $wb['quiet_body_txt'] = 'Jedes angefasste Verzeichnis liegt hinterher vollständ
 $wb['quiet_quarantine_link_txt'] = 'Quarantäne';
 
 $wb['selected_template_txt'] = '{n} von %s Elementen ausgewählt';
-// Steht dort, solange nichts angehakt ist; beide Knöpfe sind bis dahin
-// ausgegraut.
+// Steht dort, solange nichts angehakt ist. Bis dahin zeigt ein Klick auf einen
+// Knopf hint_select_txt, im Kopf eines Ordners hint_select_folder_txt.
 $wb['selected_none_txt'] = 'Elemente zum Reparieren anhaken';
 $wb['select_all_txt'] = 'Alle auswählen';
 $wb['select_folder_txt'] = 'Alle Elemente dieses Ordners auswählen';
@@ -52,6 +52,9 @@ $wb['invert_txt'] = 'Auswahl umkehren';
 $wb['install_root_txt'] = 'Webstamm';
 $wb['btn_dry_run_short_txt'] = 'Probelauf';
 $wb['btn_cancel_txt'] = 'Abbrechen';
+$wb['btn_close_txt'] = 'Schließen';
+$wb['hint_select_txt'] = 'Bitte zuerst Elemente anhaken. „Alle auswählen“ über den Ordnern hakt alle an.';
+$wb['hint_select_folder_txt'] = 'Bitte zuerst Elemente in diesem Ordner anhaken. Das Häkchen im Kopf der Tabelle hakt alle an.';
 
 $wb['btn_dry_run_txt'] = 'Probelauf — nur zeigen, was geschähe';
 $wb['btn_start_txt'] = 'Reparatur starten';

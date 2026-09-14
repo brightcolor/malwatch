@@ -14,10 +14,12 @@ $wb['btn_delete_selected_txt'] = 'Ausgewählte endgültig löschen';
 // was zu sehen ist (siehe pager_hint_txt).
 $wb['toolbar_selected_txt'] = '{n} von %s ausgewählt · %s auf der Platte';
 $wb['select_all_txt'] = 'Alle Einträge auf dieser Seite auswählen';
-// Steht in der Leiste, solange nichts angehakt ist. Die Knöpfe, die mit der
-// Auswahl arbeiten, sind bis dahin ausgegraut.
+// Steht in der Leiste, solange nichts angehakt ist. Bis dahin zeigt ein Klick
+// auf einen Knopf, der mit der Auswahl arbeitet, hint_select_txt.
 $wb['toolbar_none_txt'] = 'Einträge zum Bearbeiten anhaken · %s auf der Platte';
 $wb['btn_cancel_txt'] = 'Abbrechen';
+$wb['btn_close_txt'] = 'Schließen';
+$wb['hint_select_txt'] = 'Bitte zuerst Einträge anhaken. Das Häkchen im Kopf der Tabelle hakt alle Einträge dieser Seite an.';
 
 // Die Übersicht über der Liste, eine Zeile je Website.
 $wb['overview_all_txt'] = 'Alle Websites';

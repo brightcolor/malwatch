@@ -100,7 +100,7 @@ $app->tpl->setVar($wb);
 $app->tpl->setVar(malwatch_attr_texts($wb, array(
 	'btn_restore_selected_txt', 'btn_delete_selected_txt', 'btn_restore_txt', 'btn_delete_txt',
 	'confirm_restore_selected_txt', 'confirm_delete_selected_txt', 'confirm_restore_one_txt',
-	'confirm_delete_one_txt')));
+	'confirm_delete_one_txt', 'hint_select_txt')));
 
 // One query serves the overview, the heading and the pager: the entries per
 // website with their size on disk and the newest of them.

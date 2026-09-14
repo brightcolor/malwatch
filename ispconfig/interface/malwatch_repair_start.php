@@ -188,10 +188,11 @@ $app->tpl->setInclude('content_tpl', 'templates/malwatch_repair_start.htm');
 $app->tpl->setVar($wb);
 
 // Overwritten right after setVar($wb), which passes a sentence on exactly as
-// the language file wrote it: the dialog reads these two from data-mw-*
+// the language file wrote it: the dialog reads these from data-mw-*
 // attributes, and a straight double quote would end the attribute. See
 // malwatch_attr_texts().
-$app->tpl->setVar(malwatch_attr_texts($wb, array('btn_start_txt', 'confirm_start_txt')));
+$app->tpl->setVar(malwatch_attr_texts($wb, array('btn_start_txt', 'confirm_start_txt',
+	'hint_select_txt', 'hint_select_folder_txt')));
 
 $app->tpl->setVar('domain_id', $domain_id);
 $app->tpl->setVar('domain', $app->functions->htmlentities($web['domain']));
@@ -202,7 +203,7 @@ $app->tpl->setLoop('blocks', $element_blocks);
 // {n} stays in place for the live counters of malwatch_selection.htm; the
 // totals are fixed for as long as the page is open. Nothing starts ticked, so
 // every counter opens on the line that says what to do, and every button
-// greyed out.
+// answers a click with its hint until something is ticked.
 $selected_template = sprintf($wb['selected_template_txt'], number_format($element_count, 0, ',', '.'));
 $app->tpl->setVar('selected_template', $app->functions->htmlentities($selected_template));
 $app->tpl->setVar('selected_none', $app->functions->htmlentities($wb['selected_none_txt']));

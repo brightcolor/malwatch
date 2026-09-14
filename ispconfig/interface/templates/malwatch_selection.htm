@@ -7,8 +7,9 @@
 	on that folder, outside every folder on the whole page:
 	- a checkbox with data-mw-toggle ticks every row or none and shows which
 	- a button with data-mw-invert inverts the ticks
-	- a button with the class mw-needs-selection is greyed out while nothing
-	  is ticked
+	- a button with the class mw-needs-selection carries data-mw-empty while
+	  nothing is ticked; malwatch_modal.htm then answers its click with the
+	  hint in its data-mw-hint
 	- an element with data-mw-count shows data-template with {n} filled in,
 	  or data-none while nothing is ticked
 	After every change the page element receives the event mw-selection.
@@ -70,7 +71,11 @@
 			}
 			var buttons = root.querySelectorAll('.mw-needs-selection');
 			for (var b = 0; b < buttons.length; b++) {
-				buttons[b].disabled = stateOf(scopeOf(buttons[b])).ticked === 0;
+				if (stateOf(scopeOf(buttons[b])).ticked === 0) {
+					buttons[b].setAttribute('data-mw-empty', '1');
+				} else {
+					buttons[b].removeAttribute('data-mw-empty');
+				}
 			}
 			var counts = root.querySelectorAll('[data-mw-count]');
 			for (var c = 0; c < counts.length; c++) {

@@ -43,7 +43,8 @@ $wb['quiet_body_txt'] = 'Every directory that gets touched ends up complete in t
 $wb['quiet_quarantine_link_txt'] = 'quarantine';
 
 $wb['selected_template_txt'] = '{n} of %s elements selected';
-// Shown there while nothing is ticked; both buttons stay greyed out until then.
+// Shown there while nothing is ticked. Until then a click on a button shows
+// hint_select_txt, in the head of a folder hint_select_folder_txt.
 $wb['selected_none_txt'] = 'Tick the elements to repair';
 $wb['select_all_txt'] = 'Select all';
 $wb['select_folder_txt'] = 'Select every element in this folder';
@@ -51,6 +52,9 @@ $wb['invert_txt'] = 'Invert selection';
 $wb['install_root_txt'] = 'Web root';
 $wb['btn_dry_run_short_txt'] = 'Dry run';
 $wb['btn_cancel_txt'] = 'Cancel';
+$wb['btn_close_txt'] = 'Close';
+$wb['hint_select_txt'] = 'Tick elements first. "Select all" above the folders ticks every one.';
+$wb['hint_select_folder_txt'] = 'Tick elements in this folder first. The box in the table header ticks every one.';
 
 $wb['btn_dry_run_txt'] = 'Dry run - only show what would happen';
 $wb['btn_start_txt'] = 'Start the repair';

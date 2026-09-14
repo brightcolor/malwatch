@@ -892,8 +892,8 @@ done
 
 # 42. Eine Vorlage mit Umschaltern (data-mw-toggle, data-mw-invert,
 #     data-mw-count) bindet malwatch_selection.htm ein. Ohne dessen Skript
-#     schalten die Umschalter nichts, und die Knoepfe der Ordner bleiben so
-#     ausgegraut, wie die Seite sie ausliefert.
+#     schalten die Umschalter nichts, und die Knoepfe der Ordner zeigen auch
+#     mit Haekchen den Hinweis, mit dem die Seite sie ausliefert.
 for tpl in "$root"/interface/templates/*.htm; do
 	[ -f "$tpl" ] || continue
 	[ "$(basename "$tpl")" = "malwatch_selection.htm" ] && continue
@@ -928,6 +928,30 @@ for tpl in "$root"/interface/templates/*.htm; do
 		printf '%s\n' "$jump_function" | grep -q "'$show' =>" \
 			|| fail "$(basename "$tpl") verlinkt show=$show, malwatch_site_jump() kennt diesen Abschnitt nicht"
 	done
+done
+
+# 45. Ein Knopf, der eine Auswahl braucht (mw-needs-selection), erklaert
+#     sich: er traegt data-mw-hint und wird nie gesperrt ausgeliefert. Ein
+#     gesperrter Knopf tat bei einem Klick nichts, und im Panel sah man ihm
+#     die Sperre nicht an ("wenn ich auf reparieren klicke, passiert nichts").
+for tpl in "$root"/interface/templates/*.htm; do
+	[ -f "$tpl" ] || continue
+	case "$(basename "$tpl")" in malwatch_selection.htm|malwatch_modal.htm) continue ;; esac
+	awk -v name="$(basename "$tpl")" '
+		/mw-needs-selection/ && !/\.mw-needs-selection/ { open = NR; hint = 0; disabled = 0 }
+		open {
+			if ($0 ~ /data-mw-hint=/) { hint = 1 }
+			if ($0 ~ / disabled([ ><]|$)/) { disabled = 1 }
+		}
+		open && /<\/button>/ {
+			if (!hint) { printf "%s:%d: Knopf mit mw-needs-selection ohne data-mw-hint\n", name, open }
+			if (disabled) { printf "%s:%d: Knopf mit mw-needs-selection wird gesperrt ausgeliefert\n", name, open }
+			open = 0
+		}
+	' "$tpl" > "$tmpdir/needs_selection"
+	while IFS= read -r problem; do
+		[ -n "$problem" ] && fail "$problem"
+	done < "$tmpdir/needs_selection"
 done
 
 if [ "$status" -eq 0 ]; then

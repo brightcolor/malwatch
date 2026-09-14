@@ -9,8 +9,15 @@
 	the panel posts the form, on buttons with and without a question. A value
 	in an attribute reaches the page as text; the browser never runs it.
 
+	A button that acts on ticked rows carries a hint in data-mw-hint. While it
+	also carries data-mw-empty, which malwatch_selection.htm and the quarantine
+	list keep current, a click shows that hint under the button's label, with
+	data-mw-detail below it and a single close button, and nothing goes to the
+	panel.
+
 	The page escapes the language lines it puts there (malwatch_attr_texts());
-	the cancel label comes from its own language file (btn_cancel_txt).
+	the labels of the dialog's own buttons come from its language file
+	(btn_cancel_txt, and btn_close_txt on a page with hints).
 -->
 <div class="modal fade mw-modal" tabindex="-1" role="dialog" aria-labelledby="mw-modal-title" aria-describedby="mw-modal-text" aria-hidden="true">
 	<div class="modal-dialog" role="document">
@@ -26,6 +33,7 @@
 			<div class="modal-footer">
 				<button type="button" class="btn btn-default formbutton-default mw-modal-cancel" data-dismiss="modal">{tmpl_var name='btn_cancel_txt'}</button>
 				<button type="button" class="btn btn-danger mw-modal-ok"></button>
+				<button type="button" class="btn btn-default formbutton-default mw-modal-close" data-dismiss="modal" hidden>{tmpl_var name='btn_close_txt'}</button>
 			</div>
 		</div>
 	</div>
@@ -40,6 +48,8 @@
 	word-break:break-all;opacity:.8;
 }
 .mw-modal .modal-footer .btn{white-space:normal}
+/* .btn setzt display:inline-block und gewaenne sonst gegen [hidden]. */
+.mw-modal .modal-footer [hidden]{display:none!important}
 </style>
 
 <script>
@@ -98,22 +108,40 @@
 		}
 	}
 
+	// Title, text and detail line for a question or a hint. A question shows
+	// cancel and confirm, a hint the close button alone.
+	function fill(modal, button, title, text, hint) {
+		modal.querySelector('.modal-title').textContent = title;
+		modal.querySelector('.mw-modal-text').textContent = text;
+		var detail = modal.querySelector('.mw-modal-detail');
+		detail.textContent = button.getAttribute('data-mw-detail') || '';
+		detail.hidden = detail.textContent === '';
+		modal.querySelector('.mw-modal-cancel').hidden = hint;
+		modal.querySelector('.mw-modal-ok').hidden = hint;
+		modal.querySelector('.mw-modal-close').hidden = !hint;
+	}
+
 	function ask(button) {
 		var modal = dialog();
 		// Without the dialog the click stops here: the question comes first.
 		if (!modal || !$ || !$.fn.modal) { return; }
 		pending = button;
 		confirmed = false;
-		modal.querySelector('.modal-title').textContent = button.getAttribute('data-mw-title') || '';
-		modal.querySelector('.mw-modal-text').textContent = button.getAttribute('data-mw-confirm') || '';
-		var detail = modal.querySelector('.mw-modal-detail');
-		detail.textContent = button.getAttribute('data-mw-detail') || '';
-		detail.hidden = detail.textContent === '';
+		fill(modal, button, button.getAttribute('data-mw-title') || '', button.getAttribute('data-mw-confirm') || '', false);
 		var ok = modal.querySelector('.mw-modal-ok');
 		ok.textContent = button.getAttribute('data-mw-ok') || button.textContent;
 		ok.className = button.hasAttribute('data-mw-danger')
 			? 'btn btn-danger mw-modal-ok'
 			: 'btn btn-default formbutton-success mw-modal-ok';
+		$(modal).modal('show');
+	}
+
+	function tell(button) {
+		var modal = dialog();
+		if (!modal || !$ || !$.fn.modal) { return; }
+		pending = null;
+		confirmed = false;
+		fill(modal, button, String(button.textContent).trim(), button.getAttribute('data-mw-hint') || '', true);
 		$(modal).modal('show');
 	}
 
@@ -135,7 +163,13 @@
 
 		var button = target.closest('a[data-submit-form], button[data-submit-form]');
 		if (!button) { return; }
-		if (button.hasAttribute('data-mw-confirm') && button !== passing) {
+		if (button !== passing && button.hasAttribute('data-mw-empty')) {
+			event.preventDefault();
+			event.stopPropagation();
+			tell(button);
+			return;
+		}
+		if (button !== passing && button.hasAttribute('data-mw-confirm')) {
 			event.preventDefault();
 			event.stopPropagation();
 			ask(button);
@@ -147,8 +181,8 @@
 	if (!$) { return; }
 
 	$(document).on('shown.bs.modal', '.mw-modal', function () {
-		var cancel = this.querySelector('.mw-modal-cancel');
-		if (cancel) { cancel.focus(); }
+		var first = this.querySelector('.mw-modal-close:not([hidden])') || this.querySelector('.mw-modal-cancel');
+		if (first) { first.focus(); }
 	});
 
 	// The form goes out once the dialog has closed: the panel then replaces

@@ -40,6 +40,11 @@ $wb['select_all_txt'] = 'Alle auswählen';
 $wb['select_folder_txt'] = 'Alle Elemente dieses Ordners auswählen';
 $wb['invert_txt'] = 'Auswahl umkehren';
 $wb['btn_cancel_txt'] = 'Abbrechen';
+$wb['btn_close_txt'] = 'Schließen';
+// Zeigt der Dialog bei einem Klick auf Probelauf oder Start, solange nichts
+// angehakt ist; im Kopf eines Ordners hint_select_folder_txt.
+$wb['hint_select_txt'] = 'Bitte zuerst Elemente anhaken. „Alle auswählen“ über den Ordnern hakt alle an.';
+$wb['hint_select_folder_txt'] = 'Bitte zuerst Elemente in diesem Ordner anhaken. Das Häkchen im Kopf der Tabelle hakt alle an.';
 $wb['btn_dry_run_txt'] = 'Probelauf';
 $wb['btn_start_txt'] = 'Updates starten';
 $wb['confirm_start_txt'] = 'Die ausgewählten Elemente jetzt aktualisieren? Die alten Ordner gehen in die Quarantäne, die Website zeigt während des Tauschs den Wartungsmodus, und bei einem Fehler danach kommt der alte Stand automatisch zurück.';

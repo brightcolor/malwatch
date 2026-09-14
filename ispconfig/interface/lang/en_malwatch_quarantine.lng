@@ -13,10 +13,12 @@ $wb['btn_delete_selected_txt'] = 'Delete selected for good';
 // whole table: only what is on screen can be ticked (see pager_hint_txt).
 $wb['toolbar_selected_txt'] = '{n} of %s selected · %s on disk';
 $wb['select_all_txt'] = 'Select every entry on this page';
-// Shown in the bar while nothing is ticked. The buttons that act on the
-// selection stay greyed out until then.
+// Shown in the bar while nothing is ticked. Until then a click on a button that
+// acts on the selection shows hint_select_txt.
 $wb['toolbar_none_txt'] = 'Tick entries to act on them · %s on disk';
 $wb['btn_cancel_txt'] = 'Cancel';
+$wb['btn_close_txt'] = 'Close';
+$wb['hint_select_txt'] = 'Tick entries first. The box in the table header ticks every entry on this page.';
 
 // The overview above the list, one row per website.
 $wb['overview_all_txt'] = 'All websites';

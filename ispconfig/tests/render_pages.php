@@ -173,6 +173,12 @@ $unmarked = isset($mw_query['site']) && $mw_query['site'] !== ''
 // A page opened at a section says which one its script scrolls to.
 $unjumped = isset($mw_query['show']) && strpos($out, 'data-mw-jump="mw-') === false;
 
+// A button that needs ticked rows answers a click with a hint from the page's
+// language file, in the dialog with its close button.
+$hintless = strpos($out, 'data-mw-hint=""') !== false;
+$no_close = strpos($out, 'mw-needs-selection') !== false
+	&& preg_match('/mw-modal-close"[^>]*>\s*</', $out) === 1;
+
 $why = '';
 if ($broken) {
 	$why = 'fatal in the output';
@@ -188,6 +194,10 @@ if ($broken) {
 	$why = 'website ' . $mw_query['site'] . ' not marked in the overview';
 } elseif ($unjumped) {
 	$why = 'no section to open at for show=' . $mw_query['show'];
+} elseif ($hintless) {
+	$why = 'button with an empty hint';
+} elseif ($no_close) {
+	$why = 'dialog without a close label';
 }
 
 if ($why !== '') {
