@@ -98,6 +98,13 @@ class cronjob_malwatch extends cronjob
 				$app->malwatch_runner->clear_marker($job);
 				continue;
 			}
+			if ($kind === 'dump') {
+				// No actions afterwards: a dump reads a website, it changes
+				// nothing on it.
+				$app->malwatch_ingest->ingest_dump($job);
+				$app->malwatch_runner->clear_marker($job);
+				continue;
+			}
 			if ($kind === 'vulncheck') {
 				// No actions afterwards: those key on new findings, and this
 				// run never produces one.
@@ -426,6 +433,12 @@ class cronjob_malwatch extends cronjob
 		// war es ein scandir je Minute für nichts.
 		$this->clean_spool($config);
 		$this->clean_quarantine_scratch($config);
+		// Die Dumps: erst aufräumen, was abgelaufen ist, dann nachsehen, was
+		// die Datenbanken der Websites gerade wiegen. Beides gehört hierher
+		// und nicht in den Minutentakt - das eine liest ein Verzeichnis, das
+		// andere information_schema über alle Datenbanken des Servers.
+		$this->clean_dumps($config);
+		$this->collect_databases($config);
 
 		$keep = max(1, intval($config['keep_scans']));
 		$domains = $app->dbmaster->queryAllRecords(
@@ -575,6 +588,164 @@ class cronjob_malwatch extends cronjob
 	 * to malwatch_quarantine_download.php and offer a link to a file that
 	 * is no longer on disk.
 	 */
+	/**
+	 * Removes the dumps whose week is over, and archives no row claims.
+	 *
+	 * Deleting in the panel takes the row out and leaves the file: the
+	 * archive belongs to root, and the panel may read that directory and
+	 * nothing more. Both halves end up here - a row past its expiry loses its
+	 * file, and a file without a row is the leftover of exactly that case.
+	 *
+	 * Only names ending in .tar.gz count as archives. A run that is packing
+	 * right now has its database export lying next to the archive as
+	 * <token>.tar.gz.<name>.part, and taking that away mid-run would break a
+	 * dump that is doing nothing wrong.
+	 */
+	private function clean_dumps($config)
+	{
+		global $app, $conf;
+
+		$dir = rtrim((string) $config['state_dir'], '/') . '/dumps';
+		if (!is_dir($dir)) {
+			return;
+		}
+
+		$expired = $app->dbmaster->queryAllRecords(
+			'SELECT dump_id, token FROM malwatch_dump WHERE server_id = ? '
+			. 'AND expires_at IS NOT NULL AND expires_at < NOW()',
+			$conf['server_id']);
+		foreach ((array) $expired as $row) {
+			$token = (string) $row['token'];
+			if ($token !== '' && preg_match('/^[A-Za-z0-9_-]+$/', $token)) {
+				@unlink($dir . '/' . $token . '.tar.gz');
+			}
+			$app->dbmaster->query('DELETE FROM malwatch_dump WHERE dump_id = ?', intval($row['dump_id']));
+		}
+
+		$names = scandir($dir);
+		if ($names === false) {
+			return;
+		}
+
+		$scratch_cutoff = time() - 86400;
+		foreach ($names as $name) {
+			if ($name === '.' || $name === '..') {
+				continue;
+			}
+			$full = $dir . '/' . $name;
+			if (!is_file($full)) {
+				continue;
+			}
+
+			// A database export of a run that was killed: it hangs on a defer
+			// the process never reached.
+			if (substr($name, -5) === '.part') {
+				if (filemtime($full) < $scratch_cutoff) {
+					@unlink($full);
+				}
+				continue;
+			}
+			if (substr($name, -7) !== '.tar.gz') {
+				continue;
+			}
+
+			// The token is the file name without its extension - the one
+			// naming rule shared with malwatch_runner::build_arguments().
+			$token = substr($name, 0, strlen($name) - 7);
+			$row = $app->dbmaster->queryOneRecord(
+				'SELECT dump_id FROM malwatch_dump WHERE server_id = ? AND token = ?',
+				$conf['server_id'], $token);
+			if (!is_array($row)) {
+				@unlink($full);
+			}
+		}
+	}
+
+	/**
+	 * Fills malwatch_database: what each database of a website weighs, how
+	 * many tables it holds, when it was last written, and which WordPress
+	 * installation uses it.
+	 *
+	 * The panel reaches neither the customer's files nor these figures, so
+	 * they are collected here, where the cron runs as root. One statement
+	 * covers every database on the machine, and one wp-config.php is read per
+	 * WordPress installation the last scan reported - that is what keeps this
+	 * in the hourly block instead of the minute one.
+	 *
+	 * A database the connection cannot see keeps its zeros: the picker then
+	 * shows the name without marks, which is honest, rather than claiming a
+	 * measurement nobody took.
+	 */
+	private function collect_databases($config)
+	{
+		global $app, $conf;
+
+		$databases = $app->dbmaster->queryAllRecords(
+			'SELECT database_name, parent_domain_id FROM web_database '
+			. "WHERE server_id = ? AND active = 'y' AND type = 'mysql'",
+			$conf['server_id']);
+		if (!is_array($databases) || count($databases) === 0) {
+			return;
+		}
+
+		$facts = array();
+		$rows = $app->dbmaster->queryAllRecords(
+			'SELECT table_schema, COUNT(*) AS table_count, '
+			. 'COALESCE(SUM(data_length + index_length), 0) AS bytes, MAX(update_time) AS last_write '
+			. 'FROM information_schema.tables GROUP BY table_schema');
+		foreach ((array) $rows as $row) {
+			$facts[(string) $row['table_schema']] = $row;
+		}
+
+		// Which database belongs to which installation: wp-config.php says so
+		// itself, and the first 64 KB hold the define in every layout seen so
+		// far.
+		$used = array();
+		$installs = $app->dbmaster->queryAllRecords(
+			'SELECT install_path FROM malwatch_software WHERE server_id = ? '
+			. "AND product = 'wordpress' AND software_kind = 'core'",
+			$conf['server_id']);
+		foreach ((array) $installs as $install) {
+			$path = rtrim((string) $install['install_path'], '/');
+			$file = $path . '/wp-config.php';
+			if ($path === '' || !is_file($file) || !is_readable($file)) {
+				continue;
+			}
+			$raw = (string) @file_get_contents($file, false, null, 0, 65536);
+			if ($raw === '') {
+				continue;
+			}
+			if (preg_match('/define\s*\(\s*[\'"]DB_NAME[\'"]\s*,\s*[\'"]([^\'"]+)[\'"]/', $raw, $found)) {
+				$used[$found[1]] = $path;
+			}
+		}
+
+		foreach ($databases as $db) {
+			$name = (string) $db['database_name'];
+			$fact = isset($facts[$name]) ? $facts[$name] : array('table_count' => 0, 'bytes' => 0, 'last_write' => null);
+			$last_write = isset($fact['last_write']) && $fact['last_write'] !== null
+				? (string) $fact['last_write'] : null;
+
+			$app->dbmaster->query(
+				'INSERT INTO malwatch_database (sys_userid, sys_groupid, sys_perm_user, sys_perm_group, '
+				. 'sys_perm_other, server_id, parent_domain_id, database_name, table_count, bytes, last_write, '
+				. "used_kind, used_by, checked_at) VALUES (1, 0, 'riud', 'r', '', ?, ?, ?, ?, ?, ?, ?, ?, NOW()) "
+				. 'ON DUPLICATE KEY UPDATE parent_domain_id = VALUES(parent_domain_id), '
+				. 'table_count = VALUES(table_count), bytes = VALUES(bytes), last_write = VALUES(last_write), '
+				. 'used_kind = VALUES(used_kind), used_by = VALUES(used_by), checked_at = VALUES(checked_at)',
+				$conf['server_id'], intval($db['parent_domain_id']), $name,
+				intval($fact['table_count']), (float) $fact['bytes'], $last_write,
+				isset($used[$name]) ? 'wordpress' : '',
+				isset($used[$name]) ? $used[$name] : '');
+		}
+
+		// A database that ISPConfig no longer lists stops being refreshed and
+		// leaves after a day, so the picker follows what the panel knows.
+		$app->dbmaster->query(
+			'DELETE FROM malwatch_database WHERE server_id = ? AND checked_at < DATE_SUB(NOW(), INTERVAL 1 DAY)',
+			$conf['server_id']);
+	}
+
 	private function clean_spool($config)
 	{
 		global $app, $conf;

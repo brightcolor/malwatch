@@ -52,6 +52,9 @@ $pages = array(
 	// JSON for "Weitere Versionen laden", for a row with a release list.
 	'malwatch_upgrade_versions.php?software_id=listed',
 	'malwatch_vuln_list.php',
+	'malwatch_dump_list.php',
+	// JSON for the database picker, for the website the run picked.
+	'malwatch_dump_databases.php',
 );
 
 // Parent process: pick a website, then run each page as a child.
@@ -137,17 +140,26 @@ try {
 	exit(1);
 }
 
-// The version list is JSON: it carries choices and nothing of the panel.
-if ($mw_file === 'malwatch_upgrade_versions.php') {
+// The pages that answer with JSON carry their list and nothing of the panel.
+// The version list must offer at least one version, because the child above
+// picked a row that has one; the database picker may answer with an empty
+// list, because a website is allowed to have no database at all.
+$mw_json = array(
+	'malwatch_upgrade_versions.php' => array('key' => 'choices', 'least' => 1, 'what' => 'versions'),
+	'malwatch_dump_databases.php' => array('key' => 'rows', 'least' => 0, 'what' => 'databases'),
+);
+if (isset($mw_json[$mw_file])) {
+	$expect = $mw_json[$mw_file];
 	$doc = json_decode($out, true);
-	$count = (is_array($doc) && isset($doc['choices']) && is_array($doc['choices'])) ? count($doc['choices']) : -1;
-	if ($count < 1) {
+	$count = (is_array($doc) && isset($doc[$expect['key']]) && is_array($doc[$expect['key']]))
+		? count($doc[$expect['key']]) : -1;
+	if ($count < $expect['least']) {
 		printf("%-46s FAIL  %6d bytes  (%s)\n", $mw_page, strlen($out),
-			$count < 0 ? 'no JSON with choices' : 'no version in the JSON');
+			$count < 0 ? 'no JSON with ' . $expect['key'] : 'nothing in ' . $expect['key']);
 		echo '   ', substr(preg_replace('/\s+/', ' ', $out), 0, 300), "\n";
 		exit(1);
 	}
-	printf("%-46s ok    %6d bytes  (%d versions)\n", $mw_page, strlen($out), $count);
+	printf("%-46s ok    %6d bytes  (%d %s)\n", $mw_page, strlen($out), $count, $expect['what']);
 	exit(0);
 }
 

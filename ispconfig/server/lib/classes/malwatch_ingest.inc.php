@@ -1318,6 +1318,94 @@ class malwatch_ingest
 			$php, intval($job['parent_domain_id']));
 	}
 
+	/**
+	 * Reads the report of a dump into its row in malwatch_dump.
+	 *
+	 * A run that stopped early wrote a report as well, and its reason is what
+	 * the list shows: space, database or files. The archive has to be there
+	 * too - a row that promises a download the directory cannot deliver is
+	 * worse than one that says the run failed.
+	 *
+	 * Returns the dump_id, or 0.
+	 */
+	public function ingest_dump($job)
+	{
+		global $app;
+
+		$app->uses('malwatch_helper');
+		$helper = $app->malwatch_helper;
+
+		$options = json_decode((string) $job['options'], true);
+		$dump_id = (is_array($options) && isset($options['dump_id'])) ? intval($options['dump_id']) : 0;
+		$token = (is_array($options) && isset($options['token'])) ? (string) $options['token'] : '';
+
+		$file = (string) $job['result_file'];
+		$report = is_file($file) ? json_decode((string) file_get_contents($file), true) : null;
+
+		if (!is_array($report) || !isset($report['schema'])) {
+			$message = 'Der Dump hat keinen lesbaren Bericht hinterlassen. ' . $this->tail_log($job);
+			$helper->fail_job($job['job_id'], $message);
+			$this->fail_dump($dump_id, 'files', $message);
+			return 0;
+		}
+		if (intval($report['schema']) !== self::SCHEMA) {
+			$message = 'Der Bericht hat Format ' . intval($report['schema']) . ', erwartet wird ' . self::SCHEMA
+				. '. Bitte Erweiterung und Scanner auf denselben Stand bringen.';
+			$helper->fail_job($job['job_id'], $message);
+			$this->fail_dump($dump_id, 'files', $message);
+			return 0;
+		}
+
+		$reason = isset($report['reason']) ? (string) $report['reason'] : '';
+		if (intval($job['exit_code']) !== 0 || $reason !== '') {
+			$message = (isset($report['message']) && (string) $report['message'] !== '')
+				? (string) $report['message']
+				: 'Der Dump ist gescheitert. ' . $this->tail_log($job);
+			$helper->fail_job($job['job_id'], $message);
+			$this->fail_dump($dump_id, $reason !== '' ? $reason : 'files', $message);
+			return 0;
+		}
+
+		$config = $helper->get_config();
+		$archive = rtrim((string) $config['state_dir'], '/') . '/dumps/' . $token . '.tar.gz';
+		if ($token === '' || !is_file($archive)) {
+			$message = 'Das Archiv des Dumps liegt nicht an seinem Platz.';
+			$helper->fail_job($job['job_id'], $message);
+			$this->fail_dump($dump_id, 'files', $message);
+			return 0;
+		}
+
+		$databases = (isset($report['databases']) && is_array($report['databases'])) ? $report['databases'] : array();
+
+		$app->dbmaster->query(
+			"UPDATE malwatch_dump SET dump_state = 'done', job_id = ?, archive_path = ?, archive_bytes = ?, "
+			. "file_count = ?, database_count = ?, error_reason = '', job_log = '', ready_at = NOW(), "
+			. 'expires_at = DATE_ADD(NOW(), INTERVAL 7 DAY) WHERE dump_id = ?',
+			intval($job['job_id']), $archive,
+			intval(isset($report['archive_bytes']) ? $report['archive_bytes'] : 0),
+			intval(isset($report['files']) ? $report['files'] : 0),
+			count($databases), $dump_id);
+
+		$app->dbmaster->query(
+			"UPDATE malwatch_job SET job_status = 'done', finished_at = NOW() WHERE job_id = ?",
+			intval($job['job_id']));
+
+		return $dump_id;
+	}
+
+	/** Marks one dump as failed, with the reason the list shows. */
+	private function fail_dump($dump_id, $reason, $message)
+	{
+		global $app;
+
+		if (intval($dump_id) < 1) {
+			return;
+		}
+		$app->dbmaster->query(
+			"UPDATE malwatch_dump SET dump_state = 'error', error_reason = ?, job_log = ?, token = '' WHERE dump_id = ?",
+			substr((string) $reason, 0, 32), substr((string) $message, 0, 2000), intval($dump_id));
+	}
+
 	/** Converts an RFC 3339 timestamp into a MySQL datetime. */
 	private function to_datetime($value)
 	{

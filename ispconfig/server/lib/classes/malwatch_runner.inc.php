@@ -84,6 +84,18 @@ class malwatch_runner
 			'UPDATE malwatch_job SET result_file = ?, pid = ? WHERE job_id = ?',
 			$result_file, $pid, $job['job_id']);
 
+		// A dump carries a row of its own, and the list would say "wartet"
+		// for as long as the packing takes without this line.
+		if ((isset($job['job_kind']) ? (string) $job['job_kind'] : '') === 'dump') {
+			$options = json_decode((string) $job['options'], true);
+			$dump_id = (is_array($options) && isset($options['dump_id'])) ? intval($options['dump_id']) : 0;
+			if ($dump_id > 0) {
+				$app->dbmaster->query(
+					"UPDATE malwatch_dump SET dump_state = 'running', job_id = ? WHERE dump_id = ?",
+					intval($job['job_id']), $dump_id);
+			}
+		}
+
 		$helper->log('scan started for ' . $job['domain'] . ' (job ' . $job['job_id'] . ', pid ' . $pid . ')', LOGLEVEL_DEBUG);
 		return true;
 	}
@@ -206,6 +218,56 @@ class malwatch_runner
 			}
 
 			return $quarantine;
+		}
+
+		if ($kind === 'dump') {
+			// The archive is named by the token and the report goes to --out:
+			// the same split as quarantine export, where --zip carries the
+			// archive. Both names are the ones malwatch_dump_download.php and
+			// clean_dumps() expect to find again.
+			$token = isset($options['token']) ? (string) $options['token'] : '';
+			$dump = array(
+				'dump',
+				'--path=' . $path,
+				'--archive=' . $state_dir . '/dumps/' . $token . '.tar.gz',
+				'--json',
+				'--out=' . $result_file,
+				'--progress=' . $progress,
+			);
+
+			// The names were checked against the databases of this website
+			// before the job was queued; the scanner only packs what it is
+			// handed.
+			foreach ((array) (isset($options['databases']) ? $options['databases'] : array()) as $name) {
+				$dump[] = '--db=' . $name;
+			}
+			if (!empty($options['logs'])) {
+				$dump[] = '--logs=' . $options['logs'];
+			}
+			// What the databases weigh is something the panel knows and the
+			// scanner cannot: its own estimate covers the files it walks.
+			if (!empty($options['min_free'])) {
+				$dump[] = '--min-free=' . intval($options['min_free']);
+			}
+
+			// Denominator of the progress bar, the same source as a scan
+			// uses: what the last run of this website looked at. Without a
+			// previous run the switch stays away and the view counts without
+			// a percentage.
+			$seen = $app->dbmaster->queryOneRecord(
+				'SELECT files_scanned, files_skipped FROM malwatch_scan WHERE parent_domain_id = ? '
+				. "AND scan_state IN ('clean','findings','vulnerable','outdated') "
+				. 'AND (files_scanned + files_skipped) > 0 '
+				. 'ORDER BY scan_id DESC LIMIT 1',
+				intval($job['parent_domain_id']));
+			if (is_array($seen)) {
+				$expect = intval($seen['files_scanned']) + intval($seen['files_skipped']);
+				if ($expect > 0) {
+					$dump[] = '--expect=' . $expect;
+				}
+			}
+
+			return $dump;
 		}
 
 		if ($kind === 'vulncheck') {
