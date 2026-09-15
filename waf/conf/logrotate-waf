@@ -1,0 +1,10 @@
+/var/log/waf/audit.log {
+	daily
+	rotate 7
+	compress
+	delaycompress
+	missingok
+	notifempty
+	copytruncate
+	create 0600 www-data adm
+}
