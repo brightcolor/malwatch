@@ -145,7 +145,7 @@ expect_same('Zustand scharf', waf_block_zustand($scharf), 'scharf');
 expect_same('Zustand aus', waf_block_zustand($eigene), 'aus');
 
 // Zeilenenden außerhalb des Blocks bleiben unangetastet
-$crlf = "location / {\r\n    try_files $uri =404;\r\n}\r\n";
+$crlf = "location / {\r\n    try_files \$uri =404;\r\n}\r\n";
 $crlf_gesetzt = waf_block_setzen($crlf, 'mitschreiben');
 expect_same('CRLF bleibt', substr($crlf_gesetzt, 0, strlen($crlf)), $crlf);
 expect_same('CRLF Rundlauf', waf_block_setzen($crlf_gesetzt, 'aus'), $crlf);
