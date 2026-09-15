@@ -111,6 +111,17 @@ Vor dem Packen vergleicht der Lauf die geschätzte Größe mit dem freien Platz
 und hält an, wenn es eng wird. Ein Dump trägt Kundendaten, in den Protokollen
 die Adressen der Besucher und bei einer befallenen Website den Schadcode.
 
+### Öffentlich freigeben
+
+„Öffentlich freigeben“ in der Zeile eines fertigen Dumps legt einen zweiten
+Verweis mit 40 Zeichen Zufall an, der ohne Anmeldung funktioniert — gedacht für
+die Übergabe an den Kunden. Dabei wählst du, wie lange er gilt: solange der
+Dump liegt, 24 Stunden oder ein einziger Abruf. Ein Passwort ist möglich; das
+Panel schlägt eines vor, gespeichert wird nur sein Hash.
+
+Jeder Abruf steht mit Zeit und Adresse in der Zeile. „Freigabe aufheben“ macht
+den Verweis sofort ungültig und lässt Dump und Panel-Download unberührt.
+
 ## Aktionen
 
 Je Website einzeln schaltbar, jede mit eigener Mindeststufe:

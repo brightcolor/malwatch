@@ -45,6 +45,36 @@ $wb['dump_content_txt'] = '%s files, %s databases';
 $wb['dump_with_logs_txt'] = 'with logs';
 $wb['dump_valid_txt'] = 'valid until %s';
 
+// The public share of one dump.
+$wb['share_head_txt'] = 'Share publicly';
+$wb['share_mode_txt'] = 'Valid';
+$wb['share_mode_expiry_txt'] = 'as long as the dump lies there';
+$wb['share_mode_day_txt'] = '24 hours';
+$wb['share_mode_once_txt'] = 'one single fetch';
+$wb['share_password_txt'] = 'Password (up to you)';
+$wb['btn_suggest_txt'] = 'Suggest';
+$wb['btn_share_txt'] = 'Share';
+$wb['btn_unshare_txt'] = 'Revoke the share';
+$wb['confirm_share_txt'] = 'Share this dump publicly? Whoever holds the link gets the archive with everything in it, without signing in to the panel.';
+$wb['confirm_unshare_txt'] = 'Revoke the share now? The public link stops working, and the dump stays where it is.';
+$wb['public_link_txt'] = 'Public link';
+$wb['share_warning_txt'] = 'A public link hands the archive to whoever holds it. Every fetch is noted in the row with its time and address.';
+// Shown in the row while the share lasts: %s is the date, the number of
+// fetches and the date of the last one.
+$wb['dump_public_until_txt'] = 'public until %s';
+$wb['dump_public_once_txt'] = 'public, one fetch';
+$wb['dump_public_hits_txt'] = '%s fetches, last on %s';
+$wb['msg_shared_txt'] = 'The dump is shared. The link is in its row.';
+$wb['msg_unshared_txt'] = 'The share is revoked.';
+$wb['err_share_txt'] = 'The share did not work. The dump may have expired in the meantime.';
+
+// The public page itself, when a password is set.
+$wb['public_head_txt'] = 'Download the dump';
+$wb['public_password_txt'] = 'Password';
+$wb['btn_public_fetch_txt'] = 'Download';
+$wb['err_public_password_txt'] = 'That password does not match.';
+$wb['err_public_gone_txt'] = 'This link is no longer valid.';
+
 $wb['btn_download_txt'] = 'Download';
 $wb['btn_delete_txt'] = 'Delete';
 $wb['confirm_delete_txt'] = 'Delete this dump now? The archive goes from disk, and the link to it stops working.';

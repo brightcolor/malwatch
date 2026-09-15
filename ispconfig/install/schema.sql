@@ -695,11 +695,73 @@ CREATE TABLE IF NOT EXISTS `malwatch_dump` (
   `created_at` datetime DEFAULT NULL,
   `ready_at` datetime DEFAULT NULL,
   `expires_at` datetime DEFAULT NULL,
+  -- Die oeffentliche Freigabe eines einzelnen Dumps: ein zweiter Schluessel,
+  -- getrennt vom Weg durch das Panel, damit ein Widerruf genau ihn trifft.
+  -- public_mode sagt, woran die Freigabe endet; public_password haelt nur den
+  -- Hash.
+  `public_token` varchar(64) NOT NULL DEFAULT '',
+  `public_mode` enum('none','expiry','day','once') NOT NULL DEFAULT 'none',
+  `public_until` datetime DEFAULT NULL,
+  `public_password` varchar(255) NOT NULL DEFAULT '',
+  `public_hits` int(11) unsigned NOT NULL DEFAULT '0',
+  `public_last_at` datetime DEFAULT NULL,
+  `public_last_ip` varchar(45) NOT NULL DEFAULT '',
   PRIMARY KEY (`dump_id`),
   KEY `token` (`token`),
+  KEY `public_token` (`public_token`),
   KEY `server_state` (`server_id`,`dump_state`),
   KEY `parent_domain_id` (`parent_domain_id`)
 ) DEFAULT CHARSET=utf8mb4 AUTO_INCREMENT=1 ;
+
+-- Dieselben Spalten fuer eine Installation, die malwatch_dump schon hat.
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_dump` ADD COLUMN `public_token` varchar(64) NOT NULL DEFAULT '''' AFTER `expires_at`, ADD KEY `public_token` (`public_token`)',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_dump' AND COLUMN_NAME = 'public_token');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_dump` ADD COLUMN `public_mode` enum(''none'',''expiry'',''day'',''once'') NOT NULL DEFAULT ''none'' AFTER `public_token`',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_dump' AND COLUMN_NAME = 'public_mode');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_dump` ADD COLUMN `public_until` datetime DEFAULT NULL AFTER `public_mode`',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_dump' AND COLUMN_NAME = 'public_until');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_dump` ADD COLUMN `public_password` varchar(255) NOT NULL DEFAULT '''' AFTER `public_until`',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_dump' AND COLUMN_NAME = 'public_password');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_dump` ADD COLUMN `public_hits` int(11) unsigned NOT NULL DEFAULT ''0'' AFTER `public_password`',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_dump' AND COLUMN_NAME = 'public_hits');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_dump` ADD COLUMN `public_last_at` datetime DEFAULT NULL AFTER `public_hits`',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_dump' AND COLUMN_NAME = 'public_last_at');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_dump` ADD COLUMN `public_last_ip` varchar(45) NOT NULL DEFAULT '''' AFTER `public_last_at`',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_dump' AND COLUMN_NAME = 'public_last_ip');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 --
 -- Was ueber die Datenbanken einer Website bekannt ist: Groesse, Zahl der

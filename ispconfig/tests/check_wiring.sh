@@ -1018,6 +1018,27 @@ fi
 grep -q 'malwatch_dump_download.php?token=' "$root/interface/templates/malwatch_dump_list.htm" \
 	|| fail "malwatch_dump_list.htm verweist nicht mit token= auf die Downloadseite"
 
+# 50. Die oeffentliche Freigabe oeffnet genau eine Tuer: die Downloadseite
+#     nimmt public= entgegen, vergleicht den Schluessel mit hash_equals und
+#     ein Passwort mit password_verify, und der Weg ohne oeffentlichen
+#     Schluessel geht weiterhin durch die Rechtepruefung. Faellt eines davon
+#     beim Umbau weg, stuende entweder die ganze Seite offen oder die Freigabe
+#     liefe ins Leere.
+if [ -f "$dump_dl" ]; then
+	grep -qE "_(REQUEST|GET)\['public'\]" "$dump_dl" \
+		|| fail "malwatch_dump_download.php nimmt keinen oeffentlichen Schluessel aus public= entgegen"
+	grep -q 'check_module_permissions' "$dump_dl" \
+		|| fail "malwatch_dump_download.php prueft ohne oeffentlichen Schluessel die Modulrechte nicht mehr"
+	grep -q 'hash_equals' "$dump_dl" \
+		|| fail "malwatch_dump_download.php vergleicht den Schluessel nicht mit hash_equals"
+	grep -q 'password_verify' "$dump_dl" \
+		|| fail "malwatch_dump_download.php prueft das Passwort der Freigabe nicht mit password_verify"
+fi
+for col in public_token public_mode public_until public_password public_hits public_last_at; do
+	grep -q "\`$col\`" "$root/install/schema.sql" \
+		|| fail "schema.sql kennt die Spalte $col der Freigabe nicht"
+done
+
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'
 fi

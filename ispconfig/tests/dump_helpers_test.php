@@ -185,6 +185,76 @@ expect_same('error has no download', $list[2]['can_download'], 0);
 
 expect_same('expired has no download', $list[3]['can_download'], 0);
 
+// The public link: one row per dump says whether it is shared, how long, and
+// how often it was fetched.
+$wb['dump_public_until_txt'] = 'öffentlich bis %s';
+$wb['dump_public_once_txt'] = 'öffentlich, ein Abruf';
+$wb['dump_public_hits_txt'] = '%s Abrufe, zuletzt %s';
+
+$shared = array(
+	// Shared until the dump itself goes.
+	array(
+		'dump_id' => '9', 'domain' => 'beispiel.de', 'dump_state' => 'done', 'token' => 'a1',
+		'archive_bytes' => '1000', 'file_count' => '3', 'database_count' => '1', 'with_logs' => 'n',
+		'error_reason' => '', 'job_log' => '', 'created_at' => '2026-09-15 01:00:00',
+		'expires_at' => '2026-09-22 01:00:00',
+		'public_token' => 'p1', 'public_mode' => 'expiry', 'public_until' => '2026-09-22 01:00:00',
+		'public_password' => '', 'public_hits' => '3', 'public_last_at' => '2026-09-15 02:10:00',
+	),
+	// Shared for one fetch, none so far.
+	array(
+		'dump_id' => '8', 'domain' => 'beispiel.de', 'dump_state' => 'done', 'token' => 'a2',
+		'archive_bytes' => '1000', 'file_count' => '3', 'database_count' => '1', 'with_logs' => 'n',
+		'error_reason' => '', 'job_log' => '', 'created_at' => '2026-09-15 01:00:00',
+		'expires_at' => '2026-09-22 01:00:00',
+		'public_token' => 'p2', 'public_mode' => 'once', 'public_until' => null,
+		'public_password' => 'hash', 'public_hits' => '0', 'public_last_at' => null,
+	),
+	// The 24 hours are over: the dump stays, the link is done.
+	array(
+		'dump_id' => '7', 'domain' => 'beispiel.de', 'dump_state' => 'done', 'token' => 'a3',
+		'archive_bytes' => '1000', 'file_count' => '3', 'database_count' => '1', 'with_logs' => 'n',
+		'error_reason' => '', 'job_log' => '', 'created_at' => '2026-09-14 01:00:00',
+		'expires_at' => '2026-09-21 01:00:00',
+		'public_token' => 'p3', 'public_mode' => 'day', 'public_until' => '2026-09-15 01:00:00',
+		'public_password' => '', 'public_hits' => '1', 'public_last_at' => '2026-09-14 12:00:00',
+	),
+	// Still running: nothing to share yet.
+	array(
+		'dump_id' => '6', 'domain' => 'beispiel.de', 'dump_state' => 'running', 'token' => 'a4',
+		'archive_bytes' => '0', 'file_count' => '0', 'database_count' => '0', 'with_logs' => 'n',
+		'error_reason' => '', 'job_log' => '', 'created_at' => '2026-09-15 01:30:00',
+		'expires_at' => null,
+		'public_token' => '', 'public_mode' => 'none', 'public_until' => null,
+		'public_password' => '', 'public_hits' => '0', 'public_last_at' => null,
+	),
+);
+
+$public = malwatch_dump_rows($shared, $wb, $now);
+expect_same('shared', $public[0]['is_public'], 1);
+expect_same('shared until', $public[0]['public_label'], 'öffentlich bis 22.09.2026');
+expect_same('fetches', $public[0]['public_hits_label'], '3 Abrufe, zuletzt 15.09.2026');
+expect_same('shared needs no second share', $public[0]['can_share'], 0);
+expect_same('has a password', $public[0]['has_password'], 0);
+
+expect_same('one fetch', $public[1]['public_label'], 'öffentlich, ein Abruf');
+expect_same('no fetch yet', $public[1]['public_hits_label'], '');
+expect_same('password set', $public[1]['has_password'], 1);
+
+expect_same('day over', $public[2]['is_public'], 0);
+expect_same('day over can be shared again', $public[2]['can_share'], 1);
+expect_same('day over has no label', $public[2]['public_label'], '');
+
+expect_same('running cannot be shared', $public[3]['can_share'], 0);
+expect_same('running is not public', $public[3]['is_public'], 0);
+
+// The three ways a share may last, and nothing else.
+expect_same('mode expiry', malwatch_dump_public_mode('expiry'), 'expiry');
+expect_same('mode day', malwatch_dump_public_mode('day'), 'day');
+expect_same('mode once', malwatch_dump_public_mode('once'), 'once');
+expect_same('unknown mode', malwatch_dump_public_mode('für immer'), '');
+expect_same('empty mode', malwatch_dump_public_mode(''), '');
+
 if ($failures > 0) {
 	fwrite(STDERR, $failures . " Fehler\n");
 	exit(1);

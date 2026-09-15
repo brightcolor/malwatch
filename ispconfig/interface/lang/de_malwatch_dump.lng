@@ -45,6 +45,36 @@ $wb['dump_content_txt'] = '%s Dateien, %s Datenbanken';
 $wb['dump_with_logs_txt'] = 'mit Protokollen';
 $wb['dump_valid_txt'] = 'gültig bis %s';
 
+// Die öffentliche Freigabe eines einzelnen Dumps.
+$wb['share_head_txt'] = 'Öffentlich freigeben';
+$wb['share_mode_txt'] = 'Gültig';
+$wb['share_mode_expiry_txt'] = 'solange der Dump liegt';
+$wb['share_mode_day_txt'] = '24 Stunden';
+$wb['share_mode_once_txt'] = 'ein einziger Abruf';
+$wb['share_password_txt'] = 'Passwort (freiwillig)';
+$wb['btn_suggest_txt'] = 'Vorschlagen';
+$wb['btn_share_txt'] = 'Freigeben';
+$wb['btn_unshare_txt'] = 'Freigabe aufheben';
+$wb['confirm_share_txt'] = 'Diesen Dump öffentlich freigeben? Wer den Verweis hat, bekommt das Archiv mit allem darin, ohne Anmeldung im Panel.';
+$wb['confirm_unshare_txt'] = 'Die Freigabe jetzt aufheben? Der öffentliche Verweis gilt danach nicht mehr, der Dump bleibt liegen.';
+$wb['public_link_txt'] = 'Öffentlicher Verweis';
+$wb['share_warning_txt'] = 'Ein öffentlicher Verweis gibt das Archiv an jeden heraus, der ihn hat. Jeder Abruf steht mit Zeit und Adresse in der Zeile.';
+// Steht in der Zeile, solange die Freigabe gilt: %s ist das Datum, die Zahl
+// der Abrufe bzw. das Datum des letzten Abrufs.
+$wb['dump_public_until_txt'] = 'öffentlich bis %s';
+$wb['dump_public_once_txt'] = 'öffentlich, ein Abruf';
+$wb['dump_public_hits_txt'] = '%s Abrufe, zuletzt %s';
+$wb['msg_shared_txt'] = 'Der Dump ist freigegeben. Der Verweis steht in seiner Zeile.';
+$wb['msg_unshared_txt'] = 'Die Freigabe ist aufgehoben.';
+$wb['err_share_txt'] = 'Die Freigabe war nicht möglich. Vielleicht ist der Dump inzwischen abgelaufen.';
+
+// Die öffentliche Seite selbst, wenn ein Passwort gesetzt ist.
+$wb['public_head_txt'] = 'Dump herunterladen';
+$wb['public_password_txt'] = 'Passwort';
+$wb['btn_public_fetch_txt'] = 'Herunterladen';
+$wb['err_public_password_txt'] = 'Das Passwort stimmt nicht.';
+$wb['err_public_gone_txt'] = 'Dieser Verweis gilt nicht mehr.';
+
 $wb['btn_download_txt'] = 'Herunterladen';
 $wb['btn_delete_txt'] = 'Löschen';
 $wb['confirm_delete_txt'] = 'Diesen Dump jetzt löschen? Das Archiv verschwindet von der Platte, und der Verweis darauf gilt nicht mehr.';

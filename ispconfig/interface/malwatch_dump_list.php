@@ -82,6 +82,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 				$domain_id = $app->functions->intval($row['parent_domain_id']);
 			}
 		}
+	} elseif ($action === 'dump_share') {
+		// Mode and password belong to one row, so both carry its id in their
+		// name: one form holds every row of the page.
+		$dump_id = isset($_POST['dump_id']) ? $app->functions->intval($_POST['dump_id']) : 0;
+		$mode = isset($_POST['share_mode_' . $dump_id]) ? (string) $_POST['share_mode_' . $dump_id] : '';
+		$password = isset($_POST['share_password_' . $dump_id]) ? (string) $_POST['share_password_' . $dump_id] : '';
+
+		if (malwatch_dump_share($app, $dump_id, $mode, $password) !== '') {
+			$message = $wb['msg_shared_txt'];
+		} else {
+			$error = $wb['err_share_txt'];
+		}
+	} elseif ($action === 'dump_unshare') {
+		$dump_id = isset($_POST['dump_id']) ? $app->functions->intval($_POST['dump_id']) : 0;
+		malwatch_dump_unshare($app, $dump_id);
+		$message = $wb['msg_unshared_txt'];
 	} elseif ($action !== '') {
 		$error = $wb['err_unknown_action_txt'];
 	}
@@ -96,7 +112,9 @@ $app->tpl->setVar($wb);
 // attributes, where a straight double quote would end the attribute. See
 // malwatch_attr_texts().
 $app->tpl->setVar(malwatch_attr_texts($wb, array('btn_create_txt', 'confirm_create_txt',
-	'btn_delete_txt', 'confirm_delete_txt', 'hint_select_txt')));
+	'btn_delete_txt', 'confirm_delete_txt', 'hint_select_txt',
+	'share_head_txt', 'btn_share_txt', 'confirm_share_txt',
+	'btn_unshare_txt', 'confirm_unshare_txt', 'share_password_txt')));
 
 // Every website of the server, by name. The status page shows the ones that
 // need attention; a dump is asked for by name, and the one website somebody
@@ -147,6 +165,13 @@ $app->tpl->setVar('selected_template', $app->functions->htmlentities(
 	sprintf($wb['selected_template_txt'], number_format(count($db_rows), 0, ',', '.'))));
 $app->tpl->setVar('selected_none', $app->functions->htmlentities($wb['selected_none_txt']));
 
+// Die Adresse, unter der das Panel gerade erreicht wird: der öffentliche
+// Verweis geht an jemanden, der kein Panel hat, und braucht deshalb Schema und
+// Host und nicht nur den Pfad.
+$public_scheme = (!empty($_SERVER['HTTPS']) && (string) $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+$public_host = isset($_SERVER['HTTP_HOST']) ? preg_replace('/[^A-Za-z0-9_.:-]/', '', (string) $_SERVER['HTTP_HOST']) : '';
+$public_base = $public_host !== '' ? $public_scheme . '://' . $public_host : '';
+
 $dumps = $app->db->queryAllRecords(
 	'SELECT * FROM malwatch_dump ORDER BY dump_id DESC LIMIT 100');
 $dump_rows = malwatch_dump_rows(is_array($dumps) ? $dumps : array(), $wb);
@@ -161,6 +186,13 @@ foreach ($dump_rows as $i => $row) {
 	$dump_rows[$i]['created'] = $app->functions->htmlentities(
 		isset($dumps[$i]['created_at']) ? substr((string) $dumps[$i]['created_at'], 0, 16) : '');
 	$dump_rows[$i]['has_message'] = $row['message'] !== '' ? 1 : 0;
+	$dump_rows[$i]['public_label'] = $app->functions->htmlentities($row['public_label']);
+	$dump_rows[$i]['public_hits_label'] = $app->functions->htmlentities($row['public_hits_label']);
+	// The whole address, because this one is meant to be handed to somebody
+	// who has no panel to open it in.
+	$dump_rows[$i]['public_url'] = $row['is_public'] === 1
+		? $app->functions->htmlentities($public_base . '/security/malwatch_dump_download.php?public=' . $row['public_token'])
+		: '';
 }
 $app->tpl->setLoop('dumps', $dump_rows);
 $app->tpl->setVar('has_dumps', count($dump_rows) > 0 ? 1 : 0);

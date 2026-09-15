@@ -1518,6 +1518,35 @@ function malwatch_dump_rows(array $dumps, array $wb, $now = 0)
 			}
 		}
 
+		// The public share of this one dump: its own key, its own end. A
+		// share by time is over when public_until has passed; a share for one
+		// fetch ends when the download burns the key, so time says nothing
+		// about it.
+		$public_token = isset($dump['public_token']) ? (string) $dump['public_token'] : '';
+		$mode = malwatch_dump_public_mode(isset($dump['public_mode']) ? $dump['public_mode'] : '');
+		$until = isset($dump['public_until']) ? (string) $dump['public_until'] : '';
+		$until_stamp = $until !== '' ? strtotime($until) : 0;
+		$hits = isset($dump['public_hits']) ? (int) $dump['public_hits'] : 0;
+		$last = isset($dump['public_last_at']) ? (string) $dump['public_last_at'] : '';
+		$last_stamp = $last !== '' ? strtotime($last) : 0;
+
+		$is_public = ($public_token !== '' && $mode !== ''
+			&& ($mode === 'once' || $until_stamp > $now)) ? 1 : 0;
+
+		$public_label = '';
+		if ($is_public === 1) {
+			$public_label = $mode === 'once'
+				? $wb['dump_public_once_txt']
+				: sprintf($wb['dump_public_until_txt'], date('d.m.Y', $until_stamp));
+		}
+
+		$hits_label = '';
+		if ($is_public === 1 && $hits > 0) {
+			$hits_label = sprintf($wb['dump_public_hits_txt'],
+				number_format($hits, 0, ',', '.'),
+				$last_stamp > 0 ? date('d.m.Y', $last_stamp) : '');
+		}
+
 		$rows[] = array(
 			'dump_id' => isset($dump['dump_id']) ? (int) $dump['dump_id'] : 0,
 			'domain' => isset($dump['domain']) ? (string) $dump['domain'] : '',
@@ -1529,9 +1558,82 @@ function malwatch_dump_rows(array $dumps, array $wb, $now = 0)
 			'token' => $token,
 			'message' => isset($dump['job_log']) ? (string) $dump['job_log'] : '',
 			'can_download' => ($state === 'done' && $token !== '' && $stamp > $now) ? 1 : 0,
+			'is_public' => $is_public,
+			'public_token' => $is_public === 1 ? $public_token : '',
+			'public_label' => $public_label,
+			'public_hits_label' => $hits_label,
+			'has_password' => (isset($dump['public_password']) && (string) $dump['public_password'] !== '') ? 1 : 0,
+			'can_share' => ($state === 'done' && $token !== '' && $stamp > $now && $is_public === 0) ? 1 : 0,
 		);
 	}
 	return $rows;
+}
+
+/**
+ * The three ways a public share may end, and nothing else.
+ *
+ * Returns the mode, or '' for anything the page never offered - the same
+ * whitelist rule the repair page uses for its elements.
+ */
+function malwatch_dump_public_mode($value)
+{
+	$value = is_string($value) ? $value : '';
+	return in_array($value, array('expiry', 'day', 'once'), true) ? $value : '';
+}
+
+/**
+ * Opens the public door of one dump and returns the key, or ''.
+ *
+ * The key is a second one, unrelated to the link inside the panel: revoking
+ * the share must take back exactly this way in and leave the panel's own
+ * download alone. A password is kept as a hash; the plain one lives only in
+ * the moment it is handed over.
+ */
+function malwatch_dump_share($app, $dump_id, $mode, $password)
+{
+	$dump_id = $app->functions->intval($dump_id);
+	$mode = malwatch_dump_public_mode($mode);
+	if ($dump_id < 1 || $mode === '') {
+		return '';
+	}
+
+	$dump = $app->db->queryOneRecord(
+		"SELECT dump_id, expires_at FROM malwatch_dump WHERE dump_id = ? AND dump_state = 'done'", $dump_id);
+	if (!is_array($dump)) {
+		return '';
+	}
+
+	// Never longer than the dump itself: the archive goes after its week, and
+	// a key that outlived it would point at nothing.
+	$until = null;
+	if ($mode === 'expiry') {
+		$until = (string) $dump['expires_at'];
+	} elseif ($mode === 'day') {
+		$until = date('Y-m-d H:i:s', min(strtotime('+1 day'), strtotime((string) $dump['expires_at'])));
+	}
+
+	$token = bin2hex(random_bytes(20));
+	$hash = (is_string($password) && $password !== '') ? password_hash($password, PASSWORD_DEFAULT) : '';
+
+	$app->db->query(
+		'UPDATE malwatch_dump SET public_token = ?, public_mode = ?, public_until = ?, public_password = ?, '
+		. "public_hits = 0, public_last_at = NULL, public_last_ip = '' WHERE dump_id = ?",
+		$token, $mode, $until, $hash, $dump_id);
+
+	return $token;
+}
+
+/** Closes the public door again; the dump and its panel download stay. */
+function malwatch_dump_unshare($app, $dump_id)
+{
+	$dump_id = $app->functions->intval($dump_id);
+	if ($dump_id < 1) {
+		return;
+	}
+	$app->db->query(
+		"UPDATE malwatch_dump SET public_token = '', public_mode = 'none', public_until = NULL, "
+		. "public_password = '' WHERE dump_id = ?",
+		$dump_id);
 }
 
 /**

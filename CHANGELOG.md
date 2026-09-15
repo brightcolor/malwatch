@@ -2,6 +2,22 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.18.0] – 2026-09-15
+
+### Neu
+
+**Dumps öffentlich freigeben.** Jede fertige Zeile der Liste hat „Öffentlich
+freigeben“. Dahinter wählst du, wie lange der Verweis gilt — solange der Dump
+liegt, 24 Stunden oder ein einziger Abruf — und kannst ein Passwort setzen, das
+das Panel vorschlägt. Es entsteht ein zweiter Verweis mit 40 Zeichen Zufall,
+getrennt vom Weg durch das Panel; er steht in der Zeile zum Kopieren und
+funktioniert ohne Anmeldung.
+
+Mit Passwort fragt die Seite es vorher in einem schlichten Formular ab;
+gespeichert wird nur dessen Hash. Jeder Abruf zählt mit Zeit und Adresse in der
+Zeile mit, und „Freigabe aufheben“ macht den Verweis sofort ungültig. Der Dump
+selbst und sein Weg über das Panel bleiben davon unberührt.
+
 ## [0.17.0] – 2026-09-15
 
 ### Neu
