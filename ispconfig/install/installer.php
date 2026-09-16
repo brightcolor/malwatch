@@ -217,7 +217,9 @@ class malwatch_installer extends extension_installer_base
 	{
 		global $app;
 
-		foreach (array('', '/signatures', '/state', '/quarantine') as $sub) {
+		// waf/staging and waf/last-good hold copies of the nginx rules for the
+		// WAF jobs and stay root's, like the quarantine.
+		foreach (array('', '/signatures', '/state', '/quarantine', '/waf/staging', '/waf/last-good') as $sub) {
 			$dir = self::STATE_DIR . $sub;
 			if (!is_dir($dir)) {
 				@mkdir($dir, 0750, true);
@@ -239,7 +241,9 @@ class malwatch_installer extends extension_installer_base
 
 		// dumps steht neben runs und spool: das Panel liefert das Archiv selbst
 		// aus und muss es lesen koennen, der Rest des Servers nicht.
-		foreach (array('/runs', '/spool', '/dumps') as $sub) {
+		// waf holds the reader position and the lock of the WAF part, and
+		// waf/responses the response bodies the page Abwehr shows as text.
+		foreach (array('/runs', '/spool', '/dumps', '/waf', '/waf/responses') as $sub) {
 			$dir = self::STATE_DIR . $sub;
 			if (!is_dir($dir)) {
 				// mkdir() setzt das Setgid-Bit nur mit einer vierstelligen

@@ -1039,6 +1039,42 @@ for col in public_token public_mode public_until public_password public_hits pub
 		|| fail "schema.sql kennt die Spalte $col der Freigabe nicht"
 done
 
+# 51. Die Abwehr braucht ihre vier Tabellen, die Zustandsspalte je Website, die
+#     Einstellungen und den Wert waf in job_kind und action_type. Das
+#     Entfernen des Addons nimmt die Tabellen wieder mit.
+for table in malwatch_waf_hit malwatch_waf_site_day malwatch_waf_day malwatch_waf_exception; do
+	grep -q "CREATE TABLE IF NOT EXISTS \`$table\`" "$root/install/schema.sql" \
+		|| fail "schema.sql kennt die Tabelle $table nicht"
+	grep -q "DROP TABLE IF EXISTS \`$table\`" "$root/install/uninstall-schema.sql" \
+		|| fail "uninstall-schema.sql entfernt die Tabelle $table nicht"
+done
+for table in malwatch_dump malwatch_database; do
+	grep -q "DROP TABLE IF EXISTS \`$table\`" "$root/install/uninstall-schema.sql" \
+		|| fail "uninstall-schema.sql entfernt die Tabelle $table nicht"
+done
+grep -q "MODIFY COLUMN \`job_kind\` enum(.*''waf''" "$root/install/schema.sql" \
+	|| fail "job_kind kennt die Auftragsart waf nicht"
+grep -q "MODIFY COLUMN \`action_type\` enum(.*''waf''" "$root/install/schema.sql" \
+	|| fail "action_type kennt den Wert waf nicht"
+grep -q "ADD COLUMN \`waf_state\` enum(''off'',''detect'',''enforce'')" "$root/install/schema.sql" \
+	|| fail "malwatch_site bekommt keine Spalte waf_state"
+for col in waf_detail_days waf_stats_days waf_log_keep_days waf_preview_days waf_min_detect_days \
+	waf_response_body waf_ingest_max_lines waf_job_deadline_minutes waf_audit_log waf_conf_dir \
+	waf_emergency waf_emergency_since; do
+	grep -q "ADD COLUMN \`$col\`" "$root/install/schema.sql" \
+		|| fail "malwatch_config bekommt keine Spalte $col"
+	grep -q "'$col' =>" "$root/interface/lib/malwatch_waf_lib.inc.php" \
+		|| fail "waf_settings_defaults() kennt die Spalte $col nicht"
+done
+
+# 52. Der Installer legt den Arbeitsbereich der Abwehr an: waf und
+#     waf/responses mit der Gruppe des Panels (die Seite liefert
+#     Seitenantworten aus), staging und last-good nur fuer root.
+for sub in /waf /waf/responses /waf/staging /waf/last-good; do
+	grep -q "'$sub'" "$root/install/installer.php" \
+		|| fail "der Installer legt <state_dir>$sub nicht an"
+done
+
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'
 fi

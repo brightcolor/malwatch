@@ -816,3 +816,162 @@ SET @mw := (SELECT IF(COUNT(*) = 0,
   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_job' AND COLUMN_NAME = 'job_kind'
     AND COLUMN_TYPE LIKE '%''dump''%');
 PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- --------------------------------------------------------
+-- Abwehr (WAF): hits from the ModSecurity audit log, day figures, exceptions.
+-- Filled by malwatch_waf (server/lib/classes/malwatch_waf.inc.php).
+-- --------------------------------------------------------
+
+--
+-- One hit per transaction. Holds addresses and request bodies and is kept for
+-- waf_detail_days. unique_id is ModSecurity's id of the transaction; a second
+-- read of the same line finds its row.
+--
+CREATE TABLE IF NOT EXISTS `malwatch_waf_hit` (
+  `hit_id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `sys_userid` int(11) unsigned NOT NULL DEFAULT '0',
+  `sys_groupid` int(11) unsigned NOT NULL DEFAULT '0',
+  `sys_perm_user` varchar(5) DEFAULT NULL,
+  `sys_perm_group` varchar(5) DEFAULT NULL,
+  `sys_perm_other` varchar(5) DEFAULT NULL,
+  `server_id` int(11) unsigned NOT NULL DEFAULT '0',
+  `parent_domain_id` int(11) unsigned NOT NULL DEFAULT '0',
+  `domain` varchar(255) NOT NULL DEFAULT '',
+  `unique_id` varchar(64) NOT NULL DEFAULT '',
+  `seen_at` datetime DEFAULT NULL,
+  `client_ip` varchar(45) NOT NULL DEFAULT '',
+  `method` varchar(10) NOT NULL DEFAULT '',
+  `uri` varchar(2048) NOT NULL DEFAULT '',
+  `path` varchar(1024) NOT NULL DEFAULT '',
+  `status` smallint(5) unsigned NOT NULL DEFAULT '0',
+  `anomaly_score` smallint(5) unsigned NOT NULL DEFAULT '0',
+  `would_block` enum('n','y') NOT NULL DEFAULT 'n',
+  `logged_in` enum('n','y') NOT NULL DEFAULT 'n',
+  `rules` text,
+  `request_headers` text,
+  `request_body` mediumtext,
+  `response_file` varchar(255) NOT NULL DEFAULT '',
+  `response_bytes` int(11) unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (`hit_id`),
+  UNIQUE KEY `server_unique` (`server_id`,`unique_id`),
+  KEY `site_seen` (`parent_domain_id`,`seen_at`),
+  KEY `server_seen` (`server_id`,`seen_at`)
+) DEFAULT CHARSET=utf8mb4 AUTO_INCREMENT=1 ;
+
+--
+-- Day figures per website, without addresses; kept for waf_stats_days.
+--
+CREATE TABLE IF NOT EXISTS `malwatch_waf_site_day` (
+  `site_day_id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `sys_userid` int(11) unsigned NOT NULL DEFAULT '0',
+  `sys_groupid` int(11) unsigned NOT NULL DEFAULT '0',
+  `sys_perm_user` varchar(5) DEFAULT NULL,
+  `sys_perm_group` varchar(5) DEFAULT NULL,
+  `sys_perm_other` varchar(5) DEFAULT NULL,
+  `server_id` int(11) unsigned NOT NULL DEFAULT '0',
+  `day` date NOT NULL,
+  `parent_domain_id` int(11) unsigned NOT NULL DEFAULT '0',
+  `domain` varchar(255) NOT NULL DEFAULT '',
+  `hits` int(11) unsigned NOT NULL DEFAULT '0',
+  `would_block` int(11) unsigned NOT NULL DEFAULT '0',
+  `logged_in_hits` int(11) unsigned NOT NULL DEFAULT '0',
+  `would_block_logged_in` int(11) unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (`site_day_id`),
+  UNIQUE KEY `day_site` (`day`,`parent_domain_id`),
+  KEY `site_day` (`parent_domain_id`,`day`),
+  KEY `server_day` (`server_id`,`day`)
+) DEFAULT CHARSET=utf8mb4 AUTO_INCREMENT=1 ;
+
+--
+-- Day figures per website, rule and path, without addresses; kept for
+-- waf_stats_days. Scoring rules (949, 959, 980) are not counted here.
+--
+CREATE TABLE IF NOT EXISTS `malwatch_waf_day` (
+  `waf_day_id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `sys_userid` int(11) unsigned NOT NULL DEFAULT '0',
+  `sys_groupid` int(11) unsigned NOT NULL DEFAULT '0',
+  `sys_perm_user` varchar(5) DEFAULT NULL,
+  `sys_perm_group` varchar(5) DEFAULT NULL,
+  `sys_perm_other` varchar(5) DEFAULT NULL,
+  `server_id` int(11) unsigned NOT NULL DEFAULT '0',
+  `day` date NOT NULL,
+  `parent_domain_id` int(11) unsigned NOT NULL DEFAULT '0',
+  `domain` varchar(255) NOT NULL DEFAULT '',
+  `rule_id` varchar(16) NOT NULL DEFAULT '',
+  `rule_msg` varchar(255) NOT NULL DEFAULT '',
+  `path` varchar(1024) NOT NULL DEFAULT '',
+  `path_hash` char(40) NOT NULL DEFAULT '',
+  `hits` int(11) unsigned NOT NULL DEFAULT '0',
+  `would_block_hits` int(11) unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (`waf_day_id`),
+  UNIQUE KEY `day_site_rule_path` (`day`,`parent_domain_id`,`rule_id`,`path_hash`),
+  KEY `site_day` (`parent_domain_id`,`day`),
+  KEY `server_day` (`server_id`,`day`)
+) DEFAULT CHARSET=utf8mb4 AUTO_INCREMENT=1 ;
+
+--
+-- Exceptions created in the panel. The rule id in the file is
+-- 10200 + exception_id; the note never reaches a file.
+--
+CREATE TABLE IF NOT EXISTS `malwatch_waf_exception` (
+  `exception_id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `sys_userid` int(11) unsigned NOT NULL DEFAULT '0',
+  `sys_groupid` int(11) unsigned NOT NULL DEFAULT '0',
+  `sys_perm_user` varchar(5) DEFAULT NULL,
+  `sys_perm_group` varchar(5) DEFAULT NULL,
+  `sys_perm_other` varchar(5) DEFAULT NULL,
+  `server_id` int(11) unsigned NOT NULL DEFAULT '0',
+  `scope` enum('site','site_path','site_param','all','all_path') NOT NULL DEFAULT 'site',
+  `parent_domain_id` int(11) unsigned NOT NULL DEFAULT '0',
+  `domain` varchar(255) NOT NULL DEFAULT '',
+  `rule_id` varchar(16) NOT NULL DEFAULT '',
+  `path` varchar(1024) NOT NULL DEFAULT '',
+  `param` varchar(128) NOT NULL DEFAULT '',
+  `note` varchar(255) NOT NULL DEFAULT '',
+  `exception_state` enum('pending','active','error','removing') NOT NULL DEFAULT 'pending',
+  `error_reason` varchar(255) NOT NULL DEFAULT '',
+  `job_id` int(11) unsigned NOT NULL DEFAULT '0',
+  `created_by` varchar(64) NOT NULL DEFAULT '',
+  `created_at` datetime DEFAULT NULL,
+  `activated_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`exception_id`),
+  KEY `server_state` (`server_id`,`exception_state`),
+  KEY `parent_domain_id` (`parent_domain_id`)
+) DEFAULT CHARSET=utf8mb4 AUTO_INCREMENT=1 ;
+
+-- The WAF state per website as the last job confirmed it, since when, and the
+-- job that is changing it. The field "nginx directives" stays the truth. One
+-- statement for the four columns: it adds all of them or none.
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_site` ADD COLUMN `waf_state` enum(''off'',''detect'',''enforce'') NOT NULL DEFAULT ''off'', ADD COLUMN `waf_state_since` datetime DEFAULT NULL, ADD COLUMN `waf_job_id` int(11) unsigned NOT NULL DEFAULT ''0'', ADD COLUMN `waf_pending_state` varchar(16) NOT NULL DEFAULT ''''',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_site' AND COLUMN_NAME = 'waf_state');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- The settings of the page Abwehr; defaults as in waf_settings_defaults().
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_config` ADD COLUMN `waf_detail_days` int(11) unsigned NOT NULL DEFAULT ''7'', ADD COLUMN `waf_stats_days` int(11) unsigned NOT NULL DEFAULT ''90'', ADD COLUMN `waf_log_keep_days` int(11) unsigned NOT NULL DEFAULT ''7'', ADD COLUMN `waf_preview_days` int(11) unsigned NOT NULL DEFAULT ''7'', ADD COLUMN `waf_min_detect_days` int(11) unsigned NOT NULL DEFAULT ''7'', ADD COLUMN `waf_response_body` enum(''full'',''lean'') NOT NULL DEFAULT ''full'', ADD COLUMN `waf_ingest_max_lines` int(11) unsigned NOT NULL DEFAULT ''5000'', ADD COLUMN `waf_job_deadline_minutes` int(11) unsigned NOT NULL DEFAULT ''5'', ADD COLUMN `waf_audit_log` varchar(255) NOT NULL DEFAULT ''/var/log/waf/audit.log'', ADD COLUMN `waf_conf_dir` varchar(255) NOT NULL DEFAULT ''/etc/nginx/waf'', ADD COLUMN `waf_emergency` enum(''n'',''y'') NOT NULL DEFAULT ''n'', ADD COLUMN `waf_emergency_since` datetime DEFAULT NULL',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_config' AND COLUMN_NAME = 'waf_detail_days');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- waf carries the jobs of the page Abwehr. The malwatch cron works on them
+-- itself (malwatch_waf::run_jobs); the runner never starts one.
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_job` MODIFY COLUMN `job_kind` enum(''scan'',''repair'',''quarantine'',''vulncheck'',''upgrade'',''dump'',''waf'') NOT NULL DEFAULT ''scan''',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_job' AND COLUMN_NAME = 'job_kind'
+    AND COLUMN_TYPE LIKE '%''waf''%');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- Every WAF job leaves one line in the action log: person, action, result.
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_action_log` MODIFY COLUMN `action_type` enum(''notify_admin'',''notify_client'',''disable_site'',''error'',''quarantine'',''waf'') NOT NULL DEFAULT ''notify_admin''',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_action_log' AND COLUMN_NAME = 'action_type'
+    AND COLUMN_TYPE LIKE '%''waf''%');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
