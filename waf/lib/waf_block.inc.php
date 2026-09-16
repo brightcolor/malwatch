@@ -95,3 +95,54 @@ function waf_vhost_zustand($vhost)
 	}
 	return 'aus';
 }
+
+function waf_antwortrumpf_gueltig($modus)
+{
+	return in_array($modus, array('voll', 'schlank'), true);
+}
+
+/**
+ * Inhalt von /etc/nginx/waf/antwortrumpf.conf.
+ *
+ * 110 CRS-Regeln setzen ctl:auditLogParts=+E und schreiben damit die ganze
+ * Seitenantwort in den Eintrag. „schlank" nimmt sie in Phase 5 wieder heraus,
+ * nachdem alle CRS-Regeln gelaufen sind; „voll" lässt sie stehen.
+ */
+function waf_antwortrumpf_text($modus)
+{
+	$zeilen = array(
+		'# Antwortrumpf im Audit-Log: ' . $modus,
+		'# Verwaltet von waf-schalter, nicht von Hand ändern.',
+		'#',
+		'# voll:    Die CRS-Regeln dürfen die Seitenantwort in den Eintrag schreiben.',
+		'#          110 Regeln setzen dafür ctl:auditLogParts=+E, darunter 27 der',
+		'#          XSS-Gruppe. Ein Treffer wiegt damit rund 125 KB statt rund 4 KB.',
+		'#          Für die Untersuchung von Fehlalarmen ist das der vollständige Blick.',
+		'# schlank: Eine Regel in Phase 5 nimmt die Seitenantwort wieder heraus, nachdem',
+		'#          alle CRS-Regeln gelaufen sind. Treffer, Kopfzeilen und Anfrageinhalt',
+		'#          bleiben vollständig.',
+		'#',
+		'# Umschalten: waf-schalter antwortrumpf voll|schlank',
+	);
+	if ($modus === 'schlank') {
+		$zeilen[] = 'SecAction "id:10200,phase:5,pass,nolog,ctl:auditLogParts=-E"';
+	}
+	return implode("\n", $zeilen) . "\n";
+}
+
+/**
+ * Liest den Modus aus dem Inhalt von antwortrumpf.conf. Kommentarzeilen zählen nicht.
+ */
+function waf_antwortrumpf_modus($text)
+{
+	foreach (preg_split("/\R/", (string)$text) as $zeile) {
+		$zeile = trim($zeile);
+		if ($zeile === '' || $zeile[0] === '#') {
+			continue;
+		}
+		if (strpos($zeile, 'ctl:auditLogParts=-E') !== false) {
+			return 'schlank';
+		}
+	}
+	return 'voll';
+}

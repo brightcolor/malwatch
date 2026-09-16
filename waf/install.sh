@@ -10,7 +10,7 @@ if [ ! -f /etc/nginx/modules-enabled/50-mod-http-modsecurity.conf ]; then
 fi
 
 install -d -o root -g root -m 755 /etc/nginx/waf
-for f in main.conf einstellungen.conf crs-zusatz.conf ausnahmen-vorher.conf ausnahmen-nachher.conf zustand.conf; do
+for f in main.conf einstellungen.conf crs-zusatz.conf ausnahmen-vorher.conf ausnahmen-nachher.conf antwortrumpf.conf zustand.conf; do
 	install -o root -g root -m 644 "conf/$f" "/etc/nginx/waf/$f"
 done
 install -o root -g root -m 644 conf/logrotate-waf /etc/logrotate.d/waf

@@ -70,6 +70,24 @@ expect_same('vhost mit auskommentierter Direktive', waf_vhost_zustand("server {\
 expect_same('vhost mit abgeschalteter Direktive', waf_vhost_zustand("server {\n    modsecurity off;\n}\n"), 'aus');
 expect_same('leerer vhost', waf_vhost_zustand(''), 'aus');
 
+// Antwortrumpf im Audit-Log: 110 CRS-Regeln setzen ctl:auditLogParts=+E und
+// schreiben damit die ganze Seitenantwort in den Eintrag. „schlank" nimmt sie in
+// Phase 5 wieder heraus, „voll" lässt sie stehen.
+$voll = waf_antwortrumpf_text('voll');
+$schlank = waf_antwortrumpf_text('schlank');
+expect_same('voll ohne Regel', strpos($voll, 'ctl:auditLogParts=-E'), false);
+expect_same('schlank mit Regel', strpos($schlank, 'ctl:auditLogParts=-E') !== false, true);
+expect_same('schlank in Phase 5', strpos($schlank, 'phase:5') !== false, true);
+expect_same('schlank mit eigener ID', strpos($schlank, 'id:10200') !== false, true);
+expect_same('Modus aus voll', waf_antwortrumpf_modus($voll), 'voll');
+expect_same('Modus aus schlank', waf_antwortrumpf_modus($schlank), 'schlank');
+expect_same('Modus aus leerer Datei', waf_antwortrumpf_modus(''), 'voll');
+expect_same('Modus bei auskommentierter Regel', waf_antwortrumpf_modus("# ctl:auditLogParts=-E\n"), 'voll');
+expect_same('gültig: voll', waf_antwortrumpf_gueltig('voll'), true);
+expect_same('gültig: schlank', waf_antwortrumpf_gueltig('schlank'), true);
+expect_same('ungültig: halb', waf_antwortrumpf_gueltig('halb'), false);
+expect_same('Vorgabedatei im Repo entspricht „voll"', file_get_contents(__DIR__ . '/../conf/antwortrumpf.conf'), $voll);
+
 // Gültige Zustände
 expect_same('gültig: aus', waf_zustand_gueltig('aus'), true);
 expect_same('gültig: mitschreiben', waf_zustand_gueltig('mitschreiben'), true);

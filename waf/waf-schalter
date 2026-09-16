@@ -196,5 +196,29 @@ if ($befehl === 'zurueck') {
 	exit(0);
 }
 
-fwrite(STDERR, "Befehle: status | setze <zustand> <domain…|--wordpress|--alle> | probe … | notaus [--hart] | zurueck <ordner>\n");
+if ($befehl === 'antwortrumpf') {
+	$datei = '/etc/nginx/waf/antwortrumpf.conf';
+	$modus = array_shift($argumente);
+	$alt = is_file($datei) ? file_get_contents($datei) : '';
+	if ($modus === null || $modus === 'status') {
+		echo 'Antwortrumpf im Audit-Log: ' . waf_antwortrumpf_modus($alt) . "\n";
+		exit(0);
+	}
+	if (!waf_antwortrumpf_gueltig($modus)) {
+		fwrite(STDERR, "Modus muss voll oder schlank sein\n");
+		exit(2);
+	}
+	file_put_contents($datei, waf_antwortrumpf_text($modus));
+	list($ok, $ausgabe) = nginx_pruefen();
+	if (!$ok) {
+		file_put_contents($datei, $alt);
+		fwrite(STDERR, "nginx -t fehlgeschlagen, alter Stand zurückgeschrieben:\n$ausgabe\n");
+		exit(1);
+	}
+	exec('systemctl reload nginx');
+	echo "Antwortrumpf im Audit-Log: $modus, nginx neu geladen\n";
+	exit(0);
+}
+
+fwrite(STDERR, "Befehle: status | setze <zustand> <domain…|--wordpress|--alle> | probe … | notaus [--hart] | zurueck <ordner> | antwortrumpf [voll|schlank|status]\n");
 exit(2);
