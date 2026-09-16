@@ -34,4 +34,4 @@ install -o root -g root -m 755 waf-bericht /usr/local/sbin/waf-bericht
 # Zuletzt die Einbindung, damit nginx die Regeln erst sieht, wenn alles liegt.
 install -o root -g root -m 644 conf/waf.conf /etc/nginx/conf.d/waf.conf
 nginx -t
-echo "Eingespielt. Eingeschaltet ist noch keine Website."
+echo "Eingespielt. Die Websites behalten ihren Zustand; wirksam wird die Konfiguration mit dem nächsten Reload."
