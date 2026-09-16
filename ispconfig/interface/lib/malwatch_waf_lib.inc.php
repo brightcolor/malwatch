@@ -231,3 +231,295 @@ function waf_json($value)
 	$json = json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 	return $json === false ? '[]' : $json;
 }
+
+// --- Audit log ---------------------------------------------------------------
+
+/**
+ * Replaces bytes that are no valid UTF-8 with U+FFFD, so json_decode and
+ * MySQL accept the text. A question mark would read as the start of a query.
+ */
+function waf_utf8_clean($text)
+{
+	$text = (string) $text;
+	if (preg_match('//u', $text) === 1) {
+		return $text;
+	}
+	if (function_exists('mb_convert_encoding')) {
+		$previous = mb_substitute_character();
+		mb_substitute_character(0xFFFD);
+		$text = mb_convert_encoding($text, 'UTF-8', 'UTF-8');
+		mb_substitute_character($previous);
+		return $text;
+	}
+	return preg_replace('/[\x80-\xFF]/', "\xEF\xBF\xBD", $text);
+}
+
+/** 'Wed Sep 16 21:09:19 2026' (ctime, local time of the web server) as 'Y-m-d H:i:s'; '' otherwise. */
+function waf_audit_time($stamp)
+{
+	$months = array('Jan' => 1, 'Feb' => 2, 'Mar' => 3, 'Apr' => 4, 'May' => 5, 'Jun' => 6,
+		'Jul' => 7, 'Aug' => 8, 'Sep' => 9, 'Oct' => 10, 'Nov' => 11, 'Dec' => 12);
+	if (!preg_match('/^[A-Za-z]{3}\s+([A-Za-z]{3})\s+(\d{1,2})\s+(\d{2}):(\d{2}):(\d{2})\s+(\d{4})$/', trim((string) $stamp), $m)) {
+		return '';
+	}
+	if (!isset($months[$m[1]]) || !checkdate($months[$m[1]], (int) $m[2], (int) $m[6])
+		|| (int) $m[3] > 23 || (int) $m[4] > 59 || (int) $m[5] > 60) {
+		return '';
+	}
+	return sprintf('%04d-%02d-%02d %02d:%02d:%02d', (int) $m[6], $months[$m[1]], (int) $m[2],
+		(int) $m[3], (int) $m[4], min(59, (int) $m[5]));
+}
+
+/** A request header by name, whatever its case; '' when missing. */
+function waf_audit_header($headers, $name)
+{
+	if (!is_array($headers)) {
+		return '';
+	}
+	foreach ($headers as $key => $value) {
+		if (strcasecmp((string) $key, $name) === 0) {
+			return is_array($value) ? implode(', ', $value) : (string) $value;
+		}
+	}
+	return '';
+}
+
+/** A host name the way the host map knows it: lower case, no port, no closing dot; '' if unusable. */
+function waf_host_normalize($host)
+{
+	$host = strtolower(trim((string) $host));
+	$host = rtrim(preg_replace('/:\d+$/', '', $host), '.');
+	if ($host === '' || strlen($host) > 253
+		|| !preg_match('/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*$/', $host)) {
+		return '';
+	}
+	return $host;
+}
+
+/** The cookie names of a Cookie header, in order, without their values. */
+function waf_cookie_names($header)
+{
+	$names = array();
+	foreach (explode(';', (string) $header) as $pair) {
+		$pos = strpos($pair, '=');
+		$name = trim($pos === false ? $pair : substr($pair, 0, $pos));
+		if ($name !== '') {
+			$names[] = $name;
+		}
+	}
+	return $names;
+}
+
+/**
+ * The request headers as they are stored: the values of Cookie,
+ * Authorization and Proxy-Authorization are replaced, the cookie names stay.
+ * Names are cut at 128 bytes, values at 1000.
+ */
+function waf_headers_sanitize($headers)
+{
+	$clean = array();
+	if (!is_array($headers)) {
+		return $clean;
+	}
+	foreach ($headers as $name => $value) {
+		$name = waf_cut((string) $name, 128);
+		$value = is_array($value) ? implode(', ', $value) : (string) $value;
+		$lower = strtolower($name);
+		if ($lower === 'cookie') {
+			$parts = array();
+			foreach (waf_cookie_names($value) as $cookie) {
+				$parts[] = $cookie . '=' . WAF_REMOVED;
+			}
+			$value = implode('; ', $parts);
+		} elseif ($lower === 'authorization' || $lower === 'proxy-authorization') {
+			$value = WAF_REMOVED;
+		}
+		$clean[$name] = waf_cut($value, 1000);
+	}
+	return $clean;
+}
+
+/** CRS rules that only add up and report: 949 and 959 act on the score, 980 correlates. */
+function waf_is_scoring_rule($rule_id)
+{
+	return preg_match('/^(?:949|959|980)\d{3}$/', (string) $rule_id) === 1;
+}
+
+/** The ARGS name a CRS match names ("... found within ARGS:filter: ..."); '' otherwise. */
+function waf_audit_param($data)
+{
+	if (preg_match('/found within ARGS:([A-Za-z0-9_.\[\]-]{1,128})(?::|\s|$)/', (string) $data, $m)) {
+		return $m[1];
+	}
+	return '';
+}
+
+/**
+ * One line of the JSON audit log as a hit, or null for a line that is no
+ * usable entry. tests/waf_audit_sample.log shows the shape ModSecurity 3.0.12
+ * writes.
+ */
+function waf_audit_parse_line($line)
+{
+	$line = trim((string) $line);
+	if ($line === '' || $line[0] !== '{') {
+		return null;
+	}
+	$doc = json_decode(waf_utf8_clean($line), true);
+	if (!is_array($doc) || !isset($doc['transaction']) || !is_array($doc['transaction'])) {
+		return null;
+	}
+	$t = $doc['transaction'];
+	$seen_at = waf_audit_time(isset($t['time_stamp']) ? $t['time_stamp'] : '');
+	$messages = isset($t['messages']) && is_array($t['messages']) ? $t['messages'] : array();
+	if ($seen_at === '' || count($messages) === 0) {
+		return null;
+	}
+
+	$rules = array();
+	$seen = array();
+	$score = 0;
+	$would_block = false;
+	foreach ($messages as $message) {
+		$details = is_array($message) && isset($message['details']) && is_array($message['details'])
+			? $message['details'] : array();
+		$rule_id = isset($details['ruleId']) ? (string) $details['ruleId'] : '';
+		if (!preg_match('/^[0-9]{1,9}$/', $rule_id)) {
+			continue;
+		}
+		$text = isset($message['message']) ? (string) $message['message'] : '';
+		if ($rule_id === '949110') {
+			$would_block = true;
+			if (preg_match('/Total Score:\s*(\d+)/', $text, $m)) {
+				$score = max($score, (int) $m[1]);
+			}
+		}
+		if (isset($seen[$rule_id]) || count($rules) >= 50) {
+			continue;
+		}
+		$seen[$rule_id] = true;
+		$data = isset($details['data']) ? (string) $details['data'] : '';
+		$rules[] = array(
+			'id' => $rule_id,
+			'msg' => waf_cut($text, 255),
+			'data' => waf_cut($data, 300),
+			'param' => waf_audit_param($data),
+		);
+	}
+	if (count($rules) === 0) {
+		return null;
+	}
+
+	$request = isset($t['request']) && is_array($t['request']) ? $t['request'] : array();
+	$response = isset($t['response']) && is_array($t['response']) ? $t['response'] : array();
+	$headers = isset($request['headers']) && is_array($request['headers']) ? $request['headers'] : array();
+	$uri = isset($request['uri']) ? (string) $request['uri'] : '';
+	$query = strpos($uri, '?');
+	$path = $query === false ? $uri : substr($uri, 0, $query);
+
+	$logged_in = false;
+	foreach (waf_cookie_names(waf_audit_header($headers, 'Cookie')) as $name) {
+		if (strpos($name, 'wordpress_logged_in_') === 0) {
+			$logged_in = true;
+		}
+	}
+	$client_ip = isset($t['client_ip']) ? (string) $t['client_ip'] : '';
+	$unique_id = isset($t['unique_id']) ? (string) $t['unique_id'] : '';
+	if (!preg_match('/^[A-Za-z0-9.@_-]{1,64}$/', $unique_id)) {
+		// Without an id of its own the line names itself, so a second read of
+		// the same line still finds its row.
+		$unique_id = 'sha1-' . sha1($line);
+	}
+	$method = isset($request['method']) ? strtoupper((string) $request['method']) : '';
+
+	return array(
+		'unique_id' => $unique_id,
+		'seen_at' => $seen_at,
+		'client_ip' => filter_var($client_ip, FILTER_VALIDATE_IP) !== false ? $client_ip : '',
+		'host' => waf_host_normalize(waf_audit_header($headers, 'Host')),
+		'method' => substr(preg_replace('/[^A-Z]/', '', $method), 0, 10),
+		'uri' => waf_cut(waf_utf8_clean($uri), 2048),
+		'path' => waf_cut(waf_utf8_clean($path), 1024),
+		'status' => isset($response['http_code']) ? (int) $response['http_code'] : 0,
+		'rules' => $rules,
+		'anomaly_score' => $score,
+		'would_block' => $would_block,
+		'logged_in' => $logged_in,
+		'headers' => waf_headers_sanitize($headers),
+		'body' => isset($request['body']) ? waf_cut((string) $request['body'], 1048576) : null,
+		'response_body' => isset($response['body']) ? (string) $response['body'] : null,
+	);
+}
+
+/** Hits per host and rule for waf-report, the most first. Scoring rules are left out. */
+function waf_audit_summarize($lines)
+{
+	$groups = array();
+	foreach ($lines as $line) {
+		$hit = waf_audit_parse_line($line);
+		if ($hit === null) {
+			continue;
+		}
+		foreach ($hit['rules'] as $rule) {
+			if (waf_is_scoring_rule($rule['id'])) {
+				continue;
+			}
+			$key = $hit['host'] . '|' . $rule['id'];
+			if (!isset($groups[$key])) {
+				$groups[$key] = array('host' => $hit['host'], 'rule_id' => $rule['id'],
+					'message' => $rule['msg'], 'hits' => 0, 'example' => $hit['path']);
+			}
+			$groups[$key]['hits']++;
+		}
+	}
+	$report = array_values($groups);
+	usort($report, function ($a, $b) {
+		if ($a['hits'] === $b['hits']) {
+			return strcmp($a['host'] . '|' . $a['rule_id'], $b['host'] . '|' . $b['rule_id']);
+		}
+		return $b['hits'] - $a['hits'];
+	});
+	return $report;
+}
+
+/** Where reading starts: 0 for another file (inode) or one that shrank (copytruncate). */
+function waf_reader_start($stored_inode, $stored_offset, $inode, $size)
+{
+	$stored_offset = max(0, (int) $stored_offset);
+	if ((int) $stored_inode !== (int) $inode || (int) $size < $stored_offset) {
+		return 0;
+	}
+	return $stored_offset;
+}
+
+/**
+ * Up to $max_lines complete lines from $offset on. A last line without its
+ * line break stays for the next run. Returns array('lines', 'offset', 'more')
+ * or null when the file cannot be opened.
+ */
+function waf_read_lines($file, $offset, $max_lines)
+{
+	$handle = @fopen($file, 'rb');
+	if ($handle === false) {
+		return null;
+	}
+	$offset = (int) $offset;
+	$lines = array();
+	$more = false;
+	if (fseek($handle, $offset) === 0) {
+		while (true) {
+			$line = fgets($handle);
+			if ($line === false || substr($line, -1) !== "\n") {
+				break;
+			}
+			if (count($lines) >= $max_lines) {
+				$more = true;
+				break;
+			}
+			$offset += strlen($line);
+			$lines[] = rtrim($line, "\r\n");
+		}
+	}
+	fclose($handle);
+	return array('lines' => $lines, 'offset' => $offset, 'more' => $more);
+}
