@@ -108,3 +108,6 @@ c:server/conf/malwatch_client_upgrade_notification_en.txt:server/conf/malwatch_c
 
 # Shared helper for the interface pages.
 c:interface/lib/malwatch_lib.inc.php:interface/web/security/lib/malwatch_lib.inc.php
+# Pure functions of the WAF part; the server class and the tools under waf/
+# include them from this installed path.
+c:interface/lib/malwatch_waf_lib.inc.php:interface/web/security/lib/malwatch_waf_lib.inc.php

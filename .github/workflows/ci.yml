@@ -45,6 +45,8 @@ jobs:
         run: php ispconfig/tests/upgrade_offers_test.php
       - name: Panel helpers
         run: php ispconfig/tests/panel_helpers_test.php
+      - name: WAF functions
+        run: php ispconfig/tests/waf_lib_test.php
 
   clean-cms:
     # The counter-check that matters: a freshly downloaded WordPress and
