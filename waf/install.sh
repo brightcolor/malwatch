@@ -16,6 +16,11 @@ done
 install -o root -g root -m 644 conf/logrotate-waf /etc/logrotate.d/waf
 
 install -d -o www-data -g adm -m 750 /var/log/waf
+# Das Audit-Log entsteht beim ersten Laden der Regeln als root und wäre sonst für
+# alle lesbar. Es enthält Formularinhalte, deshalb gleich einengen.
+[ -f /var/log/waf/audit.log ] || install -o root -g adm -m 600 /dev/null /var/log/waf/audit.log
+chown root:adm /var/log/waf/audit.log
+chmod 600 /var/log/waf/audit.log
 install -d -o www-data -g root -m 750 /var/cache/waf
 install -d -o root -g root -m 700 /var/backups/waf-schalter
 
