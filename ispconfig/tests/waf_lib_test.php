@@ -334,6 +334,172 @@ $hit_items = array(
 expect_same('preview site_param', waf_exception_preview($hit_items, array('scope' => 'site_param', 'parent_domain_id' => 12, 'rule_id' => '942100', 'path' => '', 'param' => 'q')), array('covered' => 2, 'total' => 3));
 expect_same('preview site_param with path', waf_exception_preview($hit_items, array('scope' => 'site_param', 'parent_domain_id' => 12, 'rule_id' => '942100', 'path' => '/suche', 'param' => 'q')), array('covered' => 1, 'total' => 3));
 
+// --- A4: settings, decisions, files ------------------------------------------
+
+$defaults = waf_settings(null);
+expect_same('default detail days', $defaults['waf_detail_days'], 7);
+expect_same('default stats days', $defaults['waf_stats_days'], 90);
+expect_same('default response body', $defaults['waf_response_body'], 'full');
+expect_same('default conf dir', $defaults['waf_conf_dir'], '/etc/nginx/waf');
+expect_same('default emergency', array($defaults['waf_emergency'], $defaults['waf_emergency_since']), array('n', null));
+expect_same('keys', array_keys($defaults), array_keys(waf_settings_defaults()));
+$custom = waf_settings(array('waf_detail_days' => '30', 'waf_stats_days' => '0', 'waf_ingest_max_lines' => '999999',
+	'waf_response_body' => 'lean', 'waf_emergency' => 'y', 'waf_emergency_since' => '2026-09-16 21:00:00',
+	'waf_conf_dir' => '/etc/nginx/waf/', 'waf_audit_log' => '/var/log/../etc/passwd', 'waf_job_deadline_minutes' => ''));
+expect_same('custom days', $custom['waf_detail_days'], 30);
+expect_same('days held to the minimum', $custom['waf_stats_days'], 1);
+expect_same('lines held to the maximum', $custom['waf_ingest_max_lines'], 100000);
+expect_same('empty value takes the default', $custom['waf_job_deadline_minutes'], 5);
+expect_same('lean kept', $custom['waf_response_body'], 'lean');
+expect_same('emergency kept', array($custom['waf_emergency'], $custom['waf_emergency_since']), array('y', '2026-09-16 21:00:00'));
+expect_same('closing slash dropped', $custom['waf_conf_dir'], '/etc/nginx/waf');
+expect_same('path with dots refused', $custom['waf_audit_log'], '/var/log/waf/audit.log');
+$odd = waf_settings(array('waf_response_body' => 'schlank', 'waf_conf_dir' => '//'));
+expect_same('odd mode refused', $odd['waf_response_body'], 'full');
+expect_same('root dir refused', $odd['waf_conf_dir'], '/etc/nginx/waf');
+
+expect_same('free from', waf_enforce_free_from('2026-09-16 13:20:15', 7), '2026-09-23 13:20:15');
+expect_same('free from over the clock change', waf_enforce_free_from('2026-10-20 12:00:00', 7), '2026-10-27 12:00:00');
+expect_same('free from without date', waf_enforce_free_from(null, 7), '');
+expect_same('free from zero date', waf_enforce_free_from('0000-00-00 00:00:00', 7), '');
+expect_same('enforce allowed', waf_enforce_block_reason('detect', '2026-09-16 13:20:15', '2026-09-23 13:20:15', 7, 'n'), '');
+expect_same('enforce too early', waf_enforce_block_reason('detect', '2026-09-16 13:20:15', '2026-09-23 13:20:14', 7, 'n'), 'too_early');
+expect_same('enforce from off', waf_enforce_block_reason('off', '', '2026-09-23 13:20:15', 7, 'n'), 'not_detect');
+expect_same('enforce during emergency', waf_enforce_block_reason('detect', '2026-09-01 00:00:00', '2026-09-23 13:20:15', 7, 'y'), 'emergency');
+expect_same('enforce again', waf_enforce_block_reason('enforce', '2026-09-01 00:00:00', '2026-09-23 13:20:15', 7, 'n'), '');
+expect_same('enforce without waiting time', waf_enforce_block_reason('detect', '2026-09-23 13:20:15', '2026-09-23 13:20:15', 0, 'n'), '');
+expect_same('detect without date', waf_enforce_block_reason('detect', null, '2026-09-23 13:20:15', 7, 'n'), 'too_early');
+
+expect_same('periods', waf_periods(90), array(1, 7, 30, 90));
+expect_same('periods of a short keep', waf_periods(10), array(1, 7));
+expect_same('periods of one day', waf_periods(1), array(1));
+expect_same('period chosen', waf_period('30', 90), 30);
+expect_same('period unknown', waf_period('14', 90), 7);
+expect_same('period beyond the keep', waf_period(90, 10), 7);
+expect_same('period of one day', waf_period(7, 1), 1);
+
+$rotate = waf_logrotate_text(14, '/var/log/waf/audit.log');
+expect_same('logrotate path', strpos($rotate, "\n/var/log/waf/audit.log {\n") !== false, true);
+expect_same('logrotate keep', strpos($rotate, "\trotate 14\n") !== false, true);
+expect_same('logrotate copytruncate', strpos($rotate, "\tcopytruncate\n") !== false, true);
+expect_same('logrotate minimum', strpos(waf_logrotate_text(0, '/x'), "\trotate 1\n") !== false, true);
+
+$web = array('domain_id' => 11, 'domain' => 'beispiel.test', 'type' => 'vhost', 'server_id' => 1, 'nginx_directives' => $own);
+$web_detect = array_merge($web, array('nginx_directives' => $set));
+$site_detect = array('waf_state' => 'detect', 'waf_state_since' => '2026-09-01 10:00:00');
+$now = '2026-09-16 12:00:00';
+$plan = waf_site_plan($web, null, 'detect', 'set', 1, 'off', $now, $defaults);
+expect_same('plan writes', array($plan['action'], $plan['text'], $plan['target']), array('write', $set, 'detect'));
+$plan = waf_site_plan(null, null, 'detect', 'set', 1, 'off', $now, $defaults);
+expect_same('plan missing website', array($plan['action'], $plan['reason']), array('skip', 'not_found'));
+$plan = waf_site_plan(array_merge($web, array('type' => 'alias')), null, 'detect', 'set', 1, 'off', $now, $defaults);
+expect_same('plan alias', $plan['reason'], 'not_found');
+$plan = waf_site_plan($web, null, 'detect', 'set', 2, 'off', $now, $defaults);
+expect_same('plan other server', $plan['reason'], 'other_server');
+$plan = waf_site_plan($web, null, 'an', 'set', 1, 'off', $now, $defaults);
+expect_same('plan unknown state', $plan['reason'], 'state');
+$plan = waf_site_plan($web, null, 'enforce', 'set', 1, 'off', $now, $defaults);
+expect_same('plan enforce from off', $plan['reason'], 'not_detect');
+$plan = waf_site_plan($web_detect, $site_detect, 'enforce', 'set', 1, 'detect', $now, $defaults);
+expect_same('plan enforce after waiting', array($plan['action'], $plan['text']), array('write', $enforced));
+$plan = waf_site_plan($web_detect, $site_detect, 'enforce', 'set', 1, 'detect', $now, $custom);
+expect_same('plan enforce during emergency', $plan['reason'], 'emergency');
+$plan = waf_site_plan($web_detect, $site_detect, 'detect', 'set', 1, 'detect', $now, $defaults);
+expect_same('plan confirms a match', $plan['action'], 'confirm');
+$plan = waf_site_plan($web_detect, $site_detect, 'detect', 'set', 1, 'off', $now, $defaults);
+expect_same('plan waits for ISPConfig', $plan['action'], 'wait');
+$plan = waf_site_plan(array_merge($web, array('nginx_directives' => $old_field)), null, '', 'keep', 1, 'detect', $now, $defaults);
+expect_same('plan rewrites the old marker', array($plan['action'], $plan['target'], $plan['text']), array('write', 'detect', $set));
+$plan = waf_site_plan($web_detect, null, '', 'keep', 1, 'detect', $now, $defaults);
+expect_same('plan keeps a new marker', array($plan['action'], $plan['target']), array('confirm', 'detect'));
+$plan = waf_site_plan($web, null, '', 'keep', 1, 'off', $now, $defaults);
+expect_same('plan keep without block', array($plan['action'], $plan['target']), array('confirm', 'off'));
+$plan = waf_site_plan(array_merge($web, array('nginx_directives' => $enforced)), null, '', 'keep', 1, 'enforce', $now, $custom);
+expect_same('plan keep does not ask for enforce', $plan['action'], 'confirm');
+
+$entry = array('target' => 'detect');
+expect_same('progress confirmed', waf_site_progress($entry, 'detect', false, false), 'confirmed');
+expect_same('progress waiting', waf_site_progress($entry, 'off', false, false), 'waiting');
+expect_same('progress overdue', waf_site_progress($entry, 'off', false, true), 'failed:deadline');
+expect_same('progress rejected', waf_site_progress($entry, 'detect', true, false), 'failed:rejected');
+expect_same('rollback allowed', waf_rollback_allowed($set, sha1($set)), true);
+expect_same('rollback refused', waf_rollback_allowed($set . "# edited\n", sha1($set)), false);
+expect_same('rollback without hash', waf_rollback_allowed('', ''), false);
+
+$tmp = sys_get_temp_dir() . '/waf_test_' . getmypid();
+waf_remove_dir($tmp);
+mkdir($tmp . '/conf', 0777, true);
+file_put_contents($tmp . '/conf/main.conf', 'Include ' . $tmp . "/conf/state.conf\nInclude " . $tmp . "/conf/response-body.conf\n");
+file_put_contents($tmp . '/conf/state.conf', waf_state_file_text(false));
+file_put_contents($tmp . '/conf/response-body.conf', waf_response_body_text('full'));
+file_put_contents($tmp . '/conf/notes.txt', 'no rule file');
+expect_same('conf files', array_map('basename', waf_conf_files($tmp . '/conf')), array('main.conf', 'response-body.conf', 'state.conf'));
+$paths = array('conf_dir' => $tmp . '/conf', 'staging' => $tmp . '/staging/7', 'last_good' => $tmp . '/last-good');
+
+// Stands in for the real commands and records every call.
+$calls = array();
+$answers = array();
+$run = function ($name, $argument) use (&$calls, &$answers) {
+	$calls[] = $name;
+	if ($name === 'rules_check') {
+		// The check must read the staged copy, never the live file.
+		$calls[] = strpos((string) file_get_contents($argument), '/staging/7/state.conf') !== false ? 'staged' : 'live';
+	}
+	return isset($answers[$name]) ? $answers[$name] : array(0, '');
+};
+
+$result = waf_apply_files($paths, array('state.conf' => waf_state_file_text(true)), $run);
+expect_same('apply ok', $result, array('ok' => true, 'reason' => '', 'detail' => ''));
+expect_same('apply order', $calls, array('rules_check', 'staged', 'nginx_test', 'nginx_reload', 'nginx_active'));
+expect_same('apply wrote', waf_state_file_is_emergency(file_get_contents($tmp . '/conf/state.conf')), true);
+expect_same('apply snapshot', file_get_contents($tmp . '/last-good/state.conf'), waf_state_file_text(true));
+expect_same('apply cleaned up', is_dir($tmp . '/staging/7'), false);
+
+$calls = array();
+$result = waf_apply_files($paths, array('state.conf' => waf_state_file_text(true)), $run);
+expect_same('apply without change', array($result['ok'], $result['reason'], $calls), array(true, 'unchanged', array()));
+
+$calls = array();
+$answers = array('rules_check' => array(1, 'Rules error. File: state.conf. Line: 3.'));
+$result = waf_apply_files($paths, array('state.conf' => "SecRuleEngine Broken\n"), $run);
+expect_same('rules check refuses', $result, array('ok' => false, 'reason' => 'rules_check', 'detail' => 'Rules error. File: state.conf. Line: 3.'));
+expect_same('nothing touched after the check', $calls, array('rules_check', 'staged'));
+expect_same('live file unchanged', waf_state_file_is_emergency(file_get_contents($tmp . '/conf/state.conf')), true);
+
+$calls = array();
+$answers = array('nginx_test' => array(1, 'nginx: [emerg] test failed'));
+$result = waf_apply_files($paths, array('state.conf' => waf_state_file_text(false)), $run);
+expect_same('nginx -t refuses', $result['reason'], 'nginx_test');
+expect_same('no reload after a failed test', in_array('nginx_reload', $calls, true), false);
+expect_same('old file back', waf_state_file_is_emergency(file_get_contents($tmp . '/conf/state.conf')), true);
+expect_same('snapshot unchanged', waf_state_file_is_emergency(file_get_contents($tmp . '/last-good/state.conf')), true);
+
+$calls = array();
+$answers = array('nginx_active' => array(3, 'inactive'));
+$result = waf_apply_files($paths, array('state.conf' => waf_state_file_text(false)), $run);
+expect_same('inactive after reload', array($result['reason'], $calls), array('nginx_inactive',
+	array('rules_check', 'staged', 'nginx_test', 'nginx_reload', 'nginx_active', 'nginx_start')));
+expect_same('old file back after inactive', waf_state_file_is_emergency(file_get_contents($tmp . '/conf/state.conf')), true);
+
+$answers = array();
+$result = waf_apply_files($paths, array('exclusions-panel-before.conf' => "# x\n"), $run);
+expect_same('missing file refused', $result['reason'], 'missing_file');
+$result = waf_apply_files($paths, array('main.conf' => "# x\n"), $run);
+expect_same('main.conf refused', $result['reason'], 'bad_name');
+$result = waf_apply_files($paths, array('../main.conf' => "# x\n"), $run);
+expect_same('path in the name refused', $result['reason'], 'bad_name');
+
+file_put_contents($tmp . '/conf/state.conf', "broken\n");
+expect_same('restore snapshot', waf_restore_snapshot($tmp . '/last-good', $tmp . '/conf'), array('state.conf'));
+expect_same('restored content', waf_state_file_is_emergency(file_get_contents($tmp . '/conf/state.conf')), true);
+expect_same('restore twice changes nothing', waf_restore_snapshot($tmp . '/last-good', $tmp . '/conf'), array());
+expect_same('restore from nothing', waf_restore_snapshot($tmp . '/missing', $tmp . '/conf'), array());
+
+waf_write_atomic($tmp . '/conf/new.conf', "x\n");
+expect_same('atomic write', array(file_get_contents($tmp . '/conf/new.conf'), is_file($tmp . '/conf/new.conf.new')), array("x\n", false));
+waf_remove_dir($tmp);
+expect_same('tree removed', is_dir($tmp), false);
+
 // --- summary -----------------------------------------------------------------
 if ($failures > 0) {
 	fwrite(STDERR, $failures . " Fehler\n");

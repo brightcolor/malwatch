@@ -778,3 +778,389 @@ function waf_exception_preview($items, $exception)
 	}
 	return array('covered' => $covered, 'total' => $total);
 }
+
+// --- Settings ----------------------------------------------------------------
+
+/** The WAF settings in malwatch_config with their defaults. */
+function waf_settings_defaults()
+{
+	return array(
+		'waf_detail_days' => 7,
+		'waf_stats_days' => 90,
+		'waf_log_keep_days' => 7,
+		'waf_preview_days' => 7,
+		'waf_min_detect_days' => 7,
+		'waf_response_body' => 'full',
+		'waf_ingest_max_lines' => 5000,
+		'waf_job_deadline_minutes' => 5,
+		'waf_audit_log' => '/var/log/waf/audit.log',
+		'waf_conf_dir' => '/etc/nginx/waf',
+		'waf_emergency' => 'n',
+		'waf_emergency_since' => null,
+	);
+}
+
+/** The range each number is held to: array(min, max). */
+function waf_settings_limits()
+{
+	return array(
+		'waf_detail_days' => array(1, 3650),
+		'waf_stats_days' => array(1, 3650),
+		'waf_log_keep_days' => array(1, 365),
+		'waf_preview_days' => array(1, 365),
+		'waf_min_detect_days' => array(0, 365),
+		'waf_ingest_max_lines' => array(100, 100000),
+		'waf_job_deadline_minutes' => array(2, 120),
+	);
+}
+
+/**
+ * The WAF settings from a malwatch_config row. A column an older schema lacks,
+ * or an empty value, takes its default; numbers stay within their limits;
+ * the two paths must be plain absolute paths.
+ */
+function waf_settings($row)
+{
+	$row = is_array($row) ? $row : array();
+	$defaults = waf_settings_defaults();
+	$settings = array();
+	foreach ($defaults as $key => $default) {
+		$value = isset($row[$key]) ? $row[$key] : null;
+		$settings[$key] = ($value === null || $value === '') ? $default : $value;
+	}
+	foreach (waf_settings_limits() as $key => $limit) {
+		$settings[$key] = max($limit[0], min($limit[1], (int) $settings[$key]));
+	}
+	if (!waf_response_body_valid($settings['waf_response_body'])) {
+		$settings['waf_response_body'] = $defaults['waf_response_body'];
+	}
+	$settings['waf_emergency'] = $settings['waf_emergency'] === 'y' ? 'y' : 'n';
+	foreach (array('waf_audit_log', 'waf_conf_dir') as $key) {
+		$path = rtrim((string) $settings[$key], '/');
+		if ($path === '' || !preg_match('#^/[A-Za-z0-9._/-]+$#', $path) || preg_match('#(?:^|/)\.\.?(?:/|$)#', $path)) {
+			$path = $defaults[$key];
+		}
+		$settings[$key] = $path;
+	}
+	return $settings;
+}
+
+// --- Decisions ---------------------------------------------------------------
+
+/**
+ * When a website that detects since $since may enforce. Both are wall-clock
+ * times from the database; the arithmetic runs in UTC so a clock change never
+ * moves the result. '' without a date.
+ */
+function waf_enforce_free_from($since, $min_days)
+{
+	$since = (string) $since;
+	if (!preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $since) || $since === '0000-00-00 00:00:00') {
+		return '';
+	}
+	$date = DateTime::createFromFormat('Y-m-d H:i:s', $since, new DateTimeZone('UTC'));
+	if ($date === false) {
+		return '';
+	}
+	$date->modify('+' . max(0, (int) $min_days) . ' days');
+	return $date->format('Y-m-d H:i:s');
+}
+
+/** Why a website may not be switched to enforce now; '' when it may. */
+function waf_enforce_block_reason($state, $since, $now, $min_days, $emergency)
+{
+	if ($emergency === 'y') {
+		return 'emergency';
+	}
+	if ($state === 'enforce') {
+		return '';
+	}
+	if ($state !== 'detect') {
+		return 'not_detect';
+	}
+	$free = waf_enforce_free_from($since, $min_days);
+	if ($free === '' || strcmp((string) $now, $free) < 0) {
+		return 'too_early';
+	}
+	return '';
+}
+
+/** The periods the overview offers, in days, within the time day figures are kept. */
+function waf_periods($stats_days)
+{
+	$periods = array();
+	foreach (array(1, 7, 30, 90) as $days) {
+		if ($days <= max(1, (int) $stats_days)) {
+			$periods[] = $days;
+		}
+	}
+	return $periods;
+}
+
+function waf_period($requested, $stats_days)
+{
+	$periods = waf_periods($stats_days);
+	if (in_array((int) $requested, $periods, true)) {
+		return (int) $requested;
+	}
+	return in_array(7, $periods, true) ? 7 : $periods[count($periods) - 1];
+}
+
+/** Content of /etc/logrotate.d/waf. copytruncate keeps the file ModSecurity holds open. */
+function waf_logrotate_text($keep_days, $audit_log)
+{
+	return "# Managed by malwatch (Abwehr > Einstellungen). Every change here is overwritten.\n"
+		. $audit_log . " {\n"
+		. "\tdaily\n"
+		. "\trotate " . max(1, (int) $keep_days) . "\n"
+		. "\tcompress\n"
+		. "\tdelaycompress\n"
+		. "\tmissingok\n"
+		. "\tnotifempty\n"
+		. "\tcopytruncate\n"
+		. "}\n";
+}
+
+/**
+ * What a job does with one website when it starts. $web is the web_domain
+ * row (domain_id, domain, type, server_id, nginx_directives) or null, $site
+ * the malwatch_site row or null, $vhost_state what the vhost file shows now.
+ * $mode 'keep' rewrites the marker and keeps the state the field names.
+ * action: skip (reason says why), confirm (field and vhost already match),
+ * wait (field matches, vhost not yet), write (store text in the field).
+ */
+function waf_site_plan($web, $site, $target, $mode, $server_id, $vhost_state, $now, $settings)
+{
+	$result = array('action' => 'skip', 'reason' => '', 'text' => '', 'target' => (string) $target);
+	if (!is_array($web) || (string) $web['type'] !== 'vhost') {
+		$result['reason'] = 'not_found';
+		return $result;
+	}
+	if ((int) $web['server_id'] !== (int) $server_id) {
+		$result['reason'] = 'other_server';
+		return $result;
+	}
+	$old = (string) $web['nginx_directives'];
+	if ($mode === 'keep') {
+		$result['target'] = waf_block_state($old);
+	}
+	if (!waf_state_valid($result['target'])) {
+		$result['reason'] = 'state';
+		return $result;
+	}
+	if ($mode !== 'keep' && $result['target'] === 'enforce') {
+		$state = is_array($site) ? (string) $site['waf_state'] : 'off';
+		$since = is_array($site) ? $site['waf_state_since'] : null;
+		$reason = waf_enforce_block_reason($state, $since, $now, $settings['waf_min_detect_days'], $settings['waf_emergency']);
+		if ($reason !== '') {
+			$result['reason'] = $reason;
+			return $result;
+		}
+	}
+	$new = waf_block_set($old, $result['target']);
+	if ($new !== $old) {
+		$result['action'] = 'write';
+		$result['text'] = $new;
+		return $result;
+	}
+	$result['action'] = $vhost_state === $result['target'] ? 'confirm' : 'wait';
+	$result['text'] = $old;
+	return $result;
+}
+
+/**
+ * Where a waiting website stands in a later pass. $rejected: ISPConfig left
+ * a fresh .err next to the vhost; $overdue: the job ran past its deadline.
+ */
+function waf_site_progress($entry, $vhost_state, $rejected, $overdue)
+{
+	if ($rejected) {
+		return 'failed:rejected';
+	}
+	if ($vhost_state === $entry['target']) {
+		return 'confirmed';
+	}
+	return $overdue ? 'failed:deadline' : 'waiting';
+}
+
+/** A failed website gets its old field back only while the field still holds what the job wrote. */
+function waf_rollback_allowed($current_text, $written_hash)
+{
+	return hash_equals((string) $written_hash, sha1((string) $current_text));
+}
+
+// --- Files -------------------------------------------------------------------
+
+/** The .conf files of a directory, sorted; an empty list when there is none. */
+function waf_conf_files($dir)
+{
+	$files = glob(rtrim($dir, '/') . '/*.conf');
+	if (!is_array($files)) {
+		return array();
+	}
+	sort($files);
+	return $files;
+}
+
+/** Writes through a temporary file and rename, mode 0644. */
+function waf_write_atomic($file, $text)
+{
+	$tmp = $file . '.new';
+	if (@file_put_contents($tmp, $text) === false) {
+		return false;
+	}
+	@chmod($tmp, 0644);
+	if (!@rename($tmp, $file)) {
+		@unlink($tmp);
+		return false;
+	}
+	return true;
+}
+
+/** Removes a directory tree. Links are removed, never followed. */
+function waf_remove_dir($dir)
+{
+	if (is_link($dir)) {
+		@unlink($dir);
+		return;
+	}
+	if (!is_dir($dir)) {
+		return;
+	}
+	$items = new RecursiveIteratorIterator(
+		new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS),
+		RecursiveIteratorIterator::CHILD_FIRST);
+	foreach ($items as $item) {
+		if ($item->isLink() || !$item->isDir()) {
+			@unlink($item->getPathname());
+		} else {
+			@rmdir($item->getPathname());
+		}
+	}
+	@rmdir($dir);
+}
+
+/** Copies every .conf of $dir into $target, which is emptied first. */
+function waf_snapshot($dir, $target)
+{
+	waf_remove_dir($target);
+	@mkdir($target, 0700, true);
+	foreach (waf_conf_files($dir) as $file) {
+		copy($file, rtrim($target, '/') . '/' . basename($file));
+	}
+}
+
+/** Puts back every file of the snapshot that differs; returns their names. */
+function waf_restore_snapshot($snapshot, $dir)
+{
+	$restored = array();
+	foreach (waf_conf_files($snapshot) as $file) {
+		$name = basename($file);
+		$target = rtrim($dir, '/') . '/' . $name;
+		$text = (string) file_get_contents($file);
+		if (!is_file($target) || (string) file_get_contents($target) !== $text) {
+			waf_write_atomic($target, $text);
+			$restored[] = $name;
+		}
+	}
+	return $restored;
+}
+
+function waf_apply_result($ok, $reason, $detail)
+{
+	return array('ok' => $ok, 'reason' => $reason, 'detail' => waf_cut(trim((string) $detail), 2000));
+}
+
+function waf_restore_previous($dir, $staging, $names)
+{
+	foreach ($names as $name) {
+		$saved = $staging . '/previous/' . $name;
+		if (is_file($saved)) {
+			waf_write_atomic($dir . '/' . $name, (string) file_get_contents($saved));
+		}
+	}
+}
+
+/**
+ * Replaces managed files in the WAF directory so that nginx never loads a
+ * broken set: copy the directory to staging, write the changes there, check a
+ * main.conf that includes the copy, swap the files by rename, nginx -t,
+ * reload, is-active. A failed check changes nothing; a failed test or reload
+ * puts the previous files back and never reloads. After success the directory
+ * is copied to last_good. Only files that exist are replaced (waf/install.sh
+ * creates all of them), main.conf never. On failure the staging directory
+ * stays for inspection; the hourly cleanup removes it.
+ */
+function waf_apply_files($paths, $changes, $run)
+{
+	$dir = rtrim($paths['conf_dir'], '/');
+	$staging = rtrim($paths['staging'], '/');
+	foreach ($changes as $name => $text) {
+		if ($name === 'main.conf' || !preg_match('/^[a-z0-9][a-z0-9.-]*\.conf$/', (string) $name)) {
+			return waf_apply_result(false, 'bad_name', $name);
+		}
+		if (!is_file($dir . '/' . $name)) {
+			return waf_apply_result(false, 'missing_file', $dir . '/' . $name);
+		}
+	}
+	if (!is_file($dir . '/main.conf')) {
+		return waf_apply_result(false, 'missing_file', $dir . '/main.conf');
+	}
+	foreach ($changes as $name => $text) {
+		if ((string) file_get_contents($dir . '/' . $name) === (string) $text) {
+			unset($changes[$name]);
+		}
+	}
+	if (count($changes) === 0) {
+		return waf_apply_result(true, 'unchanged', '');
+	}
+
+	waf_remove_dir($staging);
+	if (!@mkdir($staging . '/previous', 0700, true)) {
+		return waf_apply_result(false, 'staging', $staging);
+	}
+	foreach (waf_conf_files($dir) as $file) {
+		copy($file, $staging . '/' . basename($file));
+	}
+	foreach ($changes as $name => $text) {
+		file_put_contents($staging . '/' . $name, $text);
+	}
+	$main = str_replace('Include ' . $dir . '/', 'Include ' . $staging . '/', (string) file_get_contents($dir . '/main.conf'));
+	file_put_contents($staging . '/main.check.conf', $main);
+
+	$check = call_user_func($run, 'rules_check', $staging . '/main.check.conf');
+	if ($check[0] !== 0) {
+		return waf_apply_result(false, 'rules_check', $check[1]);
+	}
+
+	$names = array_keys($changes);
+	foreach ($names as $name) {
+		copy($dir . '/' . $name, $staging . '/previous/' . $name);
+	}
+	foreach ($changes as $name => $text) {
+		waf_write_atomic($dir . '/' . $name, $text);
+	}
+
+	$test = call_user_func($run, 'nginx_test', '');
+	if ($test[0] !== 0) {
+		waf_restore_previous($dir, $staging, $names);
+		return waf_apply_result(false, 'nginx_test', $test[1]);
+	}
+	$reload = call_user_func($run, 'nginx_reload', '');
+	if ($reload[0] !== 0) {
+		waf_restore_previous($dir, $staging, $names);
+		return waf_apply_result(false, 'nginx_reload', $reload[1]);
+	}
+	$active = call_user_func($run, 'nginx_active', '');
+	if ($active[0] !== 0) {
+		// nginx went away after a reload that passed its test. The previous
+		// files go back and nginx gets one start; waf-guard reports the rest.
+		waf_restore_previous($dir, $staging, $names);
+		call_user_func($run, 'nginx_start', '');
+		return waf_apply_result(false, 'nginx_inactive', $active[1]);
+	}
+
+	waf_snapshot($dir, $paths['last_good']);
+	waf_remove_dir($staging);
+	return waf_apply_result(true, '', '');
+}
