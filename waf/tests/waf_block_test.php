@@ -57,6 +57,19 @@ $ohne_umbruch = "client_max_body_size 64M;";
 $mit_block = waf_block_setzen($ohne_umbruch, 'mitschreiben');
 expect_same('Umbruch ergänzt', $mit_block, $ohne_umbruch . "\n" . $block_mit);
 
+// Zustand aus dem erzeugten vhost lesen.
+// ISPConfig übernimmt die Direktiven, wirft dabei aber Kommentarzeilen heraus.
+// Im vhost fehlt die Markierung deshalb, dort zählt allein die Direktive.
+$vhost_aus = "server {\n    listen 443 ssl;\n    server_name beispiel.test;\n}\n";
+$vhost_mit = "server {\n    listen 443 ssl;\n    modsecurity on;\n}\n";
+$vhost_scharf = "server {\n    listen 443 ssl;\n    modsecurity on;\n    modsecurity_rules 'SecRuleEngine On';\n}\n";
+expect_same('vhost ohne WAF', waf_vhost_zustand($vhost_aus), 'aus');
+expect_same('vhost mitschreiben', waf_vhost_zustand($vhost_mit), 'mitschreiben');
+expect_same('vhost scharf', waf_vhost_zustand($vhost_scharf), 'scharf');
+expect_same('vhost mit auskommentierter Direktive', waf_vhost_zustand("server {\n    # modsecurity on;\n}\n"), 'aus');
+expect_same('vhost mit abgeschalteter Direktive', waf_vhost_zustand("server {\n    modsecurity off;\n}\n"), 'aus');
+expect_same('leerer vhost', waf_vhost_zustand(''), 'aus');
+
 // Gültige Zustände
 expect_same('gültig: aus', waf_zustand_gueltig('aus'), true);
 expect_same('gültig: mitschreiben', waf_zustand_gueltig('mitschreiben'), true);

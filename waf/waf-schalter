@@ -13,6 +13,13 @@
  */
 require '/usr/local/lib/waf/waf_block.inc.php';
 
+// PHP läuft sonst in UTC, dann trägt der Sicherungsordner eine andere Uhrzeit als
+// die Meldungen des Servers.
+$zeitzone = @trim(@file_get_contents('/etc/timezone'));
+if ($zeitzone !== '') {
+	@date_default_timezone_set($zeitzone);
+}
+
 $SICHERUNG = '/var/backups/waf-schalter';
 $ZUSTANDSDATEI = '/etc/nginx/waf/zustand.conf';
 $VHOSTS = '/etc/nginx/sites-available';
@@ -43,7 +50,8 @@ function vhost_zustand($domain)
 	if (!is_file($datei)) {
 		return 'ohne vhost';
 	}
-	return waf_block_zustand(file_get_contents($datei));
+	// Im vhost fehlt die Markierung, weil ISPConfig Kommentare herauswirft.
+	return waf_vhost_zustand(file_get_contents($datei));
 }
 
 function nginx_pruefen()

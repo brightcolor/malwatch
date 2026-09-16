@@ -62,3 +62,36 @@ function waf_block_zustand($text)
 	}
 	return 'aus';
 }
+
+/**
+ * Liest den Zustand aus einer erzeugten vhost-Datei.
+ *
+ * ISPConfig übernimmt die Direktiven aus dem Feld „nginx-Direktiven", wirft dabei
+ * aber Kommentarzeilen heraus. Die Markierung steht deshalb nur in der Datenbank.
+ * Im vhost zählt allein die Direktive selbst.
+ */
+function waf_vhost_zustand($vhost)
+{
+	$zeilen = preg_split("/\R/", (string)$vhost);
+	$an = false;
+	$scharf = false;
+	foreach ($zeilen as $zeile) {
+		$zeile = trim($zeile);
+		if ($zeile === '' || $zeile[0] === '#') {
+			continue;
+		}
+		if (preg_match('/^modsecurity\s+on\s*;/i', $zeile)) {
+			$an = true;
+		}
+		if (preg_match('/^modsecurity_rules\s+.*SecRuleEngine\s+On/i', $zeile)) {
+			$scharf = true;
+		}
+	}
+	if ($scharf && $an) {
+		return 'scharf';
+	}
+	if ($an) {
+		return 'mitschreiben';
+	}
+	return 'aus';
+}
