@@ -286,10 +286,14 @@ Ein POST-Endpunkt für alle Knöpfe. Prüft Adminrechte und CSRF, prüft die Ein
 legt Zeilen an und reiht Aufträge über `datalogInsert('malwatch_job', …)` ein. Antwort
 als JSON für die Seiten.
 
-### Einstellungen
+### Einstellungen — `malwatch_waf_config_edit.php`
 
-Neuer Reiter „Abwehr" in `malwatch_config.tform.php` mit den Einstellungen aus
-Abschnitt 5. Speichern reiht einen Auftrag `apply_settings` ein.
+Eine eigene Seite mit eigener Formulardefinition
+`form/malwatch_waf_config.tform.php` auf derselben Zeile von `malwatch_config`,
+erreichbar über „Einstellungen" auf der Übersicht. Die bestehende
+Einstellungsseite bleibt unverändert, sie trägt bereits eigene Abläufe beim
+Speichern. Felder: die Einstellungen aus Abschnitt 5 ohne Lesestand und Notaus.
+Speichern reiht einen Auftrag `apply_settings` ein.
 
 ### Klartext für Regeln
 
@@ -396,19 +400,28 @@ Die Notiz gelangt nie in eine Regeldatei.
 4. `nginx -t`. Bei Erfolg `systemctl reload nginx`, danach `systemctl is-active nginx`.
 5. Scheitert Schritt 2 oder 4: gesicherte Dateien zurück, **kein** Reload, Auftrag
    `error` mit Grund im Klartext, betroffene Ausnahmen auf `error`.
+6. Nach jedem Erfolg wird der Inhalt von `waf_conf_dir` nach
+   `<state_dir>/waf/last-good/` kopiert.
+
+Alle verwalteten Dateien legt `waf/install.sh` an. Ein Auftrag tauscht nur
+vorhandene Dateien aus; so bleibt beim Zurücknehmen immer eine gültige
+Konfiguration stehen.
 
 ### Notaus
 
 - `on`: `state.conf` mit `SecRuleEngine Off` über den Ablauf oben, Reload, danach je
   Website mit `enforce` ein `set_state` auf `detect`. `waf_emergency = y`.
-- `hard`: zusätzlich alle Websites auf `off`; gedacht für den Fall, dass das Modul
-  fehlt.
+- `hard`: für den Fall, dass das Modul fehlt. `/etc/nginx/conf.d/waf.conf` wird nach
+  `waf.conf.off` umbenannt, alle Websites bekommen `off`. Die Prüfung mit `nginx -t`
+  entfällt dabei je Website und läuft einmal am Ende des Auftrags, gefolgt vom
+  Reload. Wieder eingeschaltet wird über `waf/install.sh`.
 - `off`: `state.conf` leeren, Reload, `waf_emergency = n`.
 
 ### Seitenantwort
 
 `response-body.conf` mit `waf_response_body_text(mode)` über den Ablauf oben;
-`waf_response_body` in `malwatch_config` nachführen.
+`waf_response_body` in `malwatch_config` nachführen. Die Regel im Modus `lean`
+trägt die ID 10199 und liegt damit unter dem Bereich der Ausnahmen.
 
 ### Einstellungen übernehmen
 
@@ -425,9 +438,11 @@ von `set_state` auf die neue um, Zustand unverändert.
 - `waf-switch` ruft `malwatch_waf` auf. `status`, `set`, `probe`, `emergency on|off
   [--hard]`, `restore <ordner>`, `response-body full|lean|status`. Notaus und
   Seitenantwort laufen sofort, ohne auf den Cron zu warten.
-- `waf-guard` stündlich über `hc-run waf-guard`: `nginx -t`; bei einem Fehler mit Bezug
-  zur WAF Notaus, bei unbekannter Direktive Notaus `--hard`; außerdem Aufträge über der
-  Frist auf `error` setzen und zurücknehmen.
+- `waf-guard` stündlich über `hc-run waf-guard`: `nginx -t`. Meldet der Test eine
+  unbekannte Direktive `modsecurity`, folgt Notaus `--hard`. Nennt er eine Datei unter
+  `waf_conf_dir`, stellt der Wächter `last-good` wieder her, prüft erneut und lädt neu.
+  Außerdem verarbeitet er hängende Aufträge wie der Cron, damit deren Frist auch ohne
+  Cron greift.
 - `waf-report` gibt die Tabelle aus `waf_audit_summarize()` aus.
 
 ### Umstellung von den alten Namen
@@ -450,7 +465,8 @@ von `set_state` auf die neue um, Zustand unverändert.
   Eingabeprüfung. Getestet in `ispconfig/tests/waf_lib_test.php`.
 - `ispconfig/server/lib/classes/malwatch_waf.inc.php`: Einlesen, Aufräumen, Aufträge,
   Dateiänderungen. Bindet die reinen Funktionen über
-  `/usr/local/ispconfig/interface/lib/malwatch_waf_lib.inc.php` ein.
+  `/usr/local/ispconfig/interface/web/security/lib/malwatch_waf_lib.inc.php` ein;
+  dort legt `install/file.list` die Datei ab, wie `malwatch_lib.inc.php`.
 - `waf/lib/` entfällt; `waf-switch` und `waf-report` binden dieselbe Datei ein.
 
 ## 12. Sicherheit und Datenschutz
