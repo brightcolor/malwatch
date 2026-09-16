@@ -212,6 +212,128 @@ expect_same('read past the end', waf_read_lines($log, 6, 10), array('lines' => a
 unlink($log);
 expect_same('read a missing file', waf_read_lines($log, 0, 10), null);
 
+// --- A3: host map and exceptions ---------------------------------------------
+
+$rows = array(
+	array('domain_id' => 11, 'parent_domain_id' => 0, 'type' => 'vhost', 'domain' => 'beispiel.test', 'subdomain' => 'www', 'active' => 'y'),
+	array('domain_id' => 12, 'parent_domain_id' => 0, 'type' => 'vhost', 'domain' => 'zweite.test', 'subdomain' => '*', 'active' => 'y'),
+	array('domain_id' => 13, 'parent_domain_id' => 0, 'type' => 'vhost', 'domain' => 'aus.test', 'subdomain' => 'none', 'active' => 'n'),
+	array('domain_id' => 21, 'parent_domain_id' => 11, 'type' => 'alias', 'domain' => 'Alias-Beispiel.test', 'subdomain' => 'www', 'active' => 'y'),
+	array('domain_id' => 22, 'parent_domain_id' => 11, 'type' => 'vhostsubdomain', 'domain' => 'shop.beispiel.test', 'subdomain' => 'none', 'active' => 'y'),
+	// An alias that claims the name of another website does not win.
+	array('domain_id' => 23, 'parent_domain_id' => 11, 'type' => 'alias', 'domain' => 'zweite.test', 'subdomain' => 'none', 'active' => 'y'),
+	array('domain_id' => 24, 'parent_domain_id' => 0, 'type' => 'alias', 'domain' => 'waise.test', 'subdomain' => 'none', 'active' => 'y'),
+);
+$map = waf_host_map($rows);
+expect_same('lookup vhost', waf_host_lookup($map, 'beispiel.test'), 11);
+expect_same('lookup www', waf_host_lookup($map, 'WWW.beispiel.test:443'), 11);
+expect_same('lookup alias', waf_host_lookup($map, 'alias-beispiel.test'), 11);
+expect_same('lookup alias www', waf_host_lookup($map, 'www.alias-beispiel.test'), 11);
+expect_same('lookup subdomain website', waf_host_lookup($map, 'shop.beispiel.test'), 11);
+expect_same('vhost wins over alias', waf_host_lookup($map, 'zweite.test'), 12);
+expect_same('wildcard', waf_host_lookup($map, 'a.b.zweite.test'), 12);
+expect_same('inactive website', waf_host_lookup($map, 'aus.test'), 0);
+expect_same('alias without parent', waf_host_lookup($map, 'waise.test'), 0);
+expect_same('unknown host', waf_host_lookup($map, 'fremd.test'), 0);
+expect_same('no wildcard for a plain vhost', waf_host_lookup($map, 'x.beispiel.test'), 0);
+expect_same('empty host', waf_host_lookup($map, ''), 0);
+
+$hosts11 = waf_hosts_of($map, 11);
+expect_same('hosts of a website', $hosts11, array(
+	'exact' => array('alias-beispiel.test', 'beispiel.test', 'shop.beispiel.test', 'www.alias-beispiel.test', 'www.beispiel.test'),
+	'wildcard' => array(),
+));
+$hosts12 = waf_hosts_of($map, 12);
+expect_same('hosts with wildcard', $hosts12, array('exact' => array('www.zweite.test', 'zweite.test'), 'wildcard' => array('zweite.test')));
+$pattern12 = '^(?:www\.zweite\.test|zweite\.test|(?:[a-z0-9-]+\.)+zweite\.test)(?::\d+)?$';
+expect_same('pattern', waf_host_pattern($hosts12), $pattern12);
+expect_same('pattern without names', waf_host_pattern(array('exact' => array(), 'wildcard' => array())), '');
+expect_same('pattern skips odd names', waf_host_pattern(array('exact' => array('a"b.test'), 'wildcard' => array())), '');
+expect_same('pattern matches', preg_match('/' . $pattern12 . '/', 'shop.zweite.test:8080'), 1);
+expect_same('pattern rejects', preg_match('/' . $pattern12 . '/', 'zweite.test.fremd.test'), 0);
+
+$ok = array('scope' => 'site_path', 'parent_domain_id' => 11, 'rule_id' => '942100', 'path' => '/wp-admin/admin-ajax.php', 'param' => '');
+$site_row = array('scope' => 'site', 'parent_domain_id' => 11, 'rule_id' => '942100', 'path' => '', 'param' => '');
+$param_row = array('scope' => 'site_param', 'parent_domain_id' => 11, 'rule_id' => '942100', 'path' => '', 'param' => 'filter');
+expect_same('valid site_path', waf_exception_check($ok), '');
+expect_same('valid site', waf_exception_check($site_row), '');
+expect_same('valid site_param', waf_exception_check($param_row), '');
+expect_same('valid all', waf_exception_check(array('scope' => 'all', 'parent_domain_id' => 0, 'rule_id' => '941160', 'path' => '', 'param' => '')), '');
+expect_same('unknown scope', waf_exception_check(array_merge($ok, array('scope' => 'server'))), 'scope');
+expect_same('site scope without website', waf_exception_check(array_merge($ok, array('parent_domain_id' => 0))), 'site');
+expect_same('all scope with website', waf_exception_check(array('scope' => 'all_path', 'parent_domain_id' => 11, 'rule_id' => '942100', 'path' => '/x', 'param' => '')), 'site');
+expect_same('rule id with quote', waf_exception_check(array_merge($ok, array('rule_id' => '942100"'))), 'rule_id');
+expect_same('rule id too short', waf_exception_check(array_merge($ok, array('rule_id' => '12'))), 'rule_id');
+expect_same('own rule', waf_exception_check(array_merge($ok, array('rule_id' => '10010'))), 'rule_id');
+expect_same('scoring rule', waf_exception_check(array_merge($ok, array('rule_id' => '949110'))), 'rule_id');
+expect_same('path with quote', waf_exception_check(array_merge($ok, array('path' => '/a"b'))), 'path');
+expect_same('path with line break', waf_exception_check(array_merge($ok, array('path' => "/a\nSecRuleEngine Off"))), 'path');
+expect_same('path with space', waf_exception_check(array_merge($ok, array('path' => '/a b'))), 'path');
+expect_same('path without slash', waf_exception_check(array_merge($ok, array('path' => 'wp-admin'))), 'path');
+expect_same('path missing', waf_exception_check(array_merge($ok, array('path' => ''))), 'path');
+expect_same('path not allowed for site', waf_exception_check(array_merge($site_row, array('path' => '/x'))), 'path');
+expect_same('param missing', waf_exception_check(array_merge($param_row, array('param' => ''))), 'param');
+expect_same('param with control character', waf_exception_check(array_merge($param_row, array('param' => "a\x00b"))), 'param');
+expect_same('param with comma', waf_exception_check(array_merge($param_row, array('param' => 'a,ctl:ruleEngine=Off'))), 'param');
+expect_same('param not allowed', waf_exception_check(array_merge($ok, array('param' => 'x'))), 'param');
+expect_same('rule id of an exception', waf_exception_rule_id(3), 10203);
+
+$exceptions = array(
+	array('exception_id' => 4, 'scope' => 'all_path', 'parent_domain_id' => 0, 'rule_id' => '941100', 'path' => '/xmlrpc.php', 'param' => '', 'exception_state' => 'active'),
+	array('exception_id' => 1, 'scope' => 'site', 'parent_domain_id' => 12, 'rule_id' => '942100', 'path' => '', 'param' => '', 'exception_state' => 'active'),
+	array('exception_id' => 2, 'scope' => 'site_path', 'parent_domain_id' => 12, 'rule_id' => '942100', 'path' => '/wp-admin/admin-ajax.php', 'param' => '', 'exception_state' => 'pending'),
+	array('exception_id' => 3, 'scope' => 'site_param', 'parent_domain_id' => 12, 'rule_id' => '942100', 'path' => '', 'param' => 'filter', 'exception_state' => 'active'),
+	array('exception_id' => 5, 'scope' => 'all', 'parent_domain_id' => 0, 'rule_id' => '941160', 'path' => '', 'param' => '', 'exception_state' => 'active'),
+	array('exception_id' => 6, 'scope' => 'site_param', 'parent_domain_id' => 12, 'rule_id' => '942100', 'path' => '/suche', 'param' => 'q', 'exception_state' => 'active'),
+	array('exception_id' => 7, 'scope' => 'site', 'parent_domain_id' => 12, 'rule_id' => '942100', 'path' => '', 'param' => '', 'exception_state' => 'removing'),
+	array('exception_id' => 8, 'scope' => 'site', 'parent_domain_id' => 12, 'rule_id' => '10010', 'path' => '', 'param' => '', 'exception_state' => 'active'),
+	array('exception_id' => 9, 'scope' => 'site', 'parent_domain_id' => 99, 'rule_id' => '942100', 'path' => '', 'param' => '', 'exception_state' => 'active'),
+);
+$rules = waf_exception_rules($exceptions, array(12 => $hosts12));
+$host_rule = 'SecRule REQUEST_HEADERS:Host "@rx ' . $pattern12 . '" ';
+$expected_before = "# Managed by malwatch (page Abwehr). Every change here is overwritten.\n"
+	. "# Included before the CRS rules: runtime exclusions (ctl).\n"
+	. "\n# exception 1 (site)\n"
+	. $host_rule . "\"id:10201,phase:1,pass,nolog,t:none,t:lowercase,ctl:ruleRemoveById=942100\"\n"
+	. "\n# exception 2 (site_path)\n"
+	. $host_rule . "\"id:10202,phase:1,pass,nolog,t:none,t:lowercase,chain\"\n"
+	. "    SecRule REQUEST_FILENAME \"@beginsWith /wp-admin/admin-ajax.php\" \"t:none,ctl:ruleRemoveById=942100\"\n"
+	. "\n# exception 3 (site_param)\n"
+	. $host_rule . "\"id:10203,phase:1,pass,nolog,t:none,t:lowercase,ctl:ruleRemoveTargetById=942100;ARGS:filter\"\n"
+	. "\n# exception 4 (all_path)\n"
+	. "SecRule REQUEST_FILENAME \"@beginsWith /xmlrpc.php\" \"id:10204,phase:1,pass,nolog,t:none,ctl:ruleRemoveById=941100\"\n"
+	. "\n# exception 6 (site_param)\n"
+	. $host_rule . "\"id:10206,phase:1,pass,nolog,t:none,t:lowercase,chain\"\n"
+	. "    SecRule REQUEST_FILENAME \"@beginsWith /suche\" \"t:none,ctl:ruleRemoveTargetById=942100;ARGS:q\"\n";
+expect_same('rules before', $rules['before'], $expected_before);
+expect_same('rules after', $rules['after'], "# Managed by malwatch (page Abwehr). Every change here is overwritten.\n"
+	. "# Included after the CRS rules: exclusions for every website.\n"
+	. "\n# exception 5 (all)\nSecRuleRemoveById 941160\n");
+expect_same('rules skipped', $rules['skipped'], array(8 => 'rule_id', 9 => 'site'));
+expect_same('rules are stable', waf_exception_rules(array_reverse($exceptions), array(12 => $hosts12)), $rules);
+$empty = waf_exception_rules(array(), array());
+expect_same('empty files keep their header', array(substr_count($empty['before'], "\n"), substr_count($empty['after'], "\n"), $empty['skipped']), array(2, 2, array()));
+$bad_id = waf_exception_rules(array(array_merge($exceptions[1], array('exception_id' => 0))), array(12 => $hosts12));
+expect_same('bad exception id', $bad_id['skipped'], array(0 => 'exception_id'));
+
+$items = array(
+	array('parent_domain_id' => 12, 'rule_id' => '942100', 'path' => '/wp-admin/admin-ajax.php', 'hits' => 18),
+	array('parent_domain_id' => 12, 'rule_id' => '942100', 'path' => '/kontakt', 'hits' => 3),
+	array('parent_domain_id' => 12, 'rule_id' => '941100', 'path' => '/wp-admin/admin-ajax.php', 'hits' => 5),
+	array('parent_domain_id' => 11, 'rule_id' => '942100', 'path' => '/wp-admin/admin-ajax.php', 'hits' => 7),
+);
+expect_same('preview site_path', waf_exception_preview($items, array('scope' => 'site_path', 'parent_domain_id' => 12, 'rule_id' => '942100', 'path' => '/wp-admin/', 'param' => '')), array('covered' => 18, 'total' => 21));
+expect_same('preview site', waf_exception_preview($items, array('scope' => 'site', 'parent_domain_id' => 12, 'rule_id' => '942100', 'path' => '', 'param' => '')), array('covered' => 21, 'total' => 21));
+expect_same('preview all_path', waf_exception_preview($items, array('scope' => 'all_path', 'parent_domain_id' => 0, 'rule_id' => '942100', 'path' => '/wp-admin/admin-ajax.php', 'param' => '')), array('covered' => 25, 'total' => 28));
+expect_same('preview all', waf_exception_preview($items, array('scope' => 'all', 'parent_domain_id' => 0, 'rule_id' => '941100', 'path' => '', 'param' => '')), array('covered' => 5, 'total' => 5));
+$hit_items = array(
+	array('parent_domain_id' => 12, 'rule_id' => '942100', 'path' => '/suche', 'hits' => 1, 'params' => array('q')),
+	array('parent_domain_id' => 12, 'rule_id' => '942100', 'path' => '/suche', 'hits' => 1, 'params' => array('s')),
+	array('parent_domain_id' => 12, 'rule_id' => '942100', 'path' => '/liste', 'hits' => 1, 'params' => array('q')),
+);
+expect_same('preview site_param', waf_exception_preview($hit_items, array('scope' => 'site_param', 'parent_domain_id' => 12, 'rule_id' => '942100', 'path' => '', 'param' => 'q')), array('covered' => 2, 'total' => 3));
+expect_same('preview site_param with path', waf_exception_preview($hit_items, array('scope' => 'site_param', 'parent_domain_id' => 12, 'rule_id' => '942100', 'path' => '/suche', 'param' => 'q')), array('covered' => 1, 'total' => 3));
+
 // --- summary -----------------------------------------------------------------
 if ($failures > 0) {
 	fwrite(STDERR, $failures . " Fehler\n");

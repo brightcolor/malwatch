@@ -523,3 +523,258 @@ function waf_read_lines($file, $offset, $max_lines)
 	fclose($handle);
 	return array('lines' => $lines, 'offset' => $offset, 'more' => $more);
 }
+
+// --- Websites and their names ------------------------------------------------
+
+/**
+ * Which website a host name belongs to. A vhost always answers to www. as
+ * well; alias and subdomain rows belong to their parent; subdomain '*' makes
+ * a wildcard. Websites come first, so an alias never takes another website's
+ * name. Inactive rows are left out.
+ */
+function waf_host_map($rows)
+{
+	$map = array('exact' => array(), 'wildcard' => array());
+	$groups = array(0 => array(), 1 => array());
+	foreach ($rows as $row) {
+		if ((string) $row['active'] === 'y') {
+			$groups[(string) $row['type'] === 'vhost' ? 0 : 1][] = $row;
+		}
+	}
+	$children = array('alias', 'subdomain', 'vhostalias', 'vhostsubdomain');
+	foreach ($groups as $group) {
+		foreach ($group as $row) {
+			$type = (string) $row['type'];
+			if ($type === 'vhost') {
+				$site = (int) $row['domain_id'];
+			} elseif (in_array($type, $children, true)) {
+				$site = (int) $row['parent_domain_id'];
+			} else {
+				continue;
+			}
+			$domain = waf_host_normalize($row['domain']);
+			if ($site < 1 || $domain === '') {
+				continue;
+			}
+			$sub = isset($row['subdomain']) ? (string) $row['subdomain'] : 'none';
+			$names = array($domain);
+			if ($type === 'vhost' || $sub === 'www') {
+				$names[] = 'www.' . $domain;
+			}
+			foreach ($names as $name) {
+				if (!isset($map['exact'][$name])) {
+					$map['exact'][$name] = $site;
+				}
+			}
+			if ($sub === '*' && !isset($map['wildcard'][$domain])) {
+				$map['wildcard'][$domain] = $site;
+			}
+		}
+	}
+	return $map;
+}
+
+/** The website of a host, 0 when none: the exact name first, then the closest wildcard. */
+function waf_host_lookup($map, $host)
+{
+	$host = waf_host_normalize($host);
+	if ($host === '') {
+		return 0;
+	}
+	if (isset($map['exact'][$host])) {
+		return (int) $map['exact'][$host];
+	}
+	$labels = explode('.', $host);
+	for ($i = 1; $i < count($labels) - 1; $i++) {
+		$parent = implode('.', array_slice($labels, $i));
+		if (isset($map['wildcard'][$parent])) {
+			return (int) $map['wildcard'][$parent];
+		}
+	}
+	return 0;
+}
+
+/** The names of one website, sorted. */
+function waf_hosts_of($map, $site_id)
+{
+	$exact = array_keys($map['exact'], (int) $site_id, true);
+	$wildcard = array_keys($map['wildcard'], (int) $site_id, true);
+	sort($exact);
+	sort($wildcard);
+	return array('exact' => $exact, 'wildcard' => $wildcard);
+}
+
+/**
+ * The pattern for REQUEST_HEADERS:Host in a rule file; the rule lowercases
+ * the header first. Only names that pass waf_host_normalize() get in, so the
+ * dot is the one character to escape. '' when no name is left.
+ */
+function waf_host_pattern($hosts)
+{
+	$parts = array();
+	foreach ($hosts['exact'] as $host) {
+		if (waf_host_normalize($host) === $host) {
+			$parts[] = str_replace('.', '\.', $host);
+		}
+	}
+	foreach ($hosts['wildcard'] as $domain) {
+		if (waf_host_normalize($domain) === $domain) {
+			$parts[] = '(?:[a-z0-9-]+\.)+' . str_replace('.', '\.', $domain);
+		}
+	}
+	if (count($parts) === 0) {
+		return '';
+	}
+	return '^(?:' . implode('|', $parts) . ')(?::\d+)?$';
+}
+
+// --- Exceptions --------------------------------------------------------------
+
+function waf_exception_scopes()
+{
+	return array('site', 'site_path', 'site_param', 'all', 'all_path');
+}
+
+/**
+ * Checks one exception before the panel stores it and again before a job
+ * turns it into a rule. Returns '' or the field that is wrong.
+ */
+function waf_exception_check($row)
+{
+	$scope = isset($row['scope']) ? (string) $row['scope'] : '';
+	$site = isset($row['parent_domain_id']) ? (int) $row['parent_domain_id'] : 0;
+	$rule = isset($row['rule_id']) ? (string) $row['rule_id'] : '';
+	$path = isset($row['path']) ? (string) $row['path'] : '';
+	$param = isset($row['param']) ? (string) $row['param'] : '';
+
+	if (!in_array($scope, waf_exception_scopes(), true)) {
+		return 'scope';
+	}
+	if ((strpos($scope, 'site') === 0) !== ($site > 0)) {
+		return 'site';
+	}
+	// The own rules (10000-10999) keep passwords out of the log and the
+	// server's own requests out of the check; the scoring rules only add up.
+	if (!preg_match('/^[0-9]{3,7}$/', $rule) || waf_is_scoring_rule($rule)
+		|| ((int) $rule >= 10000 && (int) $rule <= 10999)) {
+		return 'rule_id';
+	}
+	$path_needed = $scope === 'site_path' || $scope === 'all_path';
+	if ($path === '' ? $path_needed : (!($path_needed || $scope === 'site_param')
+		|| !preg_match('#^/[A-Za-z0-9._~/%+-]{0,1023}$#', $path))) {
+		return 'path';
+	}
+	if (($scope === 'site_param') !== ($param !== '')
+		|| ($param !== '' && !preg_match('/^[A-Za-z0-9_.\[\]-]{1,128}$/', $param))) {
+		return 'param';
+	}
+	return '';
+}
+
+function waf_exception_rule_id($exception_id)
+{
+	return WAF_RULE_EXCEPTION_BASE + (int) $exception_id;
+}
+
+/**
+ * The two rule files the panel owns: exclusions-panel-before.conf (included
+ * before the CRS rules, runtime ctl actions) and exclusions-panel-after.conf
+ * (after them, SecRuleRemoveById for every website). Only pending and active
+ * rows count, in the order of their ids. A row that fails the check, or whose
+ * website has no name in $hosts, stays out and is listed in 'skipped'. The
+ * note of an exception never reaches a file.
+ */
+function waf_exception_rules($rows, $hosts)
+{
+	$header = "# Managed by malwatch (page Abwehr). Every change here is overwritten.\n";
+	$before = $header . "# Included before the CRS rules: runtime exclusions (ctl).\n";
+	$after = $header . "# Included after the CRS rules: exclusions for every website.\n";
+	$skipped = array();
+
+	usort($rows, function ($a, $b) {
+		return (int) $a['exception_id'] - (int) $b['exception_id'];
+	});
+	foreach ($rows as $row) {
+		$state = isset($row['exception_state']) ? (string) $row['exception_state'] : '';
+		if ($state !== 'pending' && $state !== 'active') {
+			continue;
+		}
+		$id = (int) $row['exception_id'];
+		// CRS owns the ids from 900000 on.
+		$reason = ($id < 1 || waf_exception_rule_id($id) >= 900000) ? 'exception_id' : waf_exception_check($row);
+		if ($reason !== '') {
+			$skipped[$id] = $reason;
+			continue;
+		}
+		$scope = (string) $row['scope'];
+		$rule = (string) $row['rule_id'];
+		$path = (string) $row['path'];
+		$rid = waf_exception_rule_id($id);
+		$title = "\n# exception " . $id . ' (' . $scope . ")\n";
+
+		if ($scope === 'all') {
+			$after .= $title . 'SecRuleRemoveById ' . $rule . "\n";
+			continue;
+		}
+		if ($scope === 'all_path') {
+			$before .= $title . 'SecRule REQUEST_FILENAME "@beginsWith ' . $path . '" "id:' . $rid
+				. ',phase:1,pass,nolog,t:none,ctl:ruleRemoveById=' . $rule . "\"\n";
+			continue;
+		}
+
+		$site = (int) $row['parent_domain_id'];
+		$pattern = isset($hosts[$site]) ? waf_host_pattern($hosts[$site]) : '';
+		if ($pattern === '') {
+			$skipped[$id] = 'site';
+			continue;
+		}
+		$ctl = $scope === 'site_param'
+			? 'ctl:ruleRemoveTargetById=' . $rule . ';ARGS:' . (string) $row['param']
+			: 'ctl:ruleRemoveById=' . $rule;
+		$host_rule = 'SecRule REQUEST_HEADERS:Host "@rx ' . $pattern . '" "id:' . $rid
+			. ',phase:1,pass,nolog,t:none,t:lowercase,';
+		if ($path === '') {
+			$before .= $title . $host_rule . $ctl . "\"\n";
+		} else {
+			$before .= $title . $host_rule . "chain\"\n"
+				. '    SecRule REQUEST_FILENAME "@beginsWith ' . $path . '" "t:none,' . $ctl . "\"\n";
+		}
+	}
+	return array('before' => $before, 'after' => $after, 'skipped' => $skipped);
+}
+
+/**
+ * How many hits an exception would have prevented. total counts the hits of
+ * the rule on the exception's websites (all websites for all and all_path);
+ * covered the part the exception matches. Rows of the day table carry no
+ * params, so site_param needs rows built from single hits.
+ */
+function waf_exception_preview($items, $exception)
+{
+	$scope = (string) $exception['scope'];
+	$site = (int) $exception['parent_domain_id'];
+	$rule = (string) $exception['rule_id'];
+	$path = isset($exception['path']) ? (string) $exception['path'] : '';
+	$param = isset($exception['param']) ? (string) $exception['param'] : '';
+	$per_site = strpos($scope, 'site') === 0;
+	$covered = 0;
+	$total = 0;
+	foreach ($items as $item) {
+		if ((string) $item['rule_id'] !== $rule || ($per_site && (int) $item['parent_domain_id'] !== $site)) {
+			continue;
+		}
+		$hits = (int) $item['hits'];
+		$total += $hits;
+		if ($path !== '' && strpos((string) $item['path'], $path) !== 0) {
+			continue;
+		}
+		if ($scope === 'site_param') {
+			$params = isset($item['params']) && is_array($item['params']) ? $item['params'] : array();
+			if (!in_array($param, $params, true)) {
+				continue;
+			}
+		}
+		$covered += $hits;
+	}
+	return array('covered' => $covered, 'total' => $total);
+}
