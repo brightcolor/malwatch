@@ -58,6 +58,9 @@ $pages = array(
 	// Abwehr: the overview, once with a filter and the day view.
 	'malwatch_waf_list.php',
 	'malwatch_waf_list.php?days=1&state=detect',
+	// Abwehr: the website the run picked, over the longest period on offer.
+	'malwatch_waf_show.php',
+	'malwatch_waf_show.php?days=90',
 	// JSON of the WAF jobs and of an exception preview on the website the run picked.
 	'malwatch_waf_jobs.php',
 	'malwatch_waf_preview.php?exc_scope=site&exc_rule=942100',

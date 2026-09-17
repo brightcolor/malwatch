@@ -208,6 +208,11 @@ $exception = waf_panel_exception_row($wb, array('exception_id' => '4', 'scope' =
 expect_same('exception row for every website', array($exception['site'], $exception['target'], $exception['can_remove']),
 	array('alle Websites', '', false));
 
+// --- B5: day label -----------------------------------------------------------
+
+expect_same('day label', waf_panel_day_label('2026-09-16'), '16.09.2026');
+expect_same('day label of something else', waf_panel_day_label('gestern'), 'gestern');
+
 // --- summary -----------------------------------------------------------------
 if ($failures > 0) {
 	fwrite(STDERR, $failures . " Fehler\n");

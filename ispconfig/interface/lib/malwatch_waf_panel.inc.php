@@ -684,3 +684,9 @@ function waf_panel_preview($app, $wb, $get)
 	$preview = waf_exception_preview($items, $row);
 	return array('valid' => true, 'preview' => $preview, 'text' => waf_panel_preview_text($wb, $preview, $days));
 }
+
+/** A day of the database ('Y-m-d') as 'd.m.Y', without any clock involved. */
+function waf_panel_day_label($day)
+{
+	return preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', (string) $day, $m) ? $m[3] . '.' . $m[2] . '.' . $m[1] : (string) $day;
+}

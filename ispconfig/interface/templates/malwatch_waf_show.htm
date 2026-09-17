@@ -1,0 +1,461 @@
+<tmpl_if name="has_site">
+<div class='page-header'>
+	<h1>{tmpl_var name='domain'} <span class="mw-headchip mw-chip {tmpl_var name='state_class'}">{tmpl_var name='state_label'}</span></h1>
+</div>
+<tmpl_else>
+<div class='page-header'>
+	<h1>{tmpl_var name='show_missing_txt'}</h1>
+</div>
+</tmpl_if>
+
+<tmpl_if name="message">
+	<div class="alert alert-success">{tmpl_var name='message'}</div>
+</tmpl_if>
+<tmpl_if name="error">
+	<div class="alert alert-danger">{tmpl_var name='error'}</div>
+</tmpl_if>
+
+<style>
+/* The rules of the other pages of the addon: muted text through opacity,
+   lines and areas as translucent grey, fixed colours only for accent and
+   alarm. */
+.page-header .mw-headchip{vertical-align:middle;font-size:11px}
+.page-header .mw-chip,#mw-wafsite .mw-chip{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+	padding:2px 7px;border-radius:3px;white-space:nowrap;border:1px solid var(--cic-line-soft,rgba(128,128,128,.35))}
+.page-header .mw-chip.off,#mw-wafsite .mw-chip.off{opacity:.7}
+.page-header .mw-chip.detect,#mw-wafsite .mw-chip.detect{border-color:var(--cic-accent-deep,#a84c0b);color:var(--cic-accent-text,#dd630d)}
+.page-header .mw-chip.enforce,#mw-wafsite .mw-chip.enforce,#mw-wafsite .mw-chip.block{background:var(--cic-bad-deep,#b13116);border-color:var(--cic-bad-deep,#b13116);color:#fff}
+#mw-wafsite .mw-chip.pending{border-style:dashed}
+#mw-wafsite .mw-back{margin:0 0 12px;font-size:13px}
+#mw-wafsite .mw-sec{font-size:15px;font-weight:600;margin:22px 0 8px}
+#mw-wafsite .mw-sub{opacity:.72;font-size:13px;max-width:80ch;margin:0 0 8px}
+#mw-wafsite .mw-card{padding:12px 15px;border:1px solid var(--cic-line-soft,rgba(128,128,128,.35));border-radius:3px;
+	background:var(--cic-raised,rgba(128,128,128,.06))}
+#mw-wafsite .mw-switch{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0}
+#mw-wafsite .mw-muted{opacity:.55}
+#mw-wafsite .mw-preview{margin-top:10px;padding-top:10px;border-top:1px solid var(--cic-line-soft,rgba(128,128,128,.35));font-size:13px}
+#mw-wafsite .mw-preview ul,#mw-wafsite .mw-card ul{margin:4px 0 0;padding-left:18px}
+#mw-wafsite .mw-bar{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin:0 0 8px}
+#mw-wafsite .mw-caption{font-size:12px;opacity:.72;margin-right:4px}
+#mw-wafsite .mw-seg{display:inline-block;padding:3px 9px;border:1px solid var(--cic-line-soft,rgba(128,128,128,.35));
+	border-radius:3px;font-size:12.5px;color:inherit;text-decoration:none}
+#mw-wafsite .mw-seg[aria-current="true"]{border-color:var(--cic-accent,#dd630d);color:var(--cic-accent-text,#dd630d);font-weight:600}
+#mw-wafsite .mw-chart{display:flex;align-items:flex-end;gap:2px;height:96px;padding:4px 0;
+	border-bottom:1px solid var(--cic-line-soft,rgba(128,128,128,.35))}
+#mw-wafsite .mw-col{flex:1 1 0;min-width:2px;height:100%;display:flex;align-items:flex-end}
+#mw-wafsite .mw-hitbar{width:100%;display:flex;align-items:flex-end;background:var(--cic-accent,#dd630d);opacity:.85;border-radius:2px 2px 0 0}
+#mw-wafsite .mw-blockbar{width:100%;background:var(--cic-bad-deep,#b13116)}
+#mw-wafsite .mw-plot{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:2px 6px}
+#mw-wafsite .mw-yaxis{display:flex;flex-direction:column;justify-content:space-between;align-items:flex-end;padding:2px 0;
+	font-size:11px;line-height:1;opacity:.72;font-variant-numeric:tabular-nums}
+#mw-wafsite .mw-xaxis{grid-column:2;display:flex;justify-content:space-between;font-size:11px;opacity:.72;font-variant-numeric:tabular-nums}
+#mw-wafsite .mw-rules{display:flex;flex-direction:column;gap:8px}
+#mw-wafsite .mw-rule{padding:10px 14px;border:1px solid var(--cic-line-soft,rgba(128,128,128,.35));border-radius:3px}
+#mw-wafsite .mw-rulehead{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline}
+#mw-wafsite .mw-ruletitle{font-weight:600}
+#mw-wafsite .mw-dim{opacity:.72;font-size:12.5px}
+#mw-wafsite .mw-mono{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:12px;word-break:break-all}
+#mw-wafsite .mw-rulebtn{margin-left:auto}
+#mw-wafsite .table-wrapper{overflow-x:auto}
+#mw-wafsite .table{table-layout:auto}
+#mw-wafsite .table > thead > tr > th,
+#mw-wafsite .table > tbody > tr > td{padding:6px 10px;vertical-align:top}
+#mw-wafsite td.num{font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right}
+#mw-wafsite th.num{text-align:right}
+#mw-wafsite details.mw-hit{border:1px solid var(--cic-line-soft,rgba(128,128,128,.35));border-radius:3px;margin:0 0 6px}
+#mw-wafsite details.mw-hit > summary{cursor:pointer;padding:8px 12px;display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline;list-style:none}
+#mw-wafsite details.mw-hit > summary::-webkit-details-marker{display:none}
+#mw-wafsite details.mw-hit > summary:focus-visible{outline:2px solid var(--cic-accent,#dd630d);outline-offset:-2px}
+#mw-wafsite .mw-hitbody{padding:8px 12px 12px;border-top:1px solid var(--cic-line-soft,rgba(128,128,128,.35));display:flex;flex-direction:column;gap:8px}
+#mw-wafsite .mw-hitreq{min-width:0;flex:1 1 30ch}
+#mw-wafsite pre.mw-body{max-height:18em;overflow:auto;white-space:pre-wrap;word-break:break-all;margin:0;font-size:12px}
+#mw-wafsite .mw-failed{color:var(--cic-bad-text,#d13f22)}
+#mw-wafsite .mw-jobs{margin:0 0 14px;padding:10px 14px;border:1px solid var(--cic-line-soft,rgba(128,128,128,.35));
+	border-left:3px solid var(--cic-accent,#dd630d);border-radius:3px;font-size:13px}
+#mw-wafsite .mw-jobs ul{margin:4px 0 0;padding-left:18px}
+#mw-wafsite #mw-exc{scroll-margin-top:80px}
+#mw-wafsite .mw-form{display:grid;grid-template-columns:minmax(10ch,max-content) minmax(0,1fr);gap:8px 14px;align-items:center;max-width:70ch}
+#mw-wafsite .mw-form label{margin:0;font-weight:400}
+#mw-wafsite .mw-form [hidden]{display:none!important}
+#mw-wafsite .mw-scopes{display:flex;flex-wrap:wrap;gap:4px 14px}
+#mw-wafsite .mw-scopes label{display:inline-flex;gap:6px;align-items:center}
+#mw-wafsite .mw-previewline{min-height:1.5em;font-size:13px}
+#mw-wafsite input[type=radio]{accent-color:var(--cic-accent,#dd630d)}
+@media (max-width:560px){#mw-wafsite .mw-form{grid-template-columns:1fr}}
+</style>
+
+<tmpl_if name="has_site">
+<div id="mw-wafsite" data-mw-jobs="security/malwatch_waf_jobs.php?since={tmpl_var name='first_job'}"
+	data-mw-self="{tmpl_var name='self_href'}"
+	data-mw-preview="security/malwatch_waf_preview.php?id={tmpl_var name='domain_id'}">
+
+<p class="mw-back"><a href="#" data-load-content="security/malwatch_waf_list.php">{tmpl_var name='show_back_txt'}</a></p>
+
+<!--
+	No form of our own: the panel wraps the content area in pageForm. The
+	buttons name their action in waf_action; the exception form below lives in
+	the same form.
+-->
+<input type="hidden" name="waf_action" id="mw-waf-action" value="" />
+<input type="hidden" name="waf_target" id="mw-waf-target" value="" />
+<input type="hidden" name="waf_site" value="{tmpl_var name='domain_id'}" />
+<input type="hidden" name="waf_exception" id="mw-waf-exception" value="" />
+<input type="hidden" name="id" value="{tmpl_var name='domain_id'}" />
+<input type="hidden" name="days" value="{tmpl_var name='days'}" />
+
+<tmpl_if name="has_jobs">
+<div class="mw-jobs" id="mw-waf-jobs" aria-live="polite">
+	<strong>{tmpl_var name='jobs_head_txt'}</strong>
+	<ul>
+		<tmpl_loop name="jobs"><li>{tmpl_var name='job_line'}</li></tmpl_loop>
+	</ul>
+</div>
+</tmpl_if>
+
+<div class="mw-card">
+	<strong>{tmpl_var name='state_head_txt'}</strong>
+	<span class="mw-dim">{tmpl_var name='state_line'}</span>
+	<tmpl_if name="is_pending"><span class="mw-chip pending">{tmpl_var name='state_pending_txt'}</span></tmpl_if>
+	<div class="mw-switch">
+		<tmpl_if name="is_off"><tmpl_else>
+		<button class="btn btn-default formbutton-default" type="button"
+			data-mw-confirm="{tmpl_var name='confirm_set_off_txt'}" data-mw-title="{tmpl_var name='btn_set_off_txt'}"
+			data-mw-ok="{tmpl_var name='btn_set_off_txt'}" data-mw-set-mw-waf-action="state" data-mw-set-mw-waf-target="off"
+			data-submit-form="pageForm" data-form-action="security/malwatch_waf_show.php">{tmpl_var name='btn_set_off_txt'}</button>
+		</tmpl_if>
+		<tmpl_if name="is_detect"><tmpl_else>
+		<button class="btn btn-default formbutton-default" type="button"
+			data-mw-confirm="{tmpl_var name='confirm_set_detect_txt'}" data-mw-title="{tmpl_var name='btn_set_detect_txt'}"
+			data-mw-ok="{tmpl_var name='btn_set_detect_txt'}" data-mw-set-mw-waf-action="state" data-mw-set-mw-waf-target="detect"
+			data-submit-form="pageForm" data-form-action="security/malwatch_waf_show.php">{tmpl_var name='btn_set_detect_txt'}</button>
+		</tmpl_if>
+		<tmpl_if name="is_enforce"><tmpl_else>
+		<tmpl_if name="enforce_allowed">
+		<button class="btn btn-danger" type="button"
+			data-mw-confirm="{tmpl_var name='confirm_set_enforce_txt'}" data-mw-title="{tmpl_var name='btn_set_enforce_txt'}"
+			data-mw-ok="{tmpl_var name='btn_set_enforce_txt'}" data-mw-danger="1" data-mw-detail="{tmpl_var name='preview_line'}"
+			data-mw-set-mw-waf-action="state" data-mw-set-mw-waf-target="enforce"
+			data-submit-form="pageForm" data-form-action="security/malwatch_waf_show.php">{tmpl_var name='btn_set_enforce_txt'}</button>
+		<tmpl_else>
+		<button class="btn btn-default formbutton-default mw-muted" type="button" data-mw-empty="1"
+			data-mw-hint="{tmpl_var name='enforce_hint'}"
+			data-submit-form="pageForm" data-form-action="security/malwatch_waf_show.php">{tmpl_var name='btn_set_enforce_txt'}</button>
+		</tmpl_if>
+		</tmpl_if>
+	</div>
+	<tmpl_if name="is_enforce"><tmpl_else>
+	<div class="mw-preview">
+		<strong>{tmpl_var name='preview_head_txt'}</strong>
+		<div>{tmpl_var name='preview_line'}</div>
+		<tmpl_if name="has_block_rules">
+		<div class="mw-dim">{tmpl_var name='preview_rules_txt'}</div>
+		<ul><tmpl_loop name="block_rules"><li>{tmpl_var name='rule_line'}</li></tmpl_loop></ul>
+		</tmpl_if>
+		<tmpl_if name="enforce_allowed"><tmpl_else><div class="mw-dim">{tmpl_var name='enforce_hint'}</div></tmpl_if>
+	</div>
+	</tmpl_if>
+</div>
+
+<p class="mw-sec">{tmpl_var name='history_head_txt'}</p>
+<div class="mw-bar">
+	<span class="mw-caption">{tmpl_var name='period_txt'}</span>
+	<tmpl_loop name="periods"><a class="mw-seg" href="#" data-load-content="{tmpl_var name='href'}"<tmpl_if name="current"> aria-current="true"</tmpl_if>>{tmpl_var name='label'}</a></tmpl_loop>
+</div>
+<div class="mw-plot">
+	<div class="mw-yaxis" aria-hidden="true"><span>{tmpl_var name='chart_max'}</span><span>0</span></div>
+	<div class="mw-chart" role="img" aria-label="{tmpl_var name='history_legend_txt'}">
+		<tmpl_loop name="bars"><span class="mw-col" title="{tmpl_var name='bar_title'}"><span class="mw-hitbar" style="height:{tmpl_var name='hit_pct'}%"><span class="mw-blockbar" style="height:{tmpl_var name='block_pct'}%"></span></span></span></tmpl_loop>
+	</div>
+	<div class="mw-xaxis" aria-hidden="true"><span>{tmpl_var name='chart_first'}</span><span>{tmpl_var name='chart_last'}</span></div>
+</div>
+<p class="mw-sub">{tmpl_var name='history_legend_txt'}</p>
+
+<p class="mw-sec">{tmpl_var name='rules_head_txt'}</p>
+<tmpl_if name="has_rules">
+<div class="mw-rules">
+	<tmpl_loop name="rules">
+	<div class="mw-rule">
+		<div class="mw-rulehead">
+			<span class="mw-ruletitle">{tmpl_var name='rule_title'}</span>
+			<span class="mw-dim mw-mono">{tmpl_var name='rule_id'}</span>
+			<span class="mw-dim">{tmpl_var name='rule_line'}</span>
+			<span class="mw-dim">{tmpl_var name='rule_last'}</span>
+			<tmpl_if name="can_except">
+			<button class="btn btn-default formbutton-default btn-xs mw-rulebtn" type="button" data-mw-except="1"
+				data-rule="{tmpl_var name='rule_id'}" data-path="{tmpl_var name='first_path'}" data-param="">{tmpl_var name='btn_except_txt'}</button>
+			<tmpl_else>
+			<span class="mw-dim mw-rulebtn">{tmpl_var name='rule_own_txt'}</span>
+			</tmpl_if>
+		</div>
+		<div class="mw-dim">{tmpl_var name='rule_paths_txt'}</div>
+		<ul>
+			<tmpl_loop name="rule_paths"><li><span class="mw-mono">{tmpl_var name='path'}</span> <span class="mw-dim">{tmpl_var name='path_hits'}</span></li></tmpl_loop>
+		</ul>
+		<tmpl_if name="more_paths"><div class="mw-dim">{tmpl_var name='more_paths'}</div></tmpl_if>
+		<details><summary class="mw-dim">{tmpl_var name='rule_why_txt'}</summary><div class="mw-mono">{tmpl_var name='rule_msg'}</div></details>
+	</div>
+	</tmpl_loop>
+</div>
+<tmpl_else>
+<p class="mw-sub">{tmpl_var name='rules_none_txt'}</p>
+</tmpl_if>
+
+<tmpl_if name="has_paths">
+<p class="mw-sec">{tmpl_var name='paths_head_txt'}</p>
+<div class="table-wrapper">
+<table class="table">
+	<thead class="dark">
+		<tr><th>{tmpl_var name='col_path_txt'}</th><th class="num">{tmpl_var name='col_hits_txt'}</th><th>{tmpl_var name='col_rules_txt'}</th></tr>
+	</thead>
+	<tbody>
+		<tmpl_loop name="paths">
+		<tr><td class="mw-mono">{tmpl_var name='path'}</td><td class="num">{tmpl_var name='path_hits'}</td><td class="mw-mono">{tmpl_var name='path_rules'}</td></tr>
+		</tmpl_loop>
+	</tbody>
+</table>
+</div>
+</tmpl_if>
+
+<p class="mw-sec">{tmpl_var name='hits_head_txt'}</p>
+<tmpl_if name="has_hits">
+<p class="mw-sub">{tmpl_var name='hits_limit'}</p>
+<tmpl_loop name="hits">
+<details class="mw-hit">
+	<summary>
+		<span class="mw-dim">{tmpl_var name='hit_time'}</span>
+		<span class="mw-mono">{tmpl_var name='hit_ip'}</span>
+		<span class="mw-mono mw-hitreq">{tmpl_var name='hit_request'}</span>
+		<span class="mw-dim mw-mono">{tmpl_var name='hit_ids'}</span>
+		<span class="mw-dim">{tmpl_var name='hit_score'}</span>
+		<tmpl_if name="hit_block"><span class="mw-chip block">{tmpl_var name='hit_block_txt'}</span></tmpl_if>
+		<tmpl_if name="hit_logged_in"><span class="mw-chip detect">{tmpl_var name='hit_logged_in_txt'}</span></tmpl_if>
+	</summary>
+	<div class="mw-hitbody">
+		<div class="mw-dim">{tmpl_var name='hit_status'}</div>
+		<div>
+			<strong>{tmpl_var name='hit_rules_txt'}</strong>
+			<ul><tmpl_loop name="hit_rules"><li>{tmpl_var name='hit_rule'}<tmpl_if name="hit_rule_param"> · <span class="mw-mono">{tmpl_var name='hit_rule_param'}</span></tmpl_if>
+				<span class="mw-dim mw-mono">{tmpl_var name='hit_rule_data'}</span></li></tmpl_loop></ul>
+		</div>
+		<div class="table-wrapper">
+			<strong>{tmpl_var name='hit_headers_txt'}</strong>
+			<table class="table"><tbody>
+				<tmpl_loop name="hit_headers"><tr><td class="mw-mono">{tmpl_var name='header_name'}</td><td class="mw-mono">{tmpl_var name='header_value'}</td></tr></tmpl_loop>
+			</tbody></table>
+		</div>
+		<div>
+			<strong>{tmpl_var name='hit_body_txt'}</strong>
+			<tmpl_if name="has_body"><pre class="mw-body mw-mono">{tmpl_var name='hit_body'}</pre><tmpl_else><div class="mw-dim">{tmpl_var name='hit_body_none_txt'}</div></tmpl_if>
+		</div>
+		<div class="mw-switch">
+			<tmpl_if name="has_response">
+			<a class="btn btn-default formbutton-default btn-xs" href="security/malwatch_waf_response.php?hit={tmpl_var name='hit_id'}" target="_blank" rel="noopener">{tmpl_var name='btn_response_txt'}</a>
+			<span class="mw-dim">{tmpl_var name='response_size'}</span>
+			</tmpl_if>
+			<tmpl_if name="can_except">
+			<button class="btn btn-default formbutton-default btn-xs" type="button" data-mw-except="1"
+				data-rule="{tmpl_var name='prefill_rule'}" data-path="{tmpl_var name='prefill_path'}" data-param="{tmpl_var name='prefill_param'}">{tmpl_var name='btn_except_txt'}</button>
+			</tmpl_if>
+		</div>
+	</div>
+</details>
+</tmpl_loop>
+<tmpl_else>
+<p class="mw-sub">{tmpl_var name='hits_none_txt'}</p>
+</tmpl_if>
+
+<p class="mw-sec">{tmpl_var name='exceptions_head_txt'}</p>
+<tmpl_if name="has_exceptions">
+<div class="table-wrapper">
+<table class="table">
+	<thead class="dark">
+		<tr>
+			<th>{tmpl_var name='form_rule_txt'}</th>
+			<th>{tmpl_var name='col_scope_txt'}</th>
+			<th>{tmpl_var name='col_target_txt'}</th>
+			<th>{tmpl_var name='col_note_txt'}</th>
+			<th>{tmpl_var name='col_exc_state_txt'}</th>
+			<th>{tmpl_var name='col_created_txt'}</th>
+			<th>&nbsp;</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tmpl_loop name="exceptions">
+		<tr>
+			<td class="mw-mono">{tmpl_var name='exc_rule'}</td>
+			<td>{tmpl_var name='exc_scope'}</td>
+			<td class="mw-mono">{tmpl_var name='exc_target'}</td>
+			<td>{tmpl_var name='exc_note'}</td>
+			<td<tmpl_if name="exc_failed"> class="mw-failed"</tmpl_if>>{tmpl_var name='exc_state'}<tmpl_if name="exc_error"><div class="mw-dim">{tmpl_var name='exc_error'}</div></tmpl_if></td>
+			<td class="mw-dim">{tmpl_var name='exc_created'}</td>
+			<td><tmpl_if name="can_remove">
+				<button class="btn btn-danger btn-xs" type="button"
+					data-mw-confirm="{tmpl_var name='confirm_exception_remove_txt'}" data-mw-title="{tmpl_var name='btn_exception_remove_txt'}"
+					data-mw-ok="{tmpl_var name='btn_exception_remove_txt'}" data-mw-danger="1"
+					data-mw-set-mw-waf-action="exception_remove" data-mw-set-mw-waf-exception="{tmpl_var name='exception_id'}"
+					data-submit-form="pageForm" data-form-action="security/malwatch_waf_show.php">{tmpl_var name='btn_exception_remove_txt'}</button>
+			</tmpl_if></td>
+		</tr>
+		</tmpl_loop>
+	</tbody>
+</table>
+</div>
+<tmpl_else>
+<p class="mw-sub">{tmpl_var name='exceptions_none_txt'}</p>
+</tmpl_if>
+
+<p class="mw-sec">{tmpl_var name='form_head_txt'}</p>
+<div class="mw-card" id="mw-exc">
+	<p class="mw-sub">{tmpl_var name='form_intro_txt'}</p>
+	<input type="hidden" name="exc_site" value="{tmpl_var name='domain_id'}" />
+	<div class="mw-form">
+		<span>{tmpl_var name='form_scope_txt'}</span>
+		<div class="mw-scopes">
+			<tmpl_loop name="scopes"><label><input type="radio" name="exc_scope" value="{tmpl_var name='scope'}"<tmpl_if name="checked"> checked</tmpl_if> /> {tmpl_var name='scope_label'}</label></tmpl_loop>
+		</div>
+		<label for="mw-exc-rule">{tmpl_var name='form_rule_txt'}</label>
+		<input class="form-control" type="text" name="exc_rule" id="mw-exc-rule" value="" maxlength="7" inputmode="numeric" autocomplete="off" />
+		<label for="mw-exc-path" id="mw-exc-path-label">{tmpl_var name='form_path_txt'}</label>
+		<input class="form-control" type="text" name="exc_path" id="mw-exc-path" value="" maxlength="1024" autocomplete="off" />
+		<label for="mw-exc-param" id="mw-exc-param-label" hidden>{tmpl_var name='form_param_txt'}</label>
+		<input class="form-control" type="text" name="exc_param" id="mw-exc-param" value="" maxlength="128" autocomplete="off" hidden />
+		<label for="mw-exc-note">{tmpl_var name='form_note_txt'}</label>
+		<input class="form-control" type="text" name="exc_note" id="mw-exc-note" value="" maxlength="255" autocomplete="off" />
+	</div>
+	<p class="mw-previewline" id="mw-exc-preview" aria-live="polite" data-wait="{tmpl_var name='preview_wait_txt'}"></p>
+	<button class="btn btn-default formbutton-default" type="button"
+		data-mw-confirm="{tmpl_var name='confirm_exception_add_txt'}" data-mw-title="{tmpl_var name='btn_exception_add_txt'}"
+		data-mw-ok="{tmpl_var name='btn_exception_add_txt'}" data-mw-set-mw-waf-action="exception_add"
+		data-submit-form="pageForm" data-form-action="security/malwatch_waf_show.php">{tmpl_var name='btn_exception_add_txt'}</button>
+</div>
+
+</div>
+
+<script>
+(function () {
+	var root = document.getElementById('mw-wafsite');
+	var form = document.getElementById('mw-exc');
+	if (!root || !form) { return; }
+	var rule = document.getElementById('mw-exc-rule');
+	var path = document.getElementById('mw-exc-path');
+	var param = document.getElementById('mw-exc-param');
+	var preview = document.getElementById('mw-exc-preview');
+	var parts = {
+		path: [document.getElementById('mw-exc-path-label'), path],
+		param: [document.getElementById('mw-exc-param-label'), param]
+	};
+	var waiting = null;
+	var asked = 0;
+
+	function scope() {
+		var checked = form.querySelector('input[name="exc_scope"]:checked');
+		return checked ? checked.value : '';
+	}
+
+	// Path and parameter only show where the scope uses them.
+	function arrange() {
+		var s = scope();
+		var showPath = s === 'site_path' || s === 'site_param' || s === 'all_path';
+		parts.path[0].hidden = !showPath;
+		parts.path[1].hidden = !showPath;
+		parts.param[0].hidden = s !== 'site_param';
+		parts.param[1].hidden = s !== 'site_param';
+	}
+
+	function load() {
+		if (!document.contains(root)) { return; }
+		if (rule.value === '') { preview.textContent = ''; return; }
+		var number = ++asked;
+		preview.textContent = preview.getAttribute('data-wait');
+		var xhr = new XMLHttpRequest();
+		xhr.open('GET', root.getAttribute('data-mw-preview')
+			+ '&exc_scope=' + encodeURIComponent(scope())
+			+ '&exc_rule=' + encodeURIComponent(rule.value)
+			+ '&exc_path=' + encodeURIComponent(path.value)
+			+ '&exc_param=' + encodeURIComponent(param.value), true);
+		xhr.onload = function () {
+			if (number !== asked || !document.contains(root)) { return; }
+			var data = null;
+			try { data = JSON.parse(xhr.responseText); } catch (e) { preview.textContent = ''; return; }
+			preview.textContent = data && data.text ? data.text : '';
+		};
+		xhr.send();
+	}
+
+	function update() {
+		arrange();
+		if (waiting) { clearTimeout(waiting); }
+		waiting = setTimeout(load, 300);
+	}
+
+	// "Ausnahme …" fills the form from a rule or a request and moves to it.
+	root.addEventListener('click', function (event) {
+		var button = event.target.closest ? event.target.closest('[data-mw-except]') : null;
+		if (!button) { return; }
+		event.preventDefault();
+		rule.value = button.getAttribute('data-rule') || '';
+		path.value = button.getAttribute('data-path') || '';
+		param.value = button.getAttribute('data-param') || '';
+		var wanted = param.value !== '' ? 'site_param' : (path.value !== '' ? 'site_path' : 'site');
+		var radio = form.querySelector('input[name="exc_scope"][value="' + wanted + '"]');
+		if (radio) { radio.checked = true; }
+		update();
+		var still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+		form.scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: 'start' });
+		rule.focus({ preventScroll: true });
+	});
+
+	form.addEventListener('input', update);
+	form.addEventListener('change', update);
+	// Enter stays in the field; the form goes out through its button and the question.
+	form.addEventListener('keydown', function (event) {
+		if (event.key === 'Enter' && event.target.tagName === 'INPUT') { event.preventDefault(); }
+	});
+	arrange();
+})();
+
+(function () {
+	// Follows running jobs like the overview and fetches the page once when none is left.
+	var root = document.getElementById('mw-wafsite');
+	var box = document.getElementById('mw-waf-jobs');
+	if (!root || !box) { return; }
+	var timer = null;
+	function stop() { if (timer) { clearInterval(timer); timer = null; } }
+	var host = document.getElementById('pageContent');
+	if (host && window.MutationObserver) {
+		new MutationObserver(function () {
+			if (!document.contains(root)) { stop(); }
+		}).observe(host, { childList: true, subtree: true });
+	}
+	function refresh() {
+		stop();
+		if (window.ISPConfig && document.contains(root)) {
+			ISPConfig.loadContent(root.getAttribute('data-mw-self'));
+		}
+	}
+	function poll() {
+		if (!document.contains(root)) { stop(); return; }
+		var xhr = new XMLHttpRequest();
+		xhr.open('GET', root.getAttribute('data-mw-jobs'), true);
+		xhr.onload = function () {
+			if (!document.contains(root)) { stop(); return; }
+			var data = null;
+			try { data = JSON.parse(xhr.responseText); } catch (e) { return; }
+			if (!data || !data.jobs) { return; }
+			var list = box.querySelector('ul');
+			while (list && list.firstChild) { list.removeChild(list.firstChild); }
+			for (var i = 0; list && i < data.jobs.length; i++) {
+				var item = document.createElement('li');
+				item.textContent = data.jobs[i].label + ': ' + data.jobs[i].status_label + (data.jobs[i].log ? ' – ' + data.jobs[i].log : '');
+				list.appendChild(item);
+			}
+			if (data.running === 0) { refresh(); }
+		};
+		xhr.send();
+	}
+	timer = setInterval(poll, 5000);
+})();
+</script>
+
+<tmpl_include file="templates/malwatch_modal.htm">
+</tmpl_if>

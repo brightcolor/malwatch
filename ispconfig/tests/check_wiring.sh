@@ -1153,6 +1153,26 @@ else
 	fail "interface/templates/malwatch_waf_list.htm fehlt"
 fi
 
+# 57. Die Seite einer Website traegt das Ausnahmeformular im Formular des
+#     Panels: ein Dialog am Ende von <body> schickte seine Felder nie mit. Die
+#     Vorschau kommt aus malwatch_waf_preview.php, die Seitenantwort oeffnet
+#     malwatch_waf_response.php in einem eigenen Fenster.
+show_tpl="$root/interface/templates/malwatch_waf_show.htm"
+if [ -f "$show_tpl" ]; then
+	for field in exc_site exc_scope exc_rule exc_path exc_param exc_note; do
+		grep -q "name=\"$field\"" "$show_tpl" || fail "malwatch_waf_show.htm hat kein Feld $field"
+	done
+	grep -q 'data-mw-preview="security/malwatch_waf_preview.php' "$show_tpl" \
+		|| fail "malwatch_waf_show.htm holt die Vorschau nicht aus malwatch_waf_preview.php"
+	grep -q 'href="security/malwatch_waf_response.php?hit=[^"]*" target="_blank" rel="noopener"' "$show_tpl" \
+		|| fail "malwatch_waf_show.htm oeffnet die Seitenantwort nicht in einem eigenen Fenster"
+	if grep -q 'class="[^"]*mw-modal[^"]*"[^>]*>[^<]*<[^>]*name="exc_' "$show_tpl"; then
+		fail "malwatch_waf_show.htm legt Felder der Ausnahme in einen Dialog"
+	fi
+else
+	fail "interface/templates/malwatch_waf_show.htm fehlt"
+fi
+
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'
 fi
