@@ -39,7 +39,7 @@ foreach (file(__DIR__ . '/fixtures/crs-3.3.5-pl1-rule-ids.txt') as $line) {
 expect_same('fixture size', count($ids), 170);
 
 // The groups the catalog covers so far; the following tasks add theirs.
-$covered = array('910', '911', '912', '913', '920', '921', '922');
+$covered = array('910', '911', '912', '913', '920', '921', '922', '930', '931', '932', '933', '934', '944');
 $all_groups = array('910', '911', '912', '913', '920', '921', '922', '930', '931', '932', '933', '934',
 	'941', '942', '943', '944', '949', '950', '951', '952', '953', '954', '959', '980');
 
