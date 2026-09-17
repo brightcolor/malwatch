@@ -792,7 +792,7 @@ function waf_origin_choices()
 	return array(
 		'waf_origin_geo' => array('off', 'dbip', 'maxmind'),
 		'waf_origin_tor' => array('off', 'torproject'),
-		'waf_origin_net' => array('off', 'x4b'),
+		'waf_origin_net' => array('off', 'x4b', 'proxycheck'),
 	);
 }
 
@@ -817,6 +817,8 @@ function waf_settings_defaults()
 		'waf_origin_maxmind_key' => '',
 		'waf_origin_tor' => 'off',
 		'waf_origin_net' => 'off',
+		'waf_origin_proxycheck_key' => '',
+		'waf_origin_proxycheck_daily' => 500,
 		'waf_origin_tor_hours' => 1,
 		'waf_origin_list_hours' => 24,
 		'waf_origin_db_hours' => 24,
@@ -838,6 +840,7 @@ function waf_settings_limits()
 		'waf_origin_tor_hours' => array(1, 168),
 		'waf_origin_list_hours' => array(1, 720),
 		'waf_origin_db_hours' => array(1, 720),
+		'waf_origin_proxycheck_daily' => array(1, 100000),
 	);
 }
 
@@ -880,6 +883,10 @@ function waf_settings($row)
 		? (string) $settings['waf_origin_maxmind_account'] : '';
 	$settings['waf_origin_maxmind_key'] = preg_match('/^[A-Za-z0-9_]{0,128}$/', (string) $settings['waf_origin_maxmind_key'])
 		? (string) $settings['waf_origin_maxmind_key'] : '';
+	// proxycheck.io hands out keys of letters, digits and hyphens; the key
+	// travels in the address of the request.
+	$settings['waf_origin_proxycheck_key'] = preg_match('/^[A-Za-z0-9-]{0,128}$/', (string) $settings['waf_origin_proxycheck_key'])
+		? (string) $settings['waf_origin_proxycheck_key'] : '';
 	return $settings;
 }
 

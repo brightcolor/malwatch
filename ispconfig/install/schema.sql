@@ -996,8 +996,35 @@ CREATE TABLE IF NOT EXISTS `malwatch_waf_origin_source` (
   `entries` int(11) unsigned NOT NULL DEFAULT '0',
   `error` varchar(255) NOT NULL DEFAULT '',
   `error_at` datetime DEFAULT NULL,
+  `day` date DEFAULT NULL,
+  `queries` int(11) unsigned NOT NULL DEFAULT '0',
   PRIMARY KEY (`server_id`,`source`)
 ) DEFAULT CHARSET=utf8mb4 ;
+
+-- proxycheck.io comes with 0.22.0: its key, its daily limit and the value
+-- `proxycheck` for the choice of the network.
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_config` ADD COLUMN `waf_origin_proxycheck_key` varchar(128) NOT NULL DEFAULT '''', ADD COLUMN `waf_origin_proxycheck_daily` int(11) unsigned NOT NULL DEFAULT ''500''',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_config' AND COLUMN_NAME = 'waf_origin_proxycheck_key');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_config` MODIFY COLUMN `waf_origin_net` enum(''off'',''x4b'',''proxycheck'') NOT NULL DEFAULT ''off''',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_config' AND COLUMN_NAME = 'waf_origin_net'
+    AND COLUMN_TYPE LIKE '%''proxycheck''%');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- The day and the queries of that day; only proxycheck.io fills them.
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_waf_origin_source` ADD COLUMN `day` date DEFAULT NULL, ADD COLUMN `queries` int(11) unsigned NOT NULL DEFAULT ''0''',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_waf_origin_source' AND COLUMN_NAME = 'day');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 --
 -- One row per server and address: what the range files said and, later, what

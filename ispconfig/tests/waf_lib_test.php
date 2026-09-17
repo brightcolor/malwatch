@@ -535,7 +535,7 @@ expect_same('hours inside their limits', array($origin['waf_origin_tor_hours'], 
 	$origin['waf_origin_db_hours']), array(1, 720, 48));
 expect_same('account and key kept', array($origin['waf_origin_maxmind_account'], $origin['waf_origin_maxmind_key']),
 	array('123456', 'AbC_123'));
-$origin = waf_settings(array('waf_origin_geo' => 'irgendwas', 'waf_origin_tor' => 'ja', 'waf_origin_net' => 'proxycheck',
+$origin = waf_settings(array('waf_origin_geo' => 'irgendwas', 'waf_origin_tor' => 'ja', 'waf_origin_net' => 'vielleicht',
 	'waf_origin_maxmind_account' => 'abc', 'waf_origin_maxmind_key' => 'schlüssel mit leerzeichen'));
 expect_same('unknown choices fall back to off', array($origin['waf_origin_geo'], $origin['waf_origin_tor'],
 	$origin['waf_origin_net']), array('off', 'off', 'off'));
@@ -544,8 +544,20 @@ expect_same('account and key that fit no pattern', array($origin['waf_origin_max
 expect_same('the choices of every field', waf_origin_choices(), array(
 	'waf_origin_geo' => array('off', 'dbip', 'maxmind'),
 	'waf_origin_tor' => array('off', 'torproject'),
-	'waf_origin_net' => array('off', 'x4b'),
+	'waf_origin_net' => array('off', 'x4b', 'proxycheck'),
 ));
+
+// proxycheck.io steht neben den X4BNet-Listen zur Wahl und bringt zwei eigene Werte mit.
+$picked = waf_settings(array('waf_origin_net' => 'proxycheck', 'waf_origin_proxycheck_key' => 'ab-12cd',
+	'waf_origin_proxycheck_daily' => '2000'));
+expect_same('the external source is kept', array($picked['waf_origin_net'], $picked['waf_origin_proxycheck_key'],
+	$picked['waf_origin_proxycheck_daily']), array('proxycheck', 'ab-12cd', 2000));
+expect_same('a key with a space is dropped',
+	waf_settings(array('waf_origin_proxycheck_key' => 'ab 12'))['waf_origin_proxycheck_key'], '');
+expect_same('the daily limit stays in its range',
+	waf_settings(array('waf_origin_proxycheck_daily' => '999999'))['waf_origin_proxycheck_daily'], 100000);
+expect_same('without a row the limit is the default',
+	waf_settings(array())['waf_origin_proxycheck_daily'], 500);
 
 // --- summary -----------------------------------------------------------------
 if ($failures > 0) {
