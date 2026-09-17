@@ -164,6 +164,43 @@ expect_same('a source that is off is never due',
 expect_same('an unknown source is never due', waf_origin_due('gibt-es-nicht', null, $settings, $now), false);
 expect_same('a row without a time is due', waf_origin_due('tor', array('checked_at' => null), $settings, $now), true);
 
+// --- B6: looking up an address ------------------------------------------------
+
+$look = $dir . '/look';
+@mkdir($look, 0700, true);
+waf_origin_read_dbip_country($fixtures . '/dbip-country.csv', $look . '/dbip_country.bin');
+waf_origin_read_dbip_asn($fixtures . '/dbip-asn.csv', $look . '/dbip_asn.bin');
+waf_origin_read_list($fixtures . '/tor.txt', $look . '/tor.bin');
+waf_origin_read_list(array($fixtures . '/x4b-ipv4.txt', $fixtures . '/x4b-ipv6.txt'), $look . '/x4b_vpn.bin');
+$readers = waf_origin_readers($look, array('dbip_country', 'dbip_asn', 'tor', 'x4b_vpn', 'x4b_datacenter'));
+expect_same('a source without a file is left out', array_keys($readers),
+	array('dbip_country', 'dbip_asn', 'tor', 'x4b_vpn'));
+expect_same('facts of an address in every source', waf_origin_facts($readers, '192.0.2.10'), array(
+	'country' => 'DE', 'asn' => 3320, 'as_org' => 'Zweites Beispielnetz',
+	'is_tor' => 'y', 'is_vpn' => 'y', 'is_hosting' => 'n'));
+expect_same('facts of an address only the country knows', waf_origin_facts($readers, '1.0.0.5'), array(
+	'country' => 'AU', 'asn' => 13335, 'as_org' => 'Beispielnetz, Inc.',
+	'is_tor' => 'n', 'is_vpn' => 'n', 'is_hosting' => 'n'));
+expect_same('facts of an address nobody knows', waf_origin_facts($readers, '203.0.113.9'), array(
+	'country' => '', 'asn' => 0, 'as_org' => '',
+	'is_tor' => 'n', 'is_vpn' => 'y', 'is_hosting' => 'n'));
+expect_same('facts of something that is no address', waf_origin_facts($readers, 'kein-ip')['country'], '');
+waf_origin_readers_close($readers);
+expect_same('readers are closed', $readers, array());
+
+expect_same('a row without a look', waf_origin_stale(null, '2026-09-17 06:00:00'), true);
+expect_same('a row looked at before the load',
+	waf_origin_stale(array('local_at' => '2026-09-17 05:00:00'), '2026-09-17 06:00:00'), true);
+expect_same('a row looked at after the load',
+	waf_origin_stale(array('local_at' => '2026-09-17 07:00:00'), '2026-09-17 06:00:00'), false);
+expect_same('a row without any source', waf_origin_stale(array('local_at' => '2026-09-17 07:00:00'), ''), false);
+
+foreach (glob($look . '/*') as $name) {
+	@unlink($name);
+}
+@rmdir($look);
+
+
 // --- summary -----------------------------------------------------------------
 if ($failures > 0) {
 	fwrite(STDERR, $failures . " Fehler\n");

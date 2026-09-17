@@ -723,3 +723,87 @@ function waf_origin_due($name, $row, $settings, $now)
 	}
 	return $point - $then >= $hours * 3600;
 }
+
+// --- Looking up an address ----------------------------------------------------
+
+/**
+ * Opens the range files of $names below $dir. A source without a file is left
+ * out, so a lookup answers with what is there. waf_origin_readers_close()
+ * closes them again.
+ */
+function waf_origin_readers($dir, $names)
+{
+	$readers = array();
+	foreach ($names as $name) {
+		$reader = waf_origin_open(rtrim((string) $dir, '/') . '/' . $name . '.bin');
+		if ($reader !== null) {
+			$readers[$name] = $reader;
+		}
+	}
+	return $readers;
+}
+
+/** Closes the readers of waf_origin_readers(). */
+function waf_origin_readers_close(&$readers)
+{
+	foreach ($readers as $name => $reader) {
+		waf_origin_close($reader);
+		unset($readers[$name]);
+	}
+	$readers = array();
+}
+
+/**
+ * What the open range files say about one address: country, network and the
+ * marks of the lists. A field no source answers stays empty, so the caller can
+ * store the result as it is.
+ */
+function waf_origin_facts($readers, $ip)
+{
+	$facts = array('country' => '', 'asn' => 0, 'as_org' => '', 'is_tor' => 'n', 'is_vpn' => 'n', 'is_hosting' => 'n');
+	foreach ($readers as $name => $reader) {
+		$value = waf_origin_find($reader, $ip);
+		if ($value === '') {
+			continue;
+		}
+		if ($name === 'tor') {
+			$facts['is_tor'] = 'y';
+			continue;
+		}
+		if ($name === 'x4b_vpn') {
+			$facts['is_vpn'] = 'y';
+			continue;
+		}
+		if ($name === 'x4b_datacenter') {
+			$facts['is_hosting'] = 'y';
+			continue;
+		}
+		$parts = waf_origin_parts($value);
+		if (isset($parts['country'])) {
+			$facts['country'] = $parts['country'];
+		}
+		if (isset($parts['asn'])) {
+			$facts['asn'] = $parts['asn'];
+			$facts['as_org'] = $parts['as_org'];
+		}
+	}
+	return $facts;
+}
+
+/**
+ * Whether the row of an address has to be looked up again: it has none, or a
+ * source was loaded after the last look. $newest is the newest fetched_at of
+ * the chosen sources.
+ */
+function waf_origin_stale($row, $newest)
+{
+	$looked = is_array($row) && isset($row['local_at']) ? (string) $row['local_at'] : '';
+	if ($looked === '' || $looked === '0000-00-00 00:00:00') {
+		return true;
+	}
+	$newest = (string) $newest;
+	if ($newest === '') {
+		return false;
+	}
+	return strtotime($newest) > strtotime($looked);
+}

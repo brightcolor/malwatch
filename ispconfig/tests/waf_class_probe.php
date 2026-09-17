@@ -532,6 +532,24 @@ expect_same('the temporary file is gone', count(glob($probe_dir . '/waf/origin/t
 expect_same('a source that is not reachable',
 	strpos($result['dbip_country']['note'], 'Nicht gefunden') !== false, true);
 
+// --- B6: the addresses of the hits --------------------------------------------
+
+$db->query("INSERT INTO malwatch_waf_origin_source (server_id, source, version, checked_at, fetched_at, entries) "
+	. "VALUES (?, 'tor', '', NOW(), NOW(), 3)", $server);
+@mkdir($probe_dir . '/waf/origin', 0700, true);
+waf_origin_read_list($fixtures . '/tor.txt', $probe_dir . '/waf/origin/tor.bin');
+$db->query("INSERT INTO malwatch_waf_hit (server_id, parent_domain_id, domain, unique_id, seen_at, client_ip, method, "
+	. "uri, path, status, anomaly_score, would_block, logged_in, rules, request_headers) "
+	. "VALUES (?, 11, 'beispiel.test', 'probe-origin', NOW(), '192.0.2.10', 'GET', '/x', '/x', 404, 5, 'n', 'n', '[]', '{}')", $server);
+expect_same('one address looked up', $waf->origin_lookup(10), 1);
+$ip_row = $db->queryOneRecord("SELECT is_tor, country, local_at FROM malwatch_waf_ip WHERE ip = '192.0.2.10'");
+expect_same('the address is marked as Tor', array($ip_row['is_tor'], $ip_row['country'] === '' ), array('y', true));
+expect_same('a second pass finds nothing new', $waf->origin_lookup(10), 0);
+$db->query("DELETE FROM malwatch_waf_hit WHERE unique_id = 'probe-origin'");
+$waf->cleanup();
+expect_same('the address goes with its last hit',
+	count_rows("SELECT ip FROM malwatch_waf_ip WHERE ip = '192.0.2.10'"), 0);
+
 // --- summary -----------------------------------------------------------------
 waf_remove_dir($tmp);
 if ($failures > 0) {

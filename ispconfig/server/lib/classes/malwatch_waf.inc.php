@@ -175,7 +175,7 @@ class malwatch_waf
 
 		$settings = $this->settings();
 		$dir = $this->ensure_dirs();
-		$counts = array('hits' => 0, 'days' => 0, 'files' => 0, 'staging' => 0);
+		$counts = array('hits' => 0, 'days' => 0, 'files' => 0, 'staging' => 0, 'addresses' => 0);
 
 		for ($round = 0; $round < 50; $round++) {
 			$old = $this->rows($app->dbmaster->queryAllRecords(
@@ -199,6 +199,12 @@ class malwatch_waf
 				$table, $conf['server_id'], $settings['waf_stats_days']);
 			$counts['days'] += (int) $app->dbmaster->affectedRows();
 		}
+
+		// The origin of an address lives as long as its last hit.
+		$app->dbmaster->query('DELETE p FROM malwatch_waf_ip p LEFT JOIN malwatch_waf_hit h '
+			. 'ON h.server_id = p.server_id AND h.client_ip = p.ip WHERE p.server_id = ? AND h.hit_id IS NULL',
+			$conf['server_id']);
+		$counts['addresses'] = (int) $app->dbmaster->affectedRows();
 
 		$known = array();
 		foreach ($this->rows($app->dbmaster->queryAllRecords(
@@ -573,6 +579,7 @@ class malwatch_waf
 		}
 		try {
 			$this->ingest(array());
+			$this->origin_lookup();
 			$this->run_jobs();
 		} catch (Throwable $e) {
 			$app->log('malwatch: the WAF pass failed: ' . $e->getMessage(), LOGLEVEL_WARN);
@@ -894,6 +901,58 @@ class malwatch_waf
 		global $app;
 		$row = $app->dbmaster->queryOneRecord('SELECT NOW() AS now_at');
 		return is_array($row) ? (string) $row['now_at'] : date('Y-m-d H:i:s');
+	}
+
+	/**
+	 * Fills malwatch_waf_ip for the addresses of the stored hits: every address
+	 * without a row, and every row that is older than the newest range file.
+	 * One pass looks at most at $limit addresses, so a burst of a scanner never
+	 * holds the cron.
+	 */
+	public function origin_lookup($limit = 500)
+	{
+		global $app, $conf;
+
+		$settings = $this->settings();
+		$chosen = waf_origin_chosen($settings);
+		if (count($chosen) === 0) {
+			return 0;
+		}
+		$newest = '';
+		foreach ($this->rows($app->dbmaster->queryAllRecords(
+			'SELECT source, fetched_at FROM malwatch_waf_origin_source WHERE server_id = ?', $conf['server_id'])) as $row) {
+			if (in_array((string) $row['source'], $chosen, true) && (string) $row['fetched_at'] > $newest) {
+				$newest = (string) $row['fetched_at'];
+			}
+		}
+		if ($newest === '') {
+			return 0;
+		}
+		$rows = $this->rows($app->dbmaster->queryAllRecords(
+			'SELECT h.client_ip, p.local_at FROM malwatch_waf_hit h '
+			. 'LEFT JOIN malwatch_waf_ip p ON p.server_id = h.server_id AND p.ip = h.client_ip '
+			. "WHERE h.server_id = ? AND h.client_ip != '' AND (p.ip IS NULL OR p.local_at IS NULL OR p.local_at < ?) "
+			. 'GROUP BY h.client_ip, p.local_at LIMIT ?', $conf['server_id'], $newest, (int) $limit));
+		if (count($rows) === 0) {
+			return 0;
+		}
+		$readers = waf_origin_readers($this->ensure_dirs() . '/origin', $chosen);
+		$now = $this->now();
+		$done = 0;
+		foreach ($rows as $row) {
+			$ip = (string) $row['client_ip'];
+			$facts = waf_origin_facts($readers, $ip);
+			$app->dbmaster->query(
+				'INSERT INTO malwatch_waf_ip (server_id, ip, country, asn, as_org, is_tor, is_vpn, is_hosting, local_at) '
+				. 'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE country = VALUES(country), '
+				. 'asn = VALUES(asn), as_org = VALUES(as_org), is_tor = VALUES(is_tor), is_vpn = VALUES(is_vpn), '
+				. 'is_hosting = VALUES(is_hosting), local_at = VALUES(local_at)',
+				$conf['server_id'], $ip, $facts['country'], (int) $facts['asn'], $facts['as_org'],
+				$facts['is_tor'], $facts['is_vpn'], $facts['is_hosting'], $now);
+			$done++;
+		}
+		waf_origin_readers_close($readers);
+		return $done;
 	}
 
 	/** Queues a WAF job for this server and returns its id. $user names the person in the action log. */

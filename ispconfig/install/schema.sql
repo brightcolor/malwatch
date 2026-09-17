@@ -999,6 +999,30 @@ CREATE TABLE IF NOT EXISTS `malwatch_waf_origin_source` (
   PRIMARY KEY (`server_id`,`source`)
 ) DEFAULT CHARSET=utf8mb4 ;
 
+--
+-- One row per server and address: what the range files said and, later, what
+-- an external service added. cleanup() removes a row as soon as no hit names
+-- the address any more, so the origin lives no longer than the hit.
+--
+CREATE TABLE IF NOT EXISTS `malwatch_waf_ip` (
+  `server_id` int(11) unsigned NOT NULL DEFAULT '0',
+  `ip` varchar(45) NOT NULL DEFAULT '',
+  `country` varchar(2) NOT NULL DEFAULT '',
+  `asn` int(11) unsigned NOT NULL DEFAULT '0',
+  `as_org` varchar(128) NOT NULL DEFAULT '',
+  `is_tor` enum('n','y') NOT NULL DEFAULT 'n',
+  `is_vpn` enum('n','y') NOT NULL DEFAULT 'n',
+  `is_hosting` enum('n','y') NOT NULL DEFAULT 'n',
+  `is_proxy` enum('n','y') NOT NULL DEFAULT 'n',
+  `vpn_operator` varchar(64) NOT NULL DEFAULT '',
+  `local_at` datetime DEFAULT NULL,
+  `external_state` enum('none','pending','done','failed','limit') NOT NULL DEFAULT 'none',
+  `external_at` datetime DEFAULT NULL,
+  `external_tries` int(11) unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (`server_id`,`ip`),
+  KEY `external` (`server_id`,`external_state`)
+) DEFAULT CHARSET=utf8mb4 ;
+
 -- waf carries the jobs of the page Abwehr. The malwatch cron works on them
 -- itself (malwatch_waf::run_jobs); the runner never starts one.
 SET @mw := (SELECT IF(COUNT(*) = 0,
