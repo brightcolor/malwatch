@@ -56,3 +56,17 @@ $wb['job_status_done_txt'] = 'erledigt';
 $wb['job_status_error_txt'] = 'gescheitert';
 $wb['btn_cancel_txt'] = 'Abbrechen';
 $wb['btn_close_txt'] = 'Schließen';
+
+$wb['lede_detect_none_txt'] = 'Keine Website schreibt mit';
+$wb['lede_detect_one_txt'] = 'Eine Website schreibt mit';
+$wb['lede_detect_many_txt'] = '%s Websites schreiben mit';
+$wb['lede_enforce_none_txt'] = 'keine blockiert';
+$wb['lede_enforce_one_txt'] = 'eine blockiert';
+$wb['lede_enforce_many_txt'] = '%s blockieren';
+$wb['lede_today_txt'] = 'Heute %s Treffer';
+$wb['lede_period_txt'] = 'In %s Tagen %s Treffer';
+$wb['lede_would_block_txt'] = ', %s davon wären abgewiesen worden';
+$wb['preview_txt'] = 'Diese Ausnahme hätte %s von %s Treffern der letzten %s Tage verhindert.';
+$wb['preview_none_txt'] = 'In den letzten %s Tagen gab es keinen Treffer dieser Regel.';
+$wb['param_label_txt'] = 'Parameter %s';
+$wb['all_sites_txt'] = 'alle Websites';

@@ -56,3 +56,17 @@ $wb['job_status_done_txt'] = 'done';
 $wb['job_status_error_txt'] = 'failed';
 $wb['btn_cancel_txt'] = 'Cancel';
 $wb['btn_close_txt'] = 'Close';
+
+$wb['lede_detect_none_txt'] = 'No website detects';
+$wb['lede_detect_one_txt'] = 'One website detects';
+$wb['lede_detect_many_txt'] = '%s websites detect';
+$wb['lede_enforce_none_txt'] = 'none enforces';
+$wb['lede_enforce_one_txt'] = 'one enforces';
+$wb['lede_enforce_many_txt'] = '%s enforce';
+$wb['lede_today_txt'] = 'Today %s hits';
+$wb['lede_period_txt'] = 'In %s days %s hits';
+$wb['lede_would_block_txt'] = ', %s of them would have been refused';
+$wb['preview_txt'] = 'This exception would have prevented %s of %s hits in the last %s days.';
+$wb['preview_none_txt'] = 'The last %s days brought no hit of this rule.';
+$wb['param_label_txt'] = 'parameter %s';
+$wb['all_sites_txt'] = 'all websites';
