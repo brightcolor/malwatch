@@ -4018,6 +4018,8 @@ git checkout waf-herkules
 
 Expected: `Fast-Forward möglich`, CI grün (darunter die Schritte „WAF origin ranges“ und „WAF origin sources“), Release mit `malwatch-linux-amd64`, `malwatch-linux-arm64`, `malwatch.pkg` und `SHA256SUMS`. Scheitert ein Upload wie bei 0.20.0, hilft `gh run rerun <id> --failed`.
 
+Ergebnis am 17.09.2026: `main` steht auf `fea2093`, CI-Lauf 35269733047 grün mit beiden neuen Schritten, Tag `v0.21.0` gesetzt. Der Release-Lauf 35270234662 brach beim Hochladen von `malwatch-linux-amd64` mit „Error creating asset temp dir“ ab, genau wie bei 0.20.0; `gh run rerun 35270234662 --failed` lud die Datei nach. Danach liegen alle vier Dateien im Release. Der Fehler tritt jetzt zweimal in Folge auf, das Release-Rezept sollte den Upload selbst wiederholen.
+
 #### Block 4: Einspielen
 
 - [ ] **Step 12: Freigabe einholen**
