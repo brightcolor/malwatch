@@ -1,0 +1,4 @@
+network,autonomous_system_number,autonomous_system_organization
+1.0.0.0/24,13335,"Beispielnetz, Inc."
+192.0.2.0/24,3320,Zweites Beispielnetz
+198.51.100.0/24,,Ohne Nummer

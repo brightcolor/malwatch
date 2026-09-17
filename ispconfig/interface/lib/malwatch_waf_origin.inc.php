@@ -319,3 +319,382 @@ function waf_origin_find($reader, $ip)
 	}
 	return '';
 }
+// --- Sources ------------------------------------------------------------------
+
+/**
+ * The sources this server can load, keyed by their name in
+ * malwatch_waf_origin_source. Each one names the setting that turns it on and
+ * its value, how its file is read, the smallest plausible number of ranges and
+ * the largest download in bytes.
+ */
+function waf_origin_sources()
+{
+	return array(
+		'dbip_country' => array('setting' => 'waf_origin_geo', 'value' => 'dbip', 'kind' => 'country',
+			'min' => 100000, 'bytes' => 80 * 1024 * 1024, 'hours' => 'waf_origin_db_hours'),
+		'dbip_asn' => array('setting' => 'waf_origin_geo', 'value' => 'dbip', 'kind' => 'asn',
+			'min' => 100000, 'bytes' => 80 * 1024 * 1024, 'hours' => 'waf_origin_db_hours'),
+		'maxmind_country' => array('setting' => 'waf_origin_geo', 'value' => 'maxmind', 'kind' => 'country',
+			'min' => 100000, 'bytes' => 80 * 1024 * 1024, 'hours' => 'waf_origin_db_hours'),
+		'maxmind_asn' => array('setting' => 'waf_origin_geo', 'value' => 'maxmind', 'kind' => 'asn',
+			'min' => 100000, 'bytes' => 80 * 1024 * 1024, 'hours' => 'waf_origin_db_hours'),
+		'tor' => array('setting' => 'waf_origin_tor', 'value' => 'torproject', 'kind' => 'list',
+			'min' => 100, 'bytes' => 20 * 1024 * 1024, 'hours' => 'waf_origin_tor_hours'),
+		'x4b_vpn' => array('setting' => 'waf_origin_net', 'value' => 'x4b', 'kind' => 'list',
+			'min' => 1000, 'bytes' => 20 * 1024 * 1024, 'hours' => 'waf_origin_list_hours'),
+		'x4b_datacenter' => array('setting' => 'waf_origin_net', 'value' => 'x4b', 'kind' => 'list',
+			'min' => 1000, 'bytes' => 20 * 1024 * 1024, 'hours' => 'waf_origin_list_hours'),
+	);
+}
+
+/** The sources the settings turn on, in the order of waf_origin_sources(). */
+function waf_origin_chosen($settings)
+{
+	$chosen = array();
+	foreach (waf_origin_sources() as $name => $source) {
+		$setting = isset($settings[$source['setting']]) ? (string) $settings[$source['setting']] : 'off';
+		if ($setting === $source['value']) {
+			$chosen[] = $name;
+		}
+	}
+	return $chosen;
+}
+
+/** The addresses the source is loaded from, one download per entry. */
+function waf_origin_urls($name, $month)
+{
+	$month = preg_match('/^\d{4}-\d{2}$/', (string) $month) ? (string) $month : gmdate('Y-m');
+	switch ($name) {
+		case 'dbip_country':
+			return array('https://download.db-ip.com/free/dbip-country-lite-' . $month . '.csv.gz');
+		case 'dbip_asn':
+			return array('https://download.db-ip.com/free/dbip-asn-lite-' . $month . '.csv.gz');
+		case 'maxmind_country':
+			return array('https://download.maxmind.com/geoip/databases/GeoLite2-Country-CSV/download?suffix=zip');
+		case 'maxmind_asn':
+			return array('https://download.maxmind.com/geoip/databases/GeoLite2-ASN-CSV/download?suffix=zip');
+		case 'tor':
+			return array('https://check.torproject.org/torbulkexitlist');
+		case 'x4b_vpn':
+			return array('https://raw.githubusercontent.com/X4BNet/lists_vpn/main/output/vpn/ipv4.txt',
+				'https://raw.githubusercontent.com/X4BNet/lists_vpn/main/output/vpn/ipv6.txt');
+		case 'x4b_datacenter':
+			return array('https://raw.githubusercontent.com/X4BNet/lists_vpn/main/output/datacenter/ipv4.txt',
+				'https://raw.githubusercontent.com/X4BNet/lists_vpn/main/output/datacenter/ipv6.txt');
+	}
+	return array();
+}
+
+/** An empty result of a reader; the readers count their lines into it. */
+function waf_origin_result()
+{
+	return array('ranges' => 0, 'values' => 0, 'lines' => 0, 'bad' => 0, 'skipped' => 0);
+}
+
+/**
+ * Opens a text file for reading line by line. gzopen() also reads a file that
+ * is not packed, so one function covers both. Returns the handle or null.
+ */
+function waf_origin_lines($file)
+{
+	$handle = @gzopen($file, 'rb');
+	return $handle === false ? null : $handle;
+}
+
+/**
+ * The CSV of DB-IP Lite: first address, last address, country. Writes the
+ * range file and returns the counts, or null when a file fails.
+ */
+function waf_origin_read_dbip_country($in, $out)
+{
+	return waf_origin_read_pairs($in, $out, 3, function ($row) {
+		$country = strtoupper(trim($row[2]));
+		return preg_match('/^[A-Z]{2}$/', $country) ? array($row[0], $row[1], $country) : null;
+	});
+}
+
+/**
+ * The CSV of DB-IP Lite with the networks: first address, last address, AS
+ * number, organisation.
+ */
+function waf_origin_read_dbip_asn($in, $out)
+{
+	return waf_origin_read_pairs($in, $out, 4, function ($row) {
+		$number = trim($row[2]);
+		return preg_match('/^\d{1,10}$/', $number) ? array($row[0], $row[1], waf_origin_as_value($number, $row[3])) : null;
+	});
+}
+
+/**
+ * A CSV whose lines carry the first and the last address. $in is one file or
+ * a list of files, read one after the other into one range file. $fields is
+ * how many columns a line needs, $pick turns a line into array(first, last,
+ * value) or null. The files come sorted; a line out of order is left out.
+ */
+function waf_origin_read_pairs($in, $out, $fields, $pick)
+{
+	$writer = waf_origin_writer($out);
+	if ($writer === null) {
+		return null;
+	}
+	$counts = waf_origin_result();
+	foreach (is_array($in) ? $in : array($in) as $file) {
+		$handle = waf_origin_lines($file);
+		if ($handle === null) {
+			waf_origin_finish($writer);
+			return null;
+		}
+		while (($line = gzgets($handle)) !== false) {
+			$line = trim($line);
+			if ($line === '' || $line[0] === '#') {
+				continue;
+			}
+			$counts['lines']++;
+			$row = str_getcsv($line, ",", chr(34), chr(92));
+			if (count($row) < $fields) {
+				$counts['bad']++;
+				continue;
+			}
+			$picked = call_user_func($pick, $row);
+			$first = $picked === null ? '' : waf_origin_bytes($picked[0]);
+			$last = $picked === null ? '' : waf_origin_bytes($picked[1]);
+			if ($first === '' || $last === '') {
+				$counts['bad']++;
+				continue;
+			}
+			if (!waf_origin_write($writer, $first, $last, $picked[2])) {
+				$counts['skipped']++;
+			}
+		}
+		gzclose($handle);
+	}
+	$written = waf_origin_finish($writer);
+	if ($written === null) {
+		return null;
+	}
+	$counts['ranges'] = $written['ranges'];
+	$counts['values'] = $written['values'];
+	return $counts;
+}
+
+/**
+ * The blocks CSV of GeoLite2 with the countries. $locations is the CSV that
+ * holds a country for every geoname_id.
+ */
+function waf_origin_read_maxmind_country($in, $locations, $out)
+{
+	$countries = waf_origin_maxmind_countries($locations);
+	if ($countries === null) {
+		return null;
+	}
+	return waf_origin_read_networks($in, $out, function ($row) use ($countries) {
+		$id = trim($row[1]) !== '' ? trim($row[1]) : trim($row[2]);
+		return isset($countries[$id]) ? $countries[$id] : null;
+	});
+}
+
+/** The blocks CSV of GeoLite2 with the networks. */
+function waf_origin_read_maxmind_asn($in, $out)
+{
+	return waf_origin_read_networks($in, $out, function ($row) {
+		$number = trim($row[1]);
+		return preg_match('/^\d{1,10}$/', $number) ? waf_origin_as_value($number, isset($row[2]) ? $row[2] : '') : null;
+	});
+}
+
+/** geoname_id to country code from the locations CSV of GeoLite2; null when the file fails. */
+function waf_origin_maxmind_countries($file)
+{
+	$handle = waf_origin_lines($file);
+	if ($handle === null) {
+		return null;
+	}
+	$countries = array();
+	$head = array();
+	while (($line = gzgets($handle)) !== false) {
+		$line = trim($line);
+		if ($line === '') {
+			continue;
+		}
+		$row = str_getcsv($line, ",", chr(34), chr(92));
+		if (count($head) === 0) {
+			$head = array_flip($row);
+			continue;
+		}
+		if (!isset($head['geoname_id']) || !isset($head['country_iso_code']) || count($row) <= $head['country_iso_code']) {
+			continue;
+		}
+		$code = strtoupper(trim($row[$head['country_iso_code']]));
+		if (preg_match('/^[A-Z]{2}$/', $code)) {
+			$countries[trim($row[$head['geoname_id']])] = $code;
+		}
+	}
+	gzclose($handle);
+	return $countries;
+}
+
+/**
+ * A blocks CSV of GeoLite2: the first column is the network as CIDR, $pick
+ * turns a line into its value or null. The first line of every file names the
+ * columns. $in is one file or the list of files of one source; GeoLite2 ships
+ * IPv4 and IPv6 apart, and in that order they stay sorted.
+ */
+function waf_origin_read_networks($in, $out, $pick)
+{
+	$writer = waf_origin_writer($out);
+	if ($writer === null) {
+		return null;
+	}
+	$counts = waf_origin_result();
+	foreach (is_array($in) ? $in : array($in) as $file) {
+		$handle = waf_origin_lines($file);
+		if ($handle === null) {
+			waf_origin_finish($writer);
+			return null;
+		}
+		$first_line = true;
+		while (($line = gzgets($handle)) !== false) {
+			$line = trim($line);
+			if ($line === '') {
+				continue;
+			}
+			if ($first_line) {
+				$first_line = false;
+				if (strpos($line, 'network') === 0) {
+					continue;
+				}
+			}
+			$counts['lines']++;
+			$row = str_getcsv($line, ",", chr(34), chr(92));
+			$block = waf_origin_cidr(isset($row[0]) ? $row[0] : '');
+			$value = count($row) < 2 ? null : call_user_func($pick, $row);
+			if ($block === null || $value === null) {
+				$counts['bad']++;
+				continue;
+			}
+			if (!waf_origin_write($writer, $block[0], $block[1], $value)) {
+				$counts['skipped']++;
+			}
+		}
+		gzclose($handle);
+	}
+	$written = waf_origin_finish($writer);
+	if ($written === null) {
+		return null;
+	}
+	$counts['ranges'] = $written['ranges'];
+	$counts['values'] = $written['values'];
+	return $counts;
+}
+
+/**
+ * A list with one address or block per line, as the Tor and X4BNet lists come.
+ * The lines are unsorted, so they are sorted here before they are written; the
+ * ranges carry no value. $files are read one after the other into one file.
+ */
+function waf_origin_read_list($files, $out)
+{
+	$counts = waf_origin_result();
+	$rows = array();
+	foreach (is_array($files) ? $files : array($files) as $file) {
+		$handle = waf_origin_lines($file);
+		if ($handle === null) {
+			return null;
+		}
+		while (($line = gzgets($handle)) !== false) {
+			$line = trim($line);
+			if ($line === '' || $line[0] === '#') {
+				continue;
+			}
+			$counts['lines']++;
+			$block = waf_origin_cidr($line);
+			if ($block === null) {
+				$counts['bad']++;
+				continue;
+			}
+			$rows[] = $block[0] . $block[1];
+		}
+		gzclose($handle);
+	}
+	sort($rows, SORT_STRING);
+	$writer = waf_origin_writer($out);
+	if ($writer === null) {
+		return null;
+	}
+	foreach ($rows as $row) {
+		// The value marks a hit; an address outside every range answers with ''.
+		if (!waf_origin_write($writer, substr($row, 0, 16), substr($row, 16, 16), 'y')) {
+			$counts['skipped']++;
+		}
+	}
+	$written = waf_origin_finish($writer);
+	if ($written === null) {
+		return null;
+	}
+	$counts['ranges'] = $written['ranges'];
+	$counts['values'] = $written['values'];
+	return $counts;
+}
+
+/** The value of a network range: its number and its name, kept apart by a unit separator. */
+function waf_origin_as_value($number, $name)
+{
+	$name = trim(preg_replace('/\s+/', ' ', (string) $name));
+	return (string) (int) $number . "\x1f" . waf_origin_cut($name, 120);
+}
+
+/** A value of a range file as array('asn' => n, 'as_org' => text) or, for a country, array('country' => 'DE'). */
+function waf_origin_parts($value)
+{
+	$value = (string) $value;
+	if ($value === '') {
+		return array();
+	}
+	$cut = strpos($value, "\x1f");
+	if ($cut === false) {
+		return preg_match('/^[A-Z]{2}$/', $value) ? array('country' => $value) : array();
+	}
+	return array('asn' => (int) substr($value, 0, $cut), 'as_org' => substr($value, $cut + 1));
+}
+
+/** Cuts a text to $bytes without breaking a character. */
+function waf_origin_cut($text, $bytes)
+{
+	$text = (string) $text;
+	if (strlen($text) <= $bytes) {
+		return $text;
+	}
+	if (function_exists('mb_strcut')) {
+		return mb_strcut($text, 0, $bytes, 'UTF-8');
+	}
+	return preg_replace('/[\x80-\xFF]+$/', '', substr($text, 0, $bytes));
+}
+
+/**
+ * Whether a freshly built range file may replace the one in use. $previous is
+ * how many ranges the file in use holds, 0 when there is none. Returns '' when
+ * it may, else the reason with what happens next.
+ */
+function waf_origin_check($name, $counts, $previous)
+{
+	$sources = waf_origin_sources();
+	if (!isset($sources[$name]) || !is_array($counts)) {
+		return 'Die Quelle ' . $name . ' ist unbekannt. Bitte die Einstellungen der Abwehr prüfen.';
+	}
+	$keep = ' Der bisherige Stand bleibt aktiv, der nächste Abruf versucht es erneut.';
+	if ($counts['lines'] > 0 && $counts['bad'] > $counts['lines'] / 100) {
+		return 'Die Datei der Quelle ' . $name . ' ist unlesbar: ' . $counts['bad'] . ' von '
+			. $counts['lines'] . ' Zeilen ergeben keinen Adressbereich.' . $keep;
+	}
+	$min = (int) $sources[$name]['min'];
+	if ($counts['ranges'] < $min) {
+		return 'Die Quelle ' . $name . ' liefert nur ' . $counts['ranges'] . ' Bereiche, erwartet sind mindestens '
+			. $min . '.' . $keep;
+	}
+	$previous = (int) $previous;
+	if ($previous > 0 && $counts['ranges'] < $previous / 2) {
+		return 'Die Quelle ' . $name . ' liefert nur noch ' . $counts['ranges'] . ' Bereiche, vorher waren es '
+			. $previous . '.' . $keep;
+	}
+	return '';
+}

@@ -1,0 +1,4 @@
+1.0.0.0,1.0.0.255,13335,"Beispielnetz, Inc."
+192.0.2.0,192.0.2.255,3320,Zweites Beispielnetz
+198.51.100.0,198.51.100.255,abc,Ohne Nummer
+2001:db8::,2001:db8::ffff,64500,Drittes Beispielnetz

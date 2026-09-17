@@ -1,0 +1,2 @@
+network,geoname_id,registered_country_geoname_id,represented_country_geoname_id,is_anonymous_proxy,is_satellite_provider
+2001:db9::/32,3017382,3017382,,0,0

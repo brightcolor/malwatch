@@ -1,0 +1,4 @@
+geoname_id,locale_code,continent_code,continent_name,country_iso_code,country_name,is_in_european_union
+2077456,de,OC,Ozeanien,AU,Australien,0
+2921044,de,EU,Europa,DE,Deutschland,1
+3017382,de,EU,Europa,FR,Frankreich,1
