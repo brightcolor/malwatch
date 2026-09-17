@@ -5682,7 +5682,9 @@ Mathias bekommt vorgelegt: „B9, Block 4: Ich spiele `waf/` ein und starte
 `waf-schalter`, `waf-wache` und `waf-bericht` durch `waf-switch`, `waf-guard` und
 `waf-report`, stellt die Cron-Zeile um und gleicht danach die Markierungen über einen
 Auftrag ab. Sicherung unter `/var/backups/waf-switch/install-<Zeitstempel>`. Scheitert
-eine Prüfung, bleibt der alte Stand ohne Reload." Weiter erst nach seinem Ja.
+eine Prüfung, bleibt der alte Stand ohne Reload. Der Abgleich schreibt das Feld von
+bright-color.de neu; solange `check_apache_config=y` gilt, startet ISPConfig nginx danach
+einmal komplett neu." Weiter erst nach seinem Ja.
 
 - [ ] **Schritt 16: Vorher festhalten**
 
@@ -5696,7 +5698,31 @@ Dazu beide Messungen.
 
 ```bash
 git archive --format=tar HEAD waf | ssh ispconfig 'rm -rf /root/waf-einspielen && mkdir -p /root/waf-einspielen && tar -x -C /root/waf-einspielen --strip-components=1'
-ssh ispconfig 'bash /root/waf-einspielen/install.sh'
+```
+
+Vorher ein Probelauf. `.superpowers/abwehr/install_probe.sh` (im Hauptbaum) kopiert die
+Live-Dateien nach `/root/waf-install-probe`, biegt alle Systempfade dorthin um, ersetzt
+nginx, systemctl, crontab und waf-switch durch Attrappen und lässt `install.sh` zweimal
+laufen; `modsec-rules-check` bleibt echt. Mit `fail-test` lehnt die Attrappe `nginx -t`
+nach dem Tausch der `main.conf` ab:
+
+```bash
+ssh ispconfig 'cat > /root/waf-install-probe.sh' < .superpowers/abwehr/install_probe.sh
+ssh ispconfig 'bash /root/waf-install-probe.sh /root/waf-einspielen /root/waf-install-probe < /dev/null'
+ssh ispconfig 'bash /root/waf-install-probe.sh /root/waf-einspielen /root/waf-install-probe fail-test < /dev/null'
+ssh ispconfig 'rm -rf /root/waf-install-probe /root/waf-install-probe.sh'
+```
+
+Expected: Im ersten Aufruf endet Durchgang 1 mit `exit=0` und „Test ok", Durchgang 2 mit
+`exit=0` ohne Cron-Zeile und ohne Reload, unter „changes of run 2" steht nichts. Im
+zweiten Aufruf endet Durchgang 1 mit `exit=1` und „Die vorherige liegt wieder an ihrem
+Platz", die Include-Zeilen nennen die alten Namen, Werkzeuge und Crontab sind unverändert.
+Am 17.09.2026 brach der erste echte Anlauf in der Sicherung ab, weil `/etc/logrotate.d/waf`
+und die Kopie von `/etc/nginx/waf` dort beide `waf` hießen; behoben in `8b1b566`, Prüfung 63
+hält es fest. Danach:
+
+```bash
+ssh ispconfig 'bash /root/waf-einspielen/install.sh < /dev/null'
 ```
 
 Expected: `waf/install.sh: Sicherung in /var/backups/waf-switch/install-…`,
@@ -5711,8 +5737,9 @@ ssh ispconfig 'bash -s' <<'EOF'
 nginx -t 2>&1 | tail -1
 systemctl is-active nginx
 ls /etc/nginx/waf
-echo "alte Namen in nginx -T: $(nginx -T 2>/dev/null | grep -c -E 'einstellungen\.conf|crs-zusatz\.conf|ausnahmen-(vorher|nachher)\.conf|zustand\.conf|antwortrumpf\.conf')"
-nginx -T 2>/dev/null | grep -E '^# configuration file /etc/nginx/waf/'
+echo "alte Namen in main.conf: $(grep -c -E 'einstellungen|crs-zusatz|ausnahmen-|zustand|antwortrumpf' /etc/nginx/waf/main.conf)"
+grep -E '^Include /etc/nginx/waf/' /etc/nginx/waf/main.conf
+journalctl -u nginx --since '-10 min' --no-pager -o short-iso | grep -E 'Reloaded|Stopping'
 crontab -l | grep -E 'waf-'
 ls /usr/local/sbin | grep -E '^waf-'
 /usr/local/sbin/waf-guard; echo "waf-guard exit=$?"
@@ -5729,7 +5756,10 @@ Expected:
 - unter `/etc/nginx/waf` nur `crs-extra.conf`, `exclusions-after.conf`,
   `exclusions-before.conf`, `exclusions-panel-after.conf`, `exclusions-panel-before.conf`,
   `main.conf`, `response-body.conf`, `settings.conf`, `state.conf`
-- `alte Namen in nginx -T: 0`, die Liste nennt nur die neuen Dateien
+- `alte Namen in main.conf: 0`, die Include-Zeilen nennen nur die neuen Dateien. `nginx -T`
+  zeigt die Regeldateien nicht, sie hängen über `modsecurity_rules_file`
+- ein „Reloaded" von `install.sh`; solange `check_apache_config=y` gilt, dazu ein
+  „Stopping" wenige Sekunden später: ISPConfig startet nginx nach dem Abgleich neu
 - genau eine Cron-Zeile mit `hc-run waf-guard`
 - `waf-guard`, `waf-report`, `waf-switch`
 - `waf-guard exit=0`
@@ -5745,7 +5775,8 @@ Danach beide Messungen und eine Probe von außen:
 curl -s -o /dev/null -w "%{http_code}\n" "https://bright-color.de/mwprobe-umstellung/?q=%3Cscript%3Ealert(1)%3C%2Fscript%3E"
 ```
 
-Expected: `404` oder `200`; nach dem nächsten Durchgang steht ein Treffer mit diesem Pfad
+Expected: `404`, `200` oder `301` (WordPress leitet bright-color.de auf www um, die Anfrage
+läuft trotzdem durch die WAF); nach dem nächsten Durchgang steht ein Treffer mit diesem Pfad
 in `malwatch_waf_hit`:
 
 ```bash
@@ -5797,8 +5828,11 @@ Mathias bekommt vorgelegt: „B9, Block 5: Die Prüfungen am Server. Du klickst 
 ich schicke Proben von außen an bright-color.de und prüfe Aufträge, Dateien und
 Datenbank. Dabei schaltest du bright-color.de kurz aus und wieder auf mitschreiben, legst
 zwei Ausnahmen an und entfernst sie wieder, schaltest den Notaus ein und aus und die
-Seitenantwort auf schlank und zurück. Jeder dieser Schritte lädt nginx einmal neu. Am
-Ende ist der Stand wie vorher." Weiter erst nach seinem Ja.
+Seitenantwort auf schlank und zurück. Ausnahmen, Notaus und Seitenantwort laden nginx
+neu. Das Aus- und Einschalten von bright-color.de ändert den Vhost; solange
+`check_apache_config=y` gilt, startet ISPConfig nginx dabei jeweils komplett neu, rund eine
+Sekunde ohne Verbindungen. Am Ende ist der Stand wie vorher." Weiter erst nach seinem Ja
+und nach der Entscheidung zu `check_apache_config`.
 
 Proben gehen von diesem Rechner aus; Proben vom Server selbst schaltet Regel 10001 ab.
 Eine Probe ist:
