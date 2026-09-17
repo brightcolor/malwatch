@@ -173,6 +173,18 @@ $card_rows = waf_panel_rows($app->db->queryAllRecords(
 	'SELECT client_ip, logged_in, rules FROM malwatch_waf_hit WHERE parent_domain_id = ? '
 	. 'ORDER BY seen_at DESC, hit_id DESC LIMIT ?', $domain_id, (int) $settings['waf_card_hits']));
 $card_hits = waf_panel_rule_hits($wb, $catalog, $card_rows);
+// The origin of every address the cards show; the stored requests add theirs below.
+$card_ips = array();
+foreach ($card_hits as $rule) {
+	foreach (array_slice($rule['addresses'], 0, 5) as $address) {
+		$card_ips[] = $address['key'];
+	}
+}
+$origin_rows = waf_panel_origin_lookup($app, $card_ips);
+$origin_credit = waf_panel_origin_credit($wb, $settings);
+$app->tpl->setVar('origin_credit', $app->functions->htmlentities($origin_credit['text']));
+$app->tpl->setVar('origin_credit_href', $app->functions->htmlentities($origin_credit['url']));
+$app->tpl->setVar('origin_off', count(waf_origin_chosen($settings)) === 0 ? 1 : 0);
 $app->tpl->setVar('rule_addresses_head', $app->functions->htmlentities(count($card_rows) >= $settings['waf_card_hits']
 	? sprintf($wb['addresses_capped_txt'], number_format($settings['waf_card_hits'], 0, ',', '.'))
 	: sprintf($wb['addresses_head_txt'], $settings['waf_detail_days'])));
@@ -187,10 +199,21 @@ foreach (waf_panel_rules($wb, $day_rows, $catalog) as $rule) {
 	}
 	$addresses = array();
 	foreach (array_slice($seen['addresses'], 0, 5) as $address) {
+		$origin = waf_panel_origin($wb, isset($origin_rows[$address['key']]) ? $origin_rows[$address['key']] : null, $language);
+		$chips = array();
+		foreach ($origin['chips'] as $chip) {
+			$chips[] = array('chip' => $app->functions->htmlentities($chip));
+		}
 		$addresses[] = array(
 			'address' => $app->functions->htmlentities($address['key']),
 			'address_hits' => $app->functions->htmlentities(sprintf($wb['count_times_txt'], number_format($address['count'], 0, ',', '.'))),
 			'address_href' => $app->functions->htmlentities($link . $days . '&ip=' . rawurlencode($address['key'])),
+			'address_country' => $app->functions->htmlentities($origin['country']),
+			'address_country_name' => $app->functions->htmlentities($origin['country_name']),
+			'address_provider' => $app->functions->htmlentities($origin['provider']),
+			'address_provider_full' => $app->functions->htmlentities($origin['provider_full']),
+			'address_chips' => $chips,
+			'address_has_chips' => count($chips) > 0 ? 1 : 0,
 		);
 	}
 	$triggers = array();
@@ -254,6 +277,11 @@ if ($ip_filter !== '') {
 		. 'ORDER BY seen_at DESC, hit_id DESC LIMIT 100', $domain_id);
 }
 $app->tpl->setVar('ip_filter', $ip_filter !== '' ? 1 : 0);
+$hit_ips = array();
+foreach (waf_panel_rows($stored_rows) as $row) {
+	$hit_ips[] = (string) $row['client_ip'];
+}
+$origin_rows = array_merge($origin_rows, waf_panel_origin_lookup($app, $hit_ips));
 $app->tpl->setVar('ip_jump', $ip_filter !== '' || $ip_rejected !== '' ? 1 : 0);
 $app->tpl->setVar('ip_rejected', $app->functions->htmlentities($ip_rejected !== ''
 	? sprintf($wb['ip_filter_invalid_txt'], $ip_rejected) : ''));
@@ -284,10 +312,22 @@ foreach (waf_panel_rows($stored_rows) as $row) {
 	foreach ($hit['rules'] as $rule) {
 		$ids[] = $rule['rule_id'];
 	}
+	$hit_origin = waf_panel_origin($wb, isset($origin_rows[$hit['client_ip']]) ? $origin_rows[$hit['client_ip']] : null, $language);
+	$hit_chips = array();
+	foreach ($hit_origin['chips'] as $chip) {
+		$hit_chips[] = array('chip' => $app->functions->htmlentities($chip));
+	}
 	$hit_rows[] = array(
 		'hit_id' => $hit['hit_id'],
 		'hit_time' => $app->functions->htmlentities(malwatch_datetime($hit['seen_at'])),
 		'hit_ip' => $app->functions->htmlentities($hit['client_ip']),
+		'hit_country' => $app->functions->htmlentities($hit_origin['country']),
+		'hit_country_name' => $app->functions->htmlentities($hit_origin['country_name']),
+		'hit_provider' => $app->functions->htmlentities($hit_origin['provider']),
+		'hit_provider_full' => $app->functions->htmlentities($hit_origin['provider_full']),
+		'hit_origin_state' => $app->functions->htmlentities($hit_origin['state']),
+		'hit_chips' => $hit_chips,
+		'hit_has_chips' => count($hit_chips) > 0 ? 1 : 0,
 		'hit_has_ip' => $hit['client_ip'] !== '' ? 1 : 0,
 		'hit_ip_href' => $app->functions->htmlentities($link . $days . '&ip=' . rawurlencode($hit['client_ip'])),
 		'hit_request' => $app->functions->htmlentities($hit['method'] . ' ' . $hit['uri']),

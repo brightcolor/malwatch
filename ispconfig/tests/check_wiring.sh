@@ -1385,6 +1385,28 @@ if [ -f "$waf_class" ]; then
 fi
 
 
+# 68. The website page names the origin only from the table the cron fills and
+#     shows the attribution of the chosen source. A page that read a range file
+#     itself would open a file of the server from the panel; that is the job of
+#     the cron alone.
+show_page="$root/interface/malwatch_waf_show.php"
+if [ -f "$show_page" ]; then
+	grep -q 'waf_panel_origin_lookup(' "$show_page" \
+		|| fail "malwatch_waf_show.php shows no origin; waf_panel_origin_lookup() reads it"
+	if grep -q 'waf_origin_open(\|waf_origin_find(' "$show_page"; then
+		fail "malwatch_waf_show.php reads a range file itself; the cron fills malwatch_waf_ip"
+	fi
+	grep -q 'waf_panel_origin_credit(' "$show_page" \
+		|| fail "malwatch_waf_show.php leaves out the attribution of the origin source"
+fi
+for lang in de en; do
+	for key in origin_credit_dbip_txt origin_credit_maxmind_txt origin_off_hint_txt; do
+		grep -q "\\\$wb\['$key'\]" "$root/interface/lang/${lang}_malwatch_waf.lng" \
+			|| fail "${lang}_malwatch_waf.lng is missing $key"
+	done
+done
+
+
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'
 fi

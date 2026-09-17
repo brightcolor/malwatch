@@ -282,3 +282,14 @@ $wb['origin_line_entries_txt'] = '%s Bereiche';
 $wb['origin_line_none_txt'] = 'noch nicht geladen';
 $wb['origin_line_off_txt'] = 'Herkunft der Adressen ist aus.';
 $wb['origin_settings_link_txt'] = 'Einstellungen der Herkunft';
+
+// The origin at an address.
+$wb['origin_chip_tor_txt'] = 'Tor';
+$wb['origin_chip_vpn_txt'] = 'VPN';
+$wb['origin_chip_hosting_txt'] = 'Rechenzentrum';
+$wb['origin_chip_proxy_txt'] = 'Proxy';
+$wb['origin_pending_txt'] = 'wird geprüft';
+$wb['origin_limit_txt'] = 'nicht geprüft, Tageslimit';
+$wb['origin_credit_dbip_txt'] = 'IP-Daten: DB-IP';
+$wb['origin_credit_maxmind_txt'] = 'Enthält GeoLite2-Daten von MaxMind';
+$wb['origin_off_hint_txt'] = 'Herkunft der Adressen ist aus. Land, Provider, Tor und VPN erscheinen, sobald in den Einstellungen der Abwehr eine Quelle gewählt ist.';

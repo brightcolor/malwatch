@@ -614,6 +614,92 @@ function waf_panel_origin_line($wb, $settings, $rows)
 }
 
 /**
+ * The origin of one address, ready for the page: country, provider and the
+ * marks as chips. $row is its row of malwatch_waf_ip, null when the address
+ * has none. $language picks the language of the country name.
+ */
+function waf_panel_origin($wb, $row, $language = 'de')
+{
+	$country = is_array($row) ? strtoupper((string) $row['country']) : '';
+	$country = preg_match('/^[A-Z]{2}$/', $country) ? $country : '';
+	$asn = is_array($row) ? (int) $row['asn'] : 0;
+	$org = is_array($row) ? trim((string) $row['as_org']) : '';
+	$provider = $asn > 0 ? 'AS' . $asn . ($org === '' ? '' : ' ' . $org) : $org;
+	$chips = array();
+	$marks = array('is_tor' => 'origin_chip_tor_txt', 'is_vpn' => 'origin_chip_vpn_txt',
+		'is_hosting' => 'origin_chip_hosting_txt', 'is_proxy' => 'origin_chip_proxy_txt');
+	foreach ($marks as $field => $key) {
+		if (!is_array($row) || !isset($row[$field]) || (string) $row[$field] !== 'y') {
+			continue;
+		}
+		$label = waf_panel_text($wb, $key, '');
+		$operator = $field === 'is_vpn' && isset($row['vpn_operator']) ? trim((string) $row['vpn_operator']) : '';
+		$chips[] = $operator === '' ? $label : $label . ' ' . waf_cut($operator, 40);
+	}
+	$state = '';
+	$external = is_array($row) && isset($row['external_state']) ? (string) $row['external_state'] : 'none';
+	if ($external === 'pending') {
+		$state = waf_panel_text($wb, 'origin_pending_txt', '');
+	} elseif ($external === 'limit') {
+		$state = waf_panel_text($wb, 'origin_limit_txt', '');
+	}
+	return array(
+		'country' => $country,
+		'country_name' => waf_panel_country_name($country, $language),
+		'provider' => waf_cut($provider, 40),
+		'provider_full' => $provider,
+		'chips' => $chips,
+		'state' => $state,
+		'known' => $country !== '' || $provider !== '' || count($chips) > 0,
+	);
+}
+
+/** The name of a country, as far as the intl extension knows it; else its code. */
+function waf_panel_country_name($code, $language)
+{
+	$code = strtoupper((string) $code);
+	if (!preg_match('/^[A-Z]{2}$/', $code)) {
+		return '';
+	}
+	if (!class_exists('Locale')) {
+		return $code;
+	}
+	$language = preg_match('/^[a-z]{2}$/', (string) $language) ? (string) $language : 'en';
+	$name = (string) Locale::getDisplayRegion('-' . $code, $language);
+	return $name === '' ? $code : $name;
+}
+
+/**
+ * The attribution the chosen source asks for, as array(text, url). Both stay
+ * empty while country and provider are off.
+ */
+function waf_panel_origin_credit($wb, $settings)
+{
+	$geo = isset($settings['waf_origin_geo']) ? (string) $settings['waf_origin_geo'] : 'off';
+	if ($geo === 'dbip') {
+		return array('text' => waf_panel_text($wb, 'origin_credit_dbip_txt', ''), 'url' => 'https://db-ip.com');
+	}
+	if ($geo === 'maxmind') {
+		return array('text' => waf_panel_text($wb, 'origin_credit_maxmind_txt', ''), 'url' => 'https://www.maxmind.com');
+	}
+	return array('text' => '', 'url' => '');
+}
+
+/** The rows of malwatch_waf_ip for these addresses, keyed by address. */
+function waf_panel_origin_lookup($app, $ips)
+{
+	$rows = array();
+	$ips = array_values(array_unique(array_filter($ips, 'strlen')));
+	if (count($ips) === 0) {
+		return $rows;
+	}
+	foreach (waf_panel_rows($app->db->queryAllRecords('SELECT * FROM malwatch_waf_ip WHERE ip IN ?', $ips)) as $row) {
+		$rows[(string) $row['ip']] = $row;
+	}
+	return $rows;
+}
+
+/**
  * The address filter as typed when it is no valid IP address, cut to 64
  * bytes for the notice on the page; '' when the filter is empty or valid.
  */

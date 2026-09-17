@@ -556,6 +556,34 @@ expect_same('the line of the overview', waf_panel_origin_line($wb, $origin_setti
 expect_same('the line with everything off', waf_panel_origin_line($wb, array(), array()),
 	'Herkunft der Adressen ist aus.');
 
+// --- B7: the origin at an address ---------------------------------------------
+
+$origin_row = array('country' => 'de', 'asn' => '3320', 'as_org' => 'Deutsche Telekom AG', 'is_tor' => 'n',
+	'is_vpn' => 'y', 'is_hosting' => 'y', 'is_proxy' => 'n', 'vpn_operator' => 'Beispiel VPN', 'external_state' => 'done');
+$origin = waf_panel_origin($wb, $origin_row, 'de');
+expect_same('country and provider of an address', array($origin['country'], $origin['provider'], $origin['known']),
+	array('DE', 'AS3320 Deutsche Telekom AG', true));
+expect_same('the marks of an address', $origin['chips'], array('VPN Beispiel VPN', 'Rechenzentrum'));
+$long = waf_panel_origin($wb, array('country' => '', 'asn' => '64500', 'as_org' => str_repeat('Name ', 20),
+	'is_tor' => 'n', 'is_vpn' => 'n', 'is_hosting' => 'n', 'is_proxy' => 'n', 'vpn_operator' => '',
+	'external_state' => 'pending'), 'de');
+expect_same('a long provider is cut', array(strlen($long['provider']), strlen($long['provider_full']) > 40),
+	array(40, true));
+expect_same('an address that is being checked', $long['state'], 'wird geprüft');
+expect_same('an address the limit stopped', waf_panel_origin($wb, array('country' => '', 'asn' => 0, 'as_org' => '',
+	'is_tor' => 'n', 'is_vpn' => 'n', 'is_hosting' => 'n', 'is_proxy' => 'n', 'vpn_operator' => '',
+	'external_state' => 'limit'), 'de')['state'], 'nicht geprüft, Tageslimit');
+expect_same('an address without a row', array(waf_panel_origin($wb, null, 'de')['known'],
+	waf_panel_origin($wb, null, 'de')['chips']), array(false, array()));
+expect_same('the country in words', waf_panel_country_name('FR', 'de') !== 'FR', class_exists('Locale'));
+expect_same('a country code that is none', waf_panel_country_name('kein-land', 'de'), '');
+expect_same('the attribution of DB-IP', waf_panel_origin_credit($wb, array('waf_origin_geo' => 'dbip')),
+	array('text' => 'IP-Daten: DB-IP', 'url' => 'https://db-ip.com'));
+expect_same('the attribution of MaxMind',
+	waf_panel_origin_credit($wb, array('waf_origin_geo' => 'maxmind'))['url'], 'https://www.maxmind.com');
+expect_same('no attribution while the source is off', waf_panel_origin_credit($wb, array()),
+	array('text' => '', 'url' => ''));
+
 // --- summary -----------------------------------------------------------------
 if ($failures > 0) {
 	fwrite(STDERR, $failures . " Fehler\n");

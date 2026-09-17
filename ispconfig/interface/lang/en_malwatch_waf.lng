@@ -282,3 +282,14 @@ $wb['origin_line_entries_txt'] = '%s ranges';
 $wb['origin_line_none_txt'] = 'not loaded yet';
 $wb['origin_line_off_txt'] = 'The origin of the addresses is off.';
 $wb['origin_settings_link_txt'] = 'Settings of the origin';
+
+// The origin at an address.
+$wb['origin_chip_tor_txt'] = 'Tor';
+$wb['origin_chip_vpn_txt'] = 'VPN';
+$wb['origin_chip_hosting_txt'] = 'Data centre';
+$wb['origin_chip_proxy_txt'] = 'Proxy';
+$wb['origin_pending_txt'] = 'being checked';
+$wb['origin_limit_txt'] = 'not checked, daily limit';
+$wb['origin_credit_dbip_txt'] = 'IP data: DB-IP';
+$wb['origin_credit_maxmind_txt'] = 'Includes GeoLite2 data from MaxMind';
+$wb['origin_off_hint_txt'] = 'The origin of the addresses is off. Country, provider, Tor and VPN appear as soon as a source is chosen in the settings of the Abwehr.';

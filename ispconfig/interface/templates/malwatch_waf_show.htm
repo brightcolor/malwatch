@@ -69,6 +69,8 @@
 #mw-wafsite .mw-chip.mw-cls-attack{border-color:var(--cic-bad-deep,#b13116);color:var(--cic-bad-text,#d13f22)}
 #mw-wafsite .mw-chip.mw-cls-false_positive_prone{border-style:dashed}
 #mw-wafsite .mw-hitip{min-width:15ch}
+#mw-wafsite .mw-origin{font-size:12px}
+#mw-wafsite .mw-chip.mw-origin-chip{text-transform:none;letter-spacing:0;font-weight:600}
 #mw-wafsite .mw-hitrules{list-style:none;margin:4px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
 #mw-wafsite .mw-hitrules > li{padding-left:10px;border-left:2px solid var(--cic-line-soft,rgba(128,128,128,.35))}
 #mw-wafsite .mw-ipfilter,#mw-wafsite .mw-ipnotice{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline;margin:0 0 8px;padding:8px 12px;font-size:13px;
@@ -219,7 +221,7 @@
 				<div class="mw-dim">{tmpl_var name='rule_addresses_head'}</div>
 				<tmpl_if name="has_addresses">
 				<ul class="mw-addresses">
-					<tmpl_loop name="rule_addresses"><li><a class="mw-mono" href="#" data-load-content="{tmpl_var name='address_href'}">{tmpl_var name='address'}</a> <span class="mw-dim">{tmpl_var name='address_hits'}</span></li></tmpl_loop>
+					<tmpl_loop name="rule_addresses"><li><a class="mw-mono" href="#" data-load-content="{tmpl_var name='address_href'}">{tmpl_var name='address'}</a> <span class="mw-dim">{tmpl_var name='address_hits'}</span><tmpl_if name="address_country"> <span class="mw-origin" title="{tmpl_var name='address_country_name'}">{tmpl_var name='address_country'}</span></tmpl_if><tmpl_if name="address_has_chips"><tmpl_loop name="address_chips"> <span class="mw-chip mw-origin-chip">{tmpl_var name='chip'}</span></tmpl_loop></tmpl_if><tmpl_if name="address_provider"> <span class="mw-dim mw-origin" title="{tmpl_var name='address_provider_full'}">{tmpl_var name='address_provider'}</span></tmpl_if></li></tmpl_loop>
 				</ul>
 				<tmpl_if name="more_addresses"><div class="mw-dim">{tmpl_var name='more_addresses'}</div></tmpl_if>
 				<tmpl_else>
@@ -248,6 +250,9 @@
 <tmpl_else>
 <p class="mw-sub">{tmpl_var name='rules_none_txt'}</p>
 </tmpl_if>
+
+<tmpl_if name="origin_off"><p class="mw-sub">{tmpl_var name='origin_off_hint_txt'} <a href="#" data-load-content="security/malwatch_waf_config_edit.php">{tmpl_var name='origin_settings_link_txt'}</a></p></tmpl_if>
+<tmpl_if name="origin_credit"><p class="mw-sub"><a href="{tmpl_var name='origin_credit_href'}" target="_blank" rel="noopener">{tmpl_var name='origin_credit'}</a></p></tmpl_if>
 
 <tmpl_if name="has_paths">
 <p class="mw-sec">{tmpl_var name='paths_head_txt'}</p>
@@ -279,6 +284,10 @@
 	<summary>
 		<span class="mw-dim">{tmpl_var name='hit_time'}</span>
 		<span class="mw-mono mw-hitip">{tmpl_var name='hit_ip'}</span>
+		<tmpl_if name="hit_country"><span class="mw-origin" title="{tmpl_var name='hit_country_name'}">{tmpl_var name='hit_country'}</span></tmpl_if>
+		<tmpl_if name="hit_has_chips"><tmpl_loop name="hit_chips"><span class="mw-chip mw-origin-chip">{tmpl_var name='chip'}</span></tmpl_loop></tmpl_if>
+		<tmpl_if name="hit_provider"><span class="mw-dim mw-origin" title="{tmpl_var name='hit_provider_full'}">{tmpl_var name='hit_provider'}</span></tmpl_if>
+		<tmpl_if name="hit_origin_state"><span class="mw-dim">{tmpl_var name='hit_origin_state'}</span></tmpl_if>
 		<span class="mw-mono mw-hitreq">{tmpl_var name='hit_request'}</span>
 		<span class="mw-dim mw-mono">{tmpl_var name='hit_ids'}</span>
 		<span class="mw-dim">{tmpl_var name='hit_score'}</span>
