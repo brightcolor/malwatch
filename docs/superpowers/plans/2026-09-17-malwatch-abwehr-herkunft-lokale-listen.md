@@ -1683,11 +1683,11 @@ In `ispconfig/interface/templates/malwatch_waf_config_edit.htm` vor `<p class="m
 
 ```
 
-Im Stilblock derselben Datei nach der Zeile mit `.mw-wafcfg-num` einfügen:
+Im Stilblock derselben Datei nach der Zeile `.mw-wafcfg-num{max-width:14ch}` einfügen:
 
 ```css
-#mw-wafcfg .mw-wafcfg-note{max-width:80ch;opacity:.8;font-size:13px;margin:0 0 10px}
-#mw-wafcfg .mw-wafcfg-clear{display:inline-flex;gap:6px;align-items:center;font-weight:400;margin:4px 0 0}
+.mw-wafcfg-note{max-width:80ch;opacity:.8;font-size:13px;margin:0 0 10px}
+.mw-wafcfg-clear{display:inline-flex;gap:6px;align-items:center;font-weight:400;margin:4px 0 0}
 ```
 
 - [ ] **Step 8: Texte**
@@ -1788,7 +1788,8 @@ In `onLoad()` vor `parent::onLoad();` einfügen:
 
 ```php
 		$stored = $app->db->queryOneRecord('SELECT waf_origin_maxmind_key FROM malwatch_config WHERE config_id = 1');
-		$this->waf_stored_key = is_array($stored) ? (string) $stored['waf_origin_maxmind_key'] : '';
+		$this->waf_stored_key = is_array($stored) && isset($stored['waf_origin_maxmind_key'])
+			? (string) $stored['waf_origin_maxmind_key'] : '';
 
 ```
 
@@ -1873,6 +1874,15 @@ Expected: viermal `No syntax errors detected`.
 
 Run (im Hintergrund): `sh ispconfig/tests/check_wiring.sh`
 Expected: `Wiring OK`
+
+Im Nachbau `.superpowers/abwehr/harness/fake_db.php` die Beispielzeile der Einstellungen um die neuen Spalten ergänzen, damit die Seite mit Werten rendert; in `queryOneRecord()` die Zeile `'waf_emergency_since' => …);` abschließen mit:
+
+```php
+				'waf_emergency_since' => getenv('FAKE_EMERGENCY') ? '2026-09-16 11:00:00' : null,
+				'waf_card_hits' => '5000', 'waf_origin_geo' => 'off', 'waf_origin_maxmind_account' => '',
+				'waf_origin_maxmind_key' => '', 'waf_origin_tor' => 'off', 'waf_origin_net' => 'off',
+				'waf_origin_tor_hours' => '1', 'waf_origin_list_hours' => '24', 'waf_origin_db_hours' => '24');
+```
 
 Run: `bash .superpowers/abwehr/harness/build_all.sh .`
 Expected: `Seiten gerendert; …` ohne `FEHLER`. Danach zeigt `out_cfg.html` den Abschnitt: `grep -c 'Herkunft der Adressen' .superpowers/abwehr/harness/out_cfg.html` ergibt `1`.
@@ -2207,8 +2217,8 @@ In `ispconfig/interface/templates/malwatch_waf_config_edit.htm` nach dem Block m
 und im Stilblock nach `.mw-wafcfg-clear`:
 
 ```css
-#mw-wafcfg .mw-wafcfg-states{margin:0 0 12px;padding-left:18px;font-size:13px;max-width:90ch}
-#mw-wafcfg .mw-wafcfg-failed{color:var(--cic-bad-text,#d13f22)}
+.mw-wafcfg-states{margin:0 0 12px;padding-left:18px;font-size:13px;max-width:90ch}
+.mw-wafcfg-failed{color:var(--cic-bad-text,#d13f22)}
 ```
 
 - [ ] **Step 8: Übersicht zeigt die Zeile**
@@ -3393,6 +3403,7 @@ ersetzen durch:
 			'address_provider' => $app->functions->htmlentities($origin['provider']),
 			'address_provider_full' => $app->functions->htmlentities($origin['provider_full']),
 			'address_chips' => $chips,
+			'address_has_chips' => count($chips) > 0 ? 1 : 0,
 		);
 	}
 ```
@@ -3428,6 +3439,7 @@ einfügen:
 		'hit_provider_full' => $app->functions->htmlentities($hit_origin['provider_full']),
 		'hit_origin_state' => $app->functions->htmlentities($hit_origin['state']),
 		'hit_chips' => $hit_chips,
+		'hit_has_chips' => count($hit_chips) > 0 ? 1 : 0,
 ```
 
 und vor der Zeile `	$hit_rows[] = array(` einfügen:
@@ -3451,7 +3463,7 @@ In `ispconfig/interface/templates/malwatch_waf_show.htm` die Zeile der Adresslis
 ersetzen durch:
 
 ```html
-					<tmpl_loop name="rule_addresses"><li><a class="mw-mono" href="#" data-load-content="{tmpl_var name='address_href'}">{tmpl_var name='address'}</a> <span class="mw-dim">{tmpl_var name='address_hits'}</span><tmpl_if name="address_country"> <span class="mw-origin" title="{tmpl_var name='address_country_name'}">{tmpl_var name='address_country'}</span></tmpl_if><tmpl_loop name="address_chips"> <span class="mw-chip mw-origin-chip">{tmpl_var name='chip'}</span></tmpl_loop><tmpl_if name="address_provider"> <span class="mw-dim mw-origin" title="{tmpl_var name='address_provider_full'}">{tmpl_var name='address_provider'}</span></tmpl_if></li></tmpl_loop>
+					<tmpl_loop name="rule_addresses"><li><a class="mw-mono" href="#" data-load-content="{tmpl_var name='address_href'}">{tmpl_var name='address'}</a> <span class="mw-dim">{tmpl_var name='address_hits'}</span><tmpl_if name="address_country"> <span class="mw-origin" title="{tmpl_var name='address_country_name'}">{tmpl_var name='address_country'}</span></tmpl_if><tmpl_if name="address_has_chips"><tmpl_loop name="address_chips"> <span class="mw-chip mw-origin-chip">{tmpl_var name='chip'}</span></tmpl_loop></tmpl_if><tmpl_if name="address_provider"> <span class="mw-dim mw-origin" title="{tmpl_var name='address_provider_full'}">{tmpl_var name='address_provider'}</span></tmpl_if></li></tmpl_loop>
 ```
 
 Die Zeile der Adresse im zugeklappten Treffer
@@ -3465,7 +3477,7 @@ ersetzen durch:
 ```html
 		<span class="mw-mono mw-hitip">{tmpl_var name='hit_ip'}</span>
 		<tmpl_if name="hit_country"><span class="mw-origin" title="{tmpl_var name='hit_country_name'}">{tmpl_var name='hit_country'}</span></tmpl_if>
-		<tmpl_loop name="hit_chips"><span class="mw-chip mw-origin-chip">{tmpl_var name='chip'}</span></tmpl_loop>
+		<tmpl_if name="hit_has_chips"><tmpl_loop name="hit_chips"><span class="mw-chip mw-origin-chip">{tmpl_var name='chip'}</span></tmpl_loop></tmpl_if>
 		<tmpl_if name="hit_provider"><span class="mw-dim mw-origin" title="{tmpl_var name='hit_provider_full'}">{tmpl_var name='hit_provider'}</span></tmpl_if>
 		<tmpl_if name="hit_origin_state"><span class="mw-dim">{tmpl_var name='hit_origin_state'}</span></tmpl_if>
 ```
@@ -3526,7 +3538,35 @@ Run: `php ispconfig/tests/waf_panel_test.php && php ispconfig/tests/waf_panel_po
 Expected: zweimal `alle Prüfungen bestanden` und `No syntax errors detected`.
 
 Run: `bash .superpowers/abwehr/harness/build_all.sh .`
-Expected: `Seiten gerendert; …` ohne `FEHLER`. Der Nachbau kennt keine Herkunftsdaten, deshalb zeigt `out_show.html` den Hinweis: `grep -c 'Herkunft der Adressen ist aus' .superpowers/abwehr/harness/out_show.html` ergibt `1`.
+Expected: `Seiten gerendert; …` ohne `FEHLER`. Ohne Herkunftsdaten zeigt `out_show.html` den Hinweis: `grep -c 'Herkunft der Adressen ist aus' .superpowers/abwehr/harness/out_show.html` ergibt `1`.
+
+Damit der Nachbau auch die gefüllte Anzeige zeigt, in `.superpowers/abwehr/harness/fake_db.php` in `queryAllRecords()` vor dem Zweig `if (strpos($sql, 'FROM malwatch_waf_hit') !== false) {` einfügen:
+
+```php
+		// The origin of the addresses the pages show.
+		if (strpos($sql, 'FROM malwatch_waf_ip') !== false) {
+			return array(
+				array('ip' => '198.51.100.7', 'country' => 'FR', 'asn' => '64500', 'as_org' => 'Beispielnetz SAS',
+					'is_tor' => 'n', 'is_vpn' => 'y', 'is_hosting' => 'y', 'is_proxy' => 'n', 'vpn_operator' => '',
+					'local_at' => '2026-09-16 12:00:00', 'external_state' => 'none', 'external_at' => null, 'external_tries' => '0'),
+				array('ip' => '192.0.2.10', 'country' => 'DE', 'asn' => '3320', 'as_org' => 'Zweites Beispielnetz',
+					'is_tor' => 'y', 'is_vpn' => 'n', 'is_hosting' => 'n', 'is_proxy' => 'n', 'vpn_operator' => '',
+					'local_at' => '2026-09-16 12:00:00', 'external_state' => 'none', 'external_at' => null, 'external_tries' => '0'),
+			);
+		}
+```
+
+und in der Beispielzeile der Einstellungen `'waf_origin_geo' => 'off'` auf `'waf_origin_geo' => 'dbip'` setzen. Dann noch einmal bauen und nachsehen:
+
+```bash
+bash .superpowers/abwehr/harness/build_all.sh .
+grep -o 'class="mw-origin" title="[^"]*">[A-Z][A-Z]<' .superpowers/abwehr/harness/out_show.html | sort | uniq -c
+grep -o 'class="mw-chip mw-origin-chip">[^<]*<' .superpowers/abwehr/harness/out_show.html | sort | uniq -c
+grep -c 'IP-Daten: DB-IP' .superpowers/abwehr/harness/out_show.html
+grep -c 'mw-origin-chip"><' .superpowers/abwehr/harness/out_show.html
+```
+
+Expected: je einmal `title="Deutschland">DE` und `title="Frankreich">FR`, die Chips `Tor`, `VPN` und `Rechenzentrum` je einmal, einmal die Namensnennung und `0` leere Chips. Der Schalter `address_has_chips` sorgt für die letzte Zeile: Eine leere Schleife rendert in vlibTemplate sonst einen leeren Durchgang.
 
 Run (im Hintergrund): `sh ispconfig/tests/check_wiring.sh`
 Expected: `Wiring OK`
