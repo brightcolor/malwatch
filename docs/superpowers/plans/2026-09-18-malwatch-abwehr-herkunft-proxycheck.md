@@ -1598,11 +1598,11 @@ Ergebnis am 18.09.2026, 01:18:31–01:19:50 CEST (Protokolleintrag „Schema und
 
 #### Block 2: Veröffentlichen
 
-- [ ] **Step 7: Freigabe einholen**
+- [x] **Step 7: Freigabe einholen**
 
 Mathias bekommt vorgelegt: „C7, Block 2: Ich bringe `waf-herkules` per Fast-Forward nach `main`, schiebe `main`, warte auf die CI und setze danach die Marke `v0.22.0`." Weiter erst nach seinem Ja.
 
-- [ ] **Step 8: main, CI, Marke, Release**
+- [x] **Step 8: main, CI, Marke, Release**
 
 ```bash
 git fetch origin
@@ -1620,6 +1620,8 @@ git checkout waf-herkules
 ```
 
 Expected: `Fast-Forward möglich`, CI grün (darunter der neue Schritt „WAF proxycheck"), Release mit `malwatch-linux-amd64`, `malwatch-linux-arm64`, `malwatch.pkg` und `SHA256SUMS`. Scheitert ein Upload wie bei 0.20.0 und 0.21.0 mit „Error creating asset temp dir", hilft `gh run rerun <id> --failed`.
+
+Ergebnis am 18.09.2026: `main` steht auf `2d6b7b3`, CI-Lauf 35287538776 grün mit dem Schritt „WAF proxycheck“, Marke `v0.22.0` gesetzt, Release-Lauf 35287902041 mit allen vier Dateien im ersten Anlauf.
 
 #### Block 3: Einspielen
 
