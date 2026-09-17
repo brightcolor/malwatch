@@ -187,6 +187,314 @@ expect_same('orphan gone, fresh file kept', array(is_file($tmp . '/state/waf/res
 expect_same('hits left', count_rows('SELECT hit_id FROM malwatch_waf_hit'), 4);
 expect_same('staging emptied', array(is_dir($tmp . '/state/waf/staging/999999'), is_file($tmp . '/state/waf/staging/999998-logrotate')), array(false, false));
 
+// --- A7: jobs ----------------------------------------------------------------
+
+function job_row($id)
+{
+	global $waf;
+	return $waf->job($id);
+}
+
+function job_progress($id)
+{
+	$job = job_row($id);
+	$options = json_decode((string) $job['options'], true);
+	return isset($options['progress']) ? $options['progress'] : array();
+}
+
+function site_row($id)
+{
+	global $db;
+	return $db->queryOneRecord('SELECT waf_state, waf_state_since, waf_pending_state FROM malwatch_site WHERE parent_domain_id = ?', $id);
+}
+
+function field($id)
+{
+	global $db;
+	$row = $db->queryOneRecord('SELECT nginx_directives FROM web_domain WHERE domain_id = ?', $id);
+	return (string) $row['nginx_directives'];
+}
+
+function vhost($domain, $body)
+{
+	global $tmp;
+	file_put_contents($tmp . '/vhosts/' . $domain . '.vhost', "server {\n" . $body . "}\n");
+}
+
+function config_value($column)
+{
+	global $db;
+	$row = $db->queryOneRecord('SELECT * FROM malwatch_config WHERE config_id = 1');
+	return $row[$column];
+}
+
+function exception_row($id)
+{
+	global $db;
+	return $db->queryOneRecord('SELECT * FROM malwatch_waf_exception WHERE exception_id = ?', $id);
+}
+
+function add_exception($scope, $site, $rule, $path, $param, $note)
+{
+	global $db, $server;
+	$db->query('INSERT INTO malwatch_waf_exception (server_id, scope, parent_domain_id, domain, rule_id, path, param, note, '
+		. "exception_state, created_by, created_at) VALUES (?, ?, ?, '', ?, ?, ?, ?, 'pending', 'probe', NOW())",
+		$server, $scope, $site, $rule, $path, $param, $note);
+	return (int) $db->insertID();
+}
+
+function age_job($id)
+{
+	global $db;
+	$db->query('UPDATE malwatch_job SET started_at = DATE_SUB(NOW(), INTERVAL 10 MINUTE) WHERE job_id = ?', $id);
+}
+
+$own = "client_max_body_size 64M;\n";
+$db->query('UPDATE web_domain SET nginx_directives = ? WHERE domain_id = 11', $own);
+vhost('beispiel.test', "    listen 80;\n");
+vhost('zweite.test', "    listen 80;\n");
+$answers = array();
+
+// Two phases: the field first, the vhost later.
+$calls = array();
+$job = $waf->queue('set_state', array('domain_ids' => array(11), 'state' => 'detect'), 'probe');
+$waf->pass();
+$progress = job_progress($job);
+expect_same('set: job waits', job_row($job)['job_status'], 'running');
+expect_same('set: entry waits', array($progress[0]['status'], $progress[0]['target']), array('waiting', 'detect'));
+expect_same('set: field written', field(11), $own . waf_block_text('detect'));
+expect_same('set: backup', file_get_contents($progress[0]['backup']), $own);
+expect_same('set: datalog', count_rows("SELECT datalog_id FROM sys_datalog WHERE dbtable = 'web_domain' AND dbidx = 'domain_id:11'"), 1);
+expect_same('set: pending state', site_row(11)['waf_pending_state'], 'detect');
+expect_same('set: no command yet', $calls, array());
+
+vhost('beispiel.test', "    listen 80;\n    modsecurity on;\n");
+$waf->pass();
+$site = site_row(11);
+expect_same('set: done', job_row($job)['job_status'], 'done');
+expect_same('set: one nginx -t', $calls, array('nginx_test'));
+expect_same('set: confirmed', array($site['waf_state'], $site['waf_pending_state'], $site['waf_state_since'] !== null), array('detect', '', true));
+expect_same('set: job log', job_row($job)['job_log'], 'beispiel.test: mitschreiben bestätigt');
+expect_same('set: action log', count_rows("SELECT action_id FROM malwatch_action_log WHERE action_type = 'waf'"), 1);
+
+$job = $waf->queue('set_state', array('domain_ids' => array(11), 'state' => 'enforce'), 'probe');
+$waf->pass();
+expect_same('enforce too early', array(job_row($job)['job_status'], job_progress($job)[0]['reason']), array('done', 'too_early'));
+expect_same('enforce too early leaves the field', field(11), $own . waf_block_text('detect'));
+
+// Past the deadline the job takes its change back.
+$db->query('UPDATE malwatch_site SET waf_state_since = DATE_SUB(NOW(), INTERVAL 8 DAY) WHERE parent_domain_id = 11');
+$calls = array();
+$job = $waf->queue('set_state', array('domain_ids' => array(11), 'state' => 'enforce'), 'probe');
+$waf->pass();
+expect_same('enforce written', field(11), $own . waf_block_text('enforce'));
+age_job($job);
+$waf->pass();
+$entry = job_progress($job)[0];
+expect_same('deadline: failed', array(job_row($job)['job_status'], $entry['reason'], $entry['rollback']), array('error', 'deadline', 'rolled_back'));
+expect_same('deadline: field back', field(11), $own . waf_block_text('detect'));
+expect_same('deadline: state kept', array(site_row(11)['waf_state'], site_row(11)['waf_pending_state']), array('detect', ''));
+expect_same('deadline: no reload', in_array('nginx_reload', $calls, true), false);
+
+// Somebody saved the field in the meantime: it stays.
+$job = $waf->queue('set_state', array('domain_ids' => array(11), 'state' => 'enforce'), 'probe');
+$waf->pass();
+$db->query('UPDATE web_domain SET nginx_directives = CONCAT(nginx_directives, ?) WHERE domain_id = 11', "gzip on;\n");
+age_job($job);
+$waf->pass();
+expect_same('changed meanwhile', job_progress($job)[0]['rollback'], 'changed_meanwhile');
+expect_same('changed field stays', field(11), $own . waf_block_text('enforce') . "gzip on;\n");
+expect_same('changed meanwhile in the log', strpos(job_row($job)['job_log'], 'zwischenzeitlich geändert') !== false, true);
+$db->query('UPDATE web_domain SET nginx_directives = ? WHERE domain_id = 11', $own . waf_block_text('detect'));
+
+// nginx -t fails once the vhost shows the state.
+$job = $waf->queue('set_state', array('domain_ids' => array(11), 'state' => 'enforce'), 'probe');
+$waf->pass();
+vhost('beispiel.test', "    modsecurity on;\n    modsecurity_rules 'SecRuleEngine On';\n");
+$answers = array('nginx_test' => array(array(1, 'nginx: [emerg] something')));
+$waf->pass();
+$entry = job_progress($job)[0];
+expect_same('nginx -t fails', array(job_row($job)['job_status'], $entry['reason'], $entry['rollback'], $entry['detail']),
+	array('error', 'nginx_test', 'rolled_back', 'nginx: [emerg] something'));
+expect_same('nginx -t fails: field back', field(11), $own . waf_block_text('detect'));
+vhost('beispiel.test', "    modsecurity on;\n");
+
+// ISPConfig refused the vhost and left a .err next to it.
+$job = $waf->queue('set_state', array('domain_ids' => array(12), 'state' => 'detect'), 'probe');
+$waf->pass();
+file_put_contents($tmp . '/vhosts/zweite.test.vhost.err', 'rejected');
+$waf->pass();
+expect_same('rejected by ISPConfig', array(job_progress($job)[0]['reason'], job_progress($job)[0]['rollback']), array('rejected', 'rolled_back'));
+expect_same('rejected: field back', field(12), '');
+unlink($tmp . '/vhosts/zweite.test.vhost.err');
+
+$db->query('INSERT INTO web_domain (domain_id, server_id, parent_domain_id, type, domain, subdomain, active, sys_groupid, '
+	. "nginx_directives, document_root) VALUES (13, ?, 0, 'vhost', 'fremd-server.test', 'none', 'y', 1, '', '/var/www/x')", $server + 100);
+$job = $waf->queue('set_state', array('domain_ids' => array(13, 999), 'state' => 'detect'), 'probe');
+$waf->pass();
+$progress = job_progress($job);
+expect_same('skips', array(job_row($job)['job_status'], $progress[0]['reason'], $progress[1]['reason']), array('done', 'other_server', 'not_found'));
+
+// Exceptions.
+$calls = array();
+$exception = add_exception('site_path', 11, '942100', '/wp-admin/admin-ajax.php', '', 'Notiz bleibt draussen');
+$job = $waf->queue('exception_add', array('exception_id' => $exception), 'probe');
+$waf->pass();
+$before = file_get_contents($tmp . '/waf/exclusions-panel-before.conf');
+expect_same('exception done', job_row($job)['job_status'], 'done');
+expect_same('exception commands', $calls, array('rules_check', 'nginx_test', 'nginx_reload', 'nginx_active'));
+expect_same('exception rule id', strpos($before, '"id:' . (10200 + $exception) . ',phase:1') !== false, true);
+expect_same('exception hosts', strpos($before, '^(?:alias-beispiel\.test|beispiel\.test|www\.beispiel\.test)') !== false, true);
+expect_same('note stays out', strpos($before, 'Notiz'), false);
+expect_same('exception active', array(exception_row($exception)['exception_state'], exception_row($exception)['activated_at'] !== null), array('active', true));
+expect_same('snapshot taken', file_get_contents($tmp . '/state/waf/last-good/exclusions-panel-before.conf'), $before);
+
+$calls = array();
+$bad = add_exception('site', 11, '10010', '', '', '');
+$job = $waf->queue('exception_add', array('exception_id' => $bad), 'probe');
+$waf->pass();
+expect_same('own rule refused', array(job_row($job)['job_status'], exception_row($bad)['exception_state'], exception_row($bad)['error_reason'], $calls),
+	array('error', 'error', 'Ungültige Angabe: rule_id', array()));
+
+$failing = add_exception('all_path', 0, '941100', '/xmlrpc.php', '', '');
+$calls = array();
+$answers = array('rules_check' => array(array(1, 'Rules error. File: exclusions-panel-before.conf')));
+$job = $waf->queue('exception_add', array('exception_id' => $failing), 'probe');
+$waf->pass();
+expect_same('rules check refuses', array(job_row($job)['job_status'], $calls, exception_row($failing)['exception_state']), array('error', array('rules_check'), 'error'));
+expect_same('file unchanged after the refusal', file_get_contents($tmp . '/waf/exclusions-panel-before.conf'), $before);
+
+$db->query("UPDATE malwatch_waf_exception SET exception_state = 'removing' WHERE exception_id = ?", $exception);
+$job = $waf->queue('exception_remove', array('exception_id' => $exception), 'probe');
+$waf->pass();
+expect_same('exception removed', array(job_row($job)['job_status'], exception_row($exception)), array('done', null));
+expect_same('rule gone', strpos(file_get_contents($tmp . '/waf/exclusions-panel-before.conf'), '# exception ' . $exception . ' '), false);
+$calls = array();
+$job = $waf->queue('exception_remove', array('exception_id' => $bad), 'probe');
+$waf->pass();
+expect_same('error row removed without reload', array(job_row($job)['job_status'], exception_row($bad), $calls), array('done', null, array()));
+
+// Emergency stop: rules off, enforcing websites back to detect.
+$db->query('UPDATE web_domain SET nginx_directives = ? WHERE domain_id = 12', waf_block_text('enforce'));
+$job = $waf->queue('emergency', array('on' => true), 'probe');
+$waf->pass();
+expect_same('emergency on', array(job_row($job)['job_status'], config_value('waf_emergency'), config_value('waf_emergency_since') !== null), array('done', 'y', true));
+expect_same('emergency file', waf_state_file_is_emergency(file_get_contents($tmp . '/waf/state.conf')), true);
+$follow = $db->queryOneRecord("SELECT job_id, options FROM malwatch_job WHERE job_kind = 'waf' AND job_status = 'pending' ORDER BY job_id DESC LIMIT 1");
+$follow_options = json_decode($follow['options'], true);
+expect_same('emergency queues detect', array($follow_options['action'], $follow_options['state'], $follow_options['domain_ids']), array('set_state', 'detect', array(12)));
+$waf->pass();
+vhost('zweite.test', "    modsecurity on;\n");
+$waf->pass();
+expect_same('follow-up done', array(job_row((int) $follow['job_id'])['job_status'], field(12)), array('done', waf_block_text('detect')));
+$job = $waf->queue('set_state', array('domain_ids' => array(11), 'state' => 'enforce'), 'probe');
+$waf->pass();
+expect_same('no enforce during the emergency', job_progress($job)[0]['reason'], 'emergency');
+$job = $waf->queue('emergency', array('on' => false), 'probe');
+$waf->pass();
+expect_same('emergency off', array(job_row($job)['job_status'], config_value('waf_emergency')), array('done', 'n'));
+expect_same('emergency file cleared', waf_state_file_is_emergency(file_get_contents($tmp . '/waf/state.conf')), false);
+
+// An emergency stop does not wait for a job that waits for ISPConfig.
+$waiting = $waf->queue('set_state', array('domain_ids' => array(12), 'state' => 'off'), 'probe');
+$waf->pass();
+expect_same('job waits for ISPConfig', job_row($waiting)['job_status'], 'running');
+$job = $waf->queue('emergency', array('on' => true), 'probe');
+$other = $waf->queue('response_body', array('mode' => 'lean'), 'probe');
+$waf->pass();
+expect_same('emergency first', array(job_row($job)['job_status'], job_row($other)['job_status']), array('done', 'pending'));
+vhost('zweite.test', "    listen 80;\n");
+$waf->pass();
+expect_same('queue moves on', array(job_row($waiting)['job_status'], job_row($other)['job_status']), array('done', 'done'));
+expect_same('lean file', waf_response_body_mode(file_get_contents($tmp . '/waf/response-body.conf')), 'lean');
+expect_same('lean setting', config_value('waf_response_body'), 'lean');
+$calls = array();
+$job = $waf->queue('response_body', array('mode' => 'lean'), 'probe');
+$waf->pass();
+expect_same('lean again changes nothing', array(job_row($job)['job_status'], $calls), array('done', array()));
+$job = $waf->queue('response_body', array('mode' => 'halb'), 'probe');
+$waf->pass();
+expect_same('odd mode refused', job_row($job)['job_status'], 'error');
+$waf->queue('emergency', array('on' => false), 'probe');
+$waf->pass();
+
+$db->query('UPDATE malwatch_config SET waf_log_keep_days = 14 WHERE config_id = 1');
+$calls = array();
+$job = $waf->queue('apply_settings', array(), 'probe');
+$waf->pass();
+expect_same('settings applied', array(job_row($job)['job_status'], $calls), array('done', array('logrotate_check')));
+expect_same('logrotate file', strpos(file_get_contents($tmp . '/logrotate-waf'), "\trotate 14\n") !== false, true);
+$answers = array('logrotate_check' => array(array(1, 'error: bad line')));
+$db->query('UPDATE malwatch_config SET waf_log_keep_days = 30 WHERE config_id = 1');
+$job = $waf->queue('apply_settings', array(), 'probe');
+$waf->pass();
+expect_same('logrotate refuses', array(job_row($job)['job_status'], strpos(file_get_contents($tmp . '/logrotate-waf'), "\trotate 14\n") !== false), array('error', true));
+
+// Old markers become new ones; states and files are read back.
+$db->query('UPDATE web_domain SET nginx_directives = ? WHERE domain_id = 12',
+	"# WAF-Anfang (mitschreiben) \xE2\x80\x93 verwaltet von waf-schalter\nmodsecurity on;\n# WAF-Ende\n");
+$db->query("UPDATE malwatch_site SET waf_state = 'off' WHERE parent_domain_id = 12");
+vhost('zweite.test', "    modsecurity on;\n");
+file_put_contents($tmp . '/waf/response-body.conf', waf_response_body_text('full'));
+$job = $waf->queue('migrate_markers', array(), 'probe');
+$waf->pass();
+expect_same('migrate done', job_row($job)['job_status'], 'done');
+expect_same('marker rewritten', field(12), waf_block_text('detect'));
+expect_same('state read back', array(site_row(12)['waf_state'], site_row(11)['waf_state']), array('detect', 'detect'));
+expect_same('response body read back', config_value('waf_response_body'), 'full');
+
+$job = $waf->execute_now('response_body', array('mode' => 'full'), 'probe');
+expect_same('execute now', array($job['job_status'], strpos($job['job_log'], 'unverändert') !== false), array('done', true));
+
+// Hard stop: include off, vhosts and fields without the module.
+$calls = array();
+$job = $waf->queue('emergency', array('on' => true, 'hard' => true), 'probe');
+$waf->pass();
+expect_same('hard stop done', array(job_row($job)['job_status'], $calls), array('done', array('nginx_test', 'nginx_reload')));
+expect_same('include renamed', array(is_file($tmp . '/conf.d/waf.conf'), is_file($tmp . '/conf.d/waf.conf.off')), array(false, true));
+expect_same('vhosts stripped', array(waf_vhost_state(file_get_contents($tmp . '/vhosts/beispiel.test.vhost')),
+	waf_vhost_state(file_get_contents($tmp . '/vhosts/zweite.test.vhost'))), array('off', 'off'));
+expect_same('fields cleared', array(field(11), field(12)), array($own, ''));
+expect_same('states off', array(site_row(11)['waf_state'], site_row(12)['waf_state']), array('off', 'off'));
+expect_same('emergency flag', config_value('waf_emergency'), 'y');
+$job = $waf->queue('emergency', array('on' => false), 'probe');
+$waf->pass();
+expect_same('no soft end of a hard stop', job_row($job)['job_status'], 'error');
+
+// The guard.
+$answers = array();
+expect_same('guard fine', $waf->guard(), 0);
+expect_same('guard log', strpos(file_get_contents($tmp . '/guard.log'), 'nginx -t in Ordnung.') !== false, true);
+file_put_contents($tmp . '/waf/exclusions-panel-before.conf', "SecRule broken\n");
+$answers = array('nginx_test' => array(array(1, 'nginx: [emerg] "modsecurity_rules_file" directive Rules error. File: '
+	. $tmp . '/waf/exclusions-panel-before.conf. Line: 1.')));
+$calls = array();
+expect_same('guard repairs', $waf->guard(), 1);
+expect_same('guard put the file back', file_get_contents($tmp . '/waf/exclusions-panel-before.conf'),
+	file_get_contents($tmp . '/state/waf/last-good/exclusions-panel-before.conf'));
+expect_same('guard reloads after the repair', $calls, array('nginx_test', 'nginx_test', 'nginx_reload'));
+rename($tmp . '/conf.d/waf.conf.off', $tmp . '/conf.d/waf.conf');
+$answers = array('nginx_test' => array(array(1, 'nginx: [emerg] unknown directive "modsecurity" in /etc/nginx/sites-enabled/100-x.vhost:3')));
+expect_same('guard stops hard', $waf->guard(), 1);
+expect_same('guard renamed the include', is_file($tmp . '/conf.d/waf.conf.off'), true);
+$answers = array('nginx_test' => array(array(1, 'nginx: [emerg] host not found in upstream "x"')));
+$calls = array();
+expect_same('guard leaves other errors', array($waf->guard(), $calls), array(1, array('nginx_test')));
+
+// A file job that is still running was cut off.
+$answers = array();
+$db->query('INSERT INTO malwatch_job (server_id, parent_domain_id, domain, scan_path, job_source, job_kind, job_status, '
+	. "options, created_at, started_at) VALUES (?, 0, '', '', 'manual', 'waf', 'running', ?, NOW(), NOW())",
+	$server, '{"action":"response_body","mode":"lean","user":"probe"}');
+$cut = (int) $db->insertID();
+$waf->pass();
+expect_same('interrupted job', array(job_row($cut)['job_status'], strpos(job_row($cut)['job_log'], 'unterbrochen') !== false), array('error', true));
+
+$waf->cron_minute();
+$waf->cron_hourly();
+expect_same('snapshot', $waf->snapshot(), true);
+expect_same('no job left behind', count_rows("SELECT job_id FROM malwatch_job WHERE job_status IN ('pending','running')"), 0);
+
 // --- summary -----------------------------------------------------------------
 waf_remove_dir($tmp);
 if ($failures > 0) {

@@ -104,7 +104,8 @@ class malwatch_helper
 	{
 		global $app, $conf;
 
-		$kind_sql = $kind === 'vulncheck' ? "job_kind = 'vulncheck'" : "job_kind != 'vulncheck'";
+		// WAF jobs take no slot at all: the cron works on them itself.
+		$kind_sql = $kind === 'vulncheck' ? "job_kind = 'vulncheck'" : "job_kind NOT IN ('vulncheck','waf')";
 		$row = $app->dbmaster->queryOneRecord(
 			"SELECT COUNT(*) AS n FROM malwatch_job WHERE server_id = ? AND job_status = 'running' AND job_id != ? AND "
 			. $kind_sql,

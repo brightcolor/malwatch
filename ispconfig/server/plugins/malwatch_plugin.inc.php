@@ -41,6 +41,12 @@ class malwatch_plugin
 			return;
 		}
 
+		// WAF jobs belong to the cron (malwatch_waf::run_jobs); the runner has
+		// nothing to start for them.
+		if (isset($job['job_kind']) && $job['job_kind'] === 'waf') {
+			return;
+		}
+
 		// Claim the row before doing anything. A second datalog pass over the
 		// same insert would otherwise start the scanner twice on one tree.
 		if (!$app->malwatch_helper->claim_job($job_id)) {

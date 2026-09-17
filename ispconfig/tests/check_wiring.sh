@@ -1075,6 +1075,28 @@ for sub in /waf /waf/responses /waf/staging /waf/last-good; do
 		|| fail "der Installer legt <state_dir>$sub nicht an"
 done
 
+# 53. WAF-Auftraege gehoeren dem Cron. Das Plugin laesst sie liegen,
+#     start_pending und die Zaehlung nehmen sie aus, weder das Einsammeln noch
+#     die Zeitsperre fassen sie an. Der Cron laedt malwatch_waf, ruft es jede
+#     Minute und stuendlich zum Aufraeumen.
+plugin="$root/server/plugins/malwatch_plugin.inc.php"
+cron="$root/server/lib/classes/cron.d/560-malwatch.inc.php"
+helper="$root/server/lib/classes/malwatch_helper.inc.php"
+grep -q "job_kind'\] === 'waf'" "$plugin" \
+	|| fail "malwatch_plugin.inc.php laesst WAF-Auftraege nicht liegen"
+grep -q "job_kind NOT IN ('vulncheck','waf')" "$cron" \
+	|| fail "start_pending nimmt WAF-Auftraege nicht aus"
+grep -q "job_kind NOT IN ('vulncheck','waf')" "$helper" \
+	|| fail "count_running_jobs zaehlt WAF-Auftraege mit"
+[ "$(grep -c "job_kind != 'waf'" "$cron")" -ge 2 ] \
+	|| fail "collect_finished oder die Zeitsperre fassen WAF-Auftraege an"
+grep -q "uses('[^']*malwatch_waf" "$cron" \
+	|| fail "der Cron laedt malwatch_waf nicht"
+grep -q 'malwatch_waf->cron_minute()' "$cron" \
+	|| fail "der Cron ruft malwatch_waf nicht jede Minute auf"
+grep -q 'malwatch_waf->cron_hourly()' "$cron" \
+	|| fail "der Cron raeumt die Treffer der WAF nicht auf"
+
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'
 fi

@@ -18,7 +18,7 @@ class cronjob_malwatch extends cronjob
 	{
 		global $app, $conf;
 
-		$app->uses('malwatch_helper,malwatch_runner,malwatch_ingest,malwatch_actions,getconf');
+		$app->uses('malwatch_helper,malwatch_runner,malwatch_ingest,malwatch_actions,malwatch_waf,getconf');
 		$config = $app->malwatch_helper->get_config();
 
 		try {
@@ -37,6 +37,14 @@ class cronjob_malwatch extends cronjob
 			$this->queue_due_vulnchecks($config);
 		} catch (Exception $e) {
 			$app->log('malwatch: scheduling the vulnerability check failed: ' . $e->getMessage(), LOGLEVEL_WARN);
+		}
+
+		// The WAF part reads its log and works on its own jobs, under its own
+		// lock; see malwatch_waf. The runner never starts one of them.
+		try {
+			$app->malwatch_waf->cron_minute();
+		} catch (Exception $e) {
+			$app->log('malwatch: the WAF pass failed: ' . $e->getMessage(), LOGLEVEL_WARN);
 		}
 
 		try {
@@ -60,7 +68,7 @@ class cronjob_malwatch extends cronjob
 		global $app, $conf;
 
 		$jobs = $app->dbmaster->queryAllRecords(
-			"SELECT * FROM malwatch_job WHERE server_id = ? AND job_status = 'running' ORDER BY job_id ASC LIMIT 20",
+			"SELECT * FROM malwatch_job WHERE server_id = ? AND job_status = 'running' AND job_kind != 'waf' ORDER BY job_id ASC LIMIT 20",
 			$conf['server_id']);
 
 		if (!is_array($jobs)) {
@@ -343,7 +351,7 @@ class cronjob_malwatch extends cronjob
 		$limit = max(1, intval($config['max_parallel']));
 		$running = $app->malwatch_helper->count_running_jobs();
 		if ($running < $limit) {
-			$this->start_jobs($config, "job_kind != 'vulncheck'", $limit - $running);
+			$this->start_jobs($config, "job_kind NOT IN ('vulncheck','waf')", $limit - $running);
 		}
 
 		// Vulnerability checks have their own slots beside the scans: behind a
@@ -388,7 +396,7 @@ class cronjob_malwatch extends cronjob
 		// opposite case: a scanner that hangs. Without it a stuck job would
 		// hold its slot for ever and no further scan would ever start.
 		$stale = $app->dbmaster->queryAllRecords(
-			"SELECT job_id, pid, domain, result_file FROM malwatch_job WHERE server_id = ? AND job_status = 'running' "
+			"SELECT job_id, pid, domain, result_file FROM malwatch_job WHERE server_id = ? AND job_status = 'running' AND job_kind != 'waf' "
 			. 'AND started_at < DATE_SUB(NOW(), INTERVAL ? HOUR)',
 			$conf['server_id'], $timeout);
 
@@ -439,6 +447,8 @@ class cronjob_malwatch extends cronjob
 		// andere information_schema über alle Datenbanken des Servers.
 		$this->clean_dumps($config);
 		$this->collect_databases($config);
+		// Hits and day figures of the WAF past their time; see malwatch_waf::cleanup().
+		$app->malwatch_waf->cron_hourly();
 
 		$keep = max(1, intval($config['keep_scans']));
 		$domains = $app->dbmaster->queryAllRecords(
