@@ -316,6 +316,26 @@ expect_same('settings form title and tab', array(
 	isset($config_words['de'][$config_tab['title']]),
 ), array(true, true));
 
+// --- A1: how many hits the rule cards read -------------------------------------
+
+$card = waf_settings(array());
+expect_same('card hits default', isset($card['waf_card_hits']) ? $card['waf_card_hits'] : null, 5000);
+$card = waf_settings(array('waf_card_hits' => '99'));
+expect_same('card hits floor', isset($card['waf_card_hits']) ? $card['waf_card_hits'] : null, 100);
+$card = waf_settings(array('waf_card_hits' => '250000'));
+expect_same('card hits ceiling', isset($card['waf_card_hits']) ? $card['waf_card_hits'] : null, 100000);
+
+// A range message names the limits of its field and what to do next.
+foreach (waf_settings_limits() as $key => $limit) {
+	$errmsg = isset($config_tab['fields'][$key]['validators'][0]['errmsg']) ? $config_tab['fields'][$key]['validators'][0]['errmsg'] : '';
+	$de = isset($config_words['de'][$errmsg]) ? $config_words['de'][$errmsg] : '';
+	$en = isset($config_words['en'][$errmsg]) ? $config_words['en'][$errmsg] : '';
+	expect_same("range message of $key", array(
+		strpos($de, $limit[0] . ' bis ' . $limit[1]) !== false, strpos($de, 'erneut speichern') !== false,
+		strpos($en, $limit[0] . ' to ' . $limit[1]) !== false, strpos($en, 'save again') !== false,
+	), array(true, true, true, true));
+}
+
 // --- summary -----------------------------------------------------------------
 if ($failures > 0) {
 	fwrite(STDERR, $failures . " Fehler\n");

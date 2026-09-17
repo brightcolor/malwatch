@@ -129,6 +129,21 @@ $form['tabs']['waf'] = array(
 			'value' => '',
 			'width' => '10',
 			'maxlength' => '3'
+		),
+		'waf_card_hits' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '5000',
+			'validators' => array(
+				array(
+					'type' => 'RANGE',
+					'range' => '100:100000',
+					'errmsg' => 'waf_card_hits_error_range'
+				)
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '6'
 		)
 	)
 );

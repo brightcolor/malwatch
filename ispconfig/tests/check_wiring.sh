@@ -1060,7 +1060,7 @@ grep -q "ADD COLUMN \`waf_state\` enum(''off'',''detect'',''enforce'')" "$root/i
 	|| fail "malwatch_site bekommt keine Spalte waf_state"
 for col in waf_detail_days waf_stats_days waf_log_keep_days waf_preview_days waf_min_detect_days \
 	waf_response_body waf_ingest_max_lines waf_job_deadline_minutes waf_audit_log waf_conf_dir \
-	waf_emergency waf_emergency_since; do
+	waf_emergency waf_emergency_since waf_card_hits; do
 	grep -q "ADD COLUMN \`$col\`" "$root/install/schema.sql" \
 		|| fail "malwatch_config bekommt keine Spalte $col"
 	grep -q "'$col' =>" "$root/interface/lib/malwatch_waf_lib.inc.php" \

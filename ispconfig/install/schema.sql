@@ -957,6 +957,14 @@ SET @mw := (SELECT IF(COUNT(*) = 0,
   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_config' AND COLUMN_NAME = 'waf_detail_days');
 PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
+-- How many of the latest hits of a website the rule cards read; default as in waf_settings_defaults().
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_config` ADD COLUMN `waf_card_hits` int(11) unsigned NOT NULL DEFAULT ''5000''',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_config' AND COLUMN_NAME = 'waf_card_hits');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
 -- waf carries the jobs of the page Abwehr. The malwatch cron works on them
 -- itself (malwatch_waf::run_jobs); the runner never starts one.
 SET @mw := (SELECT IF(COUNT(*) = 0,

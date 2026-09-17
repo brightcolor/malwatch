@@ -17,6 +17,10 @@ $wb['waf_min_detect_days_hint_txt'] = 'A website detects this long before the bu
 $wb['waf_preview_days_txt'] = 'Preview (days)';
 $wb['waf_preview_days_hint_txt'] = 'The preview for "enforce" and for exceptions counts over this period.';
 
+$wb['display_head_txt'] = 'Display';
+$wb['waf_card_hits_txt'] = 'Single hits for the rule cards';
+$wb['waf_card_hits_hint_txt'] = 'The page reads this many of the latest single hits of a website to show addresses and triggers per rule. A higher value shows more addresses and makes the page slower to build.';
+
 $wb['cron_head_txt'] = 'Cron';
 $wb['waf_ingest_max_lines_txt'] = 'Lines per pass';
 $wb['waf_ingest_max_lines_hint_txt'] = 'A pass reads at most this many lines of the audit log; the next pass reads the rest.';
@@ -39,10 +43,11 @@ $wb['btn_back_txt'] = 'Back to the overview';
 $wb['msg_saved_txt'] = 'Saved. The cron applies the values with its next pass.';
 $wb['msg_saved_no_server_txt'] = 'Saved. No active web server is registered, so no job waits.';
 
-$wb['waf_detail_days_error_range'] = 'Single requests: 1 to 3650 days.';
-$wb['waf_stats_days_error_range'] = 'Day figures: 1 to 3650 days.';
-$wb['waf_log_keep_days_error_range'] = 'Audit log: 1 to 365 days.';
-$wb['waf_preview_days_error_range'] = 'Preview: 1 to 365 days.';
-$wb['waf_min_detect_days_error_range'] = 'Detect before "enforce": 0 to 365 days.';
-$wb['waf_ingest_max_lines_error_range'] = 'Lines per pass: 100 to 100000.';
-$wb['waf_job_deadline_minutes_error_range'] = 'Deadline for the vhost: 2 to 120 minutes.';
+$wb['waf_detail_days_error_range'] = 'Single requests (days): whole numbers from 1 to 3650 are allowed. Please adjust the value and save again.';
+$wb['waf_stats_days_error_range'] = 'Day figures (days): whole numbers from 1 to 3650 are allowed. Please adjust the value and save again.';
+$wb['waf_log_keep_days_error_range'] = 'Audit log (days): whole numbers from 1 to 365 are allowed. Please adjust the value and save again.';
+$wb['waf_preview_days_error_range'] = 'Preview (days): whole numbers from 1 to 365 are allowed. Please adjust the value and save again.';
+$wb['waf_min_detect_days_error_range'] = 'Detect before "enforce" (days): whole numbers from 0 to 365 are allowed. Please adjust the value and save again.';
+$wb['waf_ingest_max_lines_error_range'] = 'Lines per pass: whole numbers from 100 to 100000 are allowed. Please adjust the value and save again.';
+$wb['waf_job_deadline_minutes_error_range'] = 'Deadline for the vhost (minutes): whole numbers from 2 to 120 are allowed. Please adjust the value and save again.';
+$wb['waf_card_hits_error_range'] = 'Single hits for the rule cards: whole numbers from 100 to 100000 are allowed. Please adjust the value and save again.';

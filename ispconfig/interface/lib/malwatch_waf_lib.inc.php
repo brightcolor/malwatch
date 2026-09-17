@@ -797,6 +797,7 @@ function waf_settings_defaults()
 		'waf_conf_dir' => '/etc/nginx/waf',
 		'waf_emergency' => 'n',
 		'waf_emergency_since' => null,
+		'waf_card_hits' => 5000,
 	);
 }
 
@@ -811,6 +812,7 @@ function waf_settings_limits()
 		'waf_min_detect_days' => array(0, 365),
 		'waf_ingest_max_lines' => array(100, 100000),
 		'waf_job_deadline_minutes' => array(2, 120),
+		'waf_card_hits' => array(100, 100000),
 	);
 }
 

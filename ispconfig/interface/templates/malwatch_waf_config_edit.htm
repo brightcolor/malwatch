@@ -49,6 +49,16 @@
 	</div>
 </div>
 
+<p class="mw-wafcfg-head">{tmpl_var name='display_head_txt'}</p>
+
+<div class="form-group">
+	<label for="waf_card_hits" class="col-sm-3 control-label">{tmpl_var name='waf_card_hits_txt'}</label>
+	<div class="col-sm-9">
+		<input type="number" min="100" max="100000" step="1" name="waf_card_hits" id="waf_card_hits" value="{tmpl_var name='waf_card_hits'}" class="form-control mw-wafcfg-num" />
+		<span class="help-block">{tmpl_var name='waf_card_hits_hint_txt'}</span>
+	</div>
+</div>
+
 <p class="mw-wafcfg-head">{tmpl_var name='cron_head_txt'}</p>
 
 <div class="form-group">

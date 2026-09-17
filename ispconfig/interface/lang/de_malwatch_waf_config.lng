@@ -17,6 +17,10 @@ $wb['waf_min_detect_days_hint_txt'] = 'So lange schreibt eine Website mit, bevor
 $wb['waf_preview_days_txt'] = 'Vorschau (Tage)';
 $wb['waf_preview_days_hint_txt'] = 'Über diesen Zeitraum zählt die Vorschau für „scharf“ und für Ausnahmen.';
 
+$wb['display_head_txt'] = 'Anzeige';
+$wb['waf_card_hits_txt'] = 'Einzeltreffer für die Regel-Karten';
+$wb['waf_card_hits_hint_txt'] = 'So viele jüngste Einzeltreffer einer Website liest die Seite, um je Regel Adressen und Auslöser zu zeigen. Ein höherer Wert zeigt mehr Adressen und verlängert den Seitenaufbau.';
+
 $wb['cron_head_txt'] = 'Cron';
 $wb['waf_ingest_max_lines_txt'] = 'Zeilen je Durchgang';
 $wb['waf_ingest_max_lines_hint_txt'] = 'So viele Zeilen des Audit-Logs liest ein Durchgang höchstens; den Rest liest der nächste.';
@@ -39,10 +43,11 @@ $wb['btn_back_txt'] = 'Zur Übersicht';
 $wb['msg_saved_txt'] = 'Gespeichert. Der Cron übernimmt die Werte beim nächsten Durchgang.';
 $wb['msg_saved_no_server_txt'] = 'Gespeichert. Es ist kein aktiver Webserver eingetragen, deshalb wartet kein Auftrag.';
 
-$wb['waf_detail_days_error_range'] = 'Einzelne Anfragen: 1 bis 3650 Tage.';
-$wb['waf_stats_days_error_range'] = 'Tageszahlen: 1 bis 3650 Tage.';
-$wb['waf_log_keep_days_error_range'] = 'Audit-Log: 1 bis 365 Tage.';
-$wb['waf_preview_days_error_range'] = 'Vorschau: 1 bis 365 Tage.';
-$wb['waf_min_detect_days_error_range'] = 'Mitschreiben vor „scharf“: 0 bis 365 Tage.';
-$wb['waf_ingest_max_lines_error_range'] = 'Zeilen je Durchgang: 100 bis 100000.';
-$wb['waf_job_deadline_minutes_error_range'] = 'Frist für den vhost: 2 bis 120 Minuten.';
+$wb['waf_detail_days_error_range'] = 'Einzelne Anfragen (Tage): Erlaubt sind ganze Zahlen von 1 bis 3650. Bitte den Wert anpassen und erneut speichern.';
+$wb['waf_stats_days_error_range'] = 'Tageszahlen (Tage): Erlaubt sind ganze Zahlen von 1 bis 3650. Bitte den Wert anpassen und erneut speichern.';
+$wb['waf_log_keep_days_error_range'] = 'Audit-Log (Tage): Erlaubt sind ganze Zahlen von 1 bis 365. Bitte den Wert anpassen und erneut speichern.';
+$wb['waf_preview_days_error_range'] = 'Vorschau (Tage): Erlaubt sind ganze Zahlen von 1 bis 365. Bitte den Wert anpassen und erneut speichern.';
+$wb['waf_min_detect_days_error_range'] = 'Mitschreiben vor „scharf“ (Tage): Erlaubt sind ganze Zahlen von 0 bis 365. Bitte den Wert anpassen und erneut speichern.';
+$wb['waf_ingest_max_lines_error_range'] = 'Zeilen je Durchgang: Erlaubt sind ganze Zahlen von 100 bis 100000. Bitte den Wert anpassen und erneut speichern.';
+$wb['waf_job_deadline_minutes_error_range'] = 'Frist für den vhost (Minuten): Erlaubt sind ganze Zahlen von 2 bis 120. Bitte den Wert anpassen und erneut speichern.';
+$wb['waf_card_hits_error_range'] = 'Einzeltreffer für die Regel-Karten: Erlaubt sind ganze Zahlen von 100 bis 100000. Bitte den Wert anpassen und erneut speichern.';
