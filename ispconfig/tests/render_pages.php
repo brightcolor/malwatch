@@ -55,6 +55,9 @@ $pages = array(
 	'malwatch_dump_list.php',
 	// JSON for the database picker, for the website the run picked.
 	'malwatch_dump_databases.php',
+	// JSON of the WAF jobs and of an exception preview on the website the run picked.
+	'malwatch_waf_jobs.php',
+	'malwatch_waf_preview.php?exc_scope=site&exc_rule=942100',
 );
 
 // Parent process: pick a website, then run each page as a child.
@@ -147,6 +150,8 @@ try {
 $mw_json = array(
 	'malwatch_upgrade_versions.php' => array('key' => 'choices', 'least' => 1, 'what' => 'versions'),
 	'malwatch_dump_databases.php' => array('key' => 'rows', 'least' => 0, 'what' => 'databases'),
+	'malwatch_waf_jobs.php' => array('key' => 'jobs', 'least' => 0, 'what' => 'jobs'),
+	'malwatch_waf_preview.php' => array('key' => 'preview', 'least' => 2, 'what' => 'figures'),
 );
 if (isset($mw_json[$mw_file])) {
 	$expect = $mw_json[$mw_file];

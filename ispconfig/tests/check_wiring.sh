@@ -1124,6 +1124,23 @@ if [ -d "$waf_dir" ]; then
 	fi
 fi
 
+# 55. Die Seiten der Abwehr pruefen die Administratorrechte selbst, und die
+#     Seitenantwort geht nur als Text hinaus: sie ist die Antwort auf die
+#     Anfrage eines Angreifers und laeuft im Panel nie als HTML.
+for page in "$root"/interface/malwatch_waf_*.php; do
+	[ -f "$page" ] || continue
+	grep -q 'is_admin()' "$page" || fail "$(basename "$page") prueft die Administratorrechte nicht"
+done
+response_page="$root/interface/malwatch_waf_response.php"
+if [ -f "$response_page" ]; then
+	for header in 'Content-Type: text/plain' 'X-Content-Type-Options: nosniff' "Content-Security-Policy: default-src 'none'"; do
+		grep -qF "$header" "$response_page" || fail "malwatch_waf_response.php sendet $header nicht"
+	done
+	grep -q 'basename(' "$response_page" || fail "malwatch_waf_response.php nimmt den Dateinamen ungeprueft"
+else
+	fail "interface/malwatch_waf_response.php fehlt"
+fi
+
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'
 fi

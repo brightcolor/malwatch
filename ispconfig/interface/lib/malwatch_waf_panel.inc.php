@@ -467,3 +467,220 @@ function waf_panel_exception_row($wb, $row)
 		'can_remove' => in_array($state, array('active', 'error'), true),
 	);
 }
+
+// --- Database ----------------------------------------------------------------
+
+function waf_panel_rows($result)
+{
+	return is_array($result) ? $result : array();
+}
+
+/** The WAF settings as the pages use them. */
+function waf_panel_settings($app)
+{
+	return waf_settings($app->db->queryOneRecord('SELECT * FROM malwatch_config WHERE config_id = 1'));
+}
+
+/** NOW() and CURDATE() of the database, the clock every WAF date is written on. */
+function waf_panel_clock($app)
+{
+	$row = $app->db->queryOneRecord('SELECT NOW() AS now_at, CURDATE() AS today');
+	if (!is_array($row)) {
+		return array('now' => date('Y-m-d H:i:s'), 'today' => date('Y-m-d'));
+	}
+	return array('now' => (string) $row['now_at'], 'today' => (string) $row['today']);
+}
+
+/** The web servers a job for every website goes to. */
+function waf_panel_web_servers($app)
+{
+	$ids = array();
+	foreach (waf_panel_rows($app->db->queryAllRecords(
+		'SELECT server_id FROM server WHERE web_server = 1 AND active = 1 ORDER BY server_id')) as $row) {
+		$ids[] = (int) $row['server_id'];
+	}
+	return $ids;
+}
+
+/** Queues a WAF job through the datalog, like every other job of the panel, and returns its id. */
+function waf_panel_queue($app, $server_id, $action, $fields)
+{
+	$user = isset($_SESSION['s']['user']['username']) ? (string) $_SESSION['s']['user']['username'] : '';
+	$clock = waf_panel_clock($app);
+	return (int) $app->db->datalogInsert('malwatch_job', array(
+		'sys_userid' => $app->functions->intval($_SESSION['s']['user']['userid']),
+		'sys_groupid' => $app->functions->intval($_SESSION['s']['user']['default_group']),
+		'sys_perm_user' => 'riud',
+		'sys_perm_group' => 'r',
+		'sys_perm_other' => '',
+		'server_id' => (int) $server_id,
+		'parent_domain_id' => 0,
+		'domain' => '',
+		'scan_path' => '',
+		'job_source' => 'manual',
+		'job_kind' => 'waf',
+		'job_status' => 'pending',
+		'options' => waf_json(array_merge($fields, array('action' => (string) $action, 'user' => $user))),
+		'created_at' => $clock['now'],
+	), 'job_id');
+}
+
+/**
+ * Carries out a button of the Abwehr pages; the page has checked the token.
+ * Returns array(message, error), both plain text.
+ */
+function waf_panel_handle_post($app, $wb, $post)
+{
+	$action = isset($post['waf_action']) ? (string) $post['waf_action'] : '';
+	if ($action === '') {
+		return array('', '');
+	}
+
+	if ($action === 'state') {
+		$state = isset($post['waf_target']) ? (string) $post['waf_target'] : '';
+		if (!waf_state_valid($state)) {
+			return array('', $wb['err_state_txt']);
+		}
+		$ids = array();
+		if (isset($post['waf_site']) && (int) $post['waf_site'] > 0) {
+			$ids[] = (int) $post['waf_site'];
+		}
+		if (isset($post['waf_pick']) && is_array($post['waf_pick'])) {
+			foreach ($post['waf_pick'] as $id) {
+				$ids[] = (int) $id;
+			}
+		}
+		$ids = array_values(array_unique(array_filter($ids)));
+		if (count($ids) === 0) {
+			return array('', $wb['err_no_site_txt']);
+		}
+		$settings = waf_panel_settings($app);
+		$clock = waf_panel_clock($app);
+		$by_server = array();
+		$skipped = 0;
+		foreach ($ids as $id) {
+			$row = $app->db->queryOneRecord(
+				'SELECT w.domain_id, w.server_id, s.waf_state, s.waf_state_since FROM web_domain w '
+				. "LEFT JOIN malwatch_site s ON s.parent_domain_id = w.domain_id WHERE w.domain_id = ? AND w.type = 'vhost'", $id);
+			if (!is_array($row) || ($state === 'enforce' && waf_enforce_block_reason((string) $row['waf_state'],
+				$row['waf_state_since'], $clock['now'], $settings['waf_min_detect_days'], $settings['waf_emergency']) !== '')) {
+				$skipped++;
+				continue;
+			}
+			$by_server[(int) $row['server_id']][] = $id;
+		}
+		$queued = 0;
+		foreach ($by_server as $server_id => $site_ids) {
+			waf_panel_queue($app, $server_id, 'set_state', array('domain_ids' => $site_ids, 'state' => $state));
+			$queued += count($site_ids);
+		}
+		if ($queued === 0) {
+			return array('', $wb['err_nothing_to_switch_txt']);
+		}
+		$message = sprintf($wb['msg_state_queued_txt'], waf_panel_state_label($wb, $state), number_format($queued, 0, ',', '.'));
+		if ($skipped > 0) {
+			$message .= ' ' . sprintf($wb['msg_state_skipped_txt'], number_format($skipped, 0, ',', '.'));
+		}
+		return array($message, '');
+	}
+
+	if ($action === 'emergency_on' || $action === 'emergency_off') {
+		foreach (waf_panel_web_servers($app) as $server_id) {
+			waf_panel_queue($app, $server_id, 'emergency', array('on' => $action === 'emergency_on', 'hard' => false));
+		}
+		return array($action === 'emergency_on' ? $wb['msg_emergency_on_txt'] : $wb['msg_emergency_off_txt'], '');
+	}
+
+	if ($action === 'response_body') {
+		$mode = isset($post['waf_mode']) ? (string) $post['waf_mode'] : '';
+		if (!waf_response_body_valid($mode)) {
+			return array('', $wb['err_mode_txt']);
+		}
+		foreach (waf_panel_web_servers($app) as $server_id) {
+			waf_panel_queue($app, $server_id, 'response_body', array('mode' => $mode));
+		}
+		return array($mode === 'lean' ? $wb['msg_lean_txt'] : $wb['msg_full_txt'], '');
+	}
+
+	if ($action === 'exception_add') {
+		list($row, $wrong) = waf_panel_exception_input($post, isset($post['exc_site']) ? (int) $post['exc_site'] : 0);
+		if ($wrong !== '') {
+			return array('', waf_panel_reason_label($wb, $wrong));
+		}
+		$web = null;
+		if ($row['parent_domain_id'] > 0) {
+			$web = $app->db->queryOneRecord(
+				"SELECT domain_id, domain, server_id FROM web_domain WHERE domain_id = ? AND type = 'vhost'", $row['parent_domain_id']);
+			if (!is_array($web)) {
+				return array('', $wb['err_no_site_txt']);
+			}
+		}
+		$user = isset($_SESSION['s']['user']['username']) ? (string) $_SESSION['s']['user']['username'] : '';
+		$clock = waf_panel_clock($app);
+		foreach (is_array($web) ? array((int) $web['server_id']) : waf_panel_web_servers($app) as $server_id) {
+			$app->db->query(
+				'INSERT INTO malwatch_waf_exception (sys_userid, sys_groupid, sys_perm_user, sys_perm_group, sys_perm_other, '
+				. 'server_id, scope, parent_domain_id, domain, rule_id, path, param, note, exception_state, created_by, created_at) '
+				. "VALUES (?, ?, 'riud', 'r', '', ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)",
+				$app->functions->intval($_SESSION['s']['user']['userid']),
+				$app->functions->intval($_SESSION['s']['user']['default_group']),
+				$server_id, $row['scope'], $row['parent_domain_id'], is_array($web) ? (string) $web['domain'] : '',
+				$row['rule_id'], $row['path'], $row['param'], $row['note'], waf_cut($user, 64), $clock['now']);
+			waf_panel_queue($app, $server_id, 'exception_add', array('exception_id' => (int) $app->db->insertID()));
+		}
+		return array($wb['msg_exception_added_txt'], '');
+	}
+
+	if ($action === 'exception_remove') {
+		$exception_id = isset($post['waf_exception']) ? (int) $post['waf_exception'] : 0;
+		$row = $app->db->queryOneRecord(
+			'SELECT exception_id, server_id, exception_state FROM malwatch_waf_exception WHERE exception_id = ?', $exception_id);
+		if (!is_array($row) || !in_array((string) $row['exception_state'], array('active', 'error'), true)) {
+			return array('', $wb['err_exception_txt']);
+		}
+		$app->db->query("UPDATE malwatch_waf_exception SET exception_state = 'removing' WHERE exception_id = ?", $exception_id);
+		waf_panel_queue($app, (int) $row['server_id'], 'exception_remove', array('exception_id' => $exception_id));
+		return array($wb['msg_exception_removing_txt'], '');
+	}
+
+	return array('', $wb['err_unknown_action_txt']);
+}
+
+/**
+ * The preview of the exception a form describes. Day figures cover
+ * waf_preview_days; a parameter needs single hits and reaches back no further
+ * than they are kept.
+ */
+function waf_panel_preview($app, $wb, $get)
+{
+	$site_id = isset($get['id']) ? (int) $get['id'] : 0;
+	list($row, $wrong) = waf_panel_exception_input($get, $site_id);
+	if ($wrong !== '') {
+		return array('valid' => false, 'preview' => array('covered' => 0, 'total' => 0), 'text' => waf_panel_reason_label($wb, $wrong));
+	}
+	$settings = waf_panel_settings($app);
+	$days = $settings['waf_preview_days'];
+	$items = array();
+	if ($row['scope'] === 'site_param') {
+		$days = min($days, $settings['waf_detail_days']);
+		foreach (waf_panel_rows($app->db->queryAllRecords(
+			'SELECT parent_domain_id, path, rules FROM malwatch_waf_hit WHERE parent_domain_id = ? '
+			. 'AND seen_at >= DATE_SUB(NOW(), INTERVAL ? DAY)', $site_id, $days)) as $hit) {
+			$rules = json_decode((string) $hit['rules'], true);
+			foreach (is_array($rules) ? $rules : array() as $rule) {
+				if (isset($rule['id']) && (string) $rule['id'] === $row['rule_id']) {
+					$items[] = array('parent_domain_id' => (int) $hit['parent_domain_id'], 'rule_id' => $row['rule_id'],
+						'path' => (string) $hit['path'], 'hits' => 1,
+						'params' => isset($rule['param']) && $rule['param'] !== '' ? array((string) $rule['param']) : array());
+				}
+			}
+		}
+	} else {
+		$items = waf_panel_rows($app->db->queryAllRecords(
+			'SELECT parent_domain_id, rule_id, path, SUM(hits) AS hits FROM malwatch_waf_day '
+			. 'WHERE rule_id = ? AND day >= DATE_SUB(CURDATE(), INTERVAL ? DAY) GROUP BY parent_domain_id, rule_id, path',
+			$row['rule_id'], $days - 1));
+	}
+	$preview = waf_exception_preview($items, $row);
+	return array('valid' => true, 'preview' => $preview, 'text' => waf_panel_preview_text($wb, $preview, $days));
+}
