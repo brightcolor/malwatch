@@ -51,6 +51,21 @@ entfernt die alten Namen nach dem erfolgreichen Reload.
 
 **Deinstallieren** löscht auch die Tabellen der Dumps und der Datenbankliste.
 
+### Behoben
+
+**Überschriften sichtbar.** Die Abschnitte der Einstellungen, der Einstellungen einer
+Website und der Seite einer Website tragen wieder sichtbare Überschriften; das
+Stylesheet von ISPConfig hatte sie ausgeblendet. Die Sprungziele „Funde“ und
+„Software“ auf der Seite einer Website funktionieren damit ebenfalls.
+
+**Fehlermeldungen der Einstellungen.** Ein Wert außerhalb seines Bereichs, etwa bei
+„Gleichzeitige Prüfungen“, zeigt seinen Grund jetzt über dem Formular.
+
+**„Auf die bestehenden Funde anwenden“ speichert mit.** Felder, die im selben Zug
+geändert wurden, werden gespeichert, und die Funde werden nach der Einstellung
+behandelt, die vor dem Klick galt. Zuvor scheiterte das Speichern dabei an der
+Prüfung des Formularschlüssels.
+
 ## [0.18.0] – 2026-09-15
 
 ### Neu
