@@ -4022,11 +4022,11 @@ Ergebnis am 17.09.2026: `main` steht auf `fea2093`, CI-Lauf 35269733047 grün mi
 
 #### Block 4: Einspielen
 
-- [ ] **Step 12: Freigabe einholen**
+- [x] **Step 12: Freigabe einholen**
 
 Mathias bekommt vorgelegt: „B9, Block 4: Ich spiele malwatch 0.21.0 ein: Scanner über `install.sh`, Paket nach Prüfsumme, `manual_install.php`, dann `cmp` jeder Kopie und `render_pages.php` live. Die Quellen bleiben dabei aus, es lädt noch nichts herunter.“ Weiter erst nach seinem Ja.
 
-- [ ] **Step 13: Einspielen**
+- [x] **Step 13: Einspielen**
 
 Zuerst beide Messungen, dann derselbe Ablauf wie bei 0.20.0, mit `mw-0210-deploy` und `v0.21.0`:
 
@@ -4054,6 +4054,8 @@ EOF
 ```
 
 Expected: `malwatch.pkg: OK`, Addon und Scanner `0.21.0`, `Kopien geprüft: 92, abweichend: 0` (91 aus 0.20.0 plus die neue Bibliothek), alle Seiten `ok`. Danach beide Messungen und der Protokolleintrag für Blöcke 3 und 4.
+
+Ergebnis am 17.09.2026, 22:50:30–22:50:59 CEST (Protokolleintrag „malwatch 0.21.0 eingespielt“): alles wie erwartet — `malwatch.pkg: OK`, Addon und Scanner `0.21.0`, `Kopien geprüft: 92, abweichend: 0`, `All pages render.` Der Cronlauf legte `/var/lib/malwatch/waf/origin` um 22:51 selbst an. Messwerte davor/danach: Last 1,01 → 1,02, frei 6.154 → 6.040 MB, Websites unverändert, 5xx unverändert bei 8.727.
 
 #### Block 5: Quellen einschalten und ansehen
 
