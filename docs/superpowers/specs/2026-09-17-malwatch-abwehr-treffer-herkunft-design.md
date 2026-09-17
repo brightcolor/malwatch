@@ -185,6 +185,7 @@ Neue Spalten in `malwatch_config`:
 Release 0.21.0 bringt die lokalen Quellen. Die Spalten `waf_origin_proxycheck_key`
 und `waf_origin_proxycheck_daily` und der Wert `proxycheck` in `waf_origin_net`
 kommen mit dem Release für proxycheck.io.
+Umgesetzt mit 0.22.0 (Plan `docs/superpowers/plans/2026-09-18-malwatch-abwehr-herkunft-proxycheck.md`).
 
 | Spalte | Typ, Vorgabe | Grenzen |
 |---|---|---|

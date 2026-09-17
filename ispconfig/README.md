@@ -187,6 +187,13 @@ nach und legt das Ergebnis in `malwatch_waf_ip` ab. Die Zeile verschwindet mit d
 letzten Treffer der Adresse. Ein Lizenzschlüssel steht nie in einem Auftrag,
 Protokoll oder Fehlertext.
 
+Für VPN, Proxy und Rechenzentrum steht neben den X4BNet-Listen proxycheck.io zur
+Wahl. Der Dienst braucht einen Schlüssel und beantwortet jede Adresse einzeln: Ein
+eigener Schritt im Cron schickt je Durchgang höchstens eine Anfrage mit 100
+Adressen und bleibt unter dem Tageslimit aus den Einstellungen. Er ersetzt die
+Merkmale VPN, Rechenzentrum und Proxy; Land, Provider und Tor bleiben bei den
+lokalen Quellen, solange eine davon gewählt ist.
+
 ## Aktionen
 
 Je Website einzeln schaltbar, jede mit eigener Mindeststufe:

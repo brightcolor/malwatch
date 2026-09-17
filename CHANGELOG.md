@@ -2,6 +2,27 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.22.0] – 2026-09-18
+
+### Neu
+
+**proxycheck.io als Quelle für VPN, Proxy und Rechenzentrum.** Unter **Security >
+Abwehr > Einstellungen** steht bei „VPN und Rechenzentrum“ neben den X4BNet-Listen
+jetzt proxycheck.io. Der Dienst beantwortet jede Adresse einzeln: Er nennt VPN,
+Proxy, Rechenzentrum und den Namen des Anbieters, dazu Land und Netz, wenn keine
+lokale Quelle dafür gewählt ist. Die Seite nimmt Schlüssel und Tageslimit entgegen
+und sagt dazu, dass jede neue Adresse aus einem Treffer an den Dienst geht.
+
+**Kontingent im Blick.** Der Abwehr-Cron schickt je Durchgang höchstens eine Anfrage
+mit 100 Adressen und bleibt unter dem Tageslimit (Vorgabe 500, einstellbar von 1 bis
+100000). Die Einstellungsseite zeigt „heute n von m Abfragen, k Adressen geprüft“.
+Ist das Limit erreicht, warten die übrigen Adressen auf den nächsten Tag; eine
+gescheiterte Anfrage wird nach einer Stunde erneut versucht, höchstens dreimal.
+
+**Beim Abschalten geht alles mit.** Wird proxycheck.io abgewählt, löscht der nächste
+Auftrag „Herkunft der Adressen“ die Merkmale des Dienstes aus den Adressen und seine
+Zeile aus dem Stand der Quellen.
+
 ## [0.21.1] – 2026-09-17
 
 ### Behoben
