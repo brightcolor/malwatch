@@ -5744,7 +5744,7 @@ crontab -l | grep -E 'waf-'
 ls /usr/local/sbin | grep -E '^waf-'
 /usr/local/sbin/waf-guard; echo "waf-guard exit=$?"
 tail -n 3 /var/log/waf/guard.log
-/usr/local/sbin/waf-switch jobs | tail -4
+/usr/local/sbin/waf-switch jobs | head -4
 /usr/local/sbin/waf-switch status | head -12
 mysql -N dbispconfig -e "SELECT w.domain, s.waf_state FROM malwatch_site s JOIN web_domain w ON w.domain_id = s.parent_domain_id WHERE s.waf_state != 'off'"
 mysql -N dbispconfig -e "SELECT COUNT(*) FROM web_domain WHERE nginx_directives LIKE '%# WAF-Anfang%'"
@@ -5839,19 +5839,28 @@ Eine Probe ist:
 
 ```bash
 probe() { curl -s -o /dev/null -w "%{http_code} $1\n" ${2:+-H "$2"} "https://bright-color.de$1"; }
+probe_www() { curl -s -o /dev/null -w "%{http_code} www$1\n" "https://www.bright-color.de$1"; }
 ```
+
+bright-color.de antwortet mit der 301-Weiterleitung von WordPress ohne Inhalt; die Anfrage läuft
+trotzdem durch die WAF. Wo eine gespeicherte Seitenantwort zählt (Schritt 26), geht die Probe mit
+`probe_www` an www.bright-color.de, die mit einer 404-Seite antwortet. `waf-switch jobs` listet den
+neuesten Auftrag zuerst. `state.conf` nennt `SecRuleEngine Off` auch in ihrem Kommentar, gezählt
+wird deshalb nur am Zeilenanfang. Das `$` des JSON-Pfads steht als `CHAR(36)` in der Abfrage, weil
+die doppelte Quotierung über ssh es sonst als Rechenausdruck liest.
 
 Treffer der letzten Proben, nach dem nächsten Durchgang, ohne Adressen:
 
 ```bash
-ssh ispconfig "mysql dbispconfig -e \"SELECT hit_id, path, SUBSTRING_INDEX(uri, '?', -1) AS query, would_block, logged_in, JSON_EXTRACT(rules, '\$[*].id') AS rules, response_bytes FROM malwatch_waf_hit WHERE domain = 'bright-color.de' AND path LIKE '/mwprobe-%' ORDER BY hit_id DESC LIMIT 6\""
+ssh ispconfig "mysql dbispconfig -e \"SELECT hit_id, path, SUBSTRING_INDEX(uri, '?', -1) AS query, would_block, logged_in, JSON_EXTRACT(rules, CONCAT(CHAR(36), '[*].id')) AS rules, response_bytes FROM malwatch_waf_hit WHERE domain = 'bright-color.de' AND path LIKE '/mwprobe-%' ORDER BY hit_id DESC LIMIT 6\""
 ```
 
 - [ ] **Schritt 21: Aus und wieder mitschreiben**
 
-1. Mathias: Abwehr > bright-color.de > „Ausschalten", bestätigen.
+1. Mathias: Security > Abwehr > Übersicht > bright-color.de > „Ausschalten", bestätigen. Das Menü
+   aus 0.19.1 erscheint erst nach einem Wechsel des Moduls; Neuladen reicht nicht.
 2. Claude, bis der Auftrag erledigt ist:
-   `ssh ispconfig '/usr/local/sbin/waf-switch jobs | tail -3; grep -c "modsecurity on" /etc/nginx/sites-available/bright-color.de.vhost'`
+   `ssh ispconfig '/usr/local/sbin/waf-switch jobs | head -3; grep -c "modsecurity on" /etc/nginx/sites-available/bright-color.de.vhost'`
    Expected: Auftrag `set_state` erledigt, `0`. Dann beide Messungen.
 3. `probe '/mwprobe-aus/?q=%3Cscript%3Ealert(1)%3C%2Fscript%3E'`; nach dem nächsten
    Durchgang kein Treffer mit `/mwprobe-aus/`.
@@ -5882,7 +5891,7 @@ Expected nach dem nächsten Durchgang: der Treffer mit `/mwprobe-login/` hat
 3. Claude:
 
    ```bash
-   ssh ispconfig '/usr/local/sbin/waf-switch jobs | tail -2; /usr/local/sbin/waf-switch exception list; grep -c "ctl:ruleRemoveById=941100" /etc/nginx/waf/exclusions-panel-before.conf; nginx -t 2>&1 | tail -1; journalctl -u nginx --since "-10 min" | grep -c Reloaded'
+   ssh ispconfig '/usr/local/sbin/waf-switch jobs | head -2; /usr/local/sbin/waf-switch exception list; grep -c "ctl:ruleRemoveById=941100" /etc/nginx/waf/exclusions-panel-before.conf; nginx -t 2>&1 | tail -1; journalctl -u nginx --since "-10 min" | grep -c Reloaded'
    ```
 
    Expected: Auftrag `exception_add` erledigt, Ausnahme `active`, `1`, `syntax is ok`,
@@ -5914,7 +5923,7 @@ Expected nach dem nächsten Durchgang: der Treffer mit `/mwprobe-login/` hat
 - [ ] **Schritt 25: Notaus**
 
 1. Mathias: Übersicht > „Notaus", bestätigen.
-2. Claude: `ssh ispconfig '/usr/local/sbin/waf-switch jobs | tail -2; grep -c "SecRuleEngine Off" /etc/nginx/waf/state.conf; nginx -t 2>&1 | tail -1'`
+2. Claude: `ssh ispconfig '/usr/local/sbin/waf-switch jobs | head -2; grep -c "^SecRuleEngine Off" /etc/nginx/waf/state.conf; nginx -t 2>&1 | tail -1'`
    Expected: Auftrag `emergency` erledigt, `1`. Mathias sieht das rote Band. Messungen.
 3. `probe '/mwprobe-notaus/?q=%3Cscript%3Ealert(1)%3C%2Fscript%3E'`; nach dem nächsten
    Durchgang kein Treffer mit diesem Pfad.
@@ -5926,20 +5935,20 @@ Expected nach dem nächsten Durchgang: der Treffer mit `/mwprobe-login/` hat
 - [ ] **Schritt 26: Seitenantwort**
 
 1. Mathias: „Seitenantwort: vollständig" > „Auf schlank umstellen".
-2. Claude: `ssh ispconfig '/usr/local/sbin/waf-switch jobs | tail -2; grep -c "id:10199" /etc/nginx/waf/response-body.conf; /usr/local/sbin/waf-switch response-body status'`
+2. Claude: `ssh ispconfig '/usr/local/sbin/waf-switch jobs | head -2; grep -c "id:10199" /etc/nginx/waf/response-body.conf; /usr/local/sbin/waf-switch response-body status'`
    Expected: erledigt, `1`, `lean`. Messungen.
-3. `probe '/mwprobe-schlank/?q=%3Cscript%3Ealert(1)%3C%2Fscript%3E'`; der Treffer hat
+3. `probe_www '/mwprobe-schlank/?q=%3Cscript%3Ealert(1)%3C%2Fscript%3E'`; der Treffer hat
    `response_bytes = 0`.
 4. Mathias: „Seitenantwort: schlank" > „Auf vollständig umstellen".
 5. Claude wie in 2, Expected: erledigt, `0`, `full`. Messungen.
-6. `probe '/mwprobe-voll/?q=%3Cscript%3Ealert(1)%3C%2Fscript%3E'`; der Treffer hat
+6. `probe_www '/mwprobe-voll/?q=%3Cscript%3Ealert(1)%3C%2Fscript%3E'`; der Treffer hat
    `response_bytes` über 0, und „Seitenantwort ansehen" öffnet für Mathias den Text in
    einem eigenen Fenster.
 
 - [ ] **Schritt 27: Endstand und Protokoll**
 
 ```bash
-ssh ispconfig '/usr/local/sbin/waf-switch status | head -12; /usr/local/sbin/waf-switch exception list; /usr/local/sbin/waf-switch response-body status; grep -c "SecRuleEngine Off" /etc/nginx/waf/state.conf'
+ssh ispconfig '/usr/local/sbin/waf-switch status | head -12; /usr/local/sbin/waf-switch exception list; /usr/local/sbin/waf-switch response-body status; grep -c "^SecRuleEngine Off" /etc/nginx/waf/state.conf'
 ```
 
 Expected: bright-color.de „mitschreiben", keine Ausnahme, `full`, `0` – der Stand vor
