@@ -198,3 +198,11 @@ $wb['form_note_txt'] = 'Note, shown in the panel only';
 $wb['btn_exception_add_txt'] = 'Add exception';
 $wb['confirm_exception_add_txt'] = 'The exception goes into the rule files; nginx reloads for this.';
 $wb['preview_wait_txt'] = 'Calculating the preview …';
+
+$wb['exc_list_head_txt'] = 'Exceptions';
+$wb['exc_list_sub_txt'] = 'An exception takes a rule out of the check, for a website, a path, a parameter or across websites. It is added on the page of a website with "Exception …".';
+$wb['exc_filter_site_txt'] = 'Website';
+$wb['exc_filter_global_txt'] = 'across websites';
+$wb['exc_count_txt'] = '%s (%s)';
+$wb['exc_list_none_txt'] = 'No exception matches this choice.';
+$wb['exc_list_empty_txt'] = 'No exception has been added yet.';

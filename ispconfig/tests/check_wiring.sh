@@ -1173,6 +1173,20 @@ else
 	fail "interface/templates/malwatch_waf_show.htm fehlt"
 fi
 
+# 58. Die Ausnahmeliste schickt "Entfernen" an sich selbst, damit ihre Filter
+#     nach dem Klick bleiben, und die Uebersicht fuehrt zu ihr.
+exc_tpl="$root/interface/templates/malwatch_waf_exception_list.htm"
+if [ -f "$exc_tpl" ]; then
+	grep -q 'data-mw-set-mw-waf-action="exception_remove"' "$exc_tpl" \
+		|| fail "malwatch_waf_exception_list.htm hat keinen Knopf Entfernen"
+	grep -q 'data-form-action="security/malwatch_waf_exception_list.php"' "$exc_tpl" \
+		|| fail "malwatch_waf_exception_list.htm schickt Entfernen nicht an die eigene Seite"
+else
+	fail "interface/templates/malwatch_waf_exception_list.htm fehlt"
+fi
+grep -q 'data-load-content="security/malwatch_waf_exception_list.php"' "$root/interface/templates/malwatch_waf_list.htm" \
+	|| fail "malwatch_waf_list.htm fuehrt nicht zur Ausnahmeliste"
+
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'
 fi

@@ -690,3 +690,79 @@ function waf_panel_day_label($day)
 {
 	return preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', (string) $day, $m) ? $m[3] . '.' . $m[2] . '.' . $m[1] : (string) $day;
 }
+
+/**
+ * The filters of the exception list. 'site' is the id of a website, 'all'
+ * for the exceptions of every website, or '' for no filter; anything else
+ * counts as no filter.
+ */
+function waf_panel_exception_filters($get)
+{
+	$state = isset($get['state']) ? (string) $get['state'] : '';
+	$site = isset($get['site']) ? (string) $get['site'] : '';
+	if ($site !== 'all' && preg_match('/^[1-9][0-9]{0,9}$/', $site) !== 1) {
+		$site = '';
+	}
+	return array(
+		'state' => in_array($state, array('pending', 'active', 'error', 'removing'), true) ? $state : '',
+		'site' => $site,
+	);
+}
+
+/**
+ * The exception list for $filters. A website shows its own exceptions and
+ * those for every website, because both apply to it. 'sites' names every
+ * website with an exception of its own, sorted by name, whatever the filter;
+ * 'counts' counts the states within the chosen website. $rows come from
+ * malwatch_waf_exception.
+ */
+function waf_panel_exception_list($rows, $filters)
+{
+	$sites = array();
+	$has_global = false;
+	$counts = array('' => 0, 'pending' => 0, 'active' => 0, 'error' => 0, 'removing' => 0);
+	$list = array();
+	foreach ($rows as $row) {
+		$global = strpos((string) $row['scope'], 'all') === 0;
+		$site_id = (int) $row['parent_domain_id'];
+		if ($global) {
+			$has_global = true;
+		} else {
+			$sites[$site_id] = (string) $row['domain'];
+		}
+		if ($filters['site'] === 'all' && !$global) {
+			continue;
+		}
+		if ($filters['site'] !== '' && $filters['site'] !== 'all' && !$global && $site_id !== (int) $filters['site']) {
+			continue;
+		}
+		$state = (string) $row['exception_state'];
+		$counts['']++;
+		if (isset($counts[$state])) {
+			$counts[$state]++;
+		}
+		if ($filters['state'] === '' || $state === $filters['state']) {
+			$list[] = $row;
+		}
+	}
+	asort($sites, SORT_NATURAL | SORT_FLAG_CASE);
+	$choices = array();
+	foreach ($sites as $id => $domain) {
+		$choices[] = array('value' => (string) $id, 'label' => $domain);
+	}
+	return array('rows' => $list, 'sites' => $choices, 'has_global' => $has_global, 'counts' => $counts);
+}
+
+/** The exception list's query string with some filters changed. */
+function waf_panel_exception_query($filters, $changes)
+{
+	$merged = array_merge($filters, $changes);
+	$parts = array();
+	if ($merged['state'] !== '') {
+		$parts[] = 'state=' . rawurlencode($merged['state']);
+	}
+	if ($merged['site'] !== '') {
+		$parts[] = 'site=' . rawurlencode($merged['site']);
+	}
+	return implode('&', $parts);
+}

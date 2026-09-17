@@ -213,6 +213,58 @@ expect_same('exception row for every website', array($exception['site'], $except
 expect_same('day label', waf_panel_day_label('2026-09-16'), '16.09.2026');
 expect_same('day label of something else', waf_panel_day_label('gestern'), 'gestern');
 
+// --- B6: exception list ------------------------------------------------------
+
+function exception_ids($list)
+{
+	$ids = array();
+	foreach ($list['rows'] as $row) {
+		$ids[] = (int) $row['exception_id'];
+	}
+	return $ids;
+}
+
+expect_same('exception filters', waf_panel_exception_filters(array('state' => 'error', 'site' => '12')),
+	array('state' => 'error', 'site' => '12'));
+expect_same('exception filters for every website', waf_panel_exception_filters(array('site' => 'all')),
+	array('state' => '', 'site' => 'all'));
+expect_same('exception filters refuse other values',
+	waf_panel_exception_filters(array('state' => 'deleted', 'site' => '12 OR 1=1')), array('state' => '', 'site' => ''));
+expect_same('exception filters refuse website 0', waf_panel_exception_filters(array('site' => '0')),
+	array('state' => '', 'site' => ''));
+
+$exception_rows = array(
+	array('exception_id' => '1', 'scope' => 'site', 'parent_domain_id' => '12', 'domain' => 'zweite.test', 'exception_state' => 'active'),
+	array('exception_id' => '2', 'scope' => 'all_path', 'parent_domain_id' => '0', 'domain' => '', 'exception_state' => 'error'),
+	array('exception_id' => '3', 'scope' => 'site_path', 'parent_domain_id' => '11', 'domain' => 'Beispiel.test', 'exception_state' => 'error'),
+	array('exception_id' => '4', 'scope' => 'site_param', 'parent_domain_id' => '12', 'domain' => 'zweite.test', 'exception_state' => 'pending'),
+);
+$list = waf_panel_exception_list($exception_rows, waf_panel_exception_filters(array()));
+expect_same('exception list unfiltered', exception_ids($list), array(1, 2, 3, 4));
+expect_same('exception list websites by name', $list['sites'],
+	array(array('value' => '11', 'label' => 'Beispiel.test'), array('value' => '12', 'label' => 'zweite.test')));
+expect_same('exception list knows global rows', $list['has_global'], true);
+expect_same('exception list counts', $list['counts'],
+	array('' => 4, 'pending' => 1, 'active' => 1, 'error' => 2, 'removing' => 0));
+$list = waf_panel_exception_list($exception_rows, waf_panel_exception_filters(array('site' => '12')));
+expect_same('one website with the global rows', exception_ids($list), array(1, 2, 4));
+expect_same('counts follow the website', $list['counts'],
+	array('' => 3, 'pending' => 1, 'active' => 1, 'error' => 1, 'removing' => 0));
+expect_same('websites stay complete under a filter', count($list['sites']), 2);
+$list = waf_panel_exception_list($exception_rows, waf_panel_exception_filters(array('site' => 'all', 'state' => 'error')));
+expect_same('global rows with an error', exception_ids($list), array(2));
+$list = waf_panel_exception_list($exception_rows, waf_panel_exception_filters(array('site' => '11', 'state' => 'error')));
+expect_same('one website with an error', exception_ids($list), array(2, 3));
+$list = waf_panel_exception_list(array_slice($exception_rows, 0, 1), waf_panel_exception_filters(array()));
+expect_same('no global rows', $list['has_global'], false);
+
+expect_same('exception query', waf_panel_exception_query(array('state' => 'error', 'site' => '12'), array('site' => '')),
+	'state=error');
+expect_same('exception query for every website',
+	waf_panel_exception_query(array('state' => '', 'site' => ''), array('site' => 'all')), 'site=all');
+expect_same('exception query with both', waf_panel_exception_query(array('state' => 'active', 'site' => '11'), array()),
+	'state=active&site=11');
+
 // --- summary -----------------------------------------------------------------
 if ($failures > 0) {
 	fwrite(STDERR, $failures . " Fehler\n");

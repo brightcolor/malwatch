@@ -198,3 +198,11 @@ $wb['form_note_txt'] = 'Notiz, nur im Panel sichtbar';
 $wb['btn_exception_add_txt'] = 'Ausnahme anlegen';
 $wb['confirm_exception_add_txt'] = 'Die Ausnahme wird in die Regeldateien übernommen, nginx lädt dafür neu.';
 $wb['preview_wait_txt'] = 'Vorschau wird berechnet …';
+
+$wb['exc_list_head_txt'] = 'Ausnahmen';
+$wb['exc_list_sub_txt'] = 'Eine Ausnahme nimmt eine Regel aus der Prüfung, für eine Website, einen Pfad, einen Parameter oder websiteübergreifend. Angelegt wird sie auf der Seite einer Website über „Ausnahme …“.';
+$wb['exc_filter_site_txt'] = 'Website';
+$wb['exc_filter_global_txt'] = 'websiteübergreifend';
+$wb['exc_count_txt'] = '%s (%s)';
+$wb['exc_list_none_txt'] = 'Für diese Auswahl gibt es keine Ausnahme.';
+$wb['exc_list_empty_txt'] = 'Es ist noch keine Ausnahme angelegt.';
