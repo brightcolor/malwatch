@@ -1187,6 +1187,34 @@ fi
 grep -q 'data-load-content="security/malwatch_waf_exception_list.php"' "$root/interface/templates/malwatch_waf_list.htm" \
 	|| fail "malwatch_waf_list.htm fuehrt nicht zur Ausnahmeliste"
 
+# 59. Die Einstellungsseite der Abwehr bekommt ihre Texte von tform, und tform
+#     liest nur de_/en_malwatch_waf_config.lng. Ein Schluessel aus einer
+#     anderen Sprachdatei besteht Pruefung 9 und bleibt trotzdem leer. Den
+#     Token prueft tform beim Speichern selbst; eine eigene Pruefung der Seite
+#     verbraucht ihn vorher, und das Speichern scheitert. Ueberschriften als
+#     p.fieldset-legend blendet ispconfig.css aus.
+cfg_tpl="$root/interface/templates/malwatch_waf_config_edit.htm"
+if [ -f "$cfg_tpl" ]; then
+	for key in $(grep -ohE "tmpl_var name=['\"][a-z_]+_txt['\"]" "$cfg_tpl" | sed -E "s/.*['\"]([a-z_]+_txt)['\"]/\1/" | sort -u); do
+		for lang in de en; do
+			grep -qE "\\\$wb\['$key'\]" "$root/interface/lang/${lang}_malwatch_waf_config.lng" 2>/dev/null \
+				|| fail "malwatch_waf_config_edit.htm nutzt {$key}, das ${lang}_malwatch_waf_config.lng nicht setzt"
+		done
+	done
+	grep -q 'data-form-action="security/malwatch_waf_config_edit.php"' "$cfg_tpl" \
+		|| fail "malwatch_waf_config_edit.htm speichert nicht ueber die eigene Seite"
+	grep -q 'formbutton-success' "$cfg_tpl" \
+		|| fail "malwatch_waf_config_edit.htm hat keinen Knopf formbutton-success; Enter speichert dann nicht"
+	if grep -q 'class="fieldset-legend"' "$cfg_tpl"; then
+		fail "malwatch_waf_config_edit.htm setzt Ueberschriften als p.fieldset-legend; ispconfig.css blendet sie aus"
+	fi
+else
+	fail "interface/templates/malwatch_waf_config_edit.htm fehlt"
+fi
+if grep -q -- '->csrf_token_check(' "$root/interface/malwatch_waf_config_edit.php" 2>/dev/null; then
+	fail "malwatch_waf_config_edit.php prueft den Token selbst; tform findet ihn danach nicht mehr"
+fi
+
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'
 fi

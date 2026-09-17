@@ -64,6 +64,8 @@ $pages = array(
 	// Abwehr: every exception, once filtered by a state.
 	'malwatch_waf_exception_list.php',
 	'malwatch_waf_exception_list.php?state=active',
+	// Abwehr: the settings, a form page like malwatch_config_edit.php.
+	'malwatch_waf_config_edit.php',
 	// JSON of the WAF jobs and of an exception preview on the website the run picked.
 	'malwatch_waf_jobs.php',
 	'malwatch_waf_preview.php?exc_scope=site&exc_rule=942100',

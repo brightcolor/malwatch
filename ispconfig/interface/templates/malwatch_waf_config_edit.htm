@@ -1,0 +1,101 @@
+<!--
+	A tab of tabbed_form.tpl.htm: the panel prints the title, the messages of
+	the ranges and the token fields around it.
+-->
+<p class="mw-wafcfg-sub">{tmpl_var name='waf_config_desc_txt'}</p>
+
+<tmpl_if name="waf_message">
+	<div class="alert alert-success">{tmpl_var name='waf_message'}</div>
+</tmpl_if>
+
+<p class="mw-wafcfg-head">{tmpl_var name='keep_head_txt'}</p>
+
+<div class="form-group">
+	<label for="waf_detail_days" class="col-sm-3 control-label">{tmpl_var name='waf_detail_days_txt'}</label>
+	<div class="col-sm-9">
+		<input type="number" min="1" max="3650" step="1" name="waf_detail_days" id="waf_detail_days" value="{tmpl_var name='waf_detail_days'}" class="form-control mw-wafcfg-num" />
+		<span class="help-block">{tmpl_var name='waf_detail_days_hint_txt'}</span>
+	</div>
+</div>
+<div class="form-group">
+	<label for="waf_stats_days" class="col-sm-3 control-label">{tmpl_var name='waf_stats_days_txt'}</label>
+	<div class="col-sm-9">
+		<input type="number" min="1" max="3650" step="1" name="waf_stats_days" id="waf_stats_days" value="{tmpl_var name='waf_stats_days'}" class="form-control mw-wafcfg-num" />
+		<span class="help-block">{tmpl_var name='waf_stats_days_hint_txt'}</span>
+	</div>
+</div>
+<div class="form-group">
+	<label for="waf_log_keep_days" class="col-sm-3 control-label">{tmpl_var name='waf_log_keep_days_txt'}</label>
+	<div class="col-sm-9">
+		<input type="number" min="1" max="365" step="1" name="waf_log_keep_days" id="waf_log_keep_days" value="{tmpl_var name='waf_log_keep_days'}" class="form-control mw-wafcfg-num" />
+		<span class="help-block">{tmpl_var name='waf_log_keep_days_hint_txt'}</span>
+	</div>
+</div>
+
+<p class="mw-wafcfg-head">{tmpl_var name='enforce_head_txt'}</p>
+
+<div class="form-group">
+	<label for="waf_min_detect_days" class="col-sm-3 control-label">{tmpl_var name='waf_min_detect_days_txt'}</label>
+	<div class="col-sm-9">
+		<input type="number" min="0" max="365" step="1" name="waf_min_detect_days" id="waf_min_detect_days" value="{tmpl_var name='waf_min_detect_days'}" class="form-control mw-wafcfg-num" />
+		<span class="help-block">{tmpl_var name='waf_min_detect_days_hint_txt'}</span>
+	</div>
+</div>
+<div class="form-group">
+	<label for="waf_preview_days" class="col-sm-3 control-label">{tmpl_var name='waf_preview_days_txt'}</label>
+	<div class="col-sm-9">
+		<input type="number" min="1" max="365" step="1" name="waf_preview_days" id="waf_preview_days" value="{tmpl_var name='waf_preview_days'}" class="form-control mw-wafcfg-num" />
+		<span class="help-block">{tmpl_var name='waf_preview_days_hint_txt'}</span>
+	</div>
+</div>
+
+<p class="mw-wafcfg-head">{tmpl_var name='cron_head_txt'}</p>
+
+<div class="form-group">
+	<label for="waf_ingest_max_lines" class="col-sm-3 control-label">{tmpl_var name='waf_ingest_max_lines_txt'}</label>
+	<div class="col-sm-9">
+		<input type="number" min="100" max="100000" step="1" name="waf_ingest_max_lines" id="waf_ingest_max_lines" value="{tmpl_var name='waf_ingest_max_lines'}" class="form-control mw-wafcfg-num" />
+		<span class="help-block">{tmpl_var name='waf_ingest_max_lines_hint_txt'}</span>
+	</div>
+</div>
+<div class="form-group">
+	<label for="waf_job_deadline_minutes" class="col-sm-3 control-label">{tmpl_var name='waf_job_deadline_minutes_txt'}</label>
+	<div class="col-sm-9">
+		<input type="number" min="2" max="120" step="1" name="waf_job_deadline_minutes" id="waf_job_deadline_minutes" value="{tmpl_var name='waf_job_deadline_minutes'}" class="form-control mw-wafcfg-num" />
+		<span class="help-block">{tmpl_var name='waf_job_deadline_minutes_hint_txt'}</span>
+	</div>
+</div>
+
+<p class="mw-wafcfg-head">{tmpl_var name='facts_head_txt'}</p>
+
+<dl class="mw-wafcfg-facts">
+	<dt>{tmpl_var name='audit_log_txt'}</dt><dd><code>{tmpl_var name='waf_audit_log'}</code></dd>
+	<dt>{tmpl_var name='conf_dir_txt'}</dt><dd><code>{tmpl_var name='waf_conf_dir'}</code></dd>
+	<dt>{tmpl_var name='response_body_txt'}</dt><dd>{tmpl_var name='response_body_line'}</dd>
+	<dt>{tmpl_var name='emergency_txt'}</dt><dd<tmpl_if name="emergency_on"> class="mw-wafcfg-alarm"</tmpl_if>>{tmpl_var name='emergency_line'}</dd>
+</dl>
+<p class="help-block">{tmpl_var name='facts_hint_txt'}</p>
+
+<input type="hidden" name="id" value="{tmpl_var name='id'}">
+
+<div class="clear"><div class="right">
+	<button class="btn btn-default formbutton-success" type="button" value="{tmpl_var name='btn_save_txt'}"
+		data-submit-form="pageForm" data-form-action="security/malwatch_waf_config_edit.php">{tmpl_var name='btn_save_txt'}</button>
+	<button class="btn btn-default formbutton-default" type="button" value="{tmpl_var name='btn_back_txt'}"
+		data-load-content="security/malwatch_waf_list.php">{tmpl_var name='btn_back_txt'}</button>
+</div></div>
+
+<style>
+/* Muted text through opacity, fixed colours only for the alarm, as on the
+   other pages of the addon. */
+.mw-wafcfg-sub{margin:0 0 14px;opacity:.72;font-size:13px;max-width:80ch}
+/* ispconfig.css hides p.fieldset-legend, so the sections carry their own heading. */
+.mw-wafcfg-head{margin:22px 0 10px;padding-bottom:4px;font-size:15px;font-weight:600;
+	border-bottom:1px solid var(--cic-line-soft,rgba(128,128,128,.35))}
+.mw-wafcfg-num{max-width:14ch}
+.mw-wafcfg-facts{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:6px 18px;margin:0 0 8px}
+.mw-wafcfg-facts dt{font-weight:400;opacity:.72}
+.mw-wafcfg-facts dd{margin:0;word-break:break-all}
+.mw-wafcfg-facts code{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:12px}
+.mw-wafcfg-alarm{color:var(--cic-bad-text,#d13f22);font-weight:600}
+</style>

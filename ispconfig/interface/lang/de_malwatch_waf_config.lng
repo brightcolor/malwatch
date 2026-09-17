@@ -1,0 +1,48 @@
+<?php
+$wb['waf_config_head_txt'] = 'Abwehr – Einstellungen';
+$wb['waf_tab_txt'] = 'Einstellungen';
+$wb['waf_config_desc_txt'] = 'Gilt für alle Websites auf diesem Server. Der malwatch-Cron liest die Werte bei jedem Durchgang; die Aufbewahrung des Audit-Logs trägt ein Auftrag in die Datei von logrotate ein.';
+
+$wb['keep_head_txt'] = 'Aufbewahrung';
+$wb['waf_detail_days_txt'] = 'Einzelne Anfragen (Tage)';
+$wb['waf_detail_days_hint_txt'] = 'Kopfzeilen, Anfrageinhalt und Seitenantwort je Treffer. Danach bleiben die Tageszahlen.';
+$wb['waf_stats_days_txt'] = 'Tageszahlen (Tage)';
+$wb['waf_stats_days_hint_txt'] = 'Treffer je Tag, Regel und Pfad. Der längste Zeitraum der Übersicht richtet sich danach.';
+$wb['waf_log_keep_days_txt'] = 'Audit-Log (Tage)';
+$wb['waf_log_keep_days_hint_txt'] = 'logrotate dreht das Audit-Log täglich und behält so viele Stände.';
+
+$wb['enforce_head_txt'] = 'Scharf schalten';
+$wb['waf_min_detect_days_txt'] = 'Mitschreiben vor „scharf“ (Tage)';
+$wb['waf_min_detect_days_hint_txt'] = 'So lange schreibt eine Website mit, bevor der Knopf „scharf“ frei wird. 0 gibt ihn sofort frei.';
+$wb['waf_preview_days_txt'] = 'Vorschau (Tage)';
+$wb['waf_preview_days_hint_txt'] = 'Über diesen Zeitraum zählt die Vorschau für „scharf“ und für Ausnahmen.';
+
+$wb['cron_head_txt'] = 'Cron';
+$wb['waf_ingest_max_lines_txt'] = 'Zeilen je Durchgang';
+$wb['waf_ingest_max_lines_hint_txt'] = 'So viele Zeilen des Audit-Logs liest ein Durchgang höchstens; den Rest liest der nächste.';
+$wb['waf_job_deadline_minutes_txt'] = 'Frist für den vhost (Minuten)';
+$wb['waf_job_deadline_minutes_hint_txt'] = 'So lange wartet ein Zustandswechsel darauf, dass ISPConfig den vhost neu schreibt. Danach nimmt der Auftrag die Änderung zurück.';
+
+$wb['facts_head_txt'] = 'Stand auf dem Server';
+$wb['audit_log_txt'] = 'Audit-Log';
+$wb['conf_dir_txt'] = 'Regelverzeichnis';
+$wb['response_body_txt'] = 'Seitenantwort';
+$wb['response_full_txt'] = 'vollständig';
+$wb['response_lean_txt'] = 'schlank';
+$wb['emergency_txt'] = 'Notaus';
+$wb['emergency_off_txt'] = 'aus';
+$wb['emergency_on_txt'] = 'aktiv seit %s';
+$wb['facts_hint_txt'] = 'Die Pfade legt waf/install.sh fest. Seitenantwort und Notaus schalten die Knöpfe auf der Übersicht.';
+
+$wb['btn_save_txt'] = 'Einstellungen speichern';
+$wb['btn_back_txt'] = 'Zur Übersicht';
+$wb['msg_saved_txt'] = 'Gespeichert. Der Cron übernimmt die Werte beim nächsten Durchgang.';
+$wb['msg_saved_no_server_txt'] = 'Gespeichert. Es ist kein aktiver Webserver eingetragen, deshalb wartet kein Auftrag.';
+
+$wb['waf_detail_days_error_range'] = 'Einzelne Anfragen: 1 bis 3650 Tage.';
+$wb['waf_stats_days_error_range'] = 'Tageszahlen: 1 bis 3650 Tage.';
+$wb['waf_log_keep_days_error_range'] = 'Audit-Log: 1 bis 365 Tage.';
+$wb['waf_preview_days_error_range'] = 'Vorschau: 1 bis 365 Tage.';
+$wb['waf_min_detect_days_error_range'] = 'Mitschreiben vor „scharf“: 0 bis 365 Tage.';
+$wb['waf_ingest_max_lines_error_range'] = 'Zeilen je Durchgang: 100 bis 100000.';
+$wb['waf_job_deadline_minutes_error_range'] = 'Frist für den vhost: 2 bis 120 Minuten.';

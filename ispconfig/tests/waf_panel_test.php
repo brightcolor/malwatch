@@ -265,6 +265,57 @@ expect_same('exception query for every website',
 expect_same('exception query with both', waf_panel_exception_query(array('state' => 'active', 'site' => '11'), array()),
 	'state=active&site=11');
 
+// --- B7: settings form -------------------------------------------------------
+
+function waf_config_form()
+{
+	$form = array();
+	$file = __DIR__ . '/../interface/form/malwatch_waf_config.tform.php';
+	if (is_file($file)) {
+		include $file;
+	}
+	return $form + array('name' => '', 'db_table' => '', 'db_table_idx' => '', 'title' => '', 'tabs' => array());
+}
+
+function waf_config_words($lang)
+{
+	$wb = array();
+	$file = __DIR__ . '/../interface/lang/' . $lang . '_malwatch_waf_config.lng';
+	if (is_file($file)) {
+		include $file;
+	}
+	return $wb;
+}
+
+$config_form = waf_config_form();
+expect_same('settings form row', array($config_form['name'], $config_form['db_table'], $config_form['db_table_idx']),
+	array('malwatch_waf_config', 'malwatch_config', 'config_id'));
+$config_tab = isset($config_form['tabs']['waf']) ? $config_form['tabs']['waf'] : array('title' => '', 'fields' => array());
+expect_same('settings form edits the numbers only', array_keys($config_tab['fields']), array_keys(waf_settings_limits()));
+$config_words = array('de' => waf_config_words('de'), 'en' => waf_config_words('en'));
+expect_same('settings words in both languages', array(
+	array_values(array_diff(array_keys($config_words['de']), array_keys($config_words['en']))),
+	array_values(array_diff(array_keys($config_words['en']), array_keys($config_words['de']))),
+), array(array(), array()));
+$config_defaults = waf_settings_defaults();
+foreach (waf_settings_limits() as $key => $limit) {
+	$field = isset($config_tab['fields'][$key]) ? $config_tab['fields'][$key] : array();
+	$validator = isset($field['validators'][0]) ? $field['validators'][0] : array();
+	expect_same("settings form type of $key", array(
+		isset($field['datatype']) ? $field['datatype'] : '',
+		isset($validator['type']) ? $validator['type'] : '',
+	), array('INTEGER', 'RANGE'));
+	expect_same("settings form range of $key", isset($validator['range']) ? $validator['range'] : '', $limit[0] . ':' . $limit[1]);
+	expect_same("settings form default of $key", isset($field['default']) ? $field['default'] : '', (string) $config_defaults[$key]);
+	expect_same("settings form message of $key",
+		isset($validator['errmsg']) && isset($config_words['de'][$validator['errmsg']]), true);
+	expect_same("settings form label of $key", isset($config_words['de'][$key . '_txt']), true);
+}
+expect_same('settings form title and tab', array(
+	isset($config_words['de'][$config_form['title']]),
+	isset($config_words['de'][$config_tab['title']]),
+), array(true, true));
+
 // --- summary -----------------------------------------------------------------
 if ($failures > 0) {
 	fwrite(STDERR, $failures . " Fehler\n");
