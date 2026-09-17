@@ -28,7 +28,9 @@ fasst nginx an.
 |---|---|
 | IP-Anzeige | in den Regel-Karten (Adressen der Einzeltreffer) und als eigene Spalte der Einzeltreffer |
 | „Woran erkannt?" | Erklärung, Auslöser und Einordnung auf Deutsch; die englische CRS-Meldung bleibt klein darunter |
-| Umfang des Katalogs | alle Regeln von CRS 3.3.5 mit dem Tag `paranoia-level/1`; übrige Regeln über ihre Gruppe |
+| Umfang des Katalogs | die 166 Regeln, die CRS 3.3.5 bei Stufe 1 ausführt (164 mit dem Tag `paranoia-level/1`, dazu 920181 und 921200), und die Auswertungsregeln 949110, 959100, 980130, 980140; übrige Regeln über ihre Gruppe |
+| Katalogformat | gewöhnliche ISPConfig-Sprachdatei, damit der Spracheditor sie lesen und bearbeiten kann |
+| Obergrenze der Regel-Karten | Einstellung `waf_card_hits`, Vorgabe 5000 jüngste Einzeltreffer je Website |
 | Quellen der Herkunft | je Merkmal einstellbar, jeweils mit „aus" |
 | Externe Dienste | proxycheck.io als erster; weitere später |
 | Voreinstellung | alles aus; die Seiten weisen darauf hin. Auf web.herkules werden beim Einspielen DB-IP, Tor-Liste und X4BNet eingeschaltet |
@@ -69,21 +71,24 @@ fasst nginx an.
 
 - `ispconfig/interface/lang/de_malwatch_waf_rules.lng` und
   `ispconfig/interface/lang/en_malwatch_waf_rules.lng`, installiert neben den übrigen
-  Sprachdateien der Abwehr. Jede Datei füllt ein Array `$waf_rules`:
+  Sprachdateien der Abwehr, im Format jeder ISPConfig-Sprachdatei:
 
 ```php
-$waf_rules['930130'] = array(
-	'title' => 'Zugriff auf geschützte Datei',
-	'what'  => 'Die Anfrage wollte eine Datei lesen, die nie öffentlich sein sollte, etwa .env, .git oder eine Sicherungskopie. Solche Dateien enthalten oft Zugangsdaten.',
-	'class' => 'scanner',
-	'note'  => '',
-);
+$wb['rule_930130_title'] = 'Zugriff auf geschützte Datei';
+$wb['rule_930130_what'] = 'Die Anfrage wollte eine Datei lesen, die nie öffentlich sein sollte, etwa .env, .git oder eine Zugangsdatei. Solche Dateien enthalten oft Zugangsdaten.';
+$wb['rule_930130_class'] = 'scanner';
+$wb['rule_920440_trigger'] = 'Dateiendung „%s“';
+$wb['group_942_what'] = 'Ein Wert enthält SQL-Bausteine, die eine Datenbankabfrage verändern sollen.';
+$wb['group_942_class'] = 'false_positive_prone';
 ```
 
 - `title`: höchstens 48 Zeichen. `what`: ein bis zwei Sätze. `class`: eine der Klassen
-  unten. `note`: optionaler Zusatzsatz zur Einordnung.
+  unten. `note`: optionaler Zusatzsatz zur Einordnung. `trigger`: optionale Vorlage mit
+  genau einem `%s` für Regeln, deren `data` nur einen Wert enthält.
+- `group_<ggg>_what` und `group_<ggg>_class` erklären die Regeln einer Gruppe, die der
+  Katalog selbst nicht führt.
 - Beide Dateien sind vollständig; die englische darf kürzer formulieren.
-- `ispconfig/tests/fixtures/crs-3.3.5-pl1-rule-ids.txt` listet die Regel-IDs der Stufe 1,
+- `ispconfig/tests/fixtures/crs-3.3.5-pl1-rule-ids.txt` listet die 170 Regel-IDs,
   gezogen aus `/usr/share/modsecurity-crs/rules/*.conf` auf web.herkules.
 
 ### Einordnung
@@ -95,6 +100,7 @@ $waf_rules['930130'] = array(
 | `false_positive_prone` | Fehlalarm möglich | Schlägt auch bei echten Eingaben an, etwa HTML aus einem Editor, Suchbegriffe oder Passwörter. Eine Ausnahme für den Parameter oder Pfad ist sinnvoll, wenn die Treffer von echten Nutzern stammen. |
 | `protocol` | Protokollverstoß | Die Anfrage hält sich nicht an HTTP; meist Bots oder alte Programme. |
 | `scoring` | Auswertung | Die Punkte aller Regeln einer Anfrage liegen über der Grenze. Im scharfen Modus weist allein diese Regel ab. |
+| `response` | Antwort der Website | Die Antwort der Website enthält Fehlermeldungen, Quelltext oder interne Angaben. Das weist auf ein Problem der Website hin. Diese Regeln greifen nur, wenn die WAF Seitenantworten prüft. |
 
 - Kam ein Treffer von einem angemeldeten Nutzer, folgt der Satz „Die Anfrage kam von
   einem angemeldeten Nutzer; das spricht für einen Fehlalarm."
@@ -139,9 +145,12 @@ von `Cookie` und `Authorization` sind schon beim Einlesen entfernt.
 
 - Kopfzeile wie bisher: Titel, ID, Treffer, letzter Treffer, „Ausnahme …".
 - Häufigste Pfade wie bisher.
-- **Adressen (n Tage)**, n = `waf_detail_days`: bis zu fünf Adressen mit Anzahl, aus
-  `malwatch_waf_hit` der Website, deren `rules` die Regel enthalten; darunter „und n
-  weitere". Ohne Einzeltreffer: „Keine Einzeltreffer im Zeitraum".
+- **Adressen aus den gespeicherten Anfragen (n Tage)**, n = `waf_detail_days`: bis zu
+  fünf Adressen mit Anzahl, aus den jüngsten `waf_card_hits` Einzeltreffern der Website,
+  deren `rules` die Regel enthalten; darunter „und n weitere". Erreicht die Seite die
+  Obergrenze, heißt die Überschrift „Adressen aus den neuesten n gespeicherten Anfragen".
+  Enthält keiner dieser Einzeltreffer die Regel: „Keine dieser Anfragen enthält die
+  Regel." Darunter steht, wie viele dieser Treffer von angemeldeten Nutzern kamen.
 - Ein Klick auf eine Adresse lädt die Seite mit `&ip=<adresse>`; die Einzeltreffer zeigen
   dann nur diese Adresse, mit einem Hinweis und „Filter aufheben". Der Parameter wird mit
   `FILTER_VALIDATE_IP` geprüft.
@@ -333,8 +342,10 @@ Tabelle `malwatch_waf_ip`, eine Zeile je Adresse und Server:
 ## 13. Prüfung
 
 - PHP-Tests in `ispconfig/tests/`:
-  - Katalog: jede ID aus der Fixture hat einen deutschen und einen englischen Eintrag mit
-    allen Feldern, `class` gültig, `title` höchstens 48 Zeichen.
+  - Katalog (`waf_rules_catalog_test.php`): jede ID aus der Fixture hat einen deutschen
+    und einen englischen Eintrag mit Titel, Erklärung und Klasse, `class` gültig und in
+    beiden Sprachen gleich, `title` höchstens 48 Zeichen, jede Vorlage mit genau einem
+    `%s`; jede Gruppe hat Erklärung und Klasse.
   - Auslöser: Zerlegen von `data` in Stück, Stelle und Wert, Übersetzen jeder Stelle aus
     Abschnitt 4, Kürzen und Maskieren.
   - Bereichsdatei: Schreiben und Suchen für IPv4 und IPv6, Grenzen der Bereiche,

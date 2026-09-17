@@ -51,6 +51,8 @@ jobs:
         run: php ispconfig/tests/waf_panel_test.php
       - name: WAF page actions
         run: php ispconfig/tests/waf_panel_post_test.php
+      - name: WAF rule catalog
+        run: php ispconfig/tests/waf_rules_catalog_test.php
       - name: WAF tools
         run: |
           php -l waf/waf-switch

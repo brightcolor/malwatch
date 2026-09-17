@@ -48,10 +48,16 @@ function waf_panel_status_label($wb, $status)
 	return waf_panel_text($wb, 'job_status_' . $status . '_txt', $status);
 }
 
-/** The heading of a rule: its CRS group in words, else the CRS message, else its number. */
-function waf_panel_rule_title($wb, $rule_id, $message)
+/**
+ * The heading of a rule: its title in the catalog, else its CRS group in
+ * words, else the CRS message, else its number.
+ */
+function waf_panel_rule_title($wb, $rule_id, $message, $catalog = array())
 {
 	$rule_id = (string) $rule_id;
+	if (isset($catalog['rules'][$rule_id]['title']) && (string) $catalog['rules'][$rule_id]['title'] !== '') {
+		return (string) $catalog['rules'][$rule_id]['title'];
+	}
 	if (preg_match('/^(9\d\d)\d{3}$/', $rule_id, $m) && isset($wb['group_' . $m[1] . '_txt'])) {
 		return (string) $wb['group_' . $m[1] . '_txt'];
 	}
@@ -59,6 +65,72 @@ function waf_panel_rule_title($wb, $rule_id, $message)
 		return (string) $message;
 	}
 	return sprintf(waf_panel_text($wb, 'rule_fallback_txt', '%s'), $rule_id);
+}
+
+/** The classes a rule of the catalog may carry. */
+function waf_panel_rule_classes()
+{
+	return array('scanner', 'attack', 'false_positive_prone', 'protocol', 'scoring', 'response');
+}
+
+/** The catalog file for $language in $dir; the English one when that language has none. */
+function waf_panel_rule_catalog_file($dir, $language)
+{
+	$dir = rtrim((string) $dir, '/');
+	$language = preg_match('/^[a-z]{2}$/', (string) $language) ? (string) $language : 'en';
+	$file = $dir . '/' . $language . '_malwatch_waf_rules.lng';
+	return is_file($file) ? $file : $dir . '/en_malwatch_waf_rules.lng';
+}
+
+/**
+ * The rule catalog in a language file: rules keyed by id with title, what,
+ * class, note and trigger as far as the file has them, groups keyed by their
+ * three digits with what and class. Other lines of the file are left out.
+ */
+function waf_panel_rule_catalog($file)
+{
+	$wb = array();
+	if (is_file((string) $file)) {
+		include (string) $file;
+	}
+	$catalog = array('rules' => array(), 'groups' => array());
+	foreach ($wb as $key => $value) {
+		if (preg_match('/^rule_(\d{3,7})_(title|what|class|note|trigger)$/', (string) $key, $m)) {
+			$catalog['rules'][$m[1]][$m[2]] = (string) $value;
+		} elseif (preg_match('/^group_(\d{3})_(what|class)$/', (string) $key, $m)) {
+			$catalog['groups'][$m[1]][$m[2]] = (string) $value;
+		}
+	}
+	return $catalog;
+}
+
+/**
+ * What the pages say about one rule: its catalog entry, else the texts of its
+ * CRS group. crs is the English message of the rule set.
+ */
+function waf_panel_rule_info($wb, $catalog, $rule_id, $message)
+{
+	$rule_id = (string) $rule_id;
+	$entry = isset($catalog['rules'][$rule_id]) ? $catalog['rules'][$rule_id] : array();
+	$group = array();
+	if (preg_match('/^(9\d\d)\d{3}$/', $rule_id, $m) && isset($catalog['groups'][$m[1]])) {
+		$group = $catalog['groups'][$m[1]];
+	}
+	$class = isset($entry['class']) ? (string) $entry['class'] : (isset($group['class']) ? (string) $group['class'] : '');
+	if (!in_array($class, waf_panel_rule_classes(), true)) {
+		$class = '';
+	}
+	return array(
+		'rule_id' => $rule_id,
+		'title' => waf_panel_rule_title($wb, $rule_id, $message, $catalog),
+		'what' => isset($entry['what']) ? (string) $entry['what'] : (isset($group['what']) ? (string) $group['what'] : ''),
+		'class' => $class,
+		'class_label' => $class === '' ? '' : waf_panel_text($wb, 'class_' . $class . '_txt', $class),
+		'class_text' => $class === '' ? '' : waf_panel_text($wb, 'class_' . $class . '_text_txt', ''),
+		'note' => isset($entry['note']) ? (string) $entry['note'] : '',
+		'trigger' => isset($entry['trigger']) ? (string) $entry['trigger'] : '',
+		'crs' => trim((string) $message),
+	);
 }
 
 /**

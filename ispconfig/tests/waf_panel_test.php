@@ -316,6 +316,58 @@ expect_same('settings form title and tab', array(
 	isset($config_words['de'][$config_tab['title']]),
 ), array(true, true));
 
+// --- A3: rule catalog ----------------------------------------------------------
+
+expect_same('rule classes', waf_panel_rule_classes(),
+	array('scanner', 'attack', 'false_positive_prone', 'protocol', 'scoring', 'response'));
+
+$catalog = array(
+	'rules' => array('930130' => array('title' => 'Zugriff auf geschützte Datei', 'what' => 'Liest .env.', 'class' => 'scanner',
+		'note' => 'Hinweis.', 'trigger' => '')),
+	'groups' => array(
+		'942' => array('what' => 'SQL-Bausteine.', 'class' => 'false_positive_prone'),
+		'941' => array('what' => 'Skripte.', 'class' => 'kaputt'),
+	),
+);
+$info = waf_panel_rule_info($wb, $catalog, '930130', 'Restricted File Access Attempt');
+expect_same('rule info from the catalog',
+	array($info['rule_id'], $info['title'], $info['what'], $info['class'], $info['class_label'], $info['note'], $info['crs']),
+	array('930130', 'Zugriff auf geschützte Datei', 'Liest .env.', 'scanner', 'Scanner', 'Hinweis.', 'Restricted File Access Attempt'));
+expect_same('rule info class text', $info['class_text'],
+	'Typisch für automatische Scanner. Antwortet die Website mit 404 oder 403, wurde nichts geliefert.');
+$info = waf_panel_rule_info($wb, $catalog, '942999', 'Some SQL rule');
+expect_same('rule info from the group', array($info['title'], $info['what'], $info['class'], $info['class_label'], $info['trigger']),
+	array('SQL-Einschleusung', 'SQL-Bausteine.', 'false_positive_prone', 'Fehlalarm möglich', ''));
+$info = waf_panel_rule_info($wb, $catalog, '941999', 'XSS rule');
+expect_same('rule info with a wrong class', array($info['class'], $info['class_label'], $info['class_text']), array('', '', ''));
+$info = waf_panel_rule_info($wb, array(), '10010', 'own rule');
+expect_same('rule info without a catalog', array($info['title'], $info['what'], $info['class']), array('own rule', '', ''));
+expect_same('rule title from the catalog', waf_panel_rule_title($wb, '930130', 'x', $catalog), 'Zugriff auf geschützte Datei');
+expect_same('group titles 910 912 922', array(
+	waf_panel_rule_title($wb, '910999', ''), waf_panel_rule_title($wb, '912999', ''), waf_panel_rule_title($wb, '922999', ''),
+), array('Bekannte Angreiferadresse', 'Überlastungsangriff', 'Mehrteiliges Formular'));
+
+$rules_file = tempnam(sys_get_temp_dir(), 'mwrules');
+file_put_contents($rules_file, "<?php\n\$wb['rule_930130_title'] = 'T';\n\$wb['rule_930130_class'] = 'scanner';\n"
+	. "\$wb['group_942_what'] = 'W';\n\$wb['other_txt'] = 'x';\n\$wb['rule_12_title'] = 'kurz';\n");
+$read = waf_panel_rule_catalog($rules_file);
+expect_same('rule catalog from a file', array($read['rules']['930130'], $read['groups']['942'], count($read['rules'])),
+	array(array('title' => 'T', 'class' => 'scanner'), array('what' => 'W'), 1));
+unlink($rules_file);
+expect_same('rule catalog of a missing file', waf_panel_rule_catalog(__DIR__ . '/no-such-file.lng'),
+	array('rules' => array(), 'groups' => array()));
+
+$rules_dir = sys_get_temp_dir() . '/mwrules' . getmypid();
+@mkdir($rules_dir);
+touch($rules_dir . '/en_malwatch_waf_rules.lng');
+touch($rules_dir . '/de_malwatch_waf_rules.lng');
+expect_same('rule catalog file of a language', waf_panel_rule_catalog_file($rules_dir, 'de'), $rules_dir . '/de_malwatch_waf_rules.lng');
+expect_same('rule catalog file falls back to English', waf_panel_rule_catalog_file($rules_dir, 'fr'), $rules_dir . '/en_malwatch_waf_rules.lng');
+expect_same('rule catalog file with a strange language', waf_panel_rule_catalog_file($rules_dir . '/', '../x'), $rules_dir . '/en_malwatch_waf_rules.lng');
+unlink($rules_dir . '/en_malwatch_waf_rules.lng');
+unlink($rules_dir . '/de_malwatch_waf_rules.lng');
+rmdir($rules_dir);
+
 // --- A2: triggers --------------------------------------------------------------
 
 expect_same('trigger parts matched', waf_panel_trigger_parts('Matched Data: <script> found within ARGS:q: <script>alert(1)</script>'),
