@@ -5280,11 +5280,11 @@ Am Server:
 ssh ispconfig 'date "+%d.%m.%Y, %H:%M:%S %Z"; nginx -t 2>&1 | tail -1; systemctl is-active nginx; uptime; free -m | sed -n "2p;3p"; ps -o rss= -C nginx | awk "{s+=\$1} END {printf \"nginx %d MB\n\", s/1024}"; echo "Worker-Abstürze: $(grep -c "exited on signal" /var/log/nginx/error.log)"; T=$(date "+%d/%b/%Y"); grep -h "$T" /var/log/ispconfig/httpd/*/access.log | awk "\$9 ~ /^5/ {n++} END {print \"5xx heute:\", n+0}"'
 ```
 
-Von außen, von diesem Rechner; `DRITTE` setzt Schritt 2 (der Name steht nur im
-Serverprotokoll):
+Von außen, von diesem Rechner; `ZWEITE` und `DRITTE` setzt Schritt 2 (die Namen stehen nur
+im Serverprotokoll):
 
 ```bash
-for site in bright-color.de herkules.bright-color.de "$DRITTE"; do curl -s -o /dev/null -w "%{http_code} %{time_total}s $site\n" "https://$site/"; done
+for site in bright-color.de "$ZWEITE" "$DRITTE"; do curl -s -o /dev/null -w "%{http_code} %{time_total}s $site\n" "https://$site/"; done
 ```
 
 **Abbruch**, sobald eines davon eintritt: `nginx -t` scheitert, nginx ist nicht aktiv,
@@ -5311,17 +5311,20 @@ seinem Ja.
 
 ```bash
 ssh ispconfig "mysql -N dbispconfig -e \"SELECT domain_id, domain FROM web_domain WHERE type = 'vhost' AND active = 'y' AND domain IN ('bright-color.de', 'herkules.bright-color.de'); SELECT COUNT(*) FROM web_domain WHERE type = 'vhost' AND active = 'y'\""
-ssh ispconfig "mysql -N dbispconfig -e \"SELECT domain FROM web_domain WHERE type = 'vhost' AND active = 'y' AND domain NOT LIKE '%bright-color.de' ORDER BY domain_id LIMIT 1\""
+ssh ispconfig "mysql -N dbispconfig -e \"SELECT domain FROM web_domain WHERE type = 'vhost' AND active = 'y' AND domain NOT LIKE '%bright-color.de' ORDER BY domain_id LIMIT 12\"" > "$TEMP/sites.txt"
+while read -r d; do printf '%s %s\n' "$(curl -s -o /dev/null -w "%{http_code}" --max-time 6 "https://$d/")" "$d"; done < "$TEMP/sites.txt"
 ```
 
-Expected: zwei Zeilen mit IDs, die Zahl der aktiven Websites, ein weiterer Name. Diesen
-Namen als `DRITTE` setzen, dann beide Messungen laufen lassen. Alle Werte kommen ins
-Protokoll.
+Expected: zwei Zeilen mit IDs, die Zahl der aktiven Websites und bis zu zwölf Namen mit
+ihrem Antwortcode von außen. Zwei Websites mit `200` als `ZWEITE` und `DRITTE` setzen, dann
+beide Messungen laufen lassen. Alle Werte kommen ins Protokoll. `herkules.bright-color.de`
+eignet sich nicht: Der Name zeigt im DNS auf einen anderen Rechner, der auf 80 und 443 nicht
+antwortet.
 
 - [ ] **Schritt 3: Staging-Kopie bauen, Syntax und Tests**
 
 ```bash
-git archive --format=tar HEAD ispconfig | ssh ispconfig 'rm -rf /root/mw-abwehr-src /root/mw-abwehr-stage && mkdir -p /root/mw-abwehr-src /root/mw-abwehr-stage/interface/web && tar -x -C /root/mw-abwehr-src'
+git archive --format=tar HEAD ispconfig waf | ssh ispconfig 'rm -rf /root/mw-abwehr-src /root/mw-abwehr-stage && mkdir -p /root/mw-abwehr-src /root/mw-abwehr-stage/interface/web && tar -x -C /root/mw-abwehr-src'
 ssh ispconfig 'bash -s' <<'EOF'
 set -eu
 src=/root/mw-abwehr-src/ispconfig
@@ -5343,7 +5346,8 @@ php tests/waf_panel_post_test.php
 EOF
 ```
 
-Expected: keine Zeile aus den Syntaxprüfungen, dreimal „alle Prüfungen bestanden".
+Expected: keine Zeile aus den Syntaxprüfungen, dreimal „alle Prüfungen bestanden". `waf/` gehört
+in die Kopie, weil `waf_lib_test.php` die ausgelieferten Dateien unter `waf/conf/` liest.
 
 - [ ] **Schritt 4: Schema laden**
 
@@ -5399,8 +5403,10 @@ set -eu
 export MW_SECURITY_DIR=/root/mw-abwehr-stage/interface/web/security
 d=/root/mw-abwehr-src
 id=$(mysql -N dbispconfig -e "SELECT domain_id FROM web_domain WHERE domain = 'bright-color.de' AND type = 'vhost'")
+# render_pages.php needs a website with a WordPress release list for malwatch_upgrade_versions.php.
+rid=$(mysql -N dbispconfig -e "SELECT parent_domain_id FROM malwatch_software WHERE product = 'wordpress' AND versions IS NOT NULL AND versions != '' ORDER BY parent_domain_id LIMIT 1")
 cd "$d/ispconfig"
-nice -n 15 php tests/render_pages.php "$id" 2>&1 | tail -32
+nice -n 15 php tests/render_pages.php "$rid" 2>&1 | tail -32
 for page in malwatch_waf_list malwatch_waf_show malwatch_waf_exception_list malwatch_waf_config_edit; do
 	nice -n 15 php "$d/dump_page.php" "$id" "$page.php" > "$d/$page.html" 2>&1
 done
@@ -5438,7 +5444,8 @@ ssh ispconfig 'cd /usr/local/ispconfig/interface/web && md5sum js/jquery.min.js 
 Expected: gleiche Summen. Weicht eine ab, die Datei vom Server nach
 `.superpowers/abwehr/harness/web/` an denselben Pfad kopieren.
 
-Nachbau bauen:
+Nachbau bauen (aus einem Worktree: das Skript mit dem Pfad des Hauptcheckouts aufrufen und den
+Worktree als Baum übergeben):
 
 ```bash
 bash .superpowers/abwehr/harness/build_all.sh .
@@ -5463,8 +5470,10 @@ Tab mit `tabs_create` öffnen, jede Seite laden und vor dem ersten Klick länger
 10 Sekunden warten: erst dann hat `ISPConfig.dataLogNotification()` wie im Panel
 mehrfach geschrieben. Geklickt wird mit `element.click()` über `javascript_tool`; ein
 verdeckter Bereich nimmt echte Klicks nicht an. Nach jedem Neuladen den Dialog neu
-suchen (`.mw-modal`), die Seite bringt ihn jedes Mal neu mit. Jeder POST steht danach
-in `.superpowers/abwehr/harness/web/clicks.log`.
+suchen (`.mw-modal`), die Seite bringt ihn jedes Mal neu mit. Vor jedem Klick warten, bis
+`ISPConfig.requestsRunning` 0 ist: Während einer Anfrage, etwa dem automatischen Neuladen
+nach einem Auftrag, verwirft das Panel jeden Klick. Jeder POST steht danach in
+`.superpowers/abwehr/harness/web/clicks.log`.
 
 | Seite | Ablauf | Erwartet |
 |---|---|---|
@@ -5601,8 +5610,8 @@ echo "Addon $(cat /usr/local/ispconfig/extensions/malwatch/version), Scanner $(/
 E=/usr/local/ispconfig/extensions/malwatch; n=0; total=0
 while IFS=: read -r a s t; do [ "$a" = c ] || continue; total=$((total+1)); cmp -s "$E/$s" "/usr/local/ispconfig/$t" || { echo "abweichend: $t"; n=$((n+1)); }; done < "$E/install/file.list"
 echo "Kopien geprüft: $total, abweichend: $n"
-id=$(mysql -N dbispconfig -e "SELECT domain_id FROM web_domain WHERE domain = 'bright-color.de' AND type = 'vhost'")
-nice -n 15 php "$E/tests/render_pages.php" "$id" 2>&1 | tail -32
+rid=$(mysql -N dbispconfig -e "SELECT parent_domain_id FROM malwatch_software WHERE product = 'wordpress' AND versions IS NOT NULL AND versions != '' ORDER BY parent_domain_id LIMIT 1")
+nice -n 15 php "$E/tests/render_pages.php" "$rid" 2>&1 | tail -32
 rm -rf /root/mw-abwehr-deploy
 EOF
 ```
