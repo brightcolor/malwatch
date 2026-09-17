@@ -61,6 +61,8 @@ $pages = array(
 	// Abwehr: the website the run picked, over the longest period on offer.
 	'malwatch_waf_show.php',
 	'malwatch_waf_show.php?days=90',
+	// Abwehr: the website filtered by the address of its latest stored request.
+	'malwatch_waf_show.php?ip=stored',
 	// Abwehr: every exception, once filtered by a state.
 	'malwatch_waf_exception_list.php',
 	'malwatch_waf_exception_list.php?state=active',
@@ -126,6 +128,14 @@ if (isset($mw_query['software_id']) && $mw_query['software_id'] === 'listed') {
 		"SELECT software_id FROM malwatch_software WHERE parent_domain_id = ? AND product = 'wordpress' "
 		. "AND versions IS NOT NULL AND versions != '' ORDER BY software_id", $domain_id);
 	$mw_query['software_id'] = is_array($listed) ? (string) $listed['software_id'] : '';
+}
+
+// The address of the latest stored request of the website, so the filter runs
+// on rows that exist. Without stored requests the page stays unfiltered.
+if (isset($mw_query['ip']) && $mw_query['ip'] === 'stored') {
+	$latest = $app->db->queryOneRecord('SELECT client_ip FROM malwatch_waf_hit WHERE parent_domain_id = ? '
+		. 'ORDER BY seen_at DESC, hit_id DESC LIMIT 1', $domain_id);
+	$mw_query['ip'] = is_array($latest) ? (string) $latest['client_ip'] : '';
 }
 
 $_SESSION['s']['user'] = array(
@@ -210,6 +220,10 @@ $no_close = strpos($out, 'mw-needs-selection') !== false
 // The repair page builds its question from pieces of its language file.
 $pieceless = preg_match('/data-mw-q-[a-z-]+=""/', $out) === 1;
 
+// A page filtered by an address says so and opens at the stored requests.
+$unfiltered = isset($mw_query['ip']) && $mw_query['ip'] !== ''
+	&& (strpos($out, 'class="mw-ipfilter"') === false || strpos($out, "getElementById('mw-hits')") === false);
+
 $why = '';
 if ($broken) {
 	$why = 'fatal in the output';
@@ -225,6 +239,8 @@ if ($broken) {
 	$why = 'website ' . $mw_query['site'] . ' not marked in the overview';
 } elseif ($unjumped) {
 	$why = 'no section to open at for show=' . $mw_query['show'];
+} elseif ($unfiltered) {
+	$why = 'address filter without its note or jump';
 } elseif ($hintless) {
 	$why = 'button with an empty hint';
 } elseif ($no_close) {

@@ -855,6 +855,7 @@ CREATE TABLE IF NOT EXISTS `malwatch_waf_hit` (
   PRIMARY KEY (`hit_id`),
   UNIQUE KEY `server_unique` (`server_id`,`unique_id`),
   KEY `site_seen` (`parent_domain_id`,`seen_at`),
+  KEY `site_ip` (`parent_domain_id`,`client_ip`,`seen_at`),
   KEY `server_seen` (`server_id`,`seen_at`)
 ) DEFAULT CHARSET=utf8mb4 AUTO_INCREMENT=1 ;
 
@@ -963,6 +964,15 @@ SET @mw := (SELECT IF(COUNT(*) = 0,
   'DO 0')
   FROM information_schema.COLUMNS
   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_config' AND COLUMN_NAME = 'waf_card_hits');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- The address filter of the website page reads the stored requests of one
+-- address; the index reaches existing installs here.
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_waf_hit` ADD INDEX `site_ip` (`parent_domain_id`,`client_ip`,`seen_at`)',
+  'DO 0')
+  FROM information_schema.STATISTICS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_waf_hit' AND INDEX_NAME = 'site_ip');
 PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 -- waf carries the jobs of the page Abwehr. The malwatch cron works on them

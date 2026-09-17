@@ -243,3 +243,22 @@ $wb['class_scoring_txt'] = 'Auswertung';
 $wb['class_scoring_text_txt'] = 'Die Punkte aller Regeln einer Anfrage liegen über der Grenze. Im scharfen Modus weist allein diese Regel ab.';
 $wb['class_response_txt'] = 'Antwort der Website';
 $wb['class_response_text_txt'] = 'Die Antwort der Website enthält Fehlermeldungen, Quelltext oder interne Angaben. Das weist auf ein Problem der Website hin. Diese Regeln greifen nur, wenn die WAF Seitenantworten prüft.';
+
+// The rule cards and stored requests of the website page.
+$wb['addresses_head_txt'] = 'Adressen aus den gespeicherten Anfragen (%s Tage)';
+$wb['addresses_capped_txt'] = 'Adressen aus den neuesten %s gespeicherten Anfragen';
+$wb['addresses_more_txt'] = 'und %s weitere';
+$wb['addresses_none_txt'] = 'Keine dieser Anfragen enthält die Regel.';
+$wb['count_times_txt'] = '%s×';
+$wb['logged_in_share_txt'] = '%1$s von %2$s Treffern kamen von angemeldeten Nutzern.';
+$wb['logged_in_hint_txt'] = 'Die Anfrage kam von einem angemeldeten Nutzer; das spricht für einen Fehlalarm.';
+$wb['what_label_txt'] = 'Was erkannt wurde:';
+$wb['triggers_head_txt'] = 'Häufigste Auslöser:';
+$wb['class_label_txt'] = 'Einordnung:';
+$wb['trigger_label_txt'] = 'Ausgelöst durch:';
+$wb['crs_label_txt'] = 'Meldung des Regelwerks: %s';
+$wb['ip_filter_txt'] = 'Nur Anfragen von %s.';
+$wb['ip_filter_clear_txt'] = 'Filter aufheben';
+$wb['ip_filter_none_txt'] = 'Von dieser Adresse ist keine Anfrage gespeichert.';
+$wb['ip_filter_invalid_txt'] = '„%s“ ist keine gültige IP-Adresse. Die Liste zeigt deshalb alle gespeicherten Anfragen; zum Filtern eine Adresse in einer Regel-Karte oder einer Anfrage anklicken.';
+$wb['ip_only_txt'] = 'Nur Anfragen dieser Adresse';

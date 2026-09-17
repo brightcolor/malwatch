@@ -18,11 +18,13 @@ $app->uses('tpl,functions');
 require_once 'lib/malwatch_lib.inc.php';
 require_once 'lib/malwatch_waf_panel.inc.php';
 
-$lng_file = 'lib/lang/' . $app->functions->check_language($_SESSION['s']['language']) . '_malwatch_waf.lng';
+$language = $app->functions->check_language($_SESSION['s']['language']);
+$lng_file = 'lib/lang/' . $language . '_malwatch_waf.lng';
 if (!file_exists($lng_file)) {
 	$lng_file = 'lib/lang/en_malwatch_waf.lng';
 }
 include $lng_file;
+$catalog = waf_panel_rule_catalog(waf_panel_rule_catalog_file('lib/lang', $language));
 
 $message = '';
 $error = '';
@@ -97,7 +99,7 @@ foreach ($list['rows'] as $row) {
 	$rows[] = array(
 		'exception_id' => $exception['exception_id'],
 		'exc_rule' => $app->functions->htmlentities($exception['rule_id']),
-		'exc_rule_title' => $app->functions->htmlentities(waf_panel_rule_title($wb, $exception['rule_id'], '')),
+		'exc_rule_title' => $app->functions->htmlentities(waf_panel_rule_title($wb, $exception['rule_id'], '', $catalog)),
 		'exc_site' => $app->functions->htmlentities($exception['site']),
 		'exc_site_href' => strpos((string) $row['scope'], 'site') === 0
 			? $app->functions->htmlentities('security/malwatch_waf_show.php?id=' . $exception['site_id']) : '',

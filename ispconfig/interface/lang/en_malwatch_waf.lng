@@ -243,3 +243,22 @@ $wb['class_scoring_txt'] = 'Scoring';
 $wb['class_scoring_text_txt'] = 'The points of all rules for a request are above the limit. In enforce mode this rule alone rejects the request.';
 $wb['class_response_txt'] = 'Website response';
 $wb['class_response_text_txt'] = 'The response of the website contains error messages, source code or internal details. That points to a problem of the website. These rules only apply when the WAF inspects responses.';
+
+// The rule cards and stored requests of the website page.
+$wb['addresses_head_txt'] = 'Addresses in the stored requests (%s days)';
+$wb['addresses_capped_txt'] = 'Addresses in the latest %s stored requests';
+$wb['addresses_more_txt'] = 'and %s more';
+$wb['addresses_none_txt'] = 'None of these requests contains the rule.';
+$wb['count_times_txt'] = '%s×';
+$wb['logged_in_share_txt'] = '%1$s of %2$s hits came from logged-in users.';
+$wb['logged_in_hint_txt'] = 'The request came from a logged-in user, which points to a false positive.';
+$wb['what_label_txt'] = 'What was detected:';
+$wb['triggers_head_txt'] = 'Most frequent triggers:';
+$wb['class_label_txt'] = 'Assessment:';
+$wb['trigger_label_txt'] = 'Triggered by:';
+$wb['crs_label_txt'] = 'Message of the rule set: %s';
+$wb['ip_filter_txt'] = 'Only requests from %s.';
+$wb['ip_filter_clear_txt'] = 'Remove filter';
+$wb['ip_filter_none_txt'] = 'No request from this address is stored.';
+$wb['ip_filter_invalid_txt'] = '"%s" is not a valid IP address. The list therefore shows every stored request; to filter, click an address on a rule card or in a request.';
+$wb['ip_only_txt'] = 'Only requests from this address';

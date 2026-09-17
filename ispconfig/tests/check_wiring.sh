@@ -1305,6 +1305,48 @@ if [ -f "$waf_dir/install.sh" ]; then
 	fi
 fi
 
+# 64. The address filter of the website page takes an address only through
+#     waf_panel_ip_filter(), and that function lets FILTER_VALIDATE_IP decide.
+#     The value ends up in links and in a query; a page that reads ip itself
+#     skips the check.
+if ! sed -n '/^function waf_panel_ip_filter(/,/^}/p' "$root/interface/lib/malwatch_waf_panel.inc.php" | grep -q 'FILTER_VALIDATE_IP'; then
+	fail "waf_panel_ip_filter() does not check the address with FILTER_VALIDATE_IP"
+fi
+grep -q 'waf_panel_ip_filter(' "$root/interface/malwatch_waf_show.php" \
+	|| fail "malwatch_waf_show.php takes the address filter without waf_panel_ip_filter()"
+for page in "$root"/interface/*.php; do
+	if grep -qE "\\\$_(GET|POST|REQUEST)\[['\"]ip['\"]\]" "$page"; then
+		fail "$(basename "$page") reads the address filter itself; waf_panel_ip_filter() checks it"
+	fi
+done
+
+# 65. The rule catalog reaches every rule title. A page of the Abwehr that
+#     names rules loads the catalog next to its language file and hands it to
+#     every helper that names one; without it the page shows the English
+#     message of the rule set.
+for page in "$root"/interface/malwatch_waf_*.php; do
+	[ -f "$page" ] || continue
+	calls=$(grep -E 'waf_panel_(rule_title|rules|hit|enforce)\(' "$page" || true)
+	[ -n "$calls" ] || continue
+	grep -qF "waf_panel_rule_catalog(waf_panel_rule_catalog_file('lib/lang', \$language))" "$page" \
+		|| fail "$(basename "$page") names rules but does not load the rule catalog"
+	if printf '%s\n' "$calls" | grep -qvF '$catalog'; then
+		fail "$(basename "$page") names a rule without the catalog"
+	fi
+done
+for lang in de en; do
+	[ -f "$root/interface/lang/${lang}_malwatch_waf_rules.lng" ] \
+		|| fail "interface/lang/${lang}_malwatch_waf_rules.lng is missing"
+done
+
+# 66. The address filter reads malwatch_waf_hit by website and address
+#     through the index site_ip. CREATE TABLE brings it to new installs only,
+#     the guarded ALTER TABLE to existing ones.
+grep -qF 'KEY `site_ip` (`parent_domain_id`,`client_ip`,`seen_at`)' "$root/install/schema.sql" \
+	|| fail "schema.sql creates malwatch_waf_hit without the index site_ip"
+grep -qF 'ADD INDEX `site_ip` (`parent_domain_id`,`client_ip`,`seen_at`)' "$root/install/schema.sql" \
+	|| fail "schema.sql does not add the index site_ip to existing installs"
+
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'
 fi

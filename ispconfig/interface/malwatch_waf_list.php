@@ -21,11 +21,13 @@ $app->uses('tpl,functions');
 require_once 'lib/malwatch_lib.inc.php';
 require_once 'lib/malwatch_waf_panel.inc.php';
 
-$lng_file = 'lib/lang/' . $app->functions->check_language($_SESSION['s']['language']) . '_malwatch_waf.lng';
+$language = $app->functions->check_language($_SESSION['s']['language']);
+$lng_file = 'lib/lang/' . $language . '_malwatch_waf.lng';
 if (!file_exists($lng_file)) {
 	$lng_file = 'lib/lang/en_malwatch_waf.lng';
 }
 include $lng_file;
+$catalog = waf_panel_rule_catalog(waf_panel_rule_catalog_file('lib/lang', $language));
 
 $message = '';
 $error = '';
@@ -113,7 +115,7 @@ foreach ($overview['rows'] as $row) {
 		'has_block' => $row['would_block'] > 0 ? 1 : 0,
 		'spark' => $filters['days'] > 1 ? waf_panel_sparkline($row['values'], 64, 18) : '',
 		'top_rule' => $row['top_rule'] === '' ? ''
-			: $app->functions->htmlentities(waf_panel_rule_title($wb, $row['top_rule'], $row['top_rule_msg'])),
+			: $app->functions->htmlentities(waf_panel_rule_title($wb, $row['top_rule'], $row['top_rule_msg'], $catalog)),
 		'top_rule_id' => $app->functions->htmlentities($row['top_rule']),
 		'is_wordpress' => $row['wordpress'] ? 1 : 0,
 	);

@@ -2,8 +2,9 @@
 
 /**
  * Abwehr for one website: the state with its switch and the preview for
- * enforce, the history, rules, paths and stored requests of the period, the
- * exceptions and the form that adds one.
+ * enforce, the history, the rules with their addresses and explanations,
+ * the paths and stored requests of the period, the exceptions and the form
+ * that adds one.
  */
 
 require_once '../../lib/config.inc.php';
@@ -18,13 +19,20 @@ $app->uses('tpl,functions');
 require_once 'lib/malwatch_lib.inc.php';
 require_once 'lib/malwatch_waf_panel.inc.php';
 
-$lng_file = 'lib/lang/' . $app->functions->check_language($_SESSION['s']['language']) . '_malwatch_waf.lng';
+$language = $app->functions->check_language($_SESSION['s']['language']);
+$lng_file = 'lib/lang/' . $language . '_malwatch_waf.lng';
 if (!file_exists($lng_file)) {
 	$lng_file = 'lib/lang/en_malwatch_waf.lng';
 }
 include $lng_file;
+$catalog = waf_panel_rule_catalog(waf_panel_rule_catalog_file('lib/lang', $language));
 
 $domain_id = $app->functions->intval(isset($_REQUEST['id']) ? $_REQUEST['id'] : 0);
+// The address filter of the stored requests; after a button it comes back as
+// a hidden field of the form.
+$ip_filter = waf_panel_ip_filter(array_merge($_GET, $_POST));
+$ip_rejected = waf_panel_ip_filter_rejected(array_merge($_GET, $_POST));
+$ip_query = $ip_filter !== '' ? '&ip=' . rawurlencode($ip_filter) : '';
 
 $message = '';
 $error = '';
@@ -65,6 +73,7 @@ $state = waf_state_valid((string) $site['waf_state']) ? (string) $site['waf_stat
 $app->tpl->setVar('domain_id', $domain_id);
 $app->tpl->setVar('domain', $app->functions->htmlentities($site['domain']));
 $app->tpl->setVar('days', $days);
+$app->tpl->setVar('ip_value', $app->functions->htmlentities($ip_filter));
 $app->tpl->setVar('state_class', $state);
 $app->tpl->setVar('state_label', $app->functions->htmlentities(waf_panel_state_label($wb, $state)));
 $app->tpl->setVar('state_line', $app->functions->htmlentities(sprintf($wb['state_current_txt'], waf_panel_state_label($wb, $state))
@@ -91,7 +100,7 @@ $app->tpl->setVar('is_pending', $pending || (string) $site['waf_pending_state'] 
 $app->tpl->setLoop('jobs', $job_rows);
 $app->tpl->setVar('has_jobs', count($job_rows) > 0 ? 1 : 0);
 $app->tpl->setVar('first_job', $first_job);
-$app->tpl->setVar('self_href', $app->functions->htmlentities('security/malwatch_waf_show.php?id=' . $domain_id . '&days=' . $days));
+$app->tpl->setVar('self_href', $app->functions->htmlentities('security/malwatch_waf_show.php?id=' . $domain_id . '&days=' . $days . $ip_query));
 
 // The preview for enforce.
 $totals = $app->db->queryOneRecord(
@@ -102,7 +111,7 @@ $block_rules = waf_panel_rows($app->db->queryAllRecords(
 	'SELECT rule_id, MAX(rule_msg) AS rule_msg, SUM(would_block_hits) AS would_block_hits FROM malwatch_waf_day '
 	. 'WHERE parent_domain_id = ? AND day >= DATE_SUB(CURDATE(), INTERVAL ? DAY) GROUP BY rule_id',
 	$domain_id, $settings['waf_preview_days'] - 1));
-$enforce = waf_panel_enforce($wb, $site, $totals, $block_rules, $settings, $clock['now']);
+$enforce = waf_panel_enforce($wb, $site, $totals, $block_rules, $settings, $clock['now'], $catalog);
 $app->tpl->setVar('enforce_allowed', $enforce['allowed'] ? 1 : 0);
 $hint = $enforce['reason'] !== '' ? waf_panel_reason_label($wb, $enforce['reason']) : '';
 if ($enforce['reason'] === 'too_early' && $enforce['free_from'] !== '') {
@@ -127,7 +136,7 @@ $periods = array();
 foreach (waf_periods($settings['waf_stats_days']) as $period) {
 	$periods[] = array(
 		'label' => $app->functions->htmlentities($period === 1 ? $wb['period_today_txt'] : sprintf($wb['period_days_txt'], $period)),
-		'href' => $app->functions->htmlentities($link . $period),
+		'href' => $app->functions->htmlentities($link . $period . $ip_query),
 		'current' => $period === $days ? 1 : 0,
 	);
 }
@@ -155,20 +164,45 @@ $app->tpl->setVar('chart_first', count($series) > 0 ? $app->functions->htmlentit
 $app->tpl->setVar('chart_last', count($series) > 1
 	? $app->functions->htmlentities(waf_panel_day_label($series[count($series) - 1]['day'])) : '');
 
-// Rules and paths of the period.
+// Rules and paths of the period. The latest stored requests, up to
+// waf_card_hits of them, give each rule its addresses and triggers.
 $day_rows = waf_panel_rows($app->db->queryAllRecords(
 	'SELECT day, rule_id, rule_msg, path, hits, would_block_hits FROM malwatch_waf_day WHERE parent_domain_id = ? '
 	. 'AND day >= DATE_SUB(CURDATE(), INTERVAL ? DAY)', $domain_id, $days - 1));
+$card_rows = waf_panel_rows($app->db->queryAllRecords(
+	'SELECT client_ip, logged_in, rules FROM malwatch_waf_hit WHERE parent_domain_id = ? '
+	. 'ORDER BY seen_at DESC, hit_id DESC LIMIT ?', $domain_id, (int) $settings['waf_card_hits']));
+$card_hits = waf_panel_rule_hits($wb, $catalog, $card_rows);
+$app->tpl->setVar('rule_addresses_head', $app->functions->htmlentities(count($card_rows) >= $settings['waf_card_hits']
+	? sprintf($wb['addresses_capped_txt'], number_format($settings['waf_card_hits'], 0, ',', '.'))
+	: sprintf($wb['addresses_head_txt'], $settings['waf_detail_days'])));
+$no_card = array('hits' => 0, 'logged_in' => 0, 'addresses' => array(), 'triggers' => array());
 $rule_rows = array();
-foreach (waf_panel_rules($wb, $day_rows) as $rule) {
+foreach (waf_panel_rules($wb, $day_rows, $catalog) as $rule) {
+	$info = waf_panel_rule_info($wb, $catalog, $rule['rule_id'], $rule['msg']);
+	$seen = isset($card_hits[$rule['rule_id']]) ? $card_hits[$rule['rule_id']] : $no_card;
 	$paths = array();
 	foreach ($rule['paths'] as $path) {
 		$paths[] = array('path' => $app->functions->htmlentities($path['path']), 'path_hits' => number_format($path['hits'], 0, ',', '.'));
 	}
+	$addresses = array();
+	foreach (array_slice($seen['addresses'], 0, 5) as $address) {
+		$addresses[] = array(
+			'address' => $app->functions->htmlentities($address['key']),
+			'address_hits' => $app->functions->htmlentities(sprintf($wb['count_times_txt'], number_format($address['count'], 0, ',', '.'))),
+			'address_href' => $app->functions->htmlentities($link . $days . '&ip=' . rawurlencode($address['key'])),
+		);
+	}
+	$triggers = array();
+	foreach (array_slice($seen['triggers'], 0, 3) as $trigger) {
+		$triggers[] = array(
+			'trigger' => $app->functions->htmlentities($trigger['key']),
+			'trigger_hits' => $app->functions->htmlentities(sprintf($wb['count_times_txt'], number_format($trigger['count'], 0, ',', '.'))),
+		);
+	}
 	$rule_rows[] = array(
 		'rule_id' => $app->functions->htmlentities($rule['rule_id']),
-		'rule_title' => $app->functions->htmlentities($rule['title']),
-		'rule_msg' => $app->functions->htmlentities($rule['msg']),
+		'rule_title' => $app->functions->htmlentities($info['title']),
 		'rule_line' => $app->functions->htmlentities(sprintf($wb['rule_hits_txt'], number_format($rule['hits'], 0, ',', '.'),
 			number_format($rule['would_block'], 0, ',', '.'))),
 		'rule_last' => $app->functions->htmlentities(sprintf($wb['rule_last_txt'], waf_panel_day_label($rule['last_day']))),
@@ -177,6 +211,21 @@ foreach (waf_panel_rules($wb, $day_rows) as $rule) {
 			? $app->functions->htmlentities(sprintf($wb['rule_more_paths_txt'], $rule['path_count'] - count($paths))) : '',
 		'can_except' => $rule['can_except'] ? 1 : 0,
 		'first_path' => $app->functions->htmlentities(count($rule['paths']) === 1 ? $rule['paths'][0]['path'] : ''),
+		'rule_addresses' => $addresses,
+		'has_addresses' => count($addresses) > 0 ? 1 : 0,
+		'more_addresses' => count($seen['addresses']) > 5
+			? $app->functions->htmlentities(sprintf($wb['addresses_more_txt'], count($seen['addresses']) - 5)) : '',
+		'rule_what' => $app->functions->htmlentities($info['what']),
+		'rule_triggers' => $triggers,
+		'has_triggers' => count($triggers) > 0 ? 1 : 0,
+		'rule_class' => $app->functions->htmlentities($info['class_label']),
+		'rule_class_key' => $app->functions->htmlentities($info['class']),
+		'rule_class_text' => $app->functions->htmlentities($info['class_text']),
+		'rule_note' => $app->functions->htmlentities($info['note']),
+		'rule_logged_in' => $seen['logged_in'] > 0
+			? $app->functions->htmlentities(sprintf($wb['logged_in_share_txt'], number_format($seen['logged_in'], 0, ',', '.'),
+				number_format($seen['hits'], 0, ',', '.'))) : '',
+		'rule_crs' => $info['crs'] !== '' ? $app->functions->htmlentities(sprintf($wb['crs_label_txt'], $info['crs'])) : '',
 	);
 }
 $app->tpl->setLoop('rules', $rule_rows);
@@ -193,18 +242,36 @@ foreach (array_slice(waf_panel_paths($day_rows), 0, 50) as $path) {
 $app->tpl->setLoop('paths', $path_rows);
 $app->tpl->setVar('has_paths', count($path_rows) > 0 ? 1 : 0);
 
-// Stored requests.
-$stored = $app->db->queryOneRecord('SELECT COUNT(*) AS n FROM malwatch_waf_hit WHERE parent_domain_id = ?', $domain_id);
+// Stored requests, all of the website or those of one address.
+if ($ip_filter !== '') {
+	$stored = $app->db->queryOneRecord('SELECT COUNT(*) AS n FROM malwatch_waf_hit WHERE parent_domain_id = ? AND client_ip = ?',
+		$domain_id, $ip_filter);
+	$stored_rows = $app->db->queryAllRecords('SELECT * FROM malwatch_waf_hit WHERE parent_domain_id = ? AND client_ip = ? '
+		. 'ORDER BY seen_at DESC, hit_id DESC LIMIT 100', $domain_id, $ip_filter);
+} else {
+	$stored = $app->db->queryOneRecord('SELECT COUNT(*) AS n FROM malwatch_waf_hit WHERE parent_domain_id = ?', $domain_id);
+	$stored_rows = $app->db->queryAllRecords('SELECT * FROM malwatch_waf_hit WHERE parent_domain_id = ? '
+		. 'ORDER BY seen_at DESC, hit_id DESC LIMIT 100', $domain_id);
+}
+$app->tpl->setVar('ip_filter', $ip_filter !== '' ? 1 : 0);
+$app->tpl->setVar('ip_jump', $ip_filter !== '' || $ip_rejected !== '' ? 1 : 0);
+$app->tpl->setVar('ip_rejected', $app->functions->htmlentities($ip_rejected !== ''
+	? sprintf($wb['ip_filter_invalid_txt'], $ip_rejected) : ''));
+$app->tpl->setVar('ip_filter_line', $app->functions->htmlentities(sprintf($wb['ip_filter_txt'], $ip_filter)));
+$app->tpl->setVar('ip_filter_clear_href', $app->functions->htmlentities($link . $days));
+$app->tpl->setVar('hits_none_line', $app->functions->htmlentities($ip_filter !== '' ? $wb['ip_filter_none_txt'] : $wb['hits_none_txt']));
 $hit_rows = array();
-foreach (waf_panel_rows($app->db->queryAllRecords(
-	'SELECT * FROM malwatch_waf_hit WHERE parent_domain_id = ? ORDER BY seen_at DESC, hit_id DESC LIMIT 100', $domain_id)) as $row) {
-	$hit = waf_panel_hit($wb, $row);
+foreach (waf_panel_rows($stored_rows) as $row) {
+	$hit = waf_panel_hit($wb, $row, $catalog);
 	$rules = array();
 	foreach ($hit['rules'] as $rule) {
 		$rules[] = array(
 			'hit_rule' => $app->functions->htmlentities($rule['title'] . ' (' . $rule['rule_id'] . ')'),
-			'hit_rule_param' => $rule['param'] !== ''
-				? $app->functions->htmlentities(sprintf($wb['param_label_txt'], $rule['param'])) : '',
+			'hit_rule_class' => $app->functions->htmlentities($rule['class_label']),
+			'hit_rule_class_key' => $app->functions->htmlentities($rule['class']),
+			'hit_rule_trigger' => $app->functions->htmlentities($rule['trigger']),
+			'hit_rule_class_text' => $app->functions->htmlentities($rule['class_text']),
+			'hit_rule_note' => $app->functions->htmlentities($rule['note']),
 			'hit_rule_data' => $app->functions->htmlentities(trim($rule['msg'] . ' ' . $rule['data'])),
 		);
 	}
@@ -221,6 +288,8 @@ foreach (waf_panel_rows($app->db->queryAllRecords(
 		'hit_id' => $hit['hit_id'],
 		'hit_time' => $app->functions->htmlentities(malwatch_datetime($hit['seen_at'])),
 		'hit_ip' => $app->functions->htmlentities($hit['client_ip']),
+		'hit_has_ip' => $hit['client_ip'] !== '' ? 1 : 0,
+		'hit_ip_href' => $app->functions->htmlentities($link . $days . '&ip=' . rawurlencode($hit['client_ip'])),
 		'hit_request' => $app->functions->htmlentities($hit['method'] . ' ' . $hit['uri']),
 		'hit_ids' => $app->functions->htmlentities(implode(', ', $ids)),
 		'hit_score' => $app->functions->htmlentities(sprintf($wb['hit_score_txt'], $hit['score'])),
