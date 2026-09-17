@@ -329,6 +329,15 @@ oder zurückholt. Dieselbe Ablage steht auch von der Kommandozeile aus über
 `malwatch quarantine` offen (siehe oben) — das Addon bedient sie nur, es hält
 keine eigene Kopie.
 
+### Abwehr
+
+**Security > Abwehr** schaltet die Web Application Firewall (ModSecurity mit dem
+OWASP-Regelwerk) je Website zwischen „aus“, „mitschreiben“ und „scharf“ und wertet
+ihr Audit-Log aus: Treffer je Website und Tag, Regeln im Klartext, einzelne Anfragen
+und die Vorschau, was „scharf“ abgewiesen hätte. Ausnahmen entstehen per Knopf aus
+einem Treffer. Auf dem Webserver richtet `waf/install.sh` die WAF ein, siehe
+[waf/README.md](waf/README.md).
+
 Installation und Bedienung stehen in [ispconfig/README.md](ispconfig/README.md).
 
 ## Selbst bauen

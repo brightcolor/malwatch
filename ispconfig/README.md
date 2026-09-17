@@ -37,6 +37,7 @@ Pfad unter **Security > Einstellungen** prüfen.
 | Oberfläche | legt Aufträge in `malwatch_job` an |
 | Server-Plugin | startet den Scanner abgekoppelt, wartet nicht auf ihn |
 | Cron-Klasse `560-malwatch` | plant Zeitpläne ein, liest Berichte ein, führt Aktionen aus, räumt auf |
+| Klasse `malwatch_waf` | liest aus der Cron-Klasse das Audit-Log der WAF ein, führt WAF-Aufträge aus, räumt auf |
 
 Die Cron-Klasse läuft jede Minute. Eine von Hand angestoßene Prüfung startet
 also innerhalb einer Minute, das Ergebnis erscheint, sobald der Lauf fertig ist.
@@ -122,6 +123,49 @@ Panel schlägt eines vor, gespeichert wird nur sein Hash.
 Jeder Abruf steht mit Zeit und Adresse in der Zeile. „Freigabe aufheben“ macht
 den Verweis sofort ungültig und lässt Dump und Panel-Download unberührt.
 
+## Abwehr
+
+**Security > Abwehr** zeigt die WAF aller Websites dieses Servers. Die Seite füllt
+sich, sobald `waf/install.sh` ModSecurity im nginx eingerichtet hat
+([waf/README.md](../waf/README.md)).
+
+| Zustand | Wirkung |
+|---|---|
+| aus | die Website läuft ohne WAF |
+| mitschreiben | Treffer landen im Audit-Log, die Anfragen gehen durch |
+| scharf | Anfragen über der Punktgrenze bekommen 403 |
+
+- **Übersicht:** alle aktiven Websites mit Zustand, Treffern, „wäre abgewiesen“ und
+  häufigster Regel; Mehrfachauswahl für den Zustand, dazu „Notaus“ und der Knopf für
+  die Seitenantwort.
+- **Website:** Schalter mit Vorschau für „scharf“, Verlauf, Regeln, Pfade, einzelne
+  Anfragen, ihre Ausnahmen und das Formular „Ausnahme anlegen“.
+- **Ausnahmen:** alle Ausnahmen mit Zustand und Fehlergrund, gefiltert nach Zustand
+  und Website.
+- **Einstellungen:** Aufbewahrung, Mindestdauer vor „scharf“, Zeitraum der Vorschau,
+  Zeilen je Durchgang, Frist für den vhost.
+
+Jeder Knopf legt einen Auftrag in `malwatch_job` mit `job_kind = 'waf'` an. Die
+Cron-Klasse ruft jede Minute `malwatch_waf` auf: Sie liest höchstens so viele Zeilen
+des Audit-Logs wie eingestellt (Lesestand je Server in
+`/var/lib/malwatch/waf/reader.json`) und führt einen Auftrag nach dem anderen aus.
+Ein Zustandswechsel läuft über das Feld „nginx-Direktiven“: Der Auftrag schreibt es,
+wartet auf den vhost von ISPConfig, prüft `nginx -t` und bestätigt den Zustand. Nach
+der Frist nimmt er seine Änderung zurück, sofern niemand das Feld inzwischen geändert
+hat.
+
+Dateien unter `/etc/nginx/waf` ändern sich nur über eine Kopie,
+`modsec-rules-check`, `nginx -t` und einen Reload; der letzte geprüfte Stand liegt
+unter `/var/lib/malwatch/waf/last-good/`. Der stündliche Wächter `waf-guard` legt ihn
+zurück, wenn `nginx -t` eine Datei der WAF nennt, und schaltet auf den harten Notaus,
+wenn das Modul fehlt.
+
+Einzelne Anfragen enthalten Besucheradressen, Kopfzeilen und Anfrageinhalte und
+bleiben so lange wie eingestellt; Werte von `Cookie` und `Authorization` werden vor
+dem Speichern entfernt. Die Tageszahlen enthalten keine Adressen. Seitenantworten
+liegen gepackt unter `/var/lib/malwatch/waf/responses/`, lesbar für root und das
+Panel, und öffnen im Panel ausschließlich als Text.
+
 ## Aktionen
 
 Je Website einzeln schaltbar, jede mit eigener Mindeststufe:
@@ -172,7 +216,7 @@ php -r '
 ```
 
 Der Weg über die Kommandozeile muss **als root** laufen: die Erweiterung
-löscht ihre zwölf Tabellen selbst, und das Verwaltungskonto dafür steht in
+löscht ihre zwanzig Tabellen selbst, und das Verwaltungskonto dafür steht in
 `mysql_clientdb.conf`, die nur root lesen darf. Über **System > Extensions**
 im Panel bleiben die Tabellen deshalb stehen; die Erweiterung druckt in dem
 Fall die nötigen `DROP`-Anweisungen aus.

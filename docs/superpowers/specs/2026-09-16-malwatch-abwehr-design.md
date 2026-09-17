@@ -128,12 +128,14 @@ Aufbewahrung: `waf_detail_days`.
 ### `malwatch_waf_site_day` (neu) — Tageszahlen je Website
 
 `day` date, `parent_domain_id`, `domain`, `hits` (Transaktionen mit Treffer),
-`would_block` (Transaktionen mit 949110), `logged_in_hits`. Eindeutig auf
+`would_block` (Transaktionen mit 949110), `logged_in_hits`, `would_block_logged_in`
+(Transaktionen mit 949110 von angemeldeten Nutzern, für die Vorschau). Eindeutig auf
 `(day, parent_domain_id)`. **Keine Adressen.** Aufbewahrung: `waf_stats_days`.
 
 ### `malwatch_waf_day` (neu) — Tageszahlen je Website, Regel und Pfad
 
-`day`, `parent_domain_id`, `domain`, `rule_id` varchar(16), `path` varchar(1024),
+`day`, `parent_domain_id`, `domain`, `rule_id` varchar(16), `rule_msg` varchar(255)
+(Meldung des Regelwerks für „Woran erkannt?"), `path` varchar(1024),
 `path_hash` char(40) (sha1 des Pfads), `hits`, `would_block_hits` (Treffer dieser
 Regel in Transaktionen mit 949110). Eindeutig auf
 `(day, parent_domain_id, rule_id, path_hash)`. **Keine Adressen.** Aufbewahrung:
@@ -167,7 +169,7 @@ Zeile bekommt beim ersten Schalten eine. Quelle der Wahrheit bleibt das Feld
 `job_kind` wächst um `waf`, `action_type` um `waf`. Beides über die
 selbstprüfenden Zusätze in `schema.sql`, wie bei `dump`.
 
-### `malwatch_config` (erweitert) — Einstellungen und Lesestand
+### `malwatch_config` (erweitert) — Einstellungen
 
 | Spalte | Vorgabe | Bedeutung |
 |---|---|---|
@@ -183,7 +185,9 @@ selbstprüfenden Zusätze in `schema.sql`, wie bei `dump`.
 | `waf_conf_dir` | `/etc/nginx/waf` | |
 | `waf_emergency` | `n` | Notaus aktiv |
 | `waf_emergency_since` | NULL | |
-| `waf_log_inode`, `waf_log_offset` | 0 | Lesestand |
+
+Der Lesestand liegt je Server in `<state_dir>/waf/reader.json` (Inode und Position),
+weil `malwatch_config` eine Zeile für alle Server ist.
 
 ## 6. Einlesen
 
@@ -205,7 +209,7 @@ selbstprüfenden Zusätze in `schema.sql`, wie bei `dump`.
 6. Enthält die Zeile eine Seitenantwort, landet sie gepackt unter
    `<state_dir>/waf/responses/<unique_id>.html.gz`. Verzeichnis 02750
    `root:<panelgruppe>`, Datei 0640.
-7. Lesestand und Inode speichern.
+7. Lesestand und Inode in `<state_dir>/waf/reader.json` speichern.
 
 ## 7. Aufräumen
 
@@ -221,8 +225,10 @@ Im stündlichen Teil von `housekeeping`:
 ### Menü
 
 „Abwehr" steht im Security-Modul hinter „Schwachstellen". Alle Seiten prüfen
-`$app->auth->is_admin()` und antworten sonst leer. Formulare und Knöpfe nutzen
-`csrf_token_get` und `csrf_token_check('POST')` wie die übrigen Seiten. Laufende
+`$app->auth->is_admin()` und antworten sonst leer. Knöpfe schicken das Formular
+`pageForm` an die eigene Seite und nutzen `csrf_token_get` und
+`csrf_token_check('POST')` wie die übrigen Seiten; auf der Einstellungsseite prüft
+`tform` den Schlüssel. Laufende
 Aufträge zeigen ihren Fortschritt ohne Neuladen über das vorhandene
 Fortschrittsmuster.
 
@@ -238,9 +244,11 @@ Fortschrittsmuster.
 - Liste aller Websites mit `web_domain.type = 'vhost'` und `active = 'y'` auf diesem
   Server: Zustand als Kennzeichnung (aus, mitschreiben, scharf,
   „wird umgesetzt"), seit, Treffer im Zeitraum mit kleinem Verlauf je Tag, davon „wäre
-  abgewiesen", häufigste Regel, Knöpfe „Ansehen" und „Zustand ändern".
-- Mehrfachauswahl mit „Zustand ändern" für alle markierten Websites.
-- Link „Ausnahmen (n)".
+  abgewiesen", häufigste Regel, Knopf „Ansehen".
+- Mehrfachauswahl mit „mitschreiben", „scharf" und „aus" für alle markierten
+  Websites. Eine einzelne Website schaltet ihre eigene Seite, wo die Vorschau für
+  „scharf" steht.
+- Links „Ausnahmen (n)" und „Einstellungen".
 
 ### Website im Detail — `malwatch_waf_show.php?id=<domain_id>`
 
@@ -258,7 +266,11 @@ Fortschrittsmuster.
   „Seitenantwort ansehen" bei vorhandener Datei.
 - Ausnahmen dieser Website mit Zustand, Notiz und „Entfernen".
 
-### Dialog „Ausnahme"
+### Formular „Ausnahme anlegen"
+
+Ein Bereich auf der Seite der Website, innerhalb von `pageForm`; ein Dialog am Ende
+von `<body>` schickte seine Felder nicht mit. „Ausnahme …" an einer Regel oder
+Anfrage füllt den Bereich und springt dorthin.
 
 - Geltungsbereich: „diese Website" (`site`), „nur dieser Pfad" (`site_path`), „nur
   dieser Parameter" (`site_param`, Pfad wahlweise), „alle Websites" (`all`, mit Pfad
@@ -266,12 +278,16 @@ Fortschrittsmuster.
 - Regel, Pfad und Parameter aus dem Treffer vorbelegt und änderbar, dazu eine Notiz.
 - Vorschau aus `malwatch_waf_day`: „Diese Ausnahme hätte 18 von 21 Treffern der letzten
   7 Tage verhindert." Zeitraum: `waf_preview_days`.
-- „Anlegen" legt die Zeile mit `pending` an und reiht einen Auftrag ein.
+- „Ausnahme anlegen" fragt über den Dialog nach, legt die Zeile mit `pending` an und
+  reiht einen Auftrag ein. Eigene Regeln (10000–10999) und Wertungsregeln (949…,
+  959…, 980…) nimmt das Formular nicht an.
 
 ### Ausnahmen gesamt — `malwatch_waf_exception_list.php`
 
 Alle Ausnahmen mit Geltungsbereich, Website, Regel, Pfad oder Parameter, Notiz, Zustand,
-Fehler, Anlage durch und am. Filter nach Zustand und Website, Knopf „Entfernen".
+Fehler, Anlage durch und am. Filter nach Zustand und Website, Knopf „Entfernen". Der
+Filter nach Website zeigt auch die websiteübergreifenden Ausnahmen, weil sie für die
+Website gelten.
 
 ### Seitenantwort ansehen — `malwatch_waf_response.php?hit=<hit_id>`
 
@@ -280,11 +296,13 @@ Liefert die entpackte Antwort als `text/plain; charset=utf-8` mit
 `Content-Disposition: inline`. Die Antwort stammt aus Anfragen von Angreifern und wird
 deshalb nie als HTML im Panel dargestellt.
 
-### Aktionen — `malwatch_waf_action.php`
+### Aktionen
 
-Ein POST-Endpunkt für alle Knöpfe. Prüft Adminrechte und CSRF, prüft die Eingaben,
-legt Zeilen an und reiht Aufträge über `datalogInsert('malwatch_job', …)` ein. Antwort
-als JSON für die Seiten.
+Die Knöpfe schicken wie auf den übrigen Seiten das Formular `pageForm` an die eigene
+Seite. `waf_panel_handle_post()` in `lib/malwatch_waf_panel.inc.php` prüft die
+Eingaben, legt Zeilen an und reiht Aufträge über `datalogInsert('malwatch_job', …)`
+ein. JSON liefern `malwatch_waf_jobs.php` (laufende Aufträge für die Anzeige ohne
+Neuladen) und `malwatch_waf_preview.php` (Vorschau einer Ausnahme).
 
 ### Einstellungen — `malwatch_waf_config_edit.php`
 
@@ -292,8 +310,11 @@ Eine eigene Seite mit eigener Formulardefinition
 `form/malwatch_waf_config.tform.php` auf derselben Zeile von `malwatch_config`,
 erreichbar über „Einstellungen" auf der Übersicht. Die bestehende
 Einstellungsseite bleibt unverändert, sie trägt bereits eigene Abläufe beim
-Speichern. Felder: die Einstellungen aus Abschnitt 5 ohne Lesestand und Notaus.
-Speichern reiht einen Auftrag `apply_settings` ein.
+Speichern. Felder: die Zahlen und Zeiträume aus Abschnitt 5; Pfade, Seitenantwort
+und Notaus zeigt die Seite nur an. Den CSRF-Schlüssel prüft `tform` beim Speichern
+selbst, ohne ihn zu verbrauchen, deshalb prüft die Seite ihn nicht noch einmal.
+Speichern reiht je Webserver einen Auftrag `apply_settings` ein und bleibt auf der
+Seite.
 
 ### Klartext für Regeln
 
@@ -331,8 +352,8 @@ läuft. `emergency` kommt vor allen übrigen. Jede Aktion schreibt eine Zeile in
 2. `waf_block_set()` anwenden und über `datalogUpdate('web_domain', …)` schreiben.
    `waf_pending_state` setzen, Auftrag bleibt `running`.
 3. Folgende Durchgänge lesen den vhost mit `waf_vhost_state()`. Stimmt der Zustand,
-   folgt `nginx -t`; bei Erfolg `waf_state`, `waf_state_since` setzen und den Auftrag
-   abschließen.
+   folgt `nginx -t`, einmal für alle Websites, die der Durchgang bestätigt; bei Erfolg
+   `waf_state`, `waf_state_since` setzen und den Auftrag abschließen.
 4. Nach `waf_job_deadline_minutes` ohne bestätigten Zustand oder bei fehlgeschlagenem
    `nginx -t`: Zuerst das Feld mit dem Text vergleichen, den der Auftrag geschrieben
    hat. Stimmt es überein, gesicherten Inhalt zurückschreiben. Hat inzwischen jemand
@@ -388,7 +409,12 @@ erneut im Auftrag geprüft:
 | `path` | `^/[A-Za-z0-9._~/%+-]{0,1023}$` |
 | `param` | `^[A-Za-z0-9_.\[\]-]{1,128}$` |
 
-Die Notiz gelangt nie in eine Regeldatei.
+Die Notiz gelangt nie in eine Regeldatei. Eigene Regeln (10000–10999, darunter 10010
+gegen Passwörter im Log) und Wertungsregeln (949…, 959…, 980…) werden abgewiesen.
+
+Ein Auftrag nimmt genau eine Ausnahme auf oder heraus; die Regeldateien entstehen aus
+den aktiven Ausnahmen und der des Auftrags. Bleiben beide Dateien gleich, folgt kein
+Reload.
 
 ### Jede Dateiänderung
 
@@ -398,6 +424,8 @@ Die Notiz gelangt nie in eine Regeldatei.
    mit `modsec-rules-check` prüfen.
 3. Die bisherigen Dateien sichern und die neuen per `rename` austauschen.
 4. `nginx -t`. Bei Erfolg `systemctl reload nginx`, danach `systemctl is-active nginx`.
+   Die Befehle laufen mit festem Pfad (`/usr/sbin/nginx`, `/usr/bin/systemctl`,
+   `/usr/sbin/logrotate`), weil der Cron keinen verlässlichen `PATH` mitbringt.
 5. Scheitert Schritt 2 oder 4: gesicherte Dateien zurück, **kein** Reload, Auftrag
    `error` mit Grund im Klartext, betroffene Ausnahmen auf `error`.
 6. Nach jedem Erfolg wird der Inhalt von `waf_conf_dir` nach
@@ -412,7 +440,10 @@ Konfiguration stehen.
 - `on`: `state.conf` mit `SecRuleEngine Off` über den Ablauf oben, Reload, danach je
   Website mit `enforce` ein `set_state` auf `detect`. `waf_emergency = y`.
 - `hard`: für den Fall, dass das Modul fehlt. `/etc/nginx/conf.d/waf.conf` wird nach
-  `waf.conf.off` umbenannt, alle Websites bekommen `off`. Die Prüfung mit `nginx -t`
+  `waf.conf.off` umbenannt, alle Websites bekommen `off`. Der Auftrag schreibt dafür
+  die vhost-Dateien direkt um und passt danach die Felder an: Ohne Modul verwirft der
+  nginx-Test von ISPConfig jede neue vhost-Datei, solange eine andere noch
+  `modsecurity` nennt. Die Prüfung mit `nginx -t`
   entfällt dabei je Website und läuft einmal am Ende des Auftrags, gefolgt vom
   Reload. Wieder eingeschaltet wird über `waf/install.sh`.
 - `off`: `state.conf` leeren, Reload, `waf_emergency = n`.
@@ -430,8 +461,9 @@ trägt die ID 10199 und liegt damit unter dem Bereich der Ausnahmen.
 
 ### Markierungen umschreiben
 
-`migrate_markers` sucht Felder mit der alten Markierung und schreibt sie mit dem Ablauf
-von `set_state` auf die neue um, Zustand unverändert.
+`migrate_markers` nimmt jede Website mit Block, alte oder neue Markierung. Die alte
+Markierung schreibt der Auftrag mit dem Ablauf von `set_state` auf die neue um,
+Zustand unverändert, und gleicht dabei `malwatch_site.waf_state` mit dem Feld ab.
 
 ## 10. Werkzeuge auf dem Server
 
@@ -492,17 +524,21 @@ von `set_state` auf die neue um, Zustand unverändert.
    entfernte Werte von `Cookie` und `Authorization`, kaputte Zeilen.
 4. Ausnahmeregeln für alle fünf Geltungsbereiche, stabile IDs, maskierte Hosts,
    abgewiesene Eingaben mit Anführungszeichen, Zeilenumbrüchen und Steuerzeichen.
-5. Lesestand bei neuer Inode und gekürzter Datei.
+5. Lesestand in `reader.json` bei neuer Inode und gekürzter Datei.
 6. Stichtage und Vorschau aus den Einstellungen.
 
-Dazu `check_wiring.sh` und `render_pages.php` gegen die echten Panel-Stylesheets.
+Dazu `waf_panel_test.php` (Aufbereitung der Seiten und Formulardefinition),
+`waf_panel_post_test.php` (Aktionen), `check_wiring.sh` und `render_pages.php`. Am
+Server laufen vorab `waf_class_probe.php` gegen eine eigene Datenbank und
+`waf_rules_probe.php` gegen die ausgelieferten Regeldateien.
 
 ### Am Server
 
 Je Schritt mit Freigabe von Mathias, Proben von außen:
 
-1. bright-color.de per Panel auf `off` und zurück auf `detect`; Fristüberschreitung mit
-   verkürzter Frist in den Einstellungen.
+1. bright-color.de per Panel auf `off` und zurück auf `detect`. Die Fristüberschreitung
+   belegt die Klassenprobe aus A9; im Betrieb wird sie nicht erzwungen, weil dafür die
+   Verarbeitung von ISPConfig angehalten werden müsste.
 2. Probe erscheint im nächsten Durchgang auf der Seite; Probe mit Cookie-Namen
    `wordpress_logged_in_test` gilt als angemeldet.
 3. Ausnahme aus einem Treffer (`site_path`) anlegen; dieselbe Probe erzeugt auf dem Pfad
@@ -542,7 +578,7 @@ Einbindung, die Zustände der Websites bleiben.
 1. **Menge:** Mit `full` wiegt ein Treffer rund 125 KB. Die Antwortdateien liegen
    gepackt, die Tabelle bleibt klein; `waf_detail_days` begrenzt beides.
 2. **Einleselast:** Bei vielen Treffern begrenzt `waf_ingest_max_lines` die Arbeit je
-   Durchgang; der Rückstand zeigt sich im Lesestand.
+   Durchgang; der Rückstand zeigt sich im Lesestand in `reader.json`.
 3. **Unbekannte Hosts:** Anfragen an Namen ohne Eintrag in `web_domain` erscheinen nur als
    Zahl in der Cron-Meldung.
 4. **Laufzeitausnahmen in Engine 3:** Das Verhalten von `ctl:ruleRemoveById` und
