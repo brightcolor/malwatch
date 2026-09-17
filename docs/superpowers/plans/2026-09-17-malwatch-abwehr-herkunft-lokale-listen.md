@@ -4059,11 +4059,11 @@ Ergebnis am 17.09.2026, 22:50:30–22:50:59 CEST (Protokolleintrag „malwatch 0
 
 #### Block 5: Quellen einschalten und ansehen
 
-- [ ] **Step 14: Freigabe einholen**
+- [x] **Step 14: Freigabe einholen**
 
 Mathias bekommt vorgelegt: „B9, Block 5: Unter Security > Abwehr > Einstellungen wählen wir bei „Land und Provider“ DB-IP Lite, bei „Tor“ die Liste des Tor-Projekts und bei „VPN und Rechenzentrum“ die X4BNet-Listen und speichern. Damit legt die Seite sofort den Auftrag „Herkunft der Adressen“ an; der Cron lädt die fünf Listen und baut sie um. Ich beobachte den Auftrag, messe mit und sehe mir danach die Seiten an. Klickst du selbst, oder soll ich es in deinem Chrome tun?“ Weiter erst nach seiner Antwort.
 
-- [ ] **Step 15: Quellen einschalten**
+- [x] **Step 15: Quellen einschalten**
 
 Nach dem Speichern:
 
@@ -4073,7 +4073,7 @@ ssh ispconfig 'mysql -N dbispconfig -e "SELECT waf_origin_geo, waf_origin_tor, w
 
 Expected: `dbip torproject x4b 24 1 24` und ein Auftrag mit `"action":"origin_update"`.
 
-- [ ] **Step 16: Ersten Auftrag beobachten**
+- [x] **Step 16: Ersten Auftrag beobachten**
 
 ```bash
 ssh ispconfig 'for i in $(seq 1 20); do row=$(mysql -N dbispconfig -e "SELECT job_status FROM malwatch_job WHERE job_kind = \"waf\" ORDER BY job_id DESC LIMIT 1"); [ "$row" = "done" ] || [ "$row" = "error" ] && break; sleep 30; done; mysql -N dbispconfig -e "SELECT job_status, LEFT(job_log, 600) FROM malwatch_job WHERE job_kind = \"waf\" ORDER BY job_id DESC LIMIT 1"; mysql dbispconfig -e "SELECT source, version, entries, fetched_at, LEFT(error, 80) AS fehler FROM malwatch_waf_origin_source"; ls -l /var/lib/malwatch/waf/origin/; du -sh /var/lib/malwatch/waf/origin; date "+%H:%M:%S"'
@@ -4089,7 +4089,7 @@ ssh ispconfig 'mysql dbispconfig -e "SELECT COUNT(*) AS adressen, SUM(country !=
 
 Expected: so viele Adressen, wie die gespeicherten Treffer haben, die meisten mit Land; die Zahlen kommen ins Protokoll. Ist die Tabelle leer, eine Minute später erneut: Das Nachschlagen läuft im Cron nach dem Einlesen.
 
-- [ ] **Step 17: Sichtprüfung im Panel**
+- [x] **Step 17: Sichtprüfung im Panel**
 
 Werkzeuge von Claude in Chrome laden, eigener Tab, danach schließen. Abläufe:
 
@@ -4103,11 +4103,15 @@ Werkzeuge von Claude in Chrome laden, eigener Tab, danach schließen. Abläufe:
 
 Bildschirmfotos der Karte und der Einstellungen gehen an Mathias.
 
-- [ ] **Step 18: Protokoll**
+Ergebnis am 17.09.2026, 23:02:51–23:30:42 CEST (Protokolleintrag „Herkunftsquellen eingeschaltet, dazu 0.21.1“): Auftrag 548 lief 23:08:07–23:08:27 und holte alle fünf Quellen mit denselben Zahlen wie der Probeabruf; das Nachschlagen im nächsten Durchgang füllte 26 Adressen, alle mit Land, davon 1 VPN und 17 Rechenzentrum. Übersicht, Regel-Karten, Einzeltreffer und Quellenangabe waren wie beschrieben.
+
+Die Sichtprüfung fand einen Fehler: Die Einstellungsseite zeigte unter „Stand der gewählten Quellen“ die technischen Schlüssel („dbip_country 2026-09 717.169 …“), weil ihre Texte nur im Wörterbuch der Abwehr-Seiten standen. Behoben in 0.21.1 (Commit `f11226c`, Prüfung 69 in `check_wiring.sh` hält beide Wörterbücher zusammen), eingespielt um 23:29 mit `Kopien geprüft: 92, abweichend: 0`. Zwei Dinge fürs nächste Mal: Die Einstellungsseite lässt sich nur über das Menü bedienen (der Speichern-Knopf ruft eine Funktion des Panel-Gerüsts), und im Panel-Fenster wirkt das Mausrad nicht auf den Inhalt — ein Klick in ein Feld oder `scroll_to` hilft.
+
+- [x] **Step 18: Protokoll**
 
 Frisch lesen, gezielt einfügen: ein Eintrag für Block 5 mit Beginn und Ende, den Freigaben, den Messwerten vor und nach dem Auftrag, den Zahlen je Quelle, der Größe unter `/var/lib/malwatch/waf/origin`, dem Ergebnis der Sichtprüfung und dem Rückweg (Quellen in den Einstellungen wieder auf „aus“; der nächste Auftrag löscht die Dateien und leert die Felder).
 
-- [ ] **Step 19: Erinnerung aktualisieren**
+- [x] **Step 19: Erinnerung aktualisieren**
 
 In `waf-web-herkules.md` festhalten: 0.21.0 live seit <Datum>, Quellen DB-IP Lite, Tor und X4BNet in Betrieb, Bereichsdateien unter `/var/lib/malwatch/waf/origin`, Größe und Laufzeit des ersten Umbaus, proxycheck.io offen. Die Zeile in `MEMORY.md` passend kürzen.
 
