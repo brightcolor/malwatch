@@ -3,11 +3,16 @@
 </div>
 <p>{tmpl_var name='config_desc_txt'}</p>
 
-<tmpl_if name="message">
-	<div class="alert alert-success">{tmpl_var name='message'}</div>
+<!--
+	Messages of this page only. tabbed_form.tpl.htm shows the messages of
+	tform (a value out of range, a rejected token) above the form, from the
+	variable error.
+-->
+<tmpl_if name="mw_message">
+	<div class="alert alert-success">{tmpl_var name='mw_message'}</div>
 </tmpl_if>
-<tmpl_if name="error">
-	<div class="alert alert-danger">{tmpl_var name='error'}</div>
+<tmpl_if name="mw_error">
+	<div class="alert alert-danger">{tmpl_var name='mw_error'}</div>
 </tmpl_if>
 <tmpl_if name="binary_missing">
 	<div class="alert alert-warning">{tmpl_var name='binary_missing_txt'}</div>
@@ -20,7 +25,7 @@
 	<span class="label label-default">{tmpl_var name='last_signature_update_txt'}: {tmpl_var name='last_signature_update'}</span>
 </div>
 
-<p class="fieldset-legend">{tmpl_var name='paths_head_txt'}</p>
+<p class="mw-sec">{tmpl_var name='paths_head_txt'}</p>
 
 <div class="form-group">
 	<label for="binary_path" class="col-sm-3 control-label">{tmpl_var name='binary_path_txt'}</label>
@@ -34,7 +39,7 @@
 	</div>
 </div>
 
-<p class="fieldset-legend">{tmpl_var name='mail_head_txt'}</p>
+<p class="mw-sec">{tmpl_var name='mail_head_txt'}</p>
 
 <div class="form-group">
 	<label for="admin_email" class="col-sm-3 control-label">{tmpl_var name='admin_email_txt'}</label>
@@ -48,7 +53,7 @@
 	<div class="col-sm-9"><input type="text" name="sender_email" id="sender_email" value="{tmpl_var name='sender_email'}" class="form-control" /></div>
 </div>
 
-<p class="fieldset-legend">{tmpl_var name='defaults_head_txt'}</p>
+<p class="mw-sec">{tmpl_var name='defaults_head_txt'}</p>
 
 <div class="form-group">
 	<label for="default_schedule" class="col-sm-3 control-label">{tmpl_var name='default_schedule_txt'}</label>
@@ -71,7 +76,7 @@
 	</div>
 </div>
 
-<p class="fieldset-legend">{tmpl_var name='limits_head_txt'}</p>
+<p class="mw-sec">{tmpl_var name='limits_head_txt'}</p>
 
 <div class="form-group">
 	<label for="max_parallel" class="col-sm-3 control-label">{tmpl_var name='max_parallel_txt'}</label>
@@ -100,7 +105,7 @@
 	<div class="col-sm-9">{tmpl_var name='auto_update_signatures'}</div>
 </div>
 
-<p class="fieldset-legend">{tmpl_var name='vuln_head_txt'}</p>
+<p class="mw-sec">{tmpl_var name='vuln_head_txt'}</p>
 <p>{tmpl_var name='vuln_intro_txt'}</p>
 
 <div class="form-group">
@@ -131,7 +136,7 @@
 	</div>
 </div>
 
-<p class="fieldset-legend">{tmpl_var name='auto_head_txt'}</p>
+<p class="mw-sec">{tmpl_var name='auto_head_txt'}</p>
 <p>{tmpl_var name='auto_intro_txt'}</p>
 <p>{tmpl_var name='auto_scope_txt'}</p>
 
@@ -296,6 +301,9 @@
    Angabe waere auf dem jeweils anderen Theme falsch. */
 .mw-quiet{margin:12px 0;padding:12px 15px;border:1px solid var(--cic-line-soft,rgba(128,128,128,.35));border-radius:3px;font-size:13px;background:var(--cic-head,rgba(128,128,128,.07));display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 .mw-quiet > span{opacity:.85}
+/* Section headings. ispconfig.css hides p.fieldset-legend, so they carry
+   their own class, sized like .mw-sec on the other pages of the addon. */
+.mw-sec{font-size:15px;font-weight:600;margin:22px 0 10px;padding-bottom:5px;border-bottom:1px solid var(--cic-line-soft,rgba(128,128,128,.35))}
 .mw-rule{height:1px;background:var(--cic-line-soft,rgba(128,128,128,.35));border:0;margin:18px 0}
 .mw-savebar-final{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
 </style>

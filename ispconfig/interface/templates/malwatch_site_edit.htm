@@ -35,7 +35,7 @@
 	</div>
 </div>
 
-<p class="fieldset-legend">{tmpl_var name='actions_head_txt'}</p>
+<p class="mw-sec">{tmpl_var name='actions_head_txt'}</p>
 <p>{tmpl_var name='actions_desc_txt'}</p>
 
 <div class="form-group">
@@ -80,3 +80,9 @@
 	<button class="btn btn-default formbutton-default" type="button" value="{tmpl_var name='btn_cancel_txt'}"
 		data-load-content="security/status.php">{tmpl_var name='btn_cancel_txt'}</button>
 </div></div>
+
+<style>
+/* Section heading. ispconfig.css hides p.fieldset-legend, so it carries its
+   own class, the same as on the settings page. */
+.mw-sec{font-size:15px;font-weight:600;margin:22px 0 10px;padding-bottom:5px;border-bottom:1px solid var(--cic-line-soft,rgba(128,128,128,.35))}
+</style>

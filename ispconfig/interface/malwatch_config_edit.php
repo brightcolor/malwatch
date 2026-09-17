@@ -23,8 +23,7 @@ require_once 'lib/malwatch_lib.inc.php';
  * through the normal save below like every other column here. Two actions
  * next to that block are not columns at all - creating a named rule
  * selection, and sweeping the existing backlog a chosen selection would
- * cover - and are handled separately, before tform_actions ever sees the
- * request; see onLoad().
+ * cover - and are handled separately; see onLoad() and onUpdateSave().
  */
 class page_action extends tform_actions
 {
@@ -37,6 +36,9 @@ class page_action extends tform_actions
 
 	/** Set by onLoad() for "Zusammenstellung speichern"; read in onUpdate(). */
 	private $malwatch_preset_only = false;
+
+	/** Set by onLoad() for "Auf die bestehenden Funde anwenden"; read in onUpdateSave(). */
+	private $malwatch_apply_existing = false;
 
 	public function onLoad()
 	{
@@ -66,9 +68,9 @@ class page_action extends tform_actions
 
 		// save_preset and apply_existing are not tform fields - the first
 		// inserts a malwatch_auto_preset row, the second reads
-		// malwatch_finding and queues quarantine jobs. Both are handled here,
-		// ahead of parent::onLoad(), because tform has no field to hang them
-		// on.
+		// malwatch_finding and queues quarantine jobs. tform has no field to
+		// hang them on, so they are picked out of the request here, ahead of
+		// parent::onLoad().
 		//
 		// What this block must not do is return. It used to end in
 		// $this->onShow() and skip parent::onLoad() entirely, so loadFormDef()
@@ -76,15 +78,16 @@ class page_action extends tform_actions
 		// form definition that had never been loaded. Falling through fixes
 		// that for both actions - what the two do differ in is whether the
 		// form is saved along the way, see onUpdate().
-		//
-		// The token is checked here and only here: auth::csrf_token_check()
-		// consumes the token it just accepted, and tform_actions runs no check
-		// of its own - a second call in the same request would answer a
-		// perfectly valid POST with "CSRF attempt blocked".
 		if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['malwatch_action']) && $_POST['malwatch_action'] !== '') {
-			$app->auth->csrf_token_check('POST');
 			$action = (string) $_POST['malwatch_action'];
 			if ($action === 'save_preset') {
+				// This action skips tform's save (see onUpdate()), so tform
+				// never looks at the token, and the page checks it itself.
+				// auth::csrf_token_check() uses the token up. A request that
+				// goes on to tform's save must not pass through here:
+				// tform_base::_encode() checks the token again on every save
+				// and answers a used one with "CSRF attempt blocked".
+				$app->auth->csrf_token_check('POST');
 				$this->handle_save_preset($wb);
 
 				// Eine Regelauswahl unter einem Namen sichern heißt genau das
@@ -92,17 +95,16 @@ class page_action extends tform_actions
 				// abbestellt.
 				$this->malwatch_preset_only = true;
 			} elseif ($action === 'apply_existing') {
-				// Runs before the save below, not after: the number in the
-				// confirmation the operator just agreed to was counted from
-				// the setting as it stands, and the sweep has to cover that
-				// same set - not one being changed in the very same click.
-				//
 				// Hier fällt der Request bewusst bis in den Speichervorgang
 				// durch: „auf die bestehenden Funde anwenden" steht unter den
 				// Einstellungen, und ein Feld, das der Bediener im selben Zug
 				// geändert hat - „Abbruch nach Stunden" von 6 auf 12 - wurde
 				// vorher wortlos verworfen.
-				$this->handle_apply_existing($wb);
+				//
+				// tform checks the token of this request while saving. The
+				// sweep waits for onUpdateSave(), where tform has accepted
+				// the token and every field.
+				$this->malwatch_apply_existing = true;
 
 				// next_tab keeps tform_actions::onUpdate() from redirecting to
 				// status.php once the save went through; it only redirects when
@@ -254,6 +256,25 @@ class page_action extends tform_actions
 		parent::onUpdate();
 	}
 
+	/**
+	 * Runs "Auf die bestehenden Funde anwenden" where both conditions hold:
+	 * tform has accepted the token and every field (tform_actions::onUpdate()
+	 * calls this method only then), and the row still holds the setting from
+	 * before this click, since parent::onUpdateSave() writes it afterwards.
+	 *
+	 * The operator confirmed a number counted from that stored setting, so the
+	 * sweep covers exactly that set of findings, also when the same click
+	 * changes the setting. A click that tform refuses sweeps nothing; the
+	 * form comes back with tform's reason, and the next click does both.
+	 */
+	public function onUpdateSave($sql)
+	{
+		if ($this->malwatch_apply_existing) {
+			$this->handle_apply_existing($this->malwatch_wb);
+		}
+		parent::onUpdateSave($sql);
+	}
+
 	public function onBeforeUpdate()
 	{
 		global $app;
@@ -335,13 +356,17 @@ class page_action extends tform_actions
 
 		$this->show_auto_action($config);
 
-		$app->tpl->setVar('message', $app->functions->htmlentities($this->malwatch_message));
-		$app->tpl->setVar('error', $app->functions->htmlentities($this->malwatch_error));
+		// The page's own messages. The variable error belongs to tform:
+		// tform_actions::onError() puts the validator messages there, and
+		// tabbed_form.tpl.htm prints them above the form.
+		$app->tpl->setVar('mw_message', $app->functions->htmlentities($this->malwatch_message));
+		$app->tpl->setVar('mw_error', $app->functions->htmlentities($this->malwatch_error));
 
-		// save_preset and apply_existing check the token themselves (see
-		// onLoad()), since both bypass tform_actions' own save path - so a
-		// fresh one has to be handed back for the next click, the same way
-		// malwatch_site_show.php and malwatch_quarantine_list.php do it.
+		// save_preset checks the token itself (see onLoad()) and uses it up,
+		// so the next click needs a fresh one. tform's getHTML() hands one out
+		// as well; this one takes its place, the same way
+		// malwatch_site_show.php and malwatch_quarantine_list.php hand out
+		// theirs.
 		$csrf = $app->auth->csrf_token_get('malwatch_config_edit');
 		$app->tpl->setVar('_csrf_id', $csrf['csrf_id']);
 		$app->tpl->setVar('_csrf_key', $csrf['csrf_key']);

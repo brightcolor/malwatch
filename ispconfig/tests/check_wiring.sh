@@ -1075,6 +1075,59 @@ for sub in /waf /waf/responses /waf/staging /waf/last-good; do
 		|| fail "der Installer legt <state_dir>$sub nicht an"
 done
 
+# 60. No template gives an element the class fieldset-legend. ispconfig.css
+#     hides p.fieldset-legend (display:none): the section headings of the
+#     settings page never showed, and scrollIntoView() on a hidden jump
+#     target does nothing. Headings carry the page's own class (mw-sec).
+for tpl in "$root"/interface/templates/*.htm; do
+	[ -f "$tpl" ] || continue
+	if grep -qE "class=[\"']([^\"']* )?fieldset-legend[ \"']" "$tpl"; then
+		fail "$(basename "$tpl") uses class=\"fieldset-legend\"; ispconfig.css hides it, a heading needs its own class"
+	fi
+done
+
+# 61. A page built on tform_actions leaves the template variable error to
+#     tform. tform_actions::onError() puts the validator messages there, and
+#     tabbed_form.tpl.htm prints them. The settings page set error again in
+#     onShowEnd() and blanked them: a value out of range came back as the
+#     form with no reason. A form template that prints error as well shows
+#     every message twice. Messages of the page itself use other variables.
+for page in "$root"/interface/*.php; do
+	grep -qE 'extends[[:space:]]+tform_actions' "$page" || continue
+	if grep -qE "setVar\\([\"']error[\"']" "$page"; then
+		fail "$(basename "$page") sets the template variable error; tform_actions::onError() puts the validator messages there"
+	fi
+done
+for def in "$root"/interface/form/*.tform.php; do
+	[ -f "$def" ] || continue
+	for tpl in $(grep -ohE "templates/[a-z_]+\.htm" "$def" || true); do
+		[ -f "$root/interface/$tpl" ] || continue
+		if grep -qE "tmpl_(var|if|unless)[[:space:]]+name=[\"']error[\"']" "$root/interface/$tpl"; then
+			fail "$(basename "$tpl") prints error; tabbed_form.tpl.htm already shows the messages of tform"
+		fi
+	done
+done
+
+# 62. The settings page checks the token itself only for "Zusammenstellung
+#     speichern", the one action that skips tform's save.
+#     auth::csrf_token_check() uses the token up, and tform_base::_encode()
+#     checks it again on every save. "Auf die bestehenden Funde anwenden"
+#     saves the form: with the token gone the save failed, after the sweep
+#     had already been queued. The sweep runs once tform has accepted the
+#     token and the fields, in onUpdateSave() or onAfterUpdate().
+cfg_page="$root/interface/malwatch_config_edit.php"
+cfg_onload=$(sed -n '/function onLoad()/,/^	}/p' "$cfg_page")
+cfg_checks=$(printf '%s\n' "$cfg_onload" | grep -c -- '->csrf_token_check(' || true)
+cfg_check_at=$(printf '%s\n' "$cfg_onload" | grep -n -- '->csrf_token_check(' | head -1 | cut -d: -f1)
+cfg_preset_at=$(printf '%s\n' "$cfg_onload" | grep -n "=== 'save_preset'" | head -1 | cut -d: -f1)
+cfg_apply_at=$(printf '%s\n' "$cfg_onload" | grep -n "=== 'apply_existing'" | head -1 | cut -d: -f1)
+if [ "$cfg_checks" != "1" ] || [ -z "$cfg_preset_at" ] || [ -z "$cfg_apply_at" ] \
+	|| [ "$cfg_check_at" -le "$cfg_preset_at" ] || [ "$cfg_check_at" -ge "$cfg_apply_at" ]; then
+	fail "malwatch_config_edit.php checks the token outside the save_preset branch of onLoad(); tform checks it again when it saves"
+fi
+sed -n '/function onUpdateSave(/,/^	}/p;/function onAfterUpdate(/,/^	}/p' "$cfg_page" | grep -q 'handle_apply_existing(' \
+	|| fail "malwatch_config_edit.php sweeps before tform has accepted the token; call handle_apply_existing() from onUpdateSave() or onAfterUpdate()"
+
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'
 fi
