@@ -5226,9 +5226,9 @@ Expected:
 
 - keine Ausgabe von `gofmt`, `go vet` und dem `php -l`-Filter
 - `go test` meldet `ok` für jedes Paket. Auf dem Windows-Rechner sperrt der Virenschutz
-  die Testdatei von `TestExitCodeFollowsTheThreshold` (Lesen ergibt „Permission
-  denied“); dort scheitert genau dieser Test auch ohne die Änderungen. Maßgeblich ist
-  die CI unter Linux in B9.
+  die Schadcode-Beispiele der Tests `TestExitCodeFollowsTheThreshold` und
+  `TestThePlantedFileInAReplacedPluginIsGone`; dort scheitern genau diese beiden auch ohne
+  die Änderungen. Maßgeblich ist die CI unter Linux in B9.
 - `Constants OK: …`, `Wiring OK`, `upgrade helpers OK`, `upgrade offers OK`,
   `panel helpers OK`, dreimal „alle Prüfungen bestanden“
 - `waf-report` gibt die Tabelle der Beispieldatei aus
