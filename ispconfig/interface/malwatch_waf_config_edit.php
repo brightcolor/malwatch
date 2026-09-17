@@ -34,6 +34,9 @@ class page_action extends tform_actions
 	/** The stored licence key, read in onLoad() before the form overwrites it. */
 	private $waf_stored_key = '';
 
+	/** The stored key of proxycheck.io, read in onLoad() before the form overwrites it. */
+	private $waf_stored_proxycheck = '';
+
 	public function onLoad()
 	{
 		global $app;
@@ -65,16 +68,20 @@ class page_action extends tform_actions
 			$_SESSION['s']['form']['tab'] = 'waf';
 		}
 
-		$stored = $app->db->queryOneRecord('SELECT waf_origin_maxmind_key FROM malwatch_config WHERE config_id = 1');
+		$stored = $app->db->queryOneRecord(
+			'SELECT waf_origin_maxmind_key, waf_origin_proxycheck_key FROM malwatch_config WHERE config_id = 1');
 		$this->waf_stored_key = is_array($stored) && isset($stored['waf_origin_maxmind_key'])
 			? (string) $stored['waf_origin_maxmind_key'] : '';
+		$this->waf_stored_proxycheck = is_array($stored) && isset($stored['waf_origin_proxycheck_key'])
+			? (string) $stored['waf_origin_proxycheck_key'] : '';
 
 		parent::onLoad();
 	}
 
 	/**
-	 * The licence key never leaves the server in clear text: the form shows it
-	 * masked, an empty field keeps the stored key, and the checkbox removes it.
+	 * A key never leaves the server in clear text: the form shows it masked, an
+	 * empty field keeps the stored key, and the checkbox removes it. That holds
+	 * for the licence key of MaxMind and for the key of proxycheck.io.
 	 * onSubmit() runs before the validators, so a missing key stops the save
 	 * with a message at the field.
 	 */
@@ -83,17 +90,17 @@ class page_action extends tform_actions
 		global $app;
 		$wb = $this->waf_wb;
 
-		$posted = isset($this->dataRecord['waf_origin_maxmind_key']) ? trim((string) $this->dataRecord['waf_origin_maxmind_key']) : '';
-		$clear = isset($this->dataRecord['waf_origin_key_clear']) && (string) $this->dataRecord['waf_origin_key_clear'] === '1';
-		if ($clear) {
-			$this->dataRecord['waf_origin_maxmind_key'] = '';
-		} elseif ($posted === '' || $posted === waf_panel_key_mask($this->waf_stored_key)) {
-			$this->dataRecord['waf_origin_maxmind_key'] = $this->waf_stored_key;
-		}
-		$account = isset($this->dataRecord['waf_origin_maxmind_account']) ? trim((string) $this->dataRecord['waf_origin_maxmind_account']) : '';
-		$geo = isset($this->dataRecord['waf_origin_geo']) ? (string) $this->dataRecord['waf_origin_geo'] : 'off';
-		if ($geo === 'maxmind' && ($account === '' || (string) $this->dataRecord['waf_origin_maxmind_key'] === '')) {
-			$app->tform->errorMessage .= $wb['waf_origin_maxmind_missing_error'] . '<br />';
+		$this->dataRecord['waf_origin_maxmind_key'] = waf_panel_key_keep(
+			isset($this->dataRecord['waf_origin_maxmind_key']) ? $this->dataRecord['waf_origin_maxmind_key'] : '',
+			$this->waf_stored_key,
+			isset($this->dataRecord['waf_origin_key_clear']) && (string) $this->dataRecord['waf_origin_key_clear'] === '1');
+		$this->dataRecord['waf_origin_proxycheck_key'] = waf_panel_key_keep(
+			isset($this->dataRecord['waf_origin_proxycheck_key']) ? $this->dataRecord['waf_origin_proxycheck_key'] : '',
+			$this->waf_stored_proxycheck,
+			isset($this->dataRecord['waf_origin_proxycheck_clear'])
+				&& (string) $this->dataRecord['waf_origin_proxycheck_clear'] === '1');
+		foreach (waf_panel_origin_missing($this->dataRecord) as $message) {
+			$app->tform->errorMessage .= $wb[$message] . '<br />';
 		}
 		parent::onSubmit();
 	}
@@ -137,6 +144,9 @@ class page_action extends tform_actions
 		// The stored key stays on the server; the form shows it masked.
 		$app->tpl->setVar('waf_origin_maxmind_key', $app->functions->htmlentities(waf_panel_key_mask($this->waf_stored_key)));
 		$app->tpl->setVar('origin_key_stored', $this->waf_stored_key === '' ? 0 : 1);
+		$app->tpl->setVar('waf_origin_proxycheck_key',
+			$app->functions->htmlentities(waf_panel_key_mask($this->waf_stored_proxycheck)));
+		$app->tpl->setVar('origin_proxycheck_stored', $this->waf_stored_proxycheck === '' ? 0 : 1);
 
 		$clock = waf_panel_clock($app);
 		$states = array();

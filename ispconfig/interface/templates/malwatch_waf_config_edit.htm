@@ -107,6 +107,26 @@
 </div>
 
 <div class="form-group">
+	<label for="waf_origin_proxycheck_key" class="col-sm-3 control-label">{tmpl_var name='waf_origin_proxycheck_key_txt'}</label>
+	<div class="col-sm-9">
+		<input type="text" name="waf_origin_proxycheck_key" id="waf_origin_proxycheck_key" value="{tmpl_var name='waf_origin_proxycheck_key'}" class="form-control" autocomplete="off" maxlength="128" />
+		<span class="help-block">{tmpl_var name='waf_origin_proxycheck_key_hint_txt'}</span>
+		<tmpl_if name="origin_proxycheck_stored">
+		<label class="mw-wafcfg-clear"><input type="checkbox" name="waf_origin_proxycheck_clear" value="1" /> {tmpl_var name='origin_key_clear_txt'}</label>
+		</tmpl_if>
+		<p class="mw-wafcfg-note">{tmpl_var name='origin_proxycheck_privacy_txt'}</p>
+	</div>
+</div>
+
+<div class="form-group">
+	<label for="waf_origin_proxycheck_daily" class="col-sm-3 control-label">{tmpl_var name='waf_origin_proxycheck_daily_txt'}</label>
+	<div class="col-sm-9">
+		<input type="number" min="1" max="100000" step="1" name="waf_origin_proxycheck_daily" id="waf_origin_proxycheck_daily" value="{tmpl_var name='waf_origin_proxycheck_daily'}" class="form-control mw-wafcfg-num" />
+		<span class="help-block">{tmpl_var name='waf_origin_proxycheck_daily_hint_txt'}</span>
+	</div>
+</div>
+
+<div class="form-group">
 	<label for="waf_origin_tor_hours" class="col-sm-3 control-label">{tmpl_var name='waf_origin_tor_hours_txt'}</label>
 	<div class="col-sm-9">
 		<input type="number" min="1" max="168" step="1" name="waf_origin_tor_hours" id="waf_origin_tor_hours" value="{tmpl_var name='waf_origin_tor_hours'}" class="form-control mw-wafcfg-num" />

@@ -554,6 +554,42 @@ function waf_panel_key_mask($key)
 	return $key === '' ? '' : '••••' . substr($key, -4);
 }
 
+/**
+ * The key the form wants stored: an empty field and the masked value keep the
+ * stored key, the checkbox removes it, anything else is the new key.
+ */
+function waf_panel_key_keep($posted, $stored, $clear)
+{
+	$stored = (string) $stored;
+	if ($clear) {
+		return '';
+	}
+	$posted = trim((string) $posted);
+	return ($posted === '' || $posted === waf_panel_key_mask($stored)) ? $stored : $posted;
+}
+
+/**
+ * What the settings page is missing before it may save: the wordbook keys of
+ * the messages, in the order of the fields. A source that needs a key and has
+ * none stops the save.
+ */
+function waf_panel_origin_missing($record)
+{
+	$missing = array();
+	$geo = isset($record['waf_origin_geo']) ? (string) $record['waf_origin_geo'] : 'off';
+	$net = isset($record['waf_origin_net']) ? (string) $record['waf_origin_net'] : 'off';
+	$account = isset($record['waf_origin_maxmind_account']) ? trim((string) $record['waf_origin_maxmind_account']) : '';
+	$maxmind = isset($record['waf_origin_maxmind_key']) ? trim((string) $record['waf_origin_maxmind_key']) : '';
+	$proxycheck = isset($record['waf_origin_proxycheck_key']) ? trim((string) $record['waf_origin_proxycheck_key']) : '';
+	if ($geo === 'maxmind' && ($account === '' || $maxmind === '')) {
+		$missing[] = 'waf_origin_maxmind_missing_error';
+	}
+	if ($net === 'proxycheck' && $proxycheck === '') {
+		$missing[] = 'waf_origin_proxycheck_missing_error';
+	}
+	return $missing;
+}
+
 /** A time of the database as the pages print it; '' when there is none. */
 function waf_panel_time_label($value)
 {
@@ -595,18 +631,49 @@ function waf_panel_origin_rows($wb, $settings, $rows, $now)
 			'state' => $state,
 			'entries' => $entries,
 			'failed' => $error !== '' ? 1 : 0,
+			'kind' => 'ranges',
 		);
+	}
+	// proxycheck.io loads no file; its row names the quota of the day.
+	$external = waf_origin_external($settings);
+	if ($external !== '') {
+		$view[] = waf_panel_origin_external_row($wb, $settings, isset($rows[$external]) ? $rows[$external] : null, $now);
 	}
 	return $view;
 }
 
 /** The line of the overview: the chosen sources in short, or that the origin is off. */
+/**
+ * The state of the external source: the queries of today against the daily
+ * limit, how many addresses carry an answer and the last error before them.
+ */
+function waf_panel_origin_external_row($wb, $settings, $row, $now)
+{
+	$today = substr((string) $now, 0, 10);
+	$quota = waf_origin_quota($row, $today === '' ? gmdate('Y-m-d') : $today,
+		isset($settings['waf_origin_proxycheck_daily']) ? $settings['waf_origin_proxycheck_daily'] : 0);
+	$entries = is_array($row) ? (int) $row['entries'] : 0;
+	$error = is_array($row) ? (string) $row['error'] : '';
+	$state = sprintf(waf_panel_text($wb, 'origin_state_external_txt', '%1$s %2$s %3$s'),
+		number_format($quota['queries'], 0, ',', '.'), number_format($quota['daily'], 0, ',', '.'),
+		number_format($entries, 0, ',', '.'));
+	return array(
+		'source' => 'proxycheck',
+		'label' => waf_panel_text($wb, 'origin_source_proxycheck_txt', 'proxycheck.io'),
+		'state' => $error === '' ? $state : $error . ' ' . $state,
+		'entries' => $entries,
+		'failed' => $error === '' ? 0 : 1,
+		'kind' => 'addresses',
+	);
+}
+
 function waf_panel_origin_line($wb, $settings, $rows)
 {
 	$parts = array();
 	foreach (waf_panel_origin_rows($wb, $settings, $rows, '') as $row) {
 		$parts[] = $row['label'] . ' ' . ($row['entries'] > 0
-			? sprintf(waf_panel_text($wb, 'origin_line_entries_txt', '%s'), number_format($row['entries'], 0, ',', '.'))
+			? sprintf(waf_panel_text($wb, $row['kind'] === 'addresses' ? 'origin_line_checked_txt' : 'origin_line_entries_txt', '%s'),
+				number_format($row['entries'], 0, ',', '.'))
 			: waf_panel_text($wb, 'origin_line_none_txt', ''));
 	}
 	return count($parts) === 0 ? waf_panel_text($wb, 'origin_line_off_txt', '')

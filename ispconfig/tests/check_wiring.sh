@@ -1413,7 +1413,7 @@ done
 for lang in de en; do
 	book="$root/interface/lang/${lang}_malwatch_waf_config.lng"
 	[ -f "$book" ] || continue
-	for key in origin_source_dbip_country_txt origin_source_dbip_asn_txt origin_source_maxmind_country_txt origin_source_maxmind_asn_txt origin_source_tor_txt origin_source_x4b_vpn_txt origin_source_x4b_datacenter_txt origin_state_txt origin_state_list_txt origin_state_none_txt origin_state_none_hint_txt origin_state_keep_txt; do
+	for key in origin_source_dbip_country_txt origin_source_dbip_asn_txt origin_source_maxmind_country_txt origin_source_maxmind_asn_txt origin_source_tor_txt origin_source_x4b_vpn_txt origin_source_x4b_datacenter_txt origin_state_txt origin_state_list_txt origin_state_none_txt origin_state_none_hint_txt origin_state_keep_txt origin_source_proxycheck_txt origin_state_external_txt origin_line_checked_txt; do
 		grep -q "\\\$wb\['$key'\]" "$book" || fail "${lang}_malwatch_waf_config.lng is missing $key; the settings page shows the bare key instead of the name of the source"
 	done
 done

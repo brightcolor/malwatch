@@ -837,10 +837,10 @@ function waf_settings_limits()
 		'waf_ingest_max_lines' => array(100, 100000),
 		'waf_job_deadline_minutes' => array(2, 120),
 		'waf_card_hits' => array(100, 100000),
+		'waf_origin_proxycheck_daily' => array(1, 100000),
 		'waf_origin_tor_hours' => array(1, 168),
 		'waf_origin_list_hours' => array(1, 720),
 		'waf_origin_db_hours' => array(1, 720),
-		'waf_origin_proxycheck_daily' => array(1, 100000),
 	);
 }
 

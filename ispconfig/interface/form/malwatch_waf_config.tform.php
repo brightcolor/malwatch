@@ -200,8 +200,39 @@ $form['tabs']['waf'] = array(
 			'default' => 'off',
 			'value' => array(
 				'off' => 'origin_off_txt',
-				'x4b' => 'origin_net_x4b_txt'
+				'x4b' => 'origin_net_x4b_txt',
+				'proxycheck' => 'origin_net_proxycheck_txt'
 			)
+		),
+		'waf_origin_proxycheck_key' => array(
+			'datatype' => 'VARCHAR',
+			'formtype' => 'TEXT',
+			'default' => '',
+			'validators' => array(
+				array(
+					'type' => 'REGEX',
+					'regex' => '/^[A-Za-z0-9-]{0,128}$/',
+					'errmsg' => 'waf_origin_proxycheck_key_error'
+				)
+			),
+			'value' => '',
+			'width' => '30',
+			'maxlength' => '128'
+		),
+		'waf_origin_proxycheck_daily' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '500',
+			'validators' => array(
+				array(
+					'type' => 'RANGE',
+					'range' => '1:100000',
+					'errmsg' => 'waf_origin_proxycheck_daily_error_range'
+				)
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '6'
 		),
 		'waf_origin_tor_hours' => array(
 			'datatype' => 'INTEGER',

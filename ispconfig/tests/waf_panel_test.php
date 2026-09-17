@@ -556,6 +556,60 @@ expect_same('the line of the overview', waf_panel_origin_line($wb, $origin_setti
 expect_same('the line with everything off', waf_panel_origin_line($wb, array(), array()),
 	'Herkunft der Adressen ist aus.');
 
+// proxycheck.io steht neben den Bereichsdateien: eine Zeile mit dem Kontingent.
+$external_settings = array('waf_origin_geo' => 'dbip', 'waf_origin_tor' => 'off', 'waf_origin_net' => 'proxycheck',
+	'waf_origin_proxycheck_daily' => 500);
+$external_rows = array(
+	'dbip_country' => $origin_rows['dbip_country'],
+	'dbip_asn' => array('source' => 'dbip_asn', 'version' => '2026-09', 'entries' => '410000',
+		'fetched_at' => '2026-09-17 06:00:10', 'checked_at' => '2026-09-17 06:00:10', 'error' => '', 'error_at' => null),
+	'proxycheck' => array('source' => 'proxycheck', 'version' => '', 'entries' => '128',
+		'fetched_at' => '2026-09-18 08:00:00', 'checked_at' => '2026-09-18 08:00:00', 'error' => '', 'error_at' => null,
+		'day' => '2026-09-18', 'queries' => '240'),
+);
+$external_view = waf_panel_origin_rows($wb, $external_settings, $external_rows, '2026-09-18 09:00:00');
+expect_same('the external source gets its own row', array_column($external_view, 'source'),
+	array('dbip_country', 'dbip_asn', 'proxycheck'));
+expect_same('the external source in words', $external_view[2]['label'], 'proxycheck.io');
+expect_same('queries of the day and checked addresses', $external_view[2]['state'],
+	'heute 240 von 500 Abfragen, 128 Adressen geprüft');
+expect_same('a new day starts at zero',
+	waf_panel_origin_rows($wb, $external_settings, $external_rows, '2026-09-19 09:00:00')[2]['state'],
+	'heute 0 von 500 Abfragen, 128 Adressen geprüft');
+expect_same('every row says what it counts', array_column($external_view, 'kind'),
+	array('ranges', 'ranges', 'addresses'));
+$failed_rows = array('proxycheck' => array('source' => 'proxycheck', 'version' => '', 'entries' => '12',
+	'fetched_at' => '2026-09-18 08:00:00', 'checked_at' => '2026-09-18 08:30:00',
+	'error' => 'proxycheck.io hat die Anfrage abgelehnt.', 'error_at' => '2026-09-18 08:30:00',
+	'day' => '2026-09-18', 'queries' => '12'));
+$failed_settings = array('waf_origin_net' => 'proxycheck', 'waf_origin_proxycheck_daily' => 500);
+$failed_view = waf_panel_origin_rows($wb, $failed_settings, $failed_rows, '2026-09-18 09:00:00');
+expect_same('an error stands before the numbers', array($failed_view[0]['failed'], $failed_view[0]['state']),
+	array(1, 'proxycheck.io hat die Anfrage abgelehnt. heute 12 von 500 Abfragen, 12 Adressen geprüft'));
+expect_same('the overview counts addresses, not ranges',
+	waf_panel_origin_line($wb, $failed_settings, $failed_rows), 'Herkunft: proxycheck.io 12 Adressen geprüft.');
+
+// Ein Schlüssel im Formular: leer behält, verdeckt behält, der Haken löscht.
+expect_same('an empty field keeps the stored key', waf_panel_key_keep('', 'ab-12cd', false), 'ab-12cd');
+expect_same('the masked value keeps the stored key',
+	waf_panel_key_keep(waf_panel_key_mask('ab-12cd'), 'ab-12cd', false), 'ab-12cd');
+expect_same('a new key replaces the stored one', waf_panel_key_keep(' neu-4711 ', 'ab-12cd', false), 'neu-4711');
+expect_same('the checkbox removes the key', waf_panel_key_keep('neu-4711', 'ab-12cd', true), '');
+expect_same('nothing stored, nothing posted', waf_panel_key_keep('', '', false), '');
+
+// Was die Seite vor dem Speichern vermisst.
+expect_same('nothing is missing',
+	waf_panel_origin_missing(array('waf_origin_geo' => 'dbip', 'waf_origin_net' => 'x4b')), array());
+expect_same('MaxMind without an account', waf_panel_origin_missing(array('waf_origin_geo' => 'maxmind',
+	'waf_origin_maxmind_account' => '', 'waf_origin_maxmind_key' => 'abc')), array('waf_origin_maxmind_missing_error'));
+expect_same('proxycheck without a key', waf_panel_origin_missing(array('waf_origin_net' => 'proxycheck',
+	'waf_origin_proxycheck_key' => '')), array('waf_origin_proxycheck_missing_error'));
+expect_same('proxycheck with a key', waf_panel_origin_missing(array('waf_origin_net' => 'proxycheck',
+	'waf_origin_proxycheck_key' => 'ab-12cd')), array());
+expect_same('both are missing',
+	waf_panel_origin_missing(array('waf_origin_geo' => 'maxmind', 'waf_origin_net' => 'proxycheck')),
+	array('waf_origin_maxmind_missing_error', 'waf_origin_proxycheck_missing_error'));
+
 // --- B7: the origin at an address ---------------------------------------------
 
 $origin_row = array('country' => 'de', 'asn' => '3320', 'as_org' => 'Deutsche Telekom AG', 'is_tor' => 'n',
