@@ -40,7 +40,7 @@ expect_same('fixture size', count($ids), 170);
 
 // The groups the catalog covers so far; the following tasks add theirs.
 $covered = array('910', '911', '912', '913', '920', '921', '922', '930', '931', '932', '933', '934', '944',
-	'941', '942', '943');
+	'941', '942', '943', '949', '950', '951', '952', '953', '954', '959', '980');
 $all_groups = array('910', '911', '912', '913', '920', '921', '922', '930', '931', '932', '933', '934',
 	'941', '942', '943', '944', '949', '950', '951', '952', '953', '954', '959', '980');
 
@@ -94,6 +94,15 @@ foreach ($all_groups as $group) {
 		isset($catalogs['de']['groups'][$group]['class'], $catalogs['en']['groups'][$group]['class'])
 			&& $catalogs['de']['groups'][$group]['class'] === $catalogs['en']['groups'][$group]['class'], true);
 }
+
+// Every group of the fixture is covered, so every id has its entries.
+expect_same('covered groups match the fixture', array_values(array_diff(
+	array_unique(array_map(function ($id) {
+		return substr($id, 0, 3);
+	}, $ids)),
+	$covered
+)), array());
+expect_same('catalog size', array(count($catalogs['de']['rules']), count($catalogs['en']['rules'])), array(170, 170));
 
 // --- summary -----------------------------------------------------------------
 if ($failures > 0) {
