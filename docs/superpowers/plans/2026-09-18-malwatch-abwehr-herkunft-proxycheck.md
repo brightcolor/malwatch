@@ -1625,11 +1625,11 @@ Ergebnis am 18.09.2026: `main` steht auf `2d6b7b3`, CI-Lauf 35287538776 grün mi
 
 #### Block 3: Einspielen
 
-- [ ] **Step 9: Freigabe einholen**
+- [x] **Step 9: Freigabe einholen**
 
 Mathias bekommt vorgelegt: „C7, Block 3: Ich spiele malwatch 0.22.0 ein: Scanner über `install.sh`, Paket nach Prüfsumme, `manual_install.php`, dann `cmp` jeder Kopie und `render_pages.php` live. proxycheck.io bleibt dabei aus, es geht keine Adresse nach außen." Weiter erst nach seinem Ja.
 
-- [ ] **Step 10: Einspielen**
+- [x] **Step 10: Einspielen**
 
 Zuerst beide Messungen, dann derselbe Ablauf wie bei 0.21.1, mit `mw-0220-deploy` und `v0.22.0`:
 
@@ -1657,6 +1657,8 @@ EOF
 ```
 
 Expected: `malwatch.pkg: OK`, Addon und Scanner `0.22.0`, `Kopien geprüft: 92, abweichend: 0`, alle Seiten `ok`. Danach beide Messungen und der Protokolleintrag für Blöcke 2 und 3.
+
+Ergebnis am 18.09.2026, 01:42:46–01:43:22 CEST (Protokolleintrag zum Einspielen von 0.22.0): alles wie erwartet — Paket nach Prüfsumme, Addon und Scanner 0.22.0, 92 Kopien ohne Abweichung, alle Seiten ok. Danach unverändert: waf_origin_net steht auf x4b, Tageslimit 500, fünf Bereichsdateien, 31 Adressen mit externem Zustand none. Messwerte: Last 0,51 zu 0,53, frei 5.993 zu 6.022 MB, Websites unverändert.
 
 #### Block 4: proxycheck.io einschalten
 
