@@ -31,6 +31,9 @@ class page_action extends tform_actions
 	/** Set by onAfterUpdate(), shown by onShowEnd(). */
 	private $waf_message = '';
 
+	/** The stored licence key, read in onLoad() before the form overwrites it. */
+	private $waf_stored_key = '';
+
 	public function onLoad()
 	{
 		global $app;
@@ -62,7 +65,37 @@ class page_action extends tform_actions
 			$_SESSION['s']['form']['tab'] = 'waf';
 		}
 
+		$stored = $app->db->queryOneRecord('SELECT waf_origin_maxmind_key FROM malwatch_config WHERE config_id = 1');
+		$this->waf_stored_key = is_array($stored) && isset($stored['waf_origin_maxmind_key'])
+			? (string) $stored['waf_origin_maxmind_key'] : '';
+
 		parent::onLoad();
+	}
+
+	/**
+	 * The licence key never leaves the server in clear text: the form shows it
+	 * masked, an empty field keeps the stored key, and the checkbox removes it.
+	 * onSubmit() runs before the validators, so a missing key stops the save
+	 * with a message at the field.
+	 */
+	public function onSubmit()
+	{
+		global $app;
+		$wb = $this->waf_wb;
+
+		$posted = isset($this->dataRecord['waf_origin_maxmind_key']) ? trim((string) $this->dataRecord['waf_origin_maxmind_key']) : '';
+		$clear = isset($this->dataRecord['waf_origin_key_clear']) && (string) $this->dataRecord['waf_origin_key_clear'] === '1';
+		if ($clear) {
+			$this->dataRecord['waf_origin_maxmind_key'] = '';
+		} elseif ($posted === '' || $posted === waf_panel_key_mask($this->waf_stored_key)) {
+			$this->dataRecord['waf_origin_maxmind_key'] = $this->waf_stored_key;
+		}
+		$account = isset($this->dataRecord['waf_origin_maxmind_account']) ? trim((string) $this->dataRecord['waf_origin_maxmind_account']) : '';
+		$geo = isset($this->dataRecord['waf_origin_geo']) ? (string) $this->dataRecord['waf_origin_geo'] : 'off';
+		if ($geo === 'maxmind' && ($account === '' || (string) $this->dataRecord['waf_origin_maxmind_key'] === '')) {
+			$app->tform->errorMessage .= $wb['waf_origin_maxmind_missing_error'] . '<br />';
+		}
+		parent::onSubmit();
 	}
 
 	public function onAfterUpdate()
@@ -75,6 +108,9 @@ class page_action extends tform_actions
 			waf_panel_queue($app, $server_id, 'apply_settings', array());
 		}
 		$this->waf_message = count($servers) > 0 ? $wb['msg_saved_txt'] : $wb['msg_saved_no_server_txt'];
+		foreach ($servers as $server_id) {
+			waf_panel_queue($app, $server_id, 'origin_update', array());
+		}
 
 		// The addon keeps exactly one settings row.
 		$app->db->query('DELETE FROM malwatch_config WHERE config_id != 1');
@@ -97,6 +133,10 @@ class page_action extends tform_actions
 		$app->tpl->setVar('emergency_on', $settings['waf_emergency'] === 'y' ? 1 : 0);
 		// 'error' belongs to tform: onError() puts the messages of the ranges there.
 		$app->tpl->setVar('waf_message', $app->functions->htmlentities($this->waf_message));
+
+		// The stored key stays on the server; the form shows it masked.
+		$app->tpl->setVar('waf_origin_maxmind_key', $app->functions->htmlentities(waf_panel_key_mask($this->waf_stored_key)));
+		$app->tpl->setVar('origin_key_stored', $this->waf_stored_key === '' ? 0 : 1);
 
 		parent::onShowEnd();
 	}

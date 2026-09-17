@@ -291,7 +291,19 @@ $config_form = waf_config_form();
 expect_same('settings form row', array($config_form['name'], $config_form['db_table'], $config_form['db_table_idx']),
 	array('malwatch_waf_config', 'malwatch_config', 'config_id'));
 $config_tab = isset($config_form['tabs']['waf']) ? $config_form['tabs']['waf'] : array('title' => '', 'fields' => array());
-expect_same('settings form edits the numbers only', array_keys($config_tab['fields']), array_keys(waf_settings_limits()));
+$config_numbers = array();
+foreach ($config_tab['fields'] as $key => $field) {
+	if (isset($field['validators'][0]['type']) && $field['validators'][0]['type'] === 'RANGE') {
+		$config_numbers[] = $key;
+	}
+}
+expect_same('settings form edits the numbers only', $config_numbers, array_keys(waf_settings_limits()));
+expect_same('settings form knows every choice', array_keys(waf_origin_choices()),
+	array_values(array_intersect(array_keys($config_tab['fields']), array_keys(waf_origin_choices()))));
+foreach (waf_origin_choices() as $key => $values) {
+	expect_same("settings form choices of $key",
+		isset($config_tab['fields'][$key]['value']) ? array_keys($config_tab['fields'][$key]['value']) : array(), $values);
+}
 $config_words = array('de' => waf_config_words('de'), 'en' => waf_config_words('en'));
 expect_same('settings words in both languages', array(
 	array_values(array_diff(array_keys($config_words['de']), array_keys($config_words['en']))),
@@ -508,6 +520,13 @@ foreach (waf_settings_limits() as $key => $limit) {
 		strpos($en, $limit[0] . ' to ' . $limit[1]) !== false, strpos($en, 'save again') !== false,
 	), array(true, true, true, true));
 }
+
+// --- B3: the key on the settings page -----------------------------------------
+
+expect_same('mask of a key', waf_panel_key_mask('ABCD1234WXYZ'), '••••WXYZ');
+expect_same('mask of a short key', waf_panel_key_mask('AB'), '••••AB');
+expect_same('mask without a key', waf_panel_key_mask(''), '');
+expect_same('mask of something that is no text', waf_panel_key_mask(null), '');
 
 // --- summary -----------------------------------------------------------------
 if ($failures > 0) {

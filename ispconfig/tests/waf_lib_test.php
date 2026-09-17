@@ -519,6 +519,34 @@ expect_same('runtime exclusions before the CRS rules', strpos($main, 'exclusions
 expect_same('configure-time exclusions after the CRS rules', strpos($main, 'exclusions-panel-after.conf') > $crs, true);
 expect_same('state comes last', substr(rtrim($main), -strlen('state.conf')), 'state.conf');
 
+// --- B3: settings of the origin -----------------------------------------------
+
+$origin = waf_settings(array());
+expect_same('origin off by default', array($origin['waf_origin_geo'], $origin['waf_origin_tor'], $origin['waf_origin_net']),
+	array('off', 'off', 'off'));
+expect_same('hours by default', array($origin['waf_origin_tor_hours'], $origin['waf_origin_list_hours'],
+	$origin['waf_origin_db_hours']), array(1, 24, 24));
+$origin = waf_settings(array('waf_origin_geo' => 'maxmind', 'waf_origin_tor' => 'torproject', 'waf_origin_net' => 'x4b',
+	'waf_origin_maxmind_account' => '123456', 'waf_origin_maxmind_key' => 'AbC_123', 'waf_origin_tor_hours' => '0',
+	'waf_origin_list_hours' => '1000', 'waf_origin_db_hours' => '48'));
+expect_same('origin as chosen', array($origin['waf_origin_geo'], $origin['waf_origin_tor'], $origin['waf_origin_net']),
+	array('maxmind', 'torproject', 'x4b'));
+expect_same('hours inside their limits', array($origin['waf_origin_tor_hours'], $origin['waf_origin_list_hours'],
+	$origin['waf_origin_db_hours']), array(1, 720, 48));
+expect_same('account and key kept', array($origin['waf_origin_maxmind_account'], $origin['waf_origin_maxmind_key']),
+	array('123456', 'AbC_123'));
+$origin = waf_settings(array('waf_origin_geo' => 'irgendwas', 'waf_origin_tor' => 'ja', 'waf_origin_net' => 'proxycheck',
+	'waf_origin_maxmind_account' => 'abc', 'waf_origin_maxmind_key' => 'schlüssel mit leerzeichen'));
+expect_same('unknown choices fall back to off', array($origin['waf_origin_geo'], $origin['waf_origin_tor'],
+	$origin['waf_origin_net']), array('off', 'off', 'off'));
+expect_same('account and key that fit no pattern', array($origin['waf_origin_maxmind_account'],
+	$origin['waf_origin_maxmind_key']), array('', ''));
+expect_same('the choices of every field', waf_origin_choices(), array(
+	'waf_origin_geo' => array('off', 'dbip', 'maxmind'),
+	'waf_origin_tor' => array('off', 'torproject'),
+	'waf_origin_net' => array('off', 'x4b'),
+));
+
 // --- summary -----------------------------------------------------------------
 if ($failures > 0) {
 	fwrite(STDERR, $failures . " Fehler\n");

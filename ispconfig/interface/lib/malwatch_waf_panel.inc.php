@@ -546,6 +546,13 @@ function waf_panel_ip_filter($get)
 	return filter_var($ip, FILTER_VALIDATE_IP) !== false ? $ip : '';
 }
 
+/** A stored key as the page shows it: four dots and its last four characters. */
+function waf_panel_key_mask($key)
+{
+	$key = is_string($key) ? trim($key) : '';
+	return $key === '' ? '' : '••••' . substr($key, -4);
+}
+
 /**
  * The address filter as typed when it is no valid IP address, cut to 64
  * bytes for the notice on the page; '' when the filter is empty or valid.

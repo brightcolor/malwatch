@@ -1347,6 +1347,23 @@ grep -qF 'KEY `site_ip` (`parent_domain_id`,`client_ip`,`seen_at`)' "$root/insta
 grep -qF 'ADD INDEX `site_ip` (`parent_domain_id`,`client_ip`,`seen_at`)' "$root/install/schema.sql" \
 	|| fail "schema.sql does not add the index site_ip to existing installs"
 
+# 69. The origin starts off. A default that turns a source on would make the
+#     server download a list on its own; the operator picks the sources, and
+#     the page says what each one means before he does.
+lib="$root/interface/lib/malwatch_waf_lib.inc.php"
+for key in waf_origin_geo waf_origin_tor waf_origin_net; do
+	sed -n '/function waf_settings_defaults/,/^}/p' "$lib" | grep -qF "'$key' => 'off'," \
+		|| fail "waf_settings_defaults() does not start $key as off"
+done
+for lang in de en; do
+	for key in origin_intro_txt waf_origin_geo_hint_txt waf_origin_tor_hint_txt waf_origin_net_hint_txt \
+		waf_origin_maxmind_key_hint_txt; do
+		grep -q "\\\$wb\['$key'\]" "$root/interface/lang/${lang}_malwatch_waf_config.lng" \
+			|| fail "${lang}_malwatch_waf_config.lng is missing $key"
+	done
+done
+
+
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'
 fi

@@ -59,6 +59,77 @@
 	</div>
 </div>
 
+<p class="mw-wafcfg-head">{tmpl_var name='origin_head_txt'}</p>
+
+<p class="mw-wafcfg-note">{tmpl_var name='origin_intro_txt'}</p>
+
+<div class="form-group">
+	<label for="waf_origin_geo" class="col-sm-3 control-label">{tmpl_var name='waf_origin_geo_txt'}</label>
+	<div class="col-sm-9">
+		<select name="waf_origin_geo" id="waf_origin_geo" class="form-control">{tmpl_var name='waf_origin_geo'}</select>
+		<span class="help-block">{tmpl_var name='waf_origin_geo_hint_txt'}</span>
+	</div>
+</div>
+
+<div class="form-group">
+	<label for="waf_origin_maxmind_account" class="col-sm-3 control-label">{tmpl_var name='waf_origin_maxmind_account_txt'}</label>
+	<div class="col-sm-9">
+		<input type="text" name="waf_origin_maxmind_account" id="waf_origin_maxmind_account" value="{tmpl_var name='waf_origin_maxmind_account'}" class="form-control" autocomplete="off" inputmode="numeric" maxlength="32" />
+		<span class="help-block">{tmpl_var name='waf_origin_maxmind_account_hint_txt'}</span>
+	</div>
+</div>
+
+<div class="form-group">
+	<label for="waf_origin_maxmind_key" class="col-sm-3 control-label">{tmpl_var name='waf_origin_maxmind_key_txt'}</label>
+	<div class="col-sm-9">
+		<input type="text" name="waf_origin_maxmind_key" id="waf_origin_maxmind_key" value="{tmpl_var name='waf_origin_maxmind_key'}" class="form-control" autocomplete="off" maxlength="128" />
+		<span class="help-block">{tmpl_var name='waf_origin_maxmind_key_hint_txt'}</span>
+		<tmpl_if name="origin_key_stored">
+		<label class="mw-wafcfg-clear"><input type="checkbox" name="waf_origin_key_clear" value="1" /> {tmpl_var name='origin_key_clear_txt'}</label>
+		</tmpl_if>
+	</div>
+</div>
+
+<div class="form-group">
+	<label for="waf_origin_tor" class="col-sm-3 control-label">{tmpl_var name='waf_origin_tor_txt'}</label>
+	<div class="col-sm-9">
+		<select name="waf_origin_tor" id="waf_origin_tor" class="form-control">{tmpl_var name='waf_origin_tor'}</select>
+		<span class="help-block">{tmpl_var name='waf_origin_tor_hint_txt'}</span>
+	</div>
+</div>
+
+<div class="form-group">
+	<label for="waf_origin_net" class="col-sm-3 control-label">{tmpl_var name='waf_origin_net_txt'}</label>
+	<div class="col-sm-9">
+		<select name="waf_origin_net" id="waf_origin_net" class="form-control">{tmpl_var name='waf_origin_net'}</select>
+		<span class="help-block">{tmpl_var name='waf_origin_net_hint_txt'}</span>
+	</div>
+</div>
+
+<div class="form-group">
+	<label for="waf_origin_tor_hours" class="col-sm-3 control-label">{tmpl_var name='waf_origin_tor_hours_txt'}</label>
+	<div class="col-sm-9">
+		<input type="number" min="1" max="168" step="1" name="waf_origin_tor_hours" id="waf_origin_tor_hours" value="{tmpl_var name='waf_origin_tor_hours'}" class="form-control mw-wafcfg-num" />
+		<span class="help-block">{tmpl_var name='waf_origin_tor_hours_hint_txt'}</span>
+	</div>
+</div>
+
+<div class="form-group">
+	<label for="waf_origin_list_hours" class="col-sm-3 control-label">{tmpl_var name='waf_origin_list_hours_txt'}</label>
+	<div class="col-sm-9">
+		<input type="number" min="1" max="720" step="1" name="waf_origin_list_hours" id="waf_origin_list_hours" value="{tmpl_var name='waf_origin_list_hours'}" class="form-control mw-wafcfg-num" />
+		<span class="help-block">{tmpl_var name='waf_origin_list_hours_hint_txt'}</span>
+	</div>
+</div>
+
+<div class="form-group">
+	<label for="waf_origin_db_hours" class="col-sm-3 control-label">{tmpl_var name='waf_origin_db_hours_txt'}</label>
+	<div class="col-sm-9">
+		<input type="number" min="1" max="720" step="1" name="waf_origin_db_hours" id="waf_origin_db_hours" value="{tmpl_var name='waf_origin_db_hours'}" class="form-control mw-wafcfg-num" />
+		<span class="help-block">{tmpl_var name='waf_origin_db_hours_hint_txt'}</span>
+	</div>
+</div>
+
 <p class="mw-wafcfg-head">{tmpl_var name='cron_head_txt'}</p>
 
 <div class="form-group">
@@ -103,6 +174,8 @@
 .mw-wafcfg-head{margin:22px 0 10px;padding-bottom:4px;font-size:15px;font-weight:600;
 	border-bottom:1px solid var(--cic-line-soft,rgba(128,128,128,.35))}
 .mw-wafcfg-num{max-width:14ch}
+.mw-wafcfg-note{max-width:80ch;opacity:.8;font-size:13px;margin:0 0 10px}
+.mw-wafcfg-clear{display:inline-flex;gap:6px;align-items:center;font-weight:400;margin:4px 0 0}
 .mw-wafcfg-facts{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:6px 18px;margin:0 0 8px}
 .mw-wafcfg-facts dt{font-weight:400;opacity:.72}
 .mw-wafcfg-facts dd{margin:0;word-break:break-all}

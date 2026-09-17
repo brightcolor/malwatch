@@ -782,6 +782,20 @@ function waf_exception_preview($items, $exception)
 // --- Settings ----------------------------------------------------------------
 
 /** The WAF settings in malwatch_config with their defaults. */
+/**
+ * The values each choice of the origin settings accepts. Anything else falls
+ * back to the default, so a row from an older schema or a hand-edited value
+ * never turns a source on.
+ */
+function waf_origin_choices()
+{
+	return array(
+		'waf_origin_geo' => array('off', 'dbip', 'maxmind'),
+		'waf_origin_tor' => array('off', 'torproject'),
+		'waf_origin_net' => array('off', 'x4b'),
+	);
+}
+
 function waf_settings_defaults()
 {
 	return array(
@@ -798,6 +812,14 @@ function waf_settings_defaults()
 		'waf_emergency' => 'n',
 		'waf_emergency_since' => null,
 		'waf_card_hits' => 5000,
+		'waf_origin_geo' => 'off',
+		'waf_origin_maxmind_account' => '',
+		'waf_origin_maxmind_key' => '',
+		'waf_origin_tor' => 'off',
+		'waf_origin_net' => 'off',
+		'waf_origin_tor_hours' => 1,
+		'waf_origin_list_hours' => 24,
+		'waf_origin_db_hours' => 24,
 	);
 }
 
@@ -813,6 +835,9 @@ function waf_settings_limits()
 		'waf_ingest_max_lines' => array(100, 100000),
 		'waf_job_deadline_minutes' => array(2, 120),
 		'waf_card_hits' => array(100, 100000),
+		'waf_origin_tor_hours' => array(1, 168),
+		'waf_origin_list_hours' => array(1, 720),
+		'waf_origin_db_hours' => array(1, 720),
 	);
 }
 
@@ -844,6 +869,17 @@ function waf_settings($row)
 		}
 		$settings[$key] = $path;
 	}
+	foreach (waf_origin_choices() as $key => $values) {
+		if (!in_array($settings[$key], $values, true)) {
+			$settings[$key] = $defaults[$key];
+		}
+	}
+	// The account is digits, the licence key letters, digits and underscores;
+	// MaxMind hands out nothing else, and both go into a URL.
+	$settings['waf_origin_maxmind_account'] = preg_match('/^\d{0,32}$/', (string) $settings['waf_origin_maxmind_account'])
+		? (string) $settings['waf_origin_maxmind_account'] : '';
+	$settings['waf_origin_maxmind_key'] = preg_match('/^[A-Za-z0-9_]{0,128}$/', (string) $settings['waf_origin_maxmind_key'])
+		? (string) $settings['waf_origin_maxmind_key'] : '';
 	return $settings;
 }
 

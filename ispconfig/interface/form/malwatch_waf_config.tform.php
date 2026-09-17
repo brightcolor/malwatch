@@ -144,6 +144,109 @@ $form['tabs']['waf'] = array(
 			'value' => '',
 			'width' => '10',
 			'maxlength' => '6'
+		),
+		'waf_origin_geo' => array(
+			'datatype' => 'VARCHAR',
+			'formtype' => 'SELECT',
+			'default' => 'off',
+			'value' => array(
+				'off' => 'origin_off_txt',
+				'dbip' => 'origin_geo_dbip_txt',
+				'maxmind' => 'origin_geo_maxmind_txt'
+			)
+		),
+		'waf_origin_maxmind_account' => array(
+			'datatype' => 'VARCHAR',
+			'formtype' => 'TEXT',
+			'default' => '',
+			'validators' => array(
+				array(
+					'type' => 'REGEX',
+					'regex' => '/^\d{0,32}$/',
+					'errmsg' => 'waf_origin_maxmind_account_error'
+				)
+			),
+			'value' => '',
+			'width' => '20',
+			'maxlength' => '32'
+		),
+		'waf_origin_maxmind_key' => array(
+			'datatype' => 'VARCHAR',
+			'formtype' => 'TEXT',
+			'default' => '',
+			'validators' => array(
+				array(
+					'type' => 'REGEX',
+					'regex' => '/^[A-Za-z0-9_]{0,128}$/',
+					'errmsg' => 'waf_origin_maxmind_key_error'
+				)
+			),
+			'value' => '',
+			'width' => '30',
+			'maxlength' => '128'
+		),
+		'waf_origin_tor' => array(
+			'datatype' => 'VARCHAR',
+			'formtype' => 'SELECT',
+			'default' => 'off',
+			'value' => array(
+				'off' => 'origin_off_txt',
+				'torproject' => 'origin_tor_torproject_txt'
+			)
+		),
+		'waf_origin_net' => array(
+			'datatype' => 'VARCHAR',
+			'formtype' => 'SELECT',
+			'default' => 'off',
+			'value' => array(
+				'off' => 'origin_off_txt',
+				'x4b' => 'origin_net_x4b_txt'
+			)
+		),
+		'waf_origin_tor_hours' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '1',
+			'validators' => array(
+				array(
+					'type' => 'RANGE',
+					'range' => '1:168',
+					'errmsg' => 'waf_origin_tor_hours_error_range'
+				)
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '3'
+		),
+		'waf_origin_list_hours' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '24',
+			'validators' => array(
+				array(
+					'type' => 'RANGE',
+					'range' => '1:720',
+					'errmsg' => 'waf_origin_list_hours_error_range'
+				)
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '3'
+		),
+		'waf_origin_db_hours' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '24',
+			'validators' => array(
+				array(
+					'type' => 'RANGE',
+					'range' => '1:720',
+					'errmsg' => 'waf_origin_db_hours_error_range'
+				)
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '3'
 		)
 	)
 );

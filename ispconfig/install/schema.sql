@@ -975,6 +975,14 @@ SET @mw := (SELECT IF(COUNT(*) = 0,
   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_waf_hit' AND INDEX_NAME = 'site_ip');
 PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
+-- Where an address comes from: the chosen sources and how often they are checked.
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_config` ADD COLUMN `waf_origin_geo` enum(''off'',''dbip'',''maxmind'') NOT NULL DEFAULT ''off'', ADD COLUMN `waf_origin_maxmind_account` varchar(32) NOT NULL DEFAULT '''', ADD COLUMN `waf_origin_maxmind_key` varchar(128) NOT NULL DEFAULT '''', ADD COLUMN `waf_origin_tor` enum(''off'',''torproject'') NOT NULL DEFAULT ''off'', ADD COLUMN `waf_origin_net` enum(''off'',''x4b'') NOT NULL DEFAULT ''off'', ADD COLUMN `waf_origin_tor_hours` int(11) unsigned NOT NULL DEFAULT ''1'', ADD COLUMN `waf_origin_list_hours` int(11) unsigned NOT NULL DEFAULT ''24'', ADD COLUMN `waf_origin_db_hours` int(11) unsigned NOT NULL DEFAULT ''24''',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_config' AND COLUMN_NAME = 'waf_origin_geo');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
 -- waf carries the jobs of the page Abwehr. The malwatch cron works on them
 -- itself (malwatch_waf::run_jobs); the runner never starts one.
 SET @mw := (SELECT IF(COUNT(*) = 0,
