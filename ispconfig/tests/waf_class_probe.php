@@ -180,7 +180,7 @@ file_put_contents($tmp . '/state/waf/responses/fresh.html.gz', 'x');
 mkdir($tmp . '/state/waf/staging/999999', 0700, true);
 file_put_contents($tmp . '/state/waf/staging/999998-logrotate', 'x');
 $counts = $waf->cleanup();
-expect_same('cleanup counts', $counts, array('hits' => 1, 'days' => 2, 'files' => 1, 'staging' => 2));
+expect_same('cleanup counts', $counts, array('hits' => 1, 'days' => 2, 'files' => 1, 'staging' => 2, 'addresses' => 0));
 expect_same('old hit gone', $db->queryOneRecord("SELECT hit_id FROM malwatch_waf_hit WHERE unique_id = '1757142300998877665'"), null);
 expect_same('its response gone', is_file($response), false);
 expect_same('orphan gone, fresh file kept', array(is_file($tmp . '/state/waf/responses/orphan.html.gz'),
@@ -525,12 +525,14 @@ $result = $waf->origin_update_sources($probe_settings, array(), '2026-09-17 20:0
 // The sample files are far too short for the real limits, so every source is
 // refused and the file in use stays as it is.
 expect_same('every chosen source is looked at', count($result), 5);
-expect_same('a short file is refused',
-	strpos($result['tor']['note'], 'liefert nur 3 Bereiche, erwartet sind mindestens 100') !== false, true);
+expect_same('a file with unreadable lines is refused',
+	strpos($result['tor']['note'], '1 von 5 Zeilen ergeben keinen Adressbereich') !== false, true);
 expect_same('nothing was swapped in', is_file($probe_dir . '/waf/origin/tor.bin'), false);
 expect_same('the temporary file is gone', count(glob($probe_dir . '/waf/origin/tmp/*')), 0);
+// The sample files cover the VPN list; the data centre list has none, so its
+// download answers like a source that is gone.
 expect_same('a source that is not reachable',
-	strpos($result['dbip_country']['note'], 'Nicht gefunden') !== false, true);
+	strpos($result['x4b_datacenter']['note'], 'Nicht gefunden') !== false, true);
 
 // --- B6: the addresses of the hits --------------------------------------------
 
@@ -541,6 +543,9 @@ waf_origin_read_list($fixtures . '/tor.txt', $probe_dir . '/waf/origin/tor.bin')
 $db->query("INSERT INTO malwatch_waf_hit (server_id, parent_domain_id, domain, unique_id, seen_at, client_ip, method, "
 	. "uri, path, status, anomaly_score, would_block, logged_in, rules, request_headers) "
 	. "VALUES (?, 11, 'beispiel.test', 'probe-origin', NOW(), '192.0.2.10', 'GET', '/x', '/x', 404, 5, 'n', 'n', '[]', '{}')", $server);
+// The lookup follows the settings of the panel, so the Tor list is switched on
+// for it.
+$db->query("UPDATE malwatch_config SET waf_origin_tor = 'torproject' WHERE config_id = 1");
 expect_same('one address looked up', $waf->origin_lookup(10), 1);
 $ip_row = $db->queryOneRecord("SELECT is_tor, country, local_at FROM malwatch_waf_ip WHERE ip = '192.0.2.10'");
 expect_same('the address is marked as Tor', array($ip_row['is_tor'], $ip_row['country'] === '' ), array('y', true));
