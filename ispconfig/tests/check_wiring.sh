@@ -1419,6 +1419,36 @@ for lang in de en; do
 done
 
 
+# 70. proxycheck.io answers per address, so it is no source with a range file.
+#     An entry in waf_origin_sources() would make origin_update download it.
+origin_lib="$root/interface/lib/malwatch_waf_origin.inc.php"
+if [ -f "$origin_lib" ]; then
+	grep -q 'function waf_origin_external(' "$origin_lib" \
+		|| fail "malwatch_waf_origin.inc.php has no waf_origin_external(); nothing names the external source"
+	if sed -n '/function waf_origin_sources(/,/^}/p' "$origin_lib" | grep -q 'proxycheck'; then
+		fail "waf_origin_sources() names proxycheck; the external service has no range file"
+	fi
+fi
+
+# 71. The external step runs in the cron of every minute, right after the local
+#     lookup, and the class keeps the seam a probe replaces.
+if [ -f "$waf_class" ]; then
+	grep -q "public \$poster" "$waf_class" \
+		|| fail "malwatch_waf.inc.php has no poster; a probe cannot answer for proxycheck.io"
+	sed -n '/public function cron_minute(/,/^	}/p' "$waf_class" | grep -q 'origin_external(' \
+		|| fail "cron_minute() never asks the external service"
+	grep -q 'https://proxycheck.io/v3/' "$waf_class" \
+		|| fail "malwatch_waf.inc.php never calls the v3 address of proxycheck.io"
+fi
+
+# 72. The key travels in the address of the request and nowhere else: never in
+#     a job log, never in the log of ISPConfig, never in the state of the source.
+if [ -f "$waf_class" ]; then
+	if grep -n "\$key" "$waf_class" | grep -qE "finish\(|app->log\(|origin_external_state\("; then
+		fail "malwatch_waf.inc.php puts the key into a log; it belongs into the address alone"
+	fi
+fi
+
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'
 fi

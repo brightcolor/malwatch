@@ -46,6 +46,12 @@ class malwatch_waf
 	 * MaxMind and '' for every other source.
 	 */
 	public $fetcher = null;
+
+	/**
+	 * Takes the place of the request to an external service when set:
+	 * function ($url, $body, $limit) returning array(ok, text).
+	 */
+	public $poster = null;
 	public $runner = null;
 
 	/** The handle of the lock file while this process holds it. */
@@ -355,6 +361,43 @@ class malwatch_waf
 		return array(true, '');
 	}
 
+	/**
+	 * Sends one request to an external service and returns array(ok, text).
+	 * The text is the answer or, when the request failed, the reason; the key
+	 * of the service travels in the address and never in this text.
+	 */
+	public function post($url, $body, $limit)
+	{
+		if ($this->poster !== null) {
+			return call_user_func($this->poster, $url, $body, $limit);
+		}
+		if (!function_exists('curl_init')) {
+			return array(false, 'Die PHP-Erweiterung curl fehlt. Bitte php-curl nachinstallieren; ohne sie fragt der Server keinen Dienst.');
+		}
+		$curl = curl_init();
+		curl_setopt($curl, CURLOPT_URL, $url);
+		curl_setopt($curl, CURLOPT_POST, true);
+		curl_setopt($curl, CURLOPT_POSTFIELDS, $body);
+		curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+		curl_setopt($curl, CURLOPT_CONNECTTIMEOUT, 5);
+		curl_setopt($curl, CURLOPT_TIMEOUT, 10);
+		curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, true);
+		curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, 2);
+		curl_setopt($curl, CURLOPT_USERAGENT, 'malwatch/' . $this->version());
+		$text = curl_exec($curl);
+		$status = (int) curl_getinfo($curl, CURLINFO_RESPONSE_CODE);
+		$error = curl_error($curl);
+		curl_close($curl);
+		if ($text === false) {
+			return array(false, 'Die Anfrage scheiterte: ' . waf_cut(preg_replace('/\s+/', ' ', $error), 150)
+				. ' Der nächste Durchgang fragt erneut.');
+		}
+		if ($status >= 400) {
+			return array(false, 'Der Dienst antwortete mit ' . $status . '. Der nächste Durchgang fragt erneut.');
+		}
+		return array(true, waf_cut((string) $text, (int) $limit));
+	}
+
 	/** The version of the addon, for the user agent of a download. */
 	private function version()
 	{
@@ -580,6 +623,7 @@ class malwatch_waf
 		try {
 			$this->ingest(array());
 			$this->origin_lookup();
+			$this->origin_external();
 			$this->run_jobs();
 		} catch (Throwable $e) {
 			$app->log('malwatch: the WAF pass failed: ' . $e->getMessage(), LOGLEVEL_WARN);
@@ -673,15 +717,25 @@ class malwatch_waf
 		$failed = false;
 		$dir = $this->ensure_dirs() . '/origin';
 
+		$chosen = waf_origin_chosen($settings);
+		$external = waf_origin_external($settings);
 		foreach ($states as $name => $row) {
-			if (in_array($name, waf_origin_chosen($settings), true)) {
+			if (in_array($name, $chosen, true) || $name === $external) {
 				continue;
 			}
-			@unlink($dir . '/' . $name . '.bin');
+			if ($name === 'proxycheck') {
+				// The service is off: its marks and its state leave the addresses.
+				$app->dbmaster->query("UPDATE malwatch_waf_ip SET is_proxy = 'n', vpn_operator = '', "
+					. "external_state = 'none', external_at = NULL, external_tries = 0 WHERE server_id = ?",
+					$conf['server_id']);
+			} else {
+				@unlink($dir . '/' . $name . '.bin');
+				$app->dbmaster->query('UPDATE malwatch_waf_ip SET local_at = NULL WHERE server_id = ?',
+					$conf['server_id']);
+			}
 			$app->dbmaster->query('DELETE FROM malwatch_waf_origin_source WHERE server_id = ? AND source = ?',
 				$conf['server_id'], $name);
-			$app->dbmaster->query('UPDATE malwatch_waf_ip SET local_at = NULL WHERE server_id = ?', $conf['server_id']);
-			$notes[] = $name . ': abgeschaltet, Datei entfernt';
+			$notes[] = $name . ': abgeschaltet, Daten entfernt';
 		}
 
 		$results = $this->origin_update_sources($settings, $states, $this->now());
@@ -914,6 +968,11 @@ class malwatch_waf
 		global $app, $conf;
 
 		$settings = $this->settings();
+		// A new address goes to the external service as soon as one is chosen.
+		if (waf_origin_external($settings) !== '') {
+			$app->dbmaster->query("UPDATE malwatch_waf_ip SET external_state = 'pending' WHERE server_id = ? "
+				. "AND external_state = 'none'", $conf['server_id']);
+		}
 		$chosen = waf_origin_chosen($settings);
 		if (count($chosen) === 0) {
 			return 0;
@@ -956,6 +1015,125 @@ class malwatch_waf
 	}
 
 	/** Queues a WAF job for this server and returns its id. $user names the person in the action log. */
+	/**
+	 * Asks the external service about the addresses that wait for an answer.
+	 * One pass sends at most one request with $limit addresses and never goes
+	 * past the daily limit of the settings. Returns how many addresses got an
+	 * answer. The state of the source names numbers and reasons, never the key
+	 * and never an address.
+	 */
+	public function origin_external($limit = 100)
+	{
+		global $app, $conf;
+
+		$settings = $this->settings();
+		$name = waf_origin_external($settings);
+		if ($name === '') {
+			return 0;
+		}
+		$now = $this->now();
+		$row = $app->dbmaster->queryOneRecord(
+			'SELECT * FROM malwatch_waf_origin_source WHERE server_id = ? AND source = ?', $conf['server_id'], $name);
+		$quota = waf_origin_quota($row, substr($now, 0, 10), $settings['waf_origin_proxycheck_daily']);
+		// An answer that failed comes back in line after an hour, three times in all.
+		$app->dbmaster->query("UPDATE malwatch_waf_ip SET external_state = 'pending' WHERE server_id = ? "
+			. "AND external_state = 'failed' AND external_tries < 3 AND (external_at IS NULL OR external_at < ?)",
+			$conf['server_id'], gmdate('Y-m-d H:i:s', strtotime($now) - 3600));
+		if ($quota['left'] <= 0) {
+			$app->dbmaster->query("UPDATE malwatch_waf_ip SET external_state = 'limit' WHERE server_id = ? "
+				. "AND external_state = 'pending'", $conf['server_id']);
+			$this->origin_external_state($name, $quota, 'Das Tageslimit von ' . $quota['daily']
+				. ' Abfragen ist erreicht. Die übrigen Adressen kommen am nächsten Tag an die Reihe.', $now);
+			return 0;
+		}
+		// There is room again, so what waited for the limit joins the queue.
+		$app->dbmaster->query("UPDATE malwatch_waf_ip SET external_state = 'pending' WHERE server_id = ? "
+			. "AND external_state = 'limit'", $conf['server_id']);
+		$key = (string) $settings['waf_origin_proxycheck_key'];
+		if ($key === '') {
+			$this->origin_external_state($name, $quota, 'Für proxycheck.io fehlt der Schlüssel. Bitte ihn in den '
+				. 'Einstellungen der Abwehr eintragen.', $now);
+			return 0;
+		}
+		$take = min(max(1, (int) $limit), $quota['left']);
+		$ips = array();
+		foreach ($this->rows($app->dbmaster->queryAllRecords("SELECT ip FROM malwatch_waf_ip WHERE server_id = ? "
+			. "AND external_state = 'pending' ORDER BY ip LIMIT ?", $conf['server_id'], $take)) as $one) {
+			$ips[] = (string) $one['ip'];
+		}
+		$body = waf_origin_proxycheck_body($ips);
+		if ($body === '') {
+			return 0;
+		}
+		$answer = $this->post('https://proxycheck.io/v3/?key=' . rawurlencode($key), $body, 2 * 1024 * 1024);
+		$read = $answer[0] ? waf_origin_proxycheck_read($answer[1])
+			: array('ok' => false, 'error' => $answer[1], 'ips' => array());
+		$quota['queries'] += count($ips);
+		if (!$read['ok']) {
+			$app->dbmaster->query("UPDATE malwatch_waf_ip SET external_state = 'failed', external_at = ?, "
+				. 'external_tries = external_tries + 1 WHERE server_id = ? AND ip IN ?', $now, $conf['server_id'], $ips);
+			$this->origin_external_state($name, $quota, $read['error'], $now);
+			return 0;
+		}
+		// The service replaces VPN, data centre and proxy. Country, provider and
+		// Tor stay with the local lists as long as one of them is chosen.
+		$with_geo = (string) $settings['waf_origin_geo'] === 'off';
+		$with_tor = (string) $settings['waf_origin_tor'] === 'off';
+		$done = 0;
+		foreach ($ips as $ip) {
+			if (!isset($read['ips'][$ip])) {
+				$app->dbmaster->query("UPDATE malwatch_waf_ip SET external_state = 'failed', external_at = ?, "
+					. 'external_tries = external_tries + 1 WHERE server_id = ? AND ip = ?',
+					$now, $conf['server_id'], $ip);
+				continue;
+			}
+			$facts = $read['ips'][$ip];
+			$fields = 'is_vpn = ?, is_hosting = ?, is_proxy = ?, vpn_operator = ?';
+			$values = array($facts['is_vpn'], $facts['is_hosting'], $facts['is_proxy'], $facts['vpn_operator']);
+			if ($with_geo) {
+				$fields .= ', country = ?, asn = ?, as_org = ?';
+				$values[] = $facts['country'];
+				$values[] = $facts['asn'];
+				$values[] = $facts['as_org'];
+			}
+			if ($with_tor) {
+				$fields .= ', is_tor = ?';
+				$values[] = $facts['is_tor'];
+			}
+			$values[] = $now;
+			$values[] = $conf['server_id'];
+			$values[] = $ip;
+			call_user_func_array(array($app->dbmaster, 'query'), array_merge(array('UPDATE malwatch_waf_ip SET '
+				. $fields . ", external_state = 'done', external_at = ?, external_tries = 0 "
+				. 'WHERE server_id = ? AND ip = ?'), $values));
+			$done++;
+		}
+		$this->origin_external_state($name, $quota, '', $now);
+		return $done;
+	}
+
+	/**
+	 * Writes the state of the external source: the queries of the day, how many
+	 * addresses carry an answer and what went wrong last. The text comes from
+	 * the answer and never carries the key.
+	 */
+	private function origin_external_state($name, $quota, $error, $now)
+	{
+		global $app, $conf;
+
+		$known = $app->dbmaster->queryOneRecord("SELECT COUNT(*) AS n FROM malwatch_waf_ip WHERE server_id = ? "
+			. "AND external_state = 'done'", $conf['server_id']);
+		$entries = is_array($known) ? (int) $known['n'] : 0;
+		$error = waf_cut((string) $error, 255);
+		$app->dbmaster->query('INSERT INTO malwatch_waf_origin_source (server_id, source, version, checked_at, '
+			. "fetched_at, entries, error, error_at, day, queries) VALUES (?, ?, '', ?, ?, ?, ?, ?, ?, ?) "
+			. 'ON DUPLICATE KEY UPDATE checked_at = VALUES(checked_at), entries = VALUES(entries), '
+			. 'error = VALUES(error), error_at = VALUES(error_at), day = VALUES(day), queries = VALUES(queries), '
+			. "fetched_at = IF(VALUES(error) = '', VALUES(checked_at), fetched_at)",
+			$conf['server_id'], $name, $now, $error === '' ? $now : null, $entries, $error,
+			$error === '' ? null : $now, $quota['day'], $quota['queries']);
+	}
+
 	public function queue($action, $fields, $user)
 	{
 		global $app, $conf;
