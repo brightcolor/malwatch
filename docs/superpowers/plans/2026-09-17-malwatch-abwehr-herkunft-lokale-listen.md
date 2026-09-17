@@ -2320,12 +2320,12 @@ $result = $waf->origin_update_sources($probe_settings, array(), '2026-09-17 20:0
 // The sample files are far too short for the real limits, so every source is
 // refused and the file in use stays as it is.
 expect_same('every chosen source is looked at', count($result), 5);
-expect_same('a short file is refused',
-	strpos($result['tor']['note'], 'liefert nur 3 Bereiche, erwartet sind mindestens 100') !== false, true);
+expect_same('a file with unreadable lines is refused',
+	strpos($result['tor']['note'], '1 von 5 Zeilen ergeben keinen Adressbereich') !== false, true);
 expect_same('nothing was swapped in', is_file($probe_dir . '/waf/origin/tor.bin'), false);
 expect_same('the temporary file is gone', count(glob($probe_dir . '/waf/origin/tmp/*')), 0);
 expect_same('a source that is not reachable',
-	strpos($result['dbip_country']['note'], 'Nicht gefunden') !== false, true);
+	strpos($result['x4b_datacenter']['note'], 'Nicht gefunden') !== false, true);
 ```
 
 - [ ] **Step 2: Probe prüfen**
@@ -3127,13 +3127,14 @@ In `ispconfig/tests/waf_class_probe.php` am Ende vor dem Block `// --- summary` 
 // --- B6: the addresses of the hits --------------------------------------------
 
 $db->query("INSERT INTO malwatch_waf_origin_source (server_id, source, version, checked_at, fetched_at, entries) "
-	. "VALUES (?, 'tor', '', NOW(), NOW(), 3)", $server);
+	. "VALUES (?, 'tor', '', NOW(), NOW(), 3) ON DUPLICATE KEY UPDATE fetched_at = NOW(), entries = 3", $server);
 @mkdir($probe_dir . '/waf/origin', 0700, true);
 waf_origin_read_list($fixtures . '/tor.txt', $probe_dir . '/waf/origin/tor.bin');
 $db->query("INSERT INTO malwatch_waf_hit (server_id, parent_domain_id, domain, unique_id, seen_at, client_ip, method, "
 	. "uri, path, status, anomaly_score, would_block, logged_in, rules, request_headers) "
 	. "VALUES (?, 11, 'beispiel.test', 'probe-origin', NOW(), '192.0.2.10', 'GET', '/x', '/x', 404, 5, 'n', 'n', '[]', '{}')", $server);
-expect_same('one address looked up', $waf->origin_lookup(10), 1);
+$db->query("UPDATE malwatch_config SET waf_origin_tor = 'torproject' WHERE config_id = 1");
+expect_same('every address of the stored hits is looked up', $waf->origin_lookup(10), 3);
 $ip_row = $db->queryOneRecord("SELECT is_tor, country, local_at FROM malwatch_waf_ip WHERE ip = '192.0.2.10'");
 expect_same('the address is marked as Tor', array($ip_row['is_tor'], $ip_row['country'] === '' ), array('y', true));
 expect_same('a second pass finds nothing new', $waf->origin_lookup(10), 0);
@@ -3905,11 +3906,11 @@ Zusammen 47.107.420 B, Spitzenbedarf 17 MB Arbeitsspeicher für den ganzen Lauf.
 
 #### Block 2: Staging-Kopie, Schema und Proben
 
-- [ ] **Step 5: Freigabe einholen**
+- [x] **Step 5: Freigabe einholen**
 
 Mathias bekommt vorgelegt: „B9, Block 2: Ich kopiere den Stand nach `/root/mw-0210-src` und `/root/mw-0210-stage`, prüfe Syntax und Tests, sichere die Struktur der betroffenen Tabellen und lade das Schema: zwei neue Tabellen (`malwatch_waf_origin_source`, `malwatch_waf_ip`) und acht Spalten in `malwatch_config`, alle mit Vorgabe `off`. Danach lasse ich die Klassenprobe gegen eine Wegwerf-Datenbank laufen und rendere die Seiten der Kopie gegen die echte Datenbank. Zum Schluss lösche ich Kopie und Wegwerf-Datenbank. nginx, die Websites und die laufende Erweiterung bleiben unberührt.“ Weiter erst nach seinem Ja.
 
-- [ ] **Step 6: Kopie, Syntax, Tests**
+- [x] **Step 6: Kopie, Syntax, Tests**
 
 ```bash
 git archive --format=tar HEAD ispconfig waf | ssh ispconfig 'rm -rf /root/mw-0210-src /root/mw-0210-stage && mkdir -p /root/mw-0210-src /root/mw-0210-stage/interface/web && tar -x -C /root/mw-0210-src'
@@ -3942,7 +3943,7 @@ EOF
 
 Expected: keine Zeile aus den Syntaxprüfungen, sechsmal „alle Prüfungen bestanden“, Version 0.21.0.
 
-- [ ] **Step 7: Schema laden**
+- [x] **Step 7: Schema laden**
 
 ```bash
 ssh ispconfig 'bash -s' <<'EOF'
@@ -3960,7 +3961,7 @@ EOF
 
 Expected: acht Spalten mit ihren Vorgaben (`off`, leer, `1`, `24`, `24`), die Tabellen `malwatch_waf_day`, `malwatch_waf_exception`, `malwatch_waf_hit`, `malwatch_waf_ip`, `malwatch_waf_origin_source`, `malwatch_waf_site_day` und eine Zeile `off off off`. Danach beide Messungen.
 
-- [ ] **Step 8: Klassenprobe und Seiten**
+- [x] **Step 8: Klassenprobe und Seiten**
 
 ```bash
 ssh ispconfig 'bash -s' <<'EOF'
@@ -3982,13 +3983,15 @@ EOF
 
 Expected: `waf_class_probe: alle Prüfungen bestanden`, jede Seite `ok`, `All pages render.`. Die Seiten zeigen den Hinweis „Herkunft der Adressen ist aus“, weil noch keine Quelle gewählt ist.
 
-- [ ] **Step 9: Aufräumen und Protokoll**
+- [x] **Step 9: Aufräumen und Protokoll**
 
 ```bash
 ssh ispconfig 'rm -rf /root/mw-0210-src /root/mw-0210-stage; mysql -N -e "SHOW DATABASES LIKE \"mw_probe_0210\""; date "+%d.%m.%Y, %H:%M:%S %Z"'
 ```
 
 Expected: keine Datenbank mehr, die Uhrzeit fürs Protokoll. Danach beide Messungen und der Protokolleintrag für Block 1 und 2.
+
+Ergebnis am 17.09.2026, 21:54:54–22:02:07 CEST (eigener Protokolleintrag „Staging-Kopie, Schema und Proben“): Schema geladen (acht Spalten mit Vorgaben, beide neuen Tabellen, Konfiguration `off off off`), sechs Testreihen bestanden, 25 Seiten gerendert, Hinweis „Herkunft der Adressen ist aus“ genau einmal auf der Website-Seite. Die Klassenprobe lief hier zum ersten Mal überhaupt und deckte vier falsche Erwartungen in der Probe auf (Commits `8a29ace`, `d174e14`); die oben stehenden Codeblöcke sind entsprechend berichtigt. Messwerte davor/danach: Last 0,91 → 0,81, frei 6.013 → 6.174 MB, Websites unverändert.
 
 #### Block 3: Veröffentlichen
 
