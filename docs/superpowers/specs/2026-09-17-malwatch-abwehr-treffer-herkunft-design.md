@@ -31,6 +31,7 @@ fasst nginx an.
 | Umfang des Katalogs | die 166 Regeln, die CRS 3.3.5 bei Stufe 1 ausführt (164 mit dem Tag `paranoia-level/1`, dazu 920181 und 921200), und die Auswertungsregeln 949110, 959100, 980130, 980140; übrige Regeln über ihre Gruppe |
 | Katalogformat | gewöhnliche ISPConfig-Sprachdatei, damit der Spracheditor sie lesen und bearbeiten kann |
 | Obergrenze der Regel-Karten | Einstellung `waf_card_hits`, Vorgabe 5000 jüngste Einzeltreffer je Website |
+| Adressfilter | Index `site_ip` (`parent_domain_id`, `client_ip`, `seen_at`) auf `malwatch_waf_hit`; nach einem Knopf bleibt der Filter erhalten |
 | Quellen der Herkunft | je Merkmal einstellbar, jeweils mit „aus" |
 | Externe Dienste | proxycheck.io als erster; weitere später |
 | Voreinstellung | alles aus; die Seiten weisen darauf hin. Auf web.herkules werden beim Einspielen DB-IP, Tor-Liste und X4BNet eingeschaltet |
@@ -151,17 +152,24 @@ von `Cookie` und `Authorization` sind schon beim Einlesen entfernt.
   Obergrenze, heißt die Überschrift „Adressen aus den neuesten n gespeicherten Anfragen".
   Enthält keiner dieser Einzeltreffer die Regel: „Keine dieser Anfragen enthält die
   Regel." Darunter steht, wie viele dieser Treffer von angemeldeten Nutzern kamen.
-- Ein Klick auf eine Adresse lädt die Seite mit `&ip=<adresse>`; die Einzeltreffer zeigen
-  dann nur diese Adresse, mit einem Hinweis und „Filter aufheben". Der Parameter wird mit
-  `FILTER_VALIDATE_IP` geprüft.
+- Ein Klick auf eine Adresse lädt die Seite mit `&ip=<adresse>` und springt zu den
+  Einzeltreffern; sie zeigen dann nur diese Adresse, mit einem Hinweis und „Filter
+  aufheben". Der Parameter wird mit `FILTER_VALIDATE_IP` geprüft und kommt nach einem
+  Knopf als verstecktes Feld zurück. Der Index `site_ip` trägt Liste und Zählung.
+- Ist die Angabe keine IP-Adresse, bleibt die Liste ungefiltert. Über den
+  Einzeltreffern nennt eine Meldung die Angabe, sagt, dass die Liste deshalb alle
+  gespeicherten Anfragen zeigt, und verweist zum Filtern auf die Adressen in den
+  Regel-Karten und Anfragen.
 - **Woran erkannt?** (aufklappbar): „Was erkannt wurde", die bis zu drei häufigsten
   Auslöser der Einzeltreffer mit Anzahl, die Einordnung, klein die CRS-Meldung.
 
 ### Einzeltreffer
 
 - Zugeklappt: Zeit, **IP** in eigener Spalte, Anfrage, Regeln, Punkte, Chips.
-- Aufgeklappt je Regel: „Titel (ID)", „Ausgelöst durch: …", die Einordnung in einem
-  Satz, klein der Rohtext aus `data`.
+- Aufgeklappt oben: Antwortcode und der Verweis „Nur Anfragen dieser Adresse"; bei
+  angemeldeten Nutzern der Satz aus Abschnitt 4.
+- Aufgeklappt je Regel: „Titel (ID)" mit der Einordnung als Chip, „Ausgelöst durch: …",
+  die Einordnung in einem Satz, bei Bedarf der Zusatzsatz, klein der Rohtext aus `data`.
 
 ### Sprache
 

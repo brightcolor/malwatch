@@ -138,12 +138,14 @@ sich, sobald `waf/install.sh` ModSecurity im nginx eingerichtet hat
 - **Übersicht:** alle aktiven Websites mit Zustand, Treffern, „wäre abgewiesen“ und
   häufigster Regel; Mehrfachauswahl für den Zustand, dazu „Notaus“ und der Knopf für
   die Seitenantwort.
-- **Website:** Schalter mit Vorschau für „scharf“, Verlauf, Regeln, Pfade, einzelne
-  Anfragen, ihre Ausnahmen und das Formular „Ausnahme anlegen“.
+- **Website:** Schalter mit Vorschau für „scharf“, Verlauf, Regeln mit Erklärung,
+  Auslösern, Einordnung und Adressen, Pfade, einzelne Anfragen (ein Klick auf eine
+  Adresse filtert sie), ihre Ausnahmen und das Formular „Ausnahme anlegen“.
 - **Ausnahmen:** alle Ausnahmen mit Zustand und Fehlergrund, gefiltert nach Zustand
   und Website.
 - **Einstellungen:** Aufbewahrung, Mindestdauer vor „scharf“, Zeitraum der Vorschau,
-  Zeilen je Durchgang, Frist für den vhost.
+  Zahl der Einzeltreffer für die Regel-Karten, Zeilen je Durchgang, Frist für den
+  vhost.
 
 Jeder Knopf legt einen Auftrag in `malwatch_job` mit `job_kind = 'waf'` an. Die
 Cron-Klasse ruft jede Minute `malwatch_waf` auf: Sie liest höchstens so viele Zeilen
@@ -165,6 +167,14 @@ bleiben so lange wie eingestellt; Werte von `Cookie` und `Authorization` werden 
 dem Speichern entfernt. Die Tageszahlen enthalten keine Adressen. Seitenantworten
 liegen gepackt unter `/var/lib/malwatch/waf/responses/`, lesbar für root und das
 Panel, und öffnen im Panel ausschließlich als Text.
+
+Die Erklärungen der Regeln stehen in `interface/lang/de_malwatch_waf_rules.lng` und
+`en_malwatch_waf_rules.lng`, im Format der Sprachdateien von ISPConfig: je Regel
+`rule_<id>_title`, `rule_<id>_what` und `rule_<id>_class`, bei Bedarf
+`rule_<id>_note` und `rule_<id>_trigger`, je Gruppe `group_<nnn>_what` und
+`group_<nnn>_class`. `tests/waf_rules_catalog_test.php` prüft den Katalog gegen die
+Regelliste `tests/fixtures/crs-3.3.5-pl1-rule-ids.txt`; ein neuer Regelsatz braucht
+eine neue Liste und die passenden Einträge.
 
 ## Aktionen
 

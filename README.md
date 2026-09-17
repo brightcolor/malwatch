@@ -333,8 +333,9 @@ keine eigene Kopie.
 
 **Security > Abwehr > Übersicht** schaltet die Web Application Firewall (ModSecurity mit dem
 OWASP-Regelwerk) je Website zwischen „aus“, „mitschreiben“ und „scharf“ und wertet
-ihr Audit-Log aus: Treffer je Website und Tag, Regeln im Klartext, einzelne Anfragen
-und die Vorschau, was „scharf“ abgewiesen hätte. Ausnahmen entstehen per Knopf aus
+ihr Audit-Log aus: Treffer je Website und Tag, Regeln mit Erklärung, Auslöser,
+Einordnung und den Adressen ihrer Treffer, einzelne Anfragen und die Vorschau, was
+„scharf“ abgewiesen hätte. Ausnahmen entstehen per Knopf aus
 einem Treffer. Auf dem Webserver richtet `waf/install.sh` die WAF ein, siehe
 [waf/README.md](waf/README.md).
 

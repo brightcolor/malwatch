@@ -2,6 +2,45 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.20.0] – 2026-09-17
+
+### Neu
+
+**Treffer verstehen.** Die Seite einer Website unter **Security > Abwehr** erklärt
+jede Regel auf Deutsch: was sie erkennt, woran sie in den gespeicherten Anfragen
+angeschlagen hat, etwa „Parameter „q“ enthält „union select““, und wie der Treffer
+einzuordnen ist: Scanner, Angriffsversuch, Fehlalarm möglich, Protokollverstoß,
+Auswertung oder Antwort der Website. Der Regelkatalog umfasst alle 170 Regeln der
+Stufe 1 von CRS 3.3.5 auf Deutsch und Englisch; Regeln höherer Stufen zeigen den
+Text ihrer Gruppe.
+
+**Adressen je Regel.** Jede Regel-Karte nennt die Adressen, von denen ihre Treffer
+kamen, mit Anzahl, und wie viele Treffer von angemeldeten Nutzern stammen. Ein Klick
+auf eine Adresse zeigt nur deren gespeicherte Anfragen und springt dorthin; „Filter
+aufheben“ zeigt wieder alle.
+
+**Einstellung „Einzeltreffer für die Regel-Karten“.** So viele jüngste gespeicherte
+Anfragen einer Website wertet die Seite für Adressen und Auslöser aus, Vorgabe 5000.
+
+### Geändert
+
+**Einzeltreffer.** Aufgeklappt nennt jede Regel ihren Auslöser in Worten und ihre
+Einordnung, darunter klein den Rohtext aus dem Audit-Log. Anfragen angemeldeter
+Nutzer tragen den Hinweis auf einen möglichen Fehlalarm. Die Adresse steht in einer
+eigenen Spalte.
+
+**Regeltitel.** Übersicht und Ausnahmeliste nehmen die Titel aus dem Katalog. Die
+Gruppen 910, 912 und 922 haben einen Namen.
+
+**Verständliche Meldungen.** Liegt ein Wert auf der Einstellungsseite der Abwehr
+außerhalb der Grenzen, nennt die Meldung das Feld, die erlaubten Zahlen und den
+nächsten Schritt. Ist die Angabe im Adressfilter keine IP-Adresse, zeigt die Seite
+alle gespeicherten Anfragen, sagt das über der Liste und nennt den Weg zum Filtern.
+
+**Datenbank.** `malwatch_waf_hit` bekommt den Index `site_ip` für den Adressfilter,
+`malwatch_config` die Spalte `waf_card_hits`. Das Schema legt beides bei der
+Installation und beim Update selbst an.
+
 ## [0.19.1] – 2026-09-17
 
 ### Geändert
