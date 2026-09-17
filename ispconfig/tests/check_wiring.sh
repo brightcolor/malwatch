@@ -1268,6 +1268,18 @@ fi
 sed -n '/function onUpdateSave(/,/^	}/p;/function onAfterUpdate(/,/^	}/p' "$cfg_page" | grep -q 'handle_apply_existing(' \
 	|| fail "malwatch_config_edit.php sweeps before tform has accepted the token; call handle_apply_existing() from onUpdateSave() or onAfterUpdate()"
 
+# 63. waf/install.sh keeps every backup under its own name. The copy of
+#     /etc/nginx/waf is "waf" in the backup directory, so /etc/logrotate.d/waf
+#     copied there under its basename hits that directory: cp stops, and
+#     set -e ends the run before anything is switched.
+if [ -f "$waf_dir/install.sh" ]; then
+	backup_part=$(sed -n '/-m 700 "\$BACKUP"/,/say "Sicherung in/p' "$waf_dir/install.sh")
+	if ! printf '%s\n' "$backup_part" | grep -qF '/etc/logrotate.d/waf "$BACKUP/logrotate-waf"' \
+		|| printf '%s\n' "$backup_part" | grep -F '/etc/logrotate.d/waf' | grep -qvF '"$BACKUP/logrotate-waf"'; then
+		fail "waf/install.sh copies /etc/logrotate.d/waf into the backup as waf; the copy of /etc/nginx/waf already has that name"
+	fi
+fi
+
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'
 fi

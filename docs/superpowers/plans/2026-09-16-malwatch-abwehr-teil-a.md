@@ -5161,9 +5161,11 @@ fi
 install -d -o root -g root -m 700 /var/backups/waf-switch
 install -d -o root -g root -m 700 "$BACKUP"
 if [ -d "$WAF" ]; then cp -a "$WAF" "$BACKUP/waf"; fi
-for f in "$INCLUDE" "$INCLUDE.off" /etc/logrotate.d/waf; do
+for f in "$INCLUDE" "$INCLUDE.off"; do
 	if [ -f "$f" ]; then cp -a "$f" "$BACKUP/"; fi
 done
+# Under its own name: "waf" in the backup is the copy of $WAF.
+if [ -f /etc/logrotate.d/waf ]; then cp -a /etc/logrotate.d/waf "$BACKUP/logrotate-waf"; fi
 crontab -l > "$BACKUP/crontab" 2>/dev/null || true
 say "Sicherung in $BACKUP"
 
