@@ -1407,6 +1407,18 @@ for lang in de en; do
 done
 
 
+# 69. The settings page shows the state of every chosen source. It reads its own
+#     wordbook, so the names of the sources and the lines about their state have
+#     to be in the wordbook of the settings page as well.
+for lang in de en; do
+	book="$root/interface/lang/${lang}_malwatch_waf_config.lng"
+	[ -f "$book" ] || continue
+	for key in origin_source_dbip_country_txt origin_source_dbip_asn_txt origin_source_maxmind_country_txt origin_source_maxmind_asn_txt origin_source_tor_txt origin_source_x4b_vpn_txt origin_source_x4b_datacenter_txt origin_state_txt origin_state_list_txt origin_state_none_txt origin_state_none_hint_txt origin_state_keep_txt; do
+		grep -q "\\\$wb\['$key'\]" "$book" || fail "${lang}_malwatch_waf_config.lng is missing $key; the settings page shows the bare key instead of the name of the source"
+	done
+done
+
+
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'
 fi

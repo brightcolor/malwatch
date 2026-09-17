@@ -2,6 +2,16 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.21.1] – 2026-09-17
+
+### Behoben
+
+**Namen der Quellen auf der Einstellungsseite.** Unter „Stand der gewählten Quellen“
+standen die technischen Schlüssel (`dbip_country`) und die nackten Werte. Die Seite
+liest ihr eigenes Wörterbuch, in dem die Texte der Abwehr-Seiten fehlten. Jetzt steht
+dort „DB-IP Lite: Land — Stand 2026-09, 717.169 Bereiche, geladen am …“. Prüfung 69
+in `check_wiring.sh` hält die beiden Wörterbücher künftig zusammen.
+
 ## [0.21.0] – 2026-09-17
 
 ### Neu

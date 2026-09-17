@@ -25,6 +25,20 @@ $wb['origin_head_txt'] = 'Herkunft der Adressen';
 $wb['origin_intro_txt'] = 'Aus diesen Quellen bestimmt der Server Land, Provider und die Merkmale Tor, VPN und Rechenzentrum. Die Vorgabe ist „aus“: Erst mit einer Wahl lädt der Server eine Liste herunter.';
 $wb['origin_state_head_txt'] = 'Stand der gewählten Quellen';
 $wb['origin_state_none_chosen_txt'] = 'Es ist keine Quelle gewählt.';
+
+// The sources of the origin and their state, as the page above shows them.
+$wb['origin_source_dbip_country_txt'] = 'DB-IP Lite: Land';
+$wb['origin_source_dbip_asn_txt'] = 'DB-IP Lite: Netz';
+$wb['origin_source_maxmind_country_txt'] = 'GeoLite2: Land';
+$wb['origin_source_maxmind_asn_txt'] = 'GeoLite2: Netz';
+$wb['origin_source_tor_txt'] = 'Tor';
+$wb['origin_source_x4b_vpn_txt'] = 'X4BNet: VPN';
+$wb['origin_source_x4b_datacenter_txt'] = 'X4BNet: Rechenzentren';
+$wb['origin_state_txt'] = 'Stand %1$s, %2$s Bereiche, geladen am %3$s';
+$wb['origin_state_list_txt'] = '%1$s Bereiche, geladen am %2$s';
+$wb['origin_state_none_txt'] = 'Noch nicht geladen. Der Cron holt die Liste beim nächsten stündlichen Durchgang.';
+$wb['origin_state_none_hint_txt'] = 'Es gibt noch keinen Stand; der Cron versucht es beim nächsten Durchgang erneut.';
+$wb['origin_state_keep_txt'] = 'Es gilt der Stand von %s.';
 $wb['origin_off_txt'] = 'aus';
 $wb['origin_geo_dbip_txt'] = 'DB-IP Lite (frei, Namensnennung)';
 $wb['origin_geo_maxmind_txt'] = 'MaxMind GeoLite2 (Konto nötig)';

@@ -25,6 +25,20 @@ $wb['origin_head_txt'] = 'Origin of the addresses';
 $wb['origin_intro_txt'] = 'The server works out country, provider and the marks Tor, VPN and data centre from these sources. Everything starts as "off": the server downloads a list only after you pick one.';
 $wb['origin_state_head_txt'] = 'State of the chosen sources';
 $wb['origin_state_none_chosen_txt'] = 'No source is chosen.';
+
+// The sources of the origin and their state, as the page above shows them.
+$wb['origin_source_dbip_country_txt'] = 'DB-IP Lite: country';
+$wb['origin_source_dbip_asn_txt'] = 'DB-IP Lite: network';
+$wb['origin_source_maxmind_country_txt'] = 'GeoLite2: country';
+$wb['origin_source_maxmind_asn_txt'] = 'GeoLite2: network';
+$wb['origin_source_tor_txt'] = 'Tor';
+$wb['origin_source_x4b_vpn_txt'] = 'X4BNet: VPN';
+$wb['origin_source_x4b_datacenter_txt'] = 'X4BNet: data centres';
+$wb['origin_state_txt'] = 'Release %1$s, %2$s ranges, loaded on %3$s';
+$wb['origin_state_list_txt'] = '%1$s ranges, loaded on %2$s';
+$wb['origin_state_none_txt'] = 'Not loaded yet. The cron fetches the list with its next hourly pass.';
+$wb['origin_state_none_hint_txt'] = 'There is no release yet; the cron tries again with its next pass.';
+$wb['origin_state_keep_txt'] = 'The release of %s stays in use.';
 $wb['origin_off_txt'] = 'off';
 $wb['origin_geo_dbip_txt'] = 'DB-IP Lite (free, attribution)';
 $wb['origin_geo_maxmind_txt'] = 'MaxMind GeoLite2 (account needed)';
