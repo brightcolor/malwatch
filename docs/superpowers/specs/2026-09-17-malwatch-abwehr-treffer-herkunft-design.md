@@ -32,6 +32,8 @@ fasst nginx an.
 | Katalogformat | gewöhnliche ISPConfig-Sprachdatei, damit der Spracheditor sie lesen und bearbeiten kann |
 | Obergrenze der Regel-Karten | Einstellung `waf_card_hits`, Vorgabe 5000 jüngste Einzeltreffer je Website |
 | Adressfilter | Index `site_ip` (`parent_domain_id`, `client_ip`, `seen_at`) auf `malwatch_waf_hit`; nach einem Knopf bleibt der Filter erhalten |
+| Reihenfolge in Teil B | erst die lokalen Listen als 0.21.0, proxycheck.io danach als eigenes Release |
+| Format der Bereichsdateien | eigene Datei je Quelle: sortierte Bereiche mit 16-Byte-Adressen und einer Wertetabelle, binär durchsucht |
 | Quellen der Herkunft | je Merkmal einstellbar, jeweils mit „aus" |
 | Externe Dienste | proxycheck.io als erster; weitere später |
 | Voreinstellung | alles aus; die Seiten weisen darauf hin. Auf web.herkules werden beim Einspielen DB-IP, Tor-Liste und X4BNet eingeschaltet |
@@ -180,6 +182,10 @@ kommen aus den Sprachdateien.
 
 Neue Spalten in `malwatch_config`:
 
+Release 0.21.0 bringt die lokalen Quellen. Die Spalten `waf_origin_proxycheck_key`
+und `waf_origin_proxycheck_daily` und der Wert `proxycheck` in `waf_origin_net`
+kommen mit dem Release für proxycheck.io.
+
 | Spalte | Typ, Vorgabe | Grenzen |
 |---|---|---|
 | `waf_origin_geo` | enum `off`, `dbip`, `maxmind`; `off` | |
@@ -289,6 +295,10 @@ Tabelle `malwatch_waf_ip`, eine Zeile je Adresse und Server:
 | `external_state` | `none`, `pending`, `done`, `failed`, `limit` |
 | `external_at` | Zeitpunkt der externen Prüfung |
 | `external_tries` | Zahl der gescheiterten externen Prüfungen |
+
+Die Felder `external_state`, `external_at`, `external_tries`, `is_proxy` und
+`vpn_operator` entstehen schon mit 0.21.0 und bleiben leer, bis proxycheck.io dazu
+kommt.
 
 - Beim Einlesen legt `ingest` für jede neue Adresse eine Zeile an und prüft sie gegen die
   lokalen Bereichsdateien. Bringt ein neuer Treffer eine bekannte Adresse, wird ihre Zeile

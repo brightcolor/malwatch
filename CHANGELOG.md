@@ -2,6 +2,38 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.21.0] – 2026-09-17
+
+### Neu
+
+**Herkunft der Adressen.** Die Seiten der Abwehr zeigen zu jeder Adresse Land,
+Provider und die Chips „Tor“, „VPN“ und „Rechenzentrum“. Die Angaben kommen aus
+Listen, die der Server selbst herunterlädt: DB-IP Lite oder MaxMind GeoLite2 für
+Land und Provider, die Liste des Tor-Projekts, die X4BNet-Listen für VPN-Netze und
+Rechenzentren.
+
+**Jede Quelle einzeln wählbar.** Unter **Security > Abwehr > Einstellungen** steht
+der Abschnitt „Herkunft der Adressen“. Alles beginnt auf „aus“: Erst mit einer Wahl
+lädt der Server eine Liste. Der Abschnitt nennt je Quelle den Stand, die Zahl der
+Bereiche, den letzten Abruf und einen Fehler mit dem, was jetzt gilt. Für MaxMind
+nimmt die Seite Konto-ID und Lizenzschlüssel entgegen; der Schlüssel erscheint
+danach nur noch verdeckt.
+
+**Auftrag „Herkunft der Adressen“.** Der stündliche Cron legt ihn an, sobald eine
+Quelle fällig ist, und nach dem Speichern der Einstellungen sofort. Er lädt jede
+fällige Liste, baut sie in eine Bereichsdatei um und tauscht sie erst nach der
+Prüfung: Die Datei muss sich lesen lassen, genug Bereiche enthalten und darf nicht
+auf die Hälfte des bisherigen Stands fallen. Sonst bleibt der bisherige Stand
+aktiv, und die Einstellungsseite nennt den Grund.
+
+### Geändert
+
+**Adressen in der Datenbank.** Zu jeder Adresse eines gespeicherten Treffers hält
+`malwatch_waf_ip` Land, Netz und die Merkmale. Die Zeile verschwindet mit dem
+letzten Treffer der Adresse, also spätestens nach der eingestellten Aufbewahrung.
+Die Listen selbst enthalten keine Besucheradressen, und der Server schickt keine
+Adresse nach außen.
+
 ## [0.20.0] – 2026-09-17
 
 ### Neu

@@ -144,8 +144,8 @@ sich, sobald `waf/install.sh` ModSecurity im nginx eingerichtet hat
 - **Ausnahmen:** alle Ausnahmen mit Zustand und Fehlergrund, gefiltert nach Zustand
   und Website.
 - **Einstellungen:** Aufbewahrung, Mindestdauer vor „scharf“, Zeitraum der Vorschau,
-  Zahl der Einzeltreffer für die Regel-Karten, Zeilen je Durchgang, Frist für den
-  vhost.
+  Zahl der Einzeltreffer für die Regel-Karten, Herkunft der Adressen, Zeilen je
+  Durchgang, Frist für den vhost.
 
 Jeder Knopf legt einen Auftrag in `malwatch_job` mit `job_kind = 'waf'` an. Die
 Cron-Klasse ruft jede Minute `malwatch_waf` auf: Sie liest höchstens so viele Zeilen
@@ -175,6 +175,17 @@ Die Erklärungen der Regeln stehen in `interface/lang/de_malwatch_waf_rules.lng`
 `group_<nnn>_class`. `tests/waf_rules_catalog_test.php` prüft den Katalog gegen die
 Regelliste `tests/fixtures/crs-3.3.5-pl1-rule-ids.txt`; ein neuer Regelsatz braucht
 eine neue Liste und die passenden Einträge.
+
+Die Herkunft einer Adresse kommt aus Listen, die der Server selbst lädt: DB-IP Lite
+oder MaxMind GeoLite2 (Land und Provider), die Liste des Tor-Projekts und die
+X4BNet-Listen (VPN und Rechenzentren). Jede Quelle steht einzeln in den
+Einstellungen und beginnt auf „aus“. Der Auftrag `origin_update` baut jede Liste in
+eine Bereichsdatei unter `/var/lib/malwatch/waf/origin/` um und tauscht sie erst
+nach der Plausibilitätsprüfung; `malwatch_waf_origin_source` hält den Stand je
+Quelle. Beim Einlesen schlägt der Cron jede neue Adresse in den Bereichsdateien
+nach und legt das Ergebnis in `malwatch_waf_ip` ab. Die Zeile verschwindet mit dem
+letzten Treffer der Adresse. Ein Lizenzschlüssel steht nie in einem Auftrag,
+Protokoll oder Fehlertext.
 
 ## Aktionen
 
