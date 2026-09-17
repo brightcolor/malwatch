@@ -55,6 +55,9 @@ $pages = array(
 	'malwatch_dump_list.php',
 	// JSON for the database picker, for the website the run picked.
 	'malwatch_dump_databases.php',
+	// Abwehr: the overview, once with a filter and the day view.
+	'malwatch_waf_list.php',
+	'malwatch_waf_list.php?days=1&state=detect',
 	// JSON of the WAF jobs and of an exception preview on the website the run picked.
 	'malwatch_waf_jobs.php',
 	'malwatch_waf_preview.php?exc_scope=site&exc_rule=942100',

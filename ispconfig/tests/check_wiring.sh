@@ -1141,6 +1141,18 @@ else
 	fail "interface/malwatch_waf_response.php fehlt"
 fi
 
+# 56. Die Abwehr steht im Menue, und die Uebersicht verfolgt laufende
+#     Auftraege ueber malwatch_waf_jobs.php; neu geladen wird sie erst, wenn
+#     keiner mehr laeuft.
+grep -q "'link'    => 'security/malwatch_waf_list.php'" "$root/interface/module.conf.php" \
+	|| fail "module.conf.php fuehrt die Abwehr nicht im Menue"
+if [ -f "$root/interface/templates/malwatch_waf_list.htm" ]; then
+	grep -q 'data-mw-jobs="security/malwatch_waf_jobs.php' "$root/interface/templates/malwatch_waf_list.htm" \
+		|| fail "malwatch_waf_list.htm fragt die laufenden Auftraege nicht ab"
+else
+	fail "interface/templates/malwatch_waf_list.htm fehlt"
+fi
+
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'
 fi

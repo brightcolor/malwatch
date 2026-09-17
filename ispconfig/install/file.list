@@ -36,6 +36,8 @@ c:interface/malwatch_dump_download.php:interface/web/security/malwatch_dump_down
 c:interface/malwatch_waf_jobs.php:interface/web/security/malwatch_waf_jobs.php
 c:interface/malwatch_waf_preview.php:interface/web/security/malwatch_waf_preview.php
 c:interface/malwatch_waf_response.php:interface/web/security/malwatch_waf_response.php
+c:interface/malwatch_waf_list.php:interface/web/security/malwatch_waf_list.php
+c:interface/templates/malwatch_waf_list.htm:interface/web/security/templates/malwatch_waf_list.htm
 c:interface/templates/malwatch_dump_list.htm:interface/web/security/templates/malwatch_dump_list.htm
 c:interface/lang/de_malwatch_dump.lng:interface/web/security/lib/lang/de_malwatch_dump.lng
 c:interface/lang/en_malwatch_dump.lng:interface/web/security/lib/lang/en_malwatch_dump.lng
