@@ -1097,6 +1097,33 @@ grep -q 'malwatch_waf->cron_minute()' "$cron" \
 grep -q 'malwatch_waf->cron_hourly()' "$cron" \
 	|| fail "der Cron raeumt die Treffer der WAF nicht auf"
 
+# 54. Die Werkzeuge unter waf/ tragen die neuen Namen und nutzen die
+#     gemeinsame Bibliothek. Die alten Namen stehen nur noch dort, wo
+#     install.sh umstellt und README.md davon erzaehlt.
+waf_dir="$root/../waf"
+if [ -d "$waf_dir" ]; then
+	for f in waf-switch waf-guard waf-report install.sh README.md conf/main.conf conf/waf.conf \
+		conf/settings.conf conf/crs-extra.conf conf/exclusions-before.conf conf/exclusions-after.conf \
+		conf/exclusions-panel-before.conf conf/exclusions-panel-after.conf conf/response-body.conf \
+		conf/state.conf conf/logrotate-waf; do
+		[ -f "$waf_dir/$f" ] || fail "waf/$f fehlt"
+	done
+	for f in waf-schalter waf-wache waf-bericht lib tests conf/einstellungen.conf conf/crs-zusatz.conf \
+		conf/ausnahmen-vorher.conf conf/ausnahmen-nachher.conf conf/zustand.conf conf/antwortrumpf.conf; do
+		if [ -e "$waf_dir/$f" ]; then
+			fail "waf/$f gibt es noch; die Umstellung ersetzt die alten Namen"
+		fi
+	done
+	grep -q 'malwatch_waf_lib.inc.php' "$waf_dir/waf-report" \
+		|| fail "waf-report bindet malwatch_waf_lib.inc.php nicht ein"
+	grep -q "uses('malwatch_helper,malwatch_waf')" "$waf_dir/waf-switch" \
+		|| fail "waf-switch laedt malwatch_waf nicht"
+	if grep -rlE 'einstellungen\.conf|zustand\.conf|antwortrumpf|waf-schalter|waf-wache|waf-bericht' "$waf_dir" \
+		| grep -vE '/(install\.sh|README\.md)$' | grep -q .; then
+		fail "unter waf/ nennt eine Datei ausser install.sh und README.md noch alte Namen"
+	fi
+fi
+
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'
 fi

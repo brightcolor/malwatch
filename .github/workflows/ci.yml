@@ -47,6 +47,13 @@ jobs:
         run: php ispconfig/tests/panel_helpers_test.php
       - name: WAF functions
         run: php ispconfig/tests/waf_lib_test.php
+      - name: WAF tools
+        run: |
+          php -l waf/waf-switch
+          php -l waf/waf-report
+          bash -n waf/waf-guard
+          bash -n waf/install.sh
+          MALWATCH_WAF_LIB=ispconfig/interface/lib/malwatch_waf_lib.inc.php php waf/waf-report ispconfig/tests/waf_audit_sample.log
 
   clean-cms:
     # The counter-check that matters: a freshly downloaded WordPress and

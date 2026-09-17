@@ -1,0 +1,36 @@
+#!/usr/bin/php
+<?php
+/**
+ * Hits per website and rule from the audit log, the most first.
+ *
+ *   waf-report [audit log]
+ *
+ * MALWATCH_WAF_LIB points at another copy of the shared functions, for a
+ * check outside the server.
+ */
+$lib = getenv('MALWATCH_WAF_LIB') ?: '/usr/local/ispconfig/interface/web/security/lib/malwatch_waf_lib.inc.php';
+require $lib;
+
+function waf_report_lines($file)
+{
+	$handle = fopen($file, 'rb');
+	while (($line = fgets($handle)) !== false) {
+		yield $line;
+	}
+	fclose($handle);
+}
+
+$file = isset($argv[1]) ? $argv[1] : '/var/log/waf/audit.log';
+if (!is_readable($file)) {
+	fwrite(STDERR, "Audit-Log nicht lesbar: $file\n");
+	exit(2);
+}
+$report = waf_audit_summarize(waf_report_lines($file));
+if (count($report) === 0) {
+	echo "Keine Treffer im Audit-Log.\n";
+	exit(0);
+}
+printf("%-34s %-8s %-8s %-30s %s\n", 'Website', 'Regel', 'Treffer', 'Beispielpfad', 'Meldung');
+foreach ($report as $row) {
+	printf("%-34s %-8s %-8d %-30s %s\n", $row['host'], $row['rule_id'], $row['hits'], $row['example'], $row['message']);
+}

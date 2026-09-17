@@ -500,6 +500,25 @@ expect_same('atomic write', array(file_get_contents($tmp . '/conf/new.conf'), is
 waf_remove_dir($tmp);
 expect_same('tree removed', is_dir($tmp), false);
 
+// --- A8: shipped files match what the functions write ------------------------
+
+$shipped = __DIR__ . '/../../waf/conf';
+$panel = waf_exception_rules(array(), array());
+expect_same('shipped panel before', file_get_contents($shipped . '/exclusions-panel-before.conf'), $panel['before']);
+expect_same('shipped panel after', file_get_contents($shipped . '/exclusions-panel-after.conf'), $panel['after']);
+expect_same('shipped response body', file_get_contents($shipped . '/response-body.conf'), waf_response_body_text('full'));
+expect_same('shipped state', file_get_contents($shipped . '/state.conf'), waf_state_file_text(false));
+expect_same('shipped logrotate', file_get_contents($shipped . '/logrotate-waf'), waf_logrotate_text(7, '/var/log/waf/audit.log'));
+$main = file_get_contents($shipped . '/main.conf');
+foreach (array('settings', 'crs-extra', 'exclusions-before', 'exclusions-panel-before', 'exclusions-after',
+	'exclusions-panel-after', 'response-body', 'state') as $name) {
+	expect_same('main includes ' . $name, strpos($main, "Include /etc/nginx/waf/$name.conf\n") !== false, true);
+}
+$crs = strpos($main, 'Include /usr/share/modsecurity-crs/rules/*.conf');
+expect_same('runtime exclusions before the CRS rules', strpos($main, 'exclusions-panel-before.conf') < $crs, true);
+expect_same('configure-time exclusions after the CRS rules', strpos($main, 'exclusions-panel-after.conf') > $crs, true);
+expect_same('state comes last', substr(rtrim($main), -strlen('state.conf')), 'state.conf');
+
 // --- summary -----------------------------------------------------------------
 if ($failures > 0) {
 	fwrite(STDERR, $failures . " Fehler\n");

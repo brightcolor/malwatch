@@ -1,3 +1,4 @@
+# Managed by malwatch (Abwehr > Einstellungen). Every change here is overwritten.
 /var/log/waf/audit.log {
 	daily
 	rotate 7
@@ -6,5 +7,4 @@
 	missingok
 	notifempty
 	copytruncate
-	create 0600 www-data adm
 }
