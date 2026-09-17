@@ -3799,11 +3799,11 @@ for site in bright-color.de "$ZWEITE" "$DRITTE"; do curl -s -o /dev/null -w "%{h
 
 #### Block 1: Probeabruf der Quellen
 
-- [ ] **Step 1: Freigabe einholen**
+- [x] **Step 1: Freigabe einholen**
 
 Mathias bekommt vorgelegt: „B9, Block 1: Ich lade die drei freien Quellen einmal von Hand in ein Probeverzeichnis unter `/root/mw-origin-probe` — DB-IP Lite (Land und Netz), die Tor-Liste und die X4BNet-Listen —, baue sie mit den neuen Funktionen in Bereichsdateien um und messe Laufzeit, Speicher und Größe. So wissen wir vor dem ersten Auftrag, was der Server dabei tut. Danach lösche ich das Verzeichnis. Die Datenbank, nginx und die Websites bleiben unberührt; die Erweiterung bleibt auf 0.20.0.“ Weiter erst nach seinem Ja.
 
-- [ ] **Step 2: Ausgangslage**
+- [x] **Step 2: Ausgangslage**
 
 Beide Messungen, dazu:
 
@@ -3813,7 +3813,7 @@ ssh ispconfig 'df -h /var /root | tail -n 2; php -r "echo \"curl: \", (int) func
 
 Expected: der freie Platz und eine Zeile mit vier Einsen; `zip` braucht nur MaxMind, `intl` nur der Klartext des Landes.
 
-- [ ] **Step 3: Probeabruf**
+- [x] **Step 3: Probeabruf**
 
 ```bash
 git archive --format=tar HEAD ispconfig | ssh ispconfig 'rm -rf /root/mw-origin-probe && mkdir -p /root/mw-origin-probe/src && tar -x -C /root/mw-origin-probe/src'
@@ -3883,13 +3883,25 @@ ssh ispconfig 'cd /root/mw-origin-probe && nice -n 15 php probe.php /root/mw-ori
 
 Expected je Quelle eine Zeile „geladen … umgebaut … Bereiche … Prüfung: bestanden“ und „Nachschlagen: ok“. Die Werte kommen ins Protokoll. Scheitert eine Quelle, hält der Befund den Block an: Der Auftrag würde dasselbe erleben.
 
-- [ ] **Step 4: Aufräumen und Protokoll**
+- [x] **Step 4: Aufräumen und Protokoll**
 
 ```bash
 ssh ispconfig 'rm -rf /root/mw-origin-probe; ls -d /root/mw-origin-probe 2>&1 | tail -n 1; date "+%d.%m.%Y, %H:%M:%S %Z"'
 ```
 
 Expected: `No such file or directory` und die Uhrzeit. Danach beide Messungen und der Eintrag ins Serverprotokoll (frisch lesen, gezielt einfügen) mit den Messwerten des Probeabrufs, dem freien Platz und dem Befund je Quelle.
+
+Ergebnis am 17.09.2026, 21:50:30–21:50:37 CEST (Protokolleintrag „malwatch 0.21.0: Probeabruf der Herkunftsquellen“): fünf Quellen, je „Prüfung: bestanden“ und „Nachschlagen: ok“, keine unbrauchbare Zeile.
+
+| Quelle | geladen | Umbau | Bereiche | Bereichsdatei |
+|---|---|---|---|---|
+| dbip_country | 4,3 MB in 0,1 s | 3,0 s | 717.169 | 25.819.108 B |
+| dbip_asn | 6,6 MB in 0,2 s | 2,6 s | 473.272 | 19.737.903 B |
+| tor | 0,04 MB in 0,5 s | 0,0 s | 685 | 24.683 B |
+| x4b_vpn | 0,2 MB in 0,2 s | 0,0 s | 6.966 | 250.799 B |
+| x4b_datacenter | 0,8 MB in 0,2 s | 0,3 s | 35.414 | 1.274.927 B |
+
+Zusammen 47.107.420 B, Spitzenbedarf 17 MB Arbeitsspeicher für den ganzen Lauf. Diese 17 MB sind der Vergleichswert für Block 2 und Block 5.
 
 #### Block 2: Staging-Kopie, Schema und Proben
 
