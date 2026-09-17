@@ -74,7 +74,7 @@ Die Wahl `proxycheck` und ihre zwei Werte kommen in die Einstellungen und ins Sc
 - Consumes: `waf_settings($row)` und `waf_origin_choices()` aus 0.21.1
 - Produces: `$settings['waf_origin_net'] === 'proxycheck'`, `$settings['waf_origin_proxycheck_key']` (Zeichenkette, höchstens 128 Zeichen aus `A-Za-z0-9-`), `$settings['waf_origin_proxycheck_daily']` (ganze Zahl von 1 bis 100000, Vorgabe 500)
 
-- [ ] **Step 1: Die scheiternden Prüfungen schreiben**
+- [x] **Step 1: Die scheiternden Prüfungen schreiben**
 
 In `ispconfig/tests/waf_lib_test.php` ans Ende des Abschnitts zur Herkunft anfügen (er beginnt mit dem Kommentar `// --- The origin of an address`):
 
@@ -96,12 +96,12 @@ expect_same('an unknown value for the network falls back',
 	waf_settings(array('waf_origin_net' => 'irgendwas'))['waf_origin_net'], 'off');
 ```
 
-- [ ] **Step 2: Prüflauf, der scheitern muss**
+- [x] **Step 2: Prüflauf, der scheitern muss**
 
 Run: `php ispconfig/tests/waf_lib_test.php`
 Expected: `FAIL proxycheck may be chosen`, dazu die Fehler zu Schlüssel und Tageslimit.
 
-- [ ] **Step 3: Die Einstellungen ergänzen**
+- [x] **Step 3: Die Einstellungen ergänzen**
 
 In `ispconfig/interface/lib/malwatch_waf_lib.inc.php` in `waf_origin_choices()` die Zeile für das Netz ersetzen:
 
@@ -131,12 +131,12 @@ In `waf_settings()` hinter der Prüfung des MaxMind-Schlüssels einfügen:
 		? (string) $settings['waf_origin_proxycheck_key'] : '';
 ```
 
-- [ ] **Step 4: Prüflauf, der bestehen muss**
+- [x] **Step 4: Prüflauf, der bestehen muss**
 
 Run: `php ispconfig/tests/waf_lib_test.php`
 Expected: `waf_lib: alle Prüfungen bestanden`
 
-- [ ] **Step 5: Schema ergänzen**
+- [x] **Step 5: Schema ergänzen**
 
 In `ispconfig/install/schema.sql` hinter dem Block, der die acht `waf_origin_`-Spalten anlegt (er endet auf `PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;`), einfügen:
 
@@ -174,12 +174,12 @@ In derselben Datei bekommt `CREATE TABLE IF NOT EXISTS \`malwatch_waf_origin_sou
   `queries` int(11) unsigned NOT NULL DEFAULT '0',
 ```
 
-- [ ] **Step 6: Das Schema auf Syntax prüfen**
+- [x] **Step 6: Das Schema auf Syntax prüfen**
 
 Run: `php -r "echo preg_match('/proxycheck/', file_get_contents('ispconfig/install/schema.sql')) ? \"gefunden\n\" : \"fehlt\n\";"`
 Expected: `gefunden`. Geladen wird das Schema erst auf dem Server (Task C8, Block 1); dort zeigt `SHOW COLUMNS`, ob die drei Änderungen greifen.
 
-- [ ] **Step 7: Die Kulisse der Vorschau nachziehen**
+- [x] **Step 7: Die Kulisse der Vorschau nachziehen**
 
 `.superpowers/abwehr/harness/fake_db.php` liegt außerhalb des Repositorys und stellt die Konfigurationszeile nach. In der Zeile mit `'waf_origin_maxmind_key' => ''` die zwei Werte ergänzen, sonst rendert die Einstellungsseite in der Vorschau ohne sie:
 
@@ -187,7 +187,7 @@ Expected: `gefunden`. Geladen wird das Schema erst auf dem Server (Task C8, Bloc
 				'waf_origin_proxycheck_key' => '', 'waf_origin_proxycheck_daily' => '500',
 ```
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add ispconfig/interface/lib/malwatch_waf_lib.inc.php ispconfig/install/schema.sql ispconfig/tests/waf_lib_test.php
@@ -218,7 +218,7 @@ Alles, was ohne Datenbank und ohne Netz auskommt: die Wahl der externen Quelle, 
   - `waf_origin_proxycheck_read($text)` → `array('ok' => bool, 'error' => string, 'ips' => array(ip => facts))`
   - `waf_origin_quota($row, $today, $daily)` → `array('day', 'queries', 'daily', 'left')`
 
-- [ ] **Step 1: Die Beispielantworten anlegen**
+- [x] **Step 1: Die Beispielantworten anlegen**
 
 `ispconfig/tests/fixtures/proxycheck/answer.json`:
 
@@ -257,7 +257,7 @@ Alles, was ohne Datenbank und ohne Netz auskommt: die Wahl der externen Quelle, 
 {"status": "ok", "query_time": "0.01s"}
 ```
 
-- [ ] **Step 2: Den scheiternden Test schreiben**
+- [x] **Step 2: Den scheiternden Test schreiben**
 
 `ispconfig/tests/waf_proxycheck_test.php`:
 
@@ -347,12 +347,12 @@ if ($failures > 0) {
 echo 'waf_proxycheck: alle Prüfungen bestanden' . PHP_EOL;
 ```
 
-- [ ] **Step 3: Prüflauf, der scheitern muss**
+- [x] **Step 3: Prüflauf, der scheitern muss**
 
 Run: `php ispconfig/tests/waf_proxycheck_test.php`
 Expected: `PHP Fatal error: Uncaught Error: Call to undefined function waf_origin_external()`
 
-- [ ] **Step 4: Die Funktionen schreiben**
+- [x] **Step 4: Die Funktionen schreiben**
 
 Ans Ende von `ispconfig/interface/lib/malwatch_waf_origin.inc.php`:
 
@@ -477,17 +477,17 @@ function waf_origin_quota($row, $today, $daily)
 }
 ```
 
-- [ ] **Step 5: Prüflauf, der bestehen muss**
+- [x] **Step 5: Prüflauf, der bestehen muss**
 
 Run: `php ispconfig/tests/waf_proxycheck_test.php`
 Expected: `waf_proxycheck: alle Prüfungen bestanden`
 
-- [ ] **Step 6: Die anderen Prüfreihen laufen lassen**
+- [x] **Step 6: Die anderen Prüfreihen laufen lassen**
 
 Run: `php ispconfig/tests/waf_origin_test.php && php ispconfig/tests/waf_origin_sources_test.php && php ispconfig/tests/waf_lib_test.php`
 Expected: dreimal `alle Prüfungen bestanden`. Die neuen Funktionen dürfen an den alten nichts ändern.
 
-- [ ] **Step 7: Die CI kennt den neuen Test**
+- [x] **Step 7: Die CI kennt den neuen Test**
 
 In `.github/workflows/ci.yml` hinter dem Schritt „WAF origin sources" einfügen:
 
@@ -496,7 +496,7 @@ In `.github/workflows/ci.yml` hinter dem Schritt „WAF origin sources" einfüge
         run: php ispconfig/tests/waf_proxycheck_test.php
 ```
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add ispconfig/interface/lib/malwatch_waf_origin.inc.php ispconfig/tests/waf_proxycheck_test.php ispconfig/tests/fixtures/proxycheck .github/workflows/ci.yml
@@ -520,7 +520,7 @@ Die Einstellungsseite und die Übersicht zeigen bisher nur Quellen mit Bereichsd
 - Consumes: `waf_origin_external($settings)` und `waf_origin_quota($row, $today, $daily)` aus Task C2
 - Produces: jede Zeile von `waf_panel_origin_rows()` hat jetzt zusätzlich `'kind'` (`'ranges'` oder `'addresses'`); die Zeile der externen Quelle hat `'source' => 'proxycheck'`
 
-- [ ] **Step 1: Die scheiternden Prüfungen schreiben**
+- [x] **Step 1: Die scheiternden Prüfungen schreiben**
 
 In `ispconfig/tests/waf_panel_test.php` hinter der Zeile mit `expect_same('the line with everything off', …)` einfügen:
 
@@ -558,12 +558,12 @@ expect_same('every row says what it counts', array_column($external_view, 'kind'
 
 Die Sprachtexte des Tests stehen in `$wb`; der Test lädt `de_malwatch_waf.lng`, deshalb greifen die neuen Schlüssel aus Step 4 sofort.
 
-- [ ] **Step 2: Prüflauf, der scheitern muss**
+- [x] **Step 2: Prüflauf, der scheitern muss**
 
 Run: `php ispconfig/tests/waf_panel_test.php`
 Expected: `FAIL the external source gets its own row: array ('dbip_country', 'dbip_asn'), erwartet array ('dbip_country', 'dbip_asn', 'proxycheck')`
 
-- [ ] **Step 3: Die Anzeige ergänzen**
+- [x] **Step 3: Die Anzeige ergänzen**
 
 In `ispconfig/interface/lib/malwatch_waf_panel.inc.php` in `waf_panel_origin_rows()` den Rückgabeteil der Schleife um `'kind'` ergänzen — aus
 
@@ -643,7 +643,7 @@ Am Kopf derselben Datei sicherstellen, dass die Herkunftsbibliothek geladen ist 
 require_once __DIR__ . '/malwatch_waf_origin.inc.php';
 ```
 
-- [ ] **Step 4: Die Texte ergänzen**
+- [x] **Step 4: Die Texte ergänzen**
 
 In `ispconfig/interface/lang/de_malwatch_waf.lng` hinter `$wb['origin_source_x4b_datacenter_txt']`:
 
@@ -663,7 +663,7 @@ $wb['origin_line_checked_txt'] = '%s addresses checked';
 
 Dieselben drei Zeilen kommen in `de_malwatch_waf_config.lng` und `en_malwatch_waf_config.lng` hinter die Quellennamen, weil die Einstellungsseite ihr eigenes Wörterbuch liest.
 
-- [ ] **Step 5: Prüfung 69 kennt die neuen Schlüssel**
+- [x] **Step 5: Prüfung 69 kennt die neuen Schlüssel**
 
 In `ispconfig/tests/check_wiring.sh` in der Schlüsselliste der Prüfung 69 hinter `origin_state_keep_txt` ergänzen:
 
@@ -671,7 +671,7 @@ In `ispconfig/tests/check_wiring.sh` in der Schlüsselliste der Prüfung 69 hint
 origin_source_proxycheck_txt origin_state_external_txt origin_line_checked_txt
 ```
 
-- [ ] **Step 6: Prüflauf, der bestehen muss**
+- [x] **Step 6: Prüflauf, der bestehen muss**
 
 Run: `php ispconfig/tests/waf_panel_test.php && php ispconfig/tests/waf_panel_post_test.php`
 Expected: zweimal `alle Prüfungen bestanden`
@@ -679,7 +679,7 @@ Expected: zweimal `alle Prüfungen bestanden`
 Run (im Hintergrund, weil langsam): `sh ispconfig/tests/check_wiring.sh`
 Expected: `Wiring OK`
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add ispconfig/interface/lib/malwatch_waf_panel.inc.php ispconfig/interface/lang ispconfig/tests/waf_panel_test.php ispconfig/tests/check_wiring.sh
@@ -709,7 +709,7 @@ Die beiden Regeln stecken bisher als Wenn-Ketten in `onSubmit()` und sind dort n
   - `waf_panel_origin_missing($record)` → Liste der Wörterbuch-Schlüssel der Meldungen, leer wenn nichts fehlt
   - Formularfelder `waf_origin_proxycheck_key` (mit Haken `waf_origin_proxycheck_clear`) und `waf_origin_proxycheck_daily`
 
-- [ ] **Step 1: Die scheiternden Prüfungen schreiben**
+- [x] **Step 1: Die scheiternden Prüfungen schreiben**
 
 In `ispconfig/tests/waf_panel_test.php` hinter den Prüfungen aus Task C3 anfügen:
 
@@ -734,12 +734,12 @@ expect_same('both are missing', waf_panel_origin_missing(array('waf_origin_geo' 
 	array('waf_origin_maxmind_missing_error', 'waf_origin_proxycheck_missing_error'));
 ```
 
-- [ ] **Step 2: Prüflauf, der scheitern muss**
+- [x] **Step 2: Prüflauf, der scheitern muss**
 
 Run: `php ispconfig/tests/waf_panel_test.php`
 Expected: `PHP Fatal error: Uncaught Error: Call to undefined function waf_panel_key_keep()`
 
-- [ ] **Step 3: Die beiden Funktionen schreiben**
+- [x] **Step 3: Die beiden Funktionen schreiben**
 
 In `ispconfig/interface/lib/malwatch_waf_panel.inc.php` hinter `waf_panel_key_mask()`:
 
@@ -781,12 +781,12 @@ function waf_panel_origin_missing($record)
 }
 ```
 
-- [ ] **Step 4: Prüflauf, der bestehen muss**
+- [x] **Step 4: Prüflauf, der bestehen muss**
 
 Run: `php ispconfig/tests/waf_panel_test.php`
 Expected: `waf_panel: alle Prüfungen bestanden`
 
-- [ ] **Step 5: Das Formular ergänzen**
+- [x] **Step 5: Das Formular ergänzen**
 
 In `ispconfig/interface/form/malwatch_waf_config.tform.php` die Auswahl des Netzes ersetzen und die zwei Felder anhängen:
 
@@ -833,7 +833,7 @@ In `ispconfig/interface/form/malwatch_waf_config.tform.php` die Auswahl des Netz
 		),
 ```
 
-- [ ] **Step 6: Die Seite auf die Funktionen umstellen**
+- [x] **Step 6: Die Seite auf die Funktionen umstellen**
 
 In `ispconfig/interface/malwatch_waf_config_edit.php` hinter `private $waf_stored_key = '';`:
 
@@ -880,7 +880,7 @@ In `onShowEnd()` hinter der Zeile, die den MaxMind-Schlüssel verdeckt setzt:
 		$app->tpl->setVar('origin_proxycheck_stored', $this->waf_stored_proxycheck === '' ? 0 : 1);
 ```
 
-- [ ] **Step 7: Die Vorlage ergänzen**
+- [x] **Step 7: Die Vorlage ergänzen**
 
 In `ispconfig/interface/templates/malwatch_waf_config_edit.htm` hinter dem Block der Auswahl `waf_origin_net` einfügen:
 
@@ -906,7 +906,7 @@ In `ispconfig/interface/templates/malwatch_waf_config_edit.htm` hinter dem Block
 </div>
 ```
 
-- [ ] **Step 8: Die Texte ergänzen**
+- [x] **Step 8: Die Texte ergänzen**
 
 In `ispconfig/interface/lang/de_malwatch_waf_config.lng` hinter `$wb['waf_origin_net_hint_txt']`:
 
@@ -946,7 +946,7 @@ $wb['waf_origin_net_hint_txt'] = 'Die Listen von X4BNet nennen bekannte VPN-Netz
 $wb['waf_origin_net_hint_txt'] = 'The lists of X4BNet name known VPN networks and data centres; they are downloaded, addresses stay on the server. proxycheck.io answers per address and is given that address.';
 ```
 
-- [ ] **Step 9: Alle Prüfreihen und die Vorschau**
+- [x] **Step 9: Alle Prüfreihen und die Vorschau**
 
 Run: `php ispconfig/tests/waf_panel_test.php && php ispconfig/tests/waf_panel_post_test.php && php ispconfig/tests/waf_lib_test.php && php ispconfig/tests/waf_proxycheck_test.php`
 Expected: viermal `alle Prüfungen bestanden`
@@ -957,7 +957,7 @@ Expected: `Seiten gerendert; …` ohne `FEHLER`
 Run: `grep -c 'waf_origin_proxycheck_key\|proxycheck.io: Abfragen je Tag\|Prüfe die Datenschutzbedingungen' .superpowers/abwehr/harness/out_cfg.html`
 Expected: mindestens `3` — Feld, Tageslimit und Datenschutzhinweis stehen auf der Seite.
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add ispconfig/interface/lib/malwatch_waf_panel.inc.php ispconfig/interface/form/malwatch_waf_config.tform.php ispconfig/interface/malwatch_waf_config_edit.php ispconfig/interface/templates/malwatch_waf_config_edit.htm ispconfig/interface/lang ispconfig/tests/waf_panel_test.php
@@ -985,7 +985,7 @@ Die Klasse braucht eine Datenbank und läuft deshalb nur auf dem Server. Der Tes
   - `malwatch_waf::origin_external($limit = 100)` → Zahl der Adressen mit Antwort
   - `malwatch_waf::origin_external_state($name, $quota, $error, $now)` (privat)
 
-- [ ] **Step 1: Die Probe schreiben, die noch scheitert**
+- [x] **Step 1: Die Probe schreiben, die noch scheitert**
 
 In `ispconfig/tests/waf_class_probe.php` hinter dem Abschnitt „B6: the addresses of the hits" anfügen:
 
@@ -1064,12 +1064,12 @@ expect_same('its marks left the addresses',
 
 Der Abschnitt steht vor dem bisherigen Ende des Abschnitts B6 (`$db->query("DELETE FROM malwatch_waf_hit WHERE unique_id = 'probe-origin'");`), damit der Treffer, den B6 angelegt hat, noch da ist.
 
-- [ ] **Step 2: Die Probe auf Syntax prüfen**
+- [x] **Step 2: Die Probe auf Syntax prüfen**
 
 Run: `php -l ispconfig/tests/waf_class_probe.php`
 Expected: `No syntax errors detected`. Der Lauf selbst braucht root und eine Wegwerf-Datenbank; er kommt in Task C7, Block 1.
 
-- [ ] **Step 3: Die Naht und den POST schreiben**
+- [x] **Step 3: Die Naht und den POST schreiben**
 
 In `ispconfig/server/lib/classes/malwatch_waf.inc.php` hinter der Eigenschaft `$fetcher`:
 
@@ -1122,7 +1122,7 @@ Hinter der Methode `fetch()`:
 	}
 ```
 
-- [ ] **Step 4: Den Abruf schreiben**
+- [x] **Step 4: Den Abruf schreiben**
 
 Hinter `origin_lookup()` in derselben Datei:
 
@@ -1247,7 +1247,7 @@ Hinter `origin_lookup()` in derselben Datei:
 	}
 ```
 
-- [ ] **Step 5: Den Abruf anschließen**
+- [x] **Step 5: Den Abruf anschließen**
 
 In `cron_minute()` hinter `$this->origin_lookup();` einfügen:
 
@@ -1290,12 +1290,12 @@ In `run_origin_update()` die Schleife über die abgewählten Quellen ersetzen:
 		}
 ```
 
-- [ ] **Step 6: Syntax prüfen**
+- [x] **Step 6: Syntax prüfen**
 
 Run: `php -l ispconfig/server/lib/classes/malwatch_waf.inc.php && php -l ispconfig/tests/waf_class_probe.php`
 Expected: zweimal `No syntax errors detected`
 
-- [ ] **Step 7: Die Verdrahtung prüfen**
+- [x] **Step 7: Die Verdrahtung prüfen**
 
 In `ispconfig/tests/check_wiring.sh` vor dem abschließenden `if [ "$status" -eq 0 ]; then` einfügen:
 
@@ -1336,7 +1336,7 @@ Die Zeile `waf_class="$root/server/lib/classes/malwatch_waf.inc.php"` steht bere
 Run (im Hintergrund): `sh ispconfig/tests/check_wiring.sh`
 Expected: `Wiring OK`
 
-- [ ] **Step 8: Alle Prüfreihen**
+- [x] **Step 8: Alle Prüfreihen**
 
 Run: `php ispconfig/tests/waf_lib_test.php && php ispconfig/tests/waf_panel_test.php && php ispconfig/tests/waf_panel_post_test.php && php ispconfig/tests/waf_rules_catalog_test.php && php ispconfig/tests/waf_origin_test.php && php ispconfig/tests/waf_origin_sources_test.php && php ispconfig/tests/waf_proxycheck_test.php`
 Expected: siebenmal `alle Prüfungen bestanden`
@@ -1344,7 +1344,7 @@ Expected: siebenmal `alle Prüfungen bestanden`
 Run: `bash .superpowers/abwehr/harness/build_all.sh .`
 Expected: `Seiten gerendert; …` ohne `FEHLER`
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add ispconfig/server/lib/classes/malwatch_waf.inc.php ispconfig/tests/waf_class_probe.php ispconfig/tests/check_wiring.sh
@@ -1366,7 +1366,7 @@ Version, Changelog und die beiden README-Dateien ziehen nach, danach läuft die 
 - Consumes: alles aus C1 bis C5
 - Produces: den Stand `0.22.0` auf dem Zweig `waf-herkules`
 
-- [ ] **Step 1: Version hochziehen**
+- [x] **Step 1: Version hochziehen**
 
 In `internal/version/version.go`:
 
@@ -1380,7 +1380,7 @@ In `ispconfig/version`:
 0.22.0
 ```
 
-- [ ] **Step 2: Changelog**
+- [x] **Step 2: Changelog**
 
 In `CHANGELOG.md` über den Eintrag `## [0.21.1]`; das Datum ist der Tag, an dem Block 2 läuft:
 
@@ -1407,7 +1407,7 @@ Auftrag „Herkunft der Adressen“ die Merkmale des Dienstes aus den Adressen u
 Zeile aus dem Stand der Quellen.
 ```
 
-- [ ] **Step 3: README nachziehen**
+- [x] **Step 3: README nachziehen**
 
 In `README.md` und `ispconfig/README.md` den Absatz zur Herkunft der Adressen um einen Satz ergänzen:
 
@@ -1417,7 +1417,7 @@ Wahl; der Dienst braucht einen Schlüssel und bekommt die Adressen der Treffer
 übermittelt.
 ```
 
-- [ ] **Step 4: Die Spec bekommt eine Notiz**
+- [x] **Step 4: Die Spec bekommt eine Notiz**
 
 In `docs/superpowers/specs/2026-09-17-malwatch-abwehr-treffer-herkunft-design.md` unter Abschnitt 6 hinter dem Satz „Die Spalten `waf_origin_proxycheck_key` und `waf_origin_proxycheck_daily` und der Wert `proxycheck` in `waf_origin_net` kommen mit dem Release für proxycheck.io."
 
@@ -1425,7 +1425,7 @@ In `docs/superpowers/specs/2026-09-17-malwatch-abwehr-treffer-herkunft-design.md
 Umgesetzt mit 0.22.0 (Plan `docs/superpowers/plans/2026-09-18-malwatch-abwehr-herkunft-proxycheck.md`).
 ```
 
-- [ ] **Step 5: Die ganze Prüfstrecke**
+- [x] **Step 5: Die ganze Prüfstrecke**
 
 Run: `gofmt -l . && go vet ./... && go build ./... && echo "Go: ok"`
 Expected: `Go: ok`. Unter Windows scheitern zwei Go-Tests aus Gründen der Umgebung (Schwelle des Scanners, Defender blockt die angelegte Testdatei); die Linux-CI ist der Maßstab.
@@ -1442,7 +1442,7 @@ Expected: `Wiring OK`
 Run: `bash .superpowers/abwehr/harness/build_all.sh .`
 Expected: `Seiten gerendert; …` ohne `FEHLER`
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add internal/version/version.go ispconfig/version CHANGELOG.md README.md ispconfig/README.md docs/superpowers/specs/2026-09-17-malwatch-abwehr-treffer-herkunft-design.md
@@ -1454,6 +1454,13 @@ git status --short
 Expected: `grep` ohne Ausgabe, der Commit gelingt, `git status --short` zeigt keine Datei aus `ispconfig/`, `internal/` oder `docs/`.
 
 ---
+**Notizen aus der Umsetzung (18.09.2026):**
+
+- `waf_lib_test.php` nutzte `proxycheck` bisher als Beispiel für einen *ungültigen* Wert von `waf_origin_net`; die Stelle steht jetzt auf `vielleicht`, und die Erwartung zu `waf_origin_choices()` nennt die dritte Wahl.
+- `waf_panel_test.php` leitet seine Erwartungen an das Formular aus `waf_settings_limits()` und `waf_origin_choices()` ab. Task C1 lässt die Reihe deshalb rot zurück, bis C4 die beiden Felder ins Formular bringt: Beide gehören in einen Lauf, und `waf_origin_proxycheck_daily` steht in `waf_settings_limits()` direkt hinter `waf_card_hits`, damit die Reihenfolge zur Reihenfolge der Felder passt. C3 und C4 wurden zusammen committet.
+- Den Testhelfer `waf_post_page()` gibt es nicht; die Prüfungen laufen über die beiden neuen Funktionen `waf_panel_key_keep()` und `waf_panel_origin_missing()`, und die Seite ruft sie auf.
+- Commits auf `waf-herkules`: `9de60f0` (C1), `48af55a` (C2), `49e730f` (C3 und C4), `81c9574` (C5), `b9c513c` (C6).
+
 ### Task C7: Einführung auf web.herkules
 
 malwatch 0.22.0 kommt in vier Blöcken auf den Server, jeder mit eigener Freigabe von Mathias und mit Eintrag im Serverprotokoll:
