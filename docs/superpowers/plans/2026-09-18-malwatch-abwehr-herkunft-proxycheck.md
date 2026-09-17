@@ -1666,6 +1666,8 @@ Ergebnis am 18.09.2026, 01:42:46–01:43:22 CEST (Protokolleintrag zum Einspiele
 
 Mathias bekommt vorgelegt: „C7, Block 4: Unter Security > Abwehr > Einstellungen wählst **du** bei „VPN und Rechenzentrum" proxycheck.io, trägst deinen Schlüssel ein und setzt das Tageslimit (Vorgabe 500). Den Schlüssel tippe ich nicht. Nach dem Speichern beobachte ich den ersten Abruf, messe mit und sehe mir die Seiten an. Achtung: Damit geht jede neue Adresse aus einem Treffer an proxycheck.io, und die X4BNet-Listen werden abgeschaltet — ihre Merkmale verschwinden von den Adressen, bis der Dienst sie beantwortet hat." Weiter erst nach seiner Antwort. Ohne Konto bei proxycheck.io endet die Einführung hier.
 
+Stand 18.09.2026: Mathias hat noch kein Konto bei proxycheck.io. Block 4 bleibt offen, 0.22.0 läuft mit ausgeschaltetem Dienst; DB-IP Lite, die Tor-Liste und die X4BNet-Listen arbeiten unverändert weiter. Die Schritte 12 bis 16 warten auf den Schlüssel.
+
 - [ ] **Step 12: Nach dem Speichern**
 
 ```bash
