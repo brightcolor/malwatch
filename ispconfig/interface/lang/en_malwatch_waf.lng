@@ -206,3 +206,23 @@ $wb['exc_filter_global_txt'] = 'across websites';
 $wb['exc_count_txt'] = '%s (%s)';
 $wb['exc_list_none_txt'] = 'No exception matches this choice.';
 $wb['exc_list_empty_txt'] = 'No exception has been added yet.';
+
+// Where a rule matched, and the sentences around it.
+$wb['target_param_txt'] = 'Parameter "%s"';
+$wb['target_param_names_txt'] = 'Name of a parameter';
+$wb['target_filename_txt'] = 'File name of the request';
+$wb['target_uri_txt'] = 'Address of the request';
+$wb['target_request_line_txt'] = 'Request line';
+$wb['target_query_txt'] = 'Query string';
+$wb['target_header_txt'] = 'Header "%s"';
+$wb['target_header_names_txt'] = 'Name of a header';
+$wb['target_cookie_txt'] = 'Cookie "%s"';
+$wb['target_cookie_names_txt'] = 'Name of a cookie';
+$wb['target_body_txt'] = 'Request body';
+$wb['target_xml_txt'] = 'XML body';
+$wb['target_files_txt'] = 'Name of an uploaded file';
+$wb['target_method_txt'] = 'Method';
+$wb['target_protocol_txt'] = 'Protocol';
+$wb['trigger_contains_txt'] = '%1$s contains "%2$s"';
+$wb['trigger_value_txt'] = '%1$s: %2$s';
+$wb['trigger_found_txt'] = 'Found: "%s"';

@@ -316,6 +316,65 @@ expect_same('settings form title and tab', array(
 	isset($config_words['de'][$config_tab['title']]),
 ), array(true, true));
 
+// --- A2: triggers --------------------------------------------------------------
+
+expect_same('trigger parts matched', waf_panel_trigger_parts('Matched Data: <script> found within ARGS:q: <script>alert(1)</script>'),
+	array('form' => 'matched', 'piece' => '<script>', 'target' => 'ARGS:q', 'value' => '<script>alert(1)</script>'));
+expect_same('trigger parts with a colon in the value', waf_panel_trigger_parts('Matched Data: $((41*271)) found within ARGS:0: {then: $1:__proto__:then}'),
+	array('form' => 'matched', 'piece' => '$((41*271))', 'target' => 'ARGS:0', 'value' => '{then: $1:__proto__:then}'));
+expect_same('trigger parts without value', waf_panel_trigger_parts('Matched Data: zip://x found within ARGS:file'),
+	array('form' => 'matched', 'piece' => 'zip://x', 'target' => 'ARGS:file', 'value' => ''));
+expect_same('trigger parts of a form part', waf_panel_trigger_parts('Matched Data: utf-7 found within Content-Type multipart form'),
+	array('form' => 'matched', 'piece' => 'utf-7', 'target' => 'Content-Type multipart form', 'value' => ''));
+expect_same('trigger parts assignment', waf_panel_trigger_parts('ARGS_NAMES:aaaa=aaaa'),
+	array('form' => 'assign', 'piece' => '', 'target' => 'ARGS_NAMES:aaaa', 'value' => 'aaaa'));
+expect_same('trigger parts header', waf_panel_trigger_parts('Restricted header detected: /accept-charset/'),
+	array('form' => 'header', 'piece' => '', 'target' => '', 'value' => 'accept-charset'));
+expect_same('trigger parts plain', waf_panel_trigger_parts('.bak'),
+	array('form' => 'plain', 'piece' => '', 'target' => '', 'value' => '.bak'));
+expect_same('trigger parts plain with prefix', waf_panel_trigger_parts('Matched Data: utf-7'),
+	array('form' => 'plain', 'piece' => '', 'target' => '', 'value' => 'utf-7'));
+expect_same('trigger parts empty', waf_panel_trigger_parts('  '),
+	array('form' => 'none', 'piece' => '', 'target' => '', 'value' => ''));
+
+expect_same('target parameter', waf_panel_target_label($wb, 'ARGS:q'), 'Parameter „q“');
+expect_same('target post parameter', waf_panel_target_label($wb, 'ARGS_POST:json.content'), 'Parameter „json.content“');
+expect_same('target parameter names', waf_panel_target_label($wb, 'ARGS_NAMES:aaaa'), 'Name eines Parameters');
+expect_same('target file name', waf_panel_target_label($wb, 'REQUEST_FILENAME'), 'Dateiname der Anfrage');
+expect_same('target base name', waf_panel_target_label($wb, 'REQUEST_BASENAME'), 'Dateiname der Anfrage');
+expect_same('target address', waf_panel_target_label($wb, 'REQUEST_URI_RAW'), 'Adresse der Anfrage');
+expect_same('target request line', waf_panel_target_label($wb, 'REQUEST_LINE'), 'Anfragezeile');
+expect_same('target query', waf_panel_target_label($wb, 'QUERY_STRING'), 'Parameterteil der Adresse');
+expect_same('target header', waf_panel_target_label($wb, 'REQUEST_HEADERS:User-Agent'), 'Kopfzeile „User-Agent“');
+expect_same('target header names', waf_panel_target_label($wb, 'REQUEST_HEADERS_NAMES:x-foo'), 'Name einer Kopfzeile');
+expect_same('target cookie', waf_panel_target_label($wb, 'REQUEST_COOKIES:sid'), 'Cookie „sid“');
+expect_same('target cookie names', waf_panel_target_label($wb, 'REQUEST_COOKIES_NAMES:sid'), 'Name eines Cookies');
+expect_same('target body', waf_panel_target_label($wb, 'REQUEST_BODY'), 'Anfrageinhalt');
+expect_same('target xml', waf_panel_target_label($wb, 'XML:/*'), 'XML-Inhalt');
+expect_same('target files', waf_panel_target_label($wb, 'FILES:upload'), 'Name einer hochgeladenen Datei');
+expect_same('target files names', waf_panel_target_label($wb, 'FILES_NAMES'), 'Name einer hochgeladenen Datei');
+expect_same('target method', waf_panel_target_label($wb, 'REQUEST_METHOD'), 'Methode');
+expect_same('target protocol', waf_panel_target_label($wb, 'REQUEST_PROTOCOL'), 'Protokoll');
+expect_same('target unknown', waf_panel_target_label($wb, 'TX:extension'), 'TX:extension');
+expect_same('target parameter without a name', waf_panel_target_label($wb, 'ARGS'), 'ARGS');
+
+expect_same('trigger text contains', waf_panel_trigger_text($wb, 'Matched Data: .env found within REQUEST_FILENAME: /.env', ''),
+	'Dateiname der Anfrage enthält „.env“');
+expect_same('trigger text with a fixed piece', waf_panel_trigger_text($wb, 'Matched Data: XSS data found within ARGS:q: <script>alert(1)</script>', ''),
+	'Parameter „q“: <script>alert(1)</script>');
+expect_same('trigger text assignment', waf_panel_trigger_text($wb, 'REQUEST_HEADERS:Content-Length=abc', ''),
+	'Kopfzeile „Content-Length“: abc');
+expect_same('trigger text header', waf_panel_trigger_text($wb, 'Restricted header detected: /proxy/', ''), 'Kopfzeile „proxy“');
+expect_same('trigger text with pattern', waf_panel_trigger_text($wb, '.bak', 'Dateiendung „%s“'), 'Dateiendung „.bak“');
+expect_same('trigger text without pattern', waf_panel_trigger_text($wb, '.bak', ''), 'Gefunden: „.bak“');
+expect_same('trigger text with a broken pattern', waf_panel_trigger_text($wb, 'x', 'Wert %d und %s'), 'Gefunden: „x“');
+expect_same('trigger text empty', waf_panel_trigger_text($wb, '', 'Dateiendung „%s“'), '');
+expect_same('trigger text keeps percent signs', waf_panel_trigger_text($wb, 'Matched Data: %s%n found within ARGS:x: %s%n', ''),
+	'Parameter „x“ enthält „%s%n“');
+expect_same('trigger text cuts the piece',
+	strlen(waf_panel_trigger_text($wb, 'Matched Data: ' . str_repeat('a', 200) . ' found within ARGS:x', '')),
+	strlen('Parameter „x“ enthält „“') + 120);
+
 // --- A1: how many hits the rule cards read -------------------------------------
 
 $card = waf_settings(array());

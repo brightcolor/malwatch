@@ -61,6 +61,107 @@ function waf_panel_rule_title($wb, $rule_id, $message)
 	return sprintf(waf_panel_text($wb, 'rule_fallback_txt', '%s'), $rule_id);
 }
 
+/**
+ * The parts of a rule's data in an audit entry. CRS writes most rules as
+ * "Matched Data: <piece> found within <target>: <value>"; some write
+ * "<target>=<value>", 920450 writes "Restricted header detected: /<name>/",
+ * and the rest only a value. form is matched, assign, header, plain or none.
+ */
+function waf_panel_trigger_parts($data)
+{
+	$data = trim((string) $data);
+	$parts = array('form' => 'none', 'piece' => '', 'target' => '', 'value' => '');
+	if ($data === '') {
+		return $parts;
+	}
+	if (preg_match('/^Matched Data: (.*?) found within (.+?)(?:: (.*))?$/s', $data, $m)) {
+		$parts['form'] = 'matched';
+		$parts['piece'] = $m[1];
+		$parts['target'] = $m[2];
+		$parts['value'] = isset($m[3]) ? $m[3] : '';
+		return $parts;
+	}
+	if (preg_match('/^([A-Z_]+(?::[^=]*)?)=(.*)$/s', $data, $m)) {
+		$parts['form'] = 'assign';
+		$parts['target'] = $m[1];
+		$parts['value'] = $m[2];
+		return $parts;
+	}
+	if (preg_match('#^Restricted header detected: /?(.*?)/?$#s', $data, $m)) {
+		$parts['form'] = 'header';
+		$parts['value'] = $m[1];
+		return $parts;
+	}
+	$parts['form'] = 'plain';
+	$parts['value'] = preg_replace('/^Matched Data: /', '', $data);
+	return $parts;
+}
+
+/** A variable of ModSecurity in words; one the page does not know stays as it is. */
+function waf_panel_target_label($wb, $target)
+{
+	$target = (string) $target;
+	$pos = strpos($target, ':');
+	$base = $pos === false ? $target : substr($target, 0, $pos);
+	$name = $pos === false ? '' : substr($target, $pos + 1);
+	$named = array(
+		'ARGS' => 'target_param_txt', 'ARGS_GET' => 'target_param_txt', 'ARGS_POST' => 'target_param_txt',
+		'REQUEST_HEADERS' => 'target_header_txt', 'REQUEST_COOKIES' => 'target_cookie_txt',
+	);
+	$plain = array(
+		'ARGS_NAMES' => 'target_param_names_txt', 'ARGS_GET_NAMES' => 'target_param_names_txt',
+		'ARGS_POST_NAMES' => 'target_param_names_txt',
+		'REQUEST_FILENAME' => 'target_filename_txt', 'REQUEST_BASENAME' => 'target_filename_txt',
+		'REQUEST_URI' => 'target_uri_txt', 'REQUEST_URI_RAW' => 'target_uri_txt',
+		'REQUEST_LINE' => 'target_request_line_txt', 'QUERY_STRING' => 'target_query_txt',
+		'REQUEST_HEADERS_NAMES' => 'target_header_names_txt', 'REQUEST_COOKIES_NAMES' => 'target_cookie_names_txt',
+		'REQUEST_BODY' => 'target_body_txt', 'XML' => 'target_xml_txt',
+		'FILES' => 'target_files_txt', 'FILES_NAMES' => 'target_files_txt',
+		'REQUEST_METHOD' => 'target_method_txt', 'REQUEST_PROTOCOL' => 'target_protocol_txt',
+	);
+	if (isset($named[$base]) && $name !== '') {
+		return sprintf(waf_panel_text($wb, $named[$base], '%s'), $name);
+	}
+	if (isset($plain[$base])) {
+		return waf_panel_text($wb, $plain[$base], $target);
+	}
+	return $target;
+}
+
+/**
+ * The trigger of one rule in a hit as a sentence, '' when the data names
+ * none. $pattern comes from the catalog (rule_<id>_trigger) and words data
+ * that carries a value only; it must hold exactly one %s.
+ */
+function waf_panel_trigger_text($wb, $data, $pattern)
+{
+	$parts = waf_panel_trigger_parts($data);
+	$piece = waf_cut($parts['piece'], 120);
+	$value = waf_cut($parts['value'], 120);
+	// Pieces CRS writes as fixed words say nothing; the value does.
+	if (in_array($piece, array('XSS data', 'Suspicious payload', 'Suspicious JS global variable'), true)) {
+		$piece = '';
+	}
+	if ($parts['form'] === 'matched' || $parts['form'] === 'assign') {
+		$target = waf_panel_target_label($wb, $parts['target']);
+		if ($piece !== '') {
+			return sprintf(waf_panel_text($wb, 'trigger_contains_txt', '%1$s: %2$s'), $target, $piece);
+		}
+		return $value !== '' ? sprintf(waf_panel_text($wb, 'trigger_value_txt', '%1$s: %2$s'), $target, $value) : $target;
+	}
+	if ($parts['form'] === 'header') {
+		return sprintf(waf_panel_text($wb, 'target_header_txt', '%s'), $value);
+	}
+	if ($parts['form'] === 'plain') {
+		$pattern = (string) $pattern;
+		if (!preg_match('/^[^%]*%s[^%]*$/', $pattern)) {
+			$pattern = waf_panel_text($wb, 'trigger_found_txt', '%s');
+		}
+		return sprintf($pattern, $value);
+	}
+	return '';
+}
+
 // --- Views -------------------------------------------------------------------
 
 /**
