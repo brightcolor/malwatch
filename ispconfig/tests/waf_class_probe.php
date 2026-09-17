@@ -536,8 +536,10 @@ expect_same('a source that is not reachable',
 
 // --- B6: the addresses of the hits --------------------------------------------
 
+// The refused update above already left a row per source, so the fetch time of
+// the Tor list is set on the row that is there.
 $db->query("INSERT INTO malwatch_waf_origin_source (server_id, source, version, checked_at, fetched_at, entries) "
-	. "VALUES (?, 'tor', '', NOW(), NOW(), 3)", $server);
+	. "VALUES (?, 'tor', '', NOW(), NOW(), 3) ON DUPLICATE KEY UPDATE fetched_at = NOW(), entries = 3", $server);
 @mkdir($probe_dir . '/waf/origin', 0700, true);
 waf_origin_read_list($fixtures . '/tor.txt', $probe_dir . '/waf/origin/tor.bin');
 $db->query("INSERT INTO malwatch_waf_hit (server_id, parent_domain_id, domain, unique_id, seen_at, client_ip, method, "
@@ -546,7 +548,7 @@ $db->query("INSERT INTO malwatch_waf_hit (server_id, parent_domain_id, domain, u
 // The lookup follows the settings of the panel, so the Tor list is switched on
 // for it.
 $db->query("UPDATE malwatch_config SET waf_origin_tor = 'torproject' WHERE config_id = 1");
-expect_same('one address looked up', $waf->origin_lookup(10), 1);
+expect_same('every address of the stored hits is looked up', $waf->origin_lookup(10), 3);
 $ip_row = $db->queryOneRecord("SELECT is_tor, country, local_at FROM malwatch_waf_ip WHERE ip = '192.0.2.10'");
 expect_same('the address is marked as Tor', array($ip_row['is_tor'], $ip_row['country'] === '' ), array('y', true));
 expect_same('a second pass finds nothing new', $waf->origin_lookup(10), 0);
