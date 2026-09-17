@@ -3847,6 +3847,11 @@ eigenen Spalte.
 **Regeltitel.** Übersicht und Ausnahmeliste nehmen die Titel aus dem Katalog. Die
 Gruppen 910, 912 und 922 haben einen Namen.
 
+**Verständliche Meldungen.** Liegt ein Wert auf der Einstellungsseite der Abwehr
+außerhalb der Grenzen, nennt die Meldung das Feld, die erlaubten Zahlen und den
+nächsten Schritt. Ist die Angabe im Adressfilter keine IP-Adresse, zeigt die Seite
+alle gespeicherten Anfragen, sagt das über der Liste und nennt den Weg zum Filtern.
+
 **Datenbank.** `malwatch_waf_hit` bekommt den Index `site_ip` für den Adressfilter,
 `malwatch_config` die Spalte `waf_card_hits`. Das Schema legt beides bei der
 Installation und beim Update selbst an.
@@ -3969,7 +3974,7 @@ cat ispconfig/version; grep -n 'var Version' internal/version/version.go
 ```
 
 Expected:
-- `Go: ok`
+- `Go: ok` unter Linux. Unter Windows scheitern zwei Go-Tests, die Teil A nicht berührt: `TestExitCodeFollowsTheThreshold` (schon vor Teil A) und `TestThePlantedFileInAReplacedPluginIsGone`, weil Windows Defender die präparierte Testdatei blockt. Dann `gofmt`, `go vet` und `go build` einzeln prüfen; maßgeblich ist die CI unter Linux in Task A10, Block 2.
 - nach `find` nur `Syntax geprüft`
 - `Constants OK: LOGLEVEL_DEBUG LOGLEVEL_ERROR LOGLEVEL_WARN`
 - `upgrade helpers OK`, `upgrade offers OK`, `panel helpers OK`, dann `waf_lib`, `waf_panel`, `waf_panel_post` und `waf_rules_catalog` je mit `: alle Prüfungen bestanden`
