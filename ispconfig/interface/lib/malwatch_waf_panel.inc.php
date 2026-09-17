@@ -412,7 +412,7 @@ function waf_panel_query($filters, $changes)
  * The rules of one website over the period, the most hits first. $rows come
  * from malwatch_waf_day (day, rule_id, rule_msg, path, hits, would_block_hits).
  */
-function waf_panel_rules($wb, $rows)
+function waf_panel_rules($wb, $rows, $catalog = array())
 {
 	$rules = array();
 	foreach ($rows as $row) {
@@ -444,7 +444,7 @@ function waf_panel_rules($wb, $rows)
 		$rule['rule_id'] = (string) $id;
 		$rule['paths'] = $top;
 		$rule['path_count'] = count($paths);
-		$rule['title'] = waf_panel_rule_title($wb, $id, $rule['msg']);
+		$rule['title'] = waf_panel_rule_title($wb, $id, $rule['msg'], $catalog);
 		$rule['can_except'] = waf_exception_check(array('scope' => 'site', 'parent_domain_id' => 1, 'rule_id' => (string) $id)) === '';
 		$list[] = $rule;
 	}
@@ -480,10 +480,89 @@ function waf_panel_paths($rows)
 }
 
 /**
- * One stored hit for the detail page. prefill is what the exception form
- * starts with: the first rule an exception may name, its parameter, the path.
+ * array(key => count) as a list of array('key' => ..., 'count' => ...), the
+ * highest count first, equal counts by key.
  */
-function waf_panel_hit($wb, $row)
+function waf_panel_ranked($counts)
+{
+	$list = array();
+	foreach ($counts as $key => $count) {
+		$list[] = array('key' => (string) $key, 'count' => (int) $count);
+	}
+	usort($list, function ($a, $b) {
+		return $a['count'] !== $b['count'] ? $b['count'] - $a['count'] : strcmp($a['key'], $b['key']);
+	});
+	return $list;
+}
+
+/**
+ * Addresses and triggers per rule from stored hits of one website. $rows come
+ * from malwatch_waf_hit (client_ip, logged_in, rules). Each rule gets hits,
+ * logged_in, and its addresses and triggers as waf_panel_ranked() lists.
+ */
+function waf_panel_rule_hits($wb, $catalog, $rows)
+{
+	$rules = array();
+	foreach ($rows as $row) {
+		$list = json_decode((string) $row['rules'], true);
+		if (!is_array($list)) {
+			continue;
+		}
+		$ip = (string) $row['client_ip'];
+		$logged_in = (string) $row['logged_in'] === 'y';
+		foreach ($list as $rule) {
+			$id = isset($rule['id']) ? (string) $rule['id'] : '';
+			if ($id === '') {
+				continue;
+			}
+			if (!isset($rules[$id])) {
+				$rules[$id] = array('hits' => 0, 'logged_in' => 0, 'addresses' => array(), 'triggers' => array());
+			}
+			$rules[$id]['hits']++;
+			if ($logged_in) {
+				$rules[$id]['logged_in']++;
+			}
+			if ($ip !== '') {
+				$rules[$id]['addresses'][$ip] = (isset($rules[$id]['addresses'][$ip]) ? $rules[$id]['addresses'][$ip] : 0) + 1;
+			}
+			$pattern = isset($catalog['rules'][$id]['trigger']) ? (string) $catalog['rules'][$id]['trigger'] : '';
+			$text = waf_panel_trigger_text($wb, isset($rule['data']) ? $rule['data'] : '', $pattern);
+			if ($text !== '') {
+				$rules[$id]['triggers'][$text] = (isset($rules[$id]['triggers'][$text]) ? $rules[$id]['triggers'][$text] : 0) + 1;
+			}
+		}
+	}
+	foreach ($rules as $id => $rule) {
+		$rules[$id]['addresses'] = waf_panel_ranked($rule['addresses']);
+		$rules[$id]['triggers'] = waf_panel_ranked($rule['triggers']);
+	}
+	return $rules;
+}
+
+/** The address filter of the website page: a valid IP address, else ''. */
+function waf_panel_ip_filter($get)
+{
+	$ip = isset($get['ip']) && is_string($get['ip']) ? trim($get['ip']) : '';
+	return filter_var($ip, FILTER_VALIDATE_IP) !== false ? $ip : '';
+}
+
+/**
+ * The address filter as typed when it is no valid IP address, cut to 64
+ * bytes for the notice on the page; '' when the filter is empty or valid.
+ */
+function waf_panel_ip_filter_rejected($get)
+{
+	$ip = isset($get['ip']) && is_string($get['ip']) ? trim($get['ip']) : '';
+	return $ip !== '' && filter_var($ip, FILTER_VALIDATE_IP) === false ? waf_cut($ip, 64) : '';
+}
+
+/**
+ * One stored hit for the detail page. Each rule carries its title, the
+ * trigger in words and its class from $catalog. prefill is what the
+ * exception form starts with: the first rule an exception may name, its
+ * parameter, the path.
+ */
+function waf_panel_hit($wb, $row, $catalog = array())
 {
 	$rules = json_decode((string) $row['rules'], true);
 	$headers = json_decode((string) $row['request_headers'], true);
@@ -493,8 +572,12 @@ function waf_panel_hit($wb, $row)
 		$id = isset($rule['id']) ? (string) $rule['id'] : '';
 		$msg = isset($rule['msg']) ? (string) $rule['msg'] : '';
 		$param = isset($rule['param']) ? (string) $rule['param'] : '';
-		$list[] = array('rule_id' => $id, 'title' => waf_panel_rule_title($wb, $id, $msg), 'msg' => $msg,
-			'data' => isset($rule['data']) ? (string) $rule['data'] : '', 'param' => $param);
+		$data = isset($rule['data']) ? (string) $rule['data'] : '';
+		$info = waf_panel_rule_info($wb, $catalog, $id, $msg);
+		$list[] = array('rule_id' => $id, 'title' => $info['title'], 'msg' => $msg, 'data' => $data, 'param' => $param,
+			'trigger' => waf_panel_trigger_text($wb, $data, $info['trigger']),
+			'class' => $info['class'], 'class_label' => $info['class_label'], 'class_text' => $info['class_text'],
+			'note' => $info['note']);
 		if ($prefill['rule_id'] === ''
 			&& waf_exception_check(array('scope' => 'site', 'parent_domain_id' => 1, 'rule_id' => $id)) === '') {
 			$prefill['rule_id'] = $id;
@@ -532,7 +615,7 @@ function waf_panel_hit($wb, $row)
  * would_block_logged_in); $rule_rows sums malwatch_waf_day per rule
  * (rule_id, rule_msg, would_block_hits) over the same days.
  */
-function waf_panel_enforce($wb, $site, $totals, $rule_rows, $settings, $now)
+function waf_panel_enforce($wb, $site, $totals, $rule_rows, $settings, $now, $catalog = array())
 {
 	$state = is_array($site) && waf_state_valid((string) $site['waf_state']) ? (string) $site['waf_state'] : 'off';
 	$since = is_array($site) ? $site['waf_state_since'] : null;
@@ -541,7 +624,7 @@ function waf_panel_enforce($wb, $site, $totals, $rule_rows, $settings, $now)
 	foreach ($rule_rows as $row) {
 		if ((int) $row['would_block_hits'] > 0) {
 			$rules[] = array('rule_id' => (string) $row['rule_id'],
-				'title' => waf_panel_rule_title($wb, $row['rule_id'], $row['rule_msg']),
+				'title' => waf_panel_rule_title($wb, $row['rule_id'], $row['rule_msg'], $catalog),
 				'hits' => (int) $row['would_block_hits']);
 		}
 	}

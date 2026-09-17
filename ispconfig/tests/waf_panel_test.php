@@ -316,6 +316,68 @@ expect_same('settings form title and tab', array(
 	isset($config_words['de'][$config_tab['title']]),
 ), array(true, true));
 
+// --- A7: rule cards, address filter, catalog in the helpers ----------------------
+
+expect_same('ranked', waf_panel_ranked(array('b' => 2, 'a' => 2, 'c' => 5)), array(
+	array('key' => 'c', 'count' => 5), array('key' => 'a', 'count' => 2), array('key' => 'b', 'count' => 2),
+));
+expect_same('ranked turns numeric keys into strings', waf_panel_ranked(array('17' => 1)), array(array('key' => '17', 'count' => 1)));
+
+$card_catalog = array('rules' => array('920440' => array('title' => 'Verbotene Dateiendung', 'trigger' => 'Dateiendung „%s“')),
+	'groups' => array());
+$card_rows = array(
+	array('client_ip' => '192.0.2.7', 'logged_in' => 'n', 'rules' => '[{"id":"930130","msg":"Restricted File Access Attempt",'
+		. '"data":"Matched Data: .env found within REQUEST_FILENAME: /.env","param":""},'
+		. '{"id":"920440","msg":"URL file extension is restricted by policy","data":".bak","param":""}]'),
+	array('client_ip' => '192.0.2.7', 'logged_in' => 'n', 'rules' => '[{"id":"930130","msg":"x",'
+		. '"data":"Matched Data: .env found within REQUEST_FILENAME: /x/.env","param":""}]'),
+	array('client_ip' => '198.51.100.3', 'logged_in' => 'y', 'rules' => '[{"id":"930130","msg":"x",'
+		. '"data":"Matched Data: .git/config found within REQUEST_FILENAME: /.git/config","param":""}]'),
+	array('client_ip' => '', 'logged_in' => 'n', 'rules' => 'kaputt'),
+);
+$card = waf_panel_rule_hits($wb, $card_catalog, $card_rows);
+expect_same('card rules', array_map('strval', array_keys($card)), array('930130', '920440'));
+expect_same('card figures', array($card['930130']['hits'], $card['930130']['logged_in']), array(3, 1));
+expect_same('card addresses', $card['930130']['addresses'], array(
+	array('key' => '192.0.2.7', 'count' => 2), array('key' => '198.51.100.3', 'count' => 1),
+));
+expect_same('card triggers', $card['930130']['triggers'], array(
+	array('key' => 'Dateiname der Anfrage enthält „.env“', 'count' => 2),
+	array('key' => 'Dateiname der Anfrage enthält „.git/config“', 'count' => 1),
+));
+expect_same('card trigger with the catalog pattern', $card['920440']['triggers'],
+	array(array('key' => 'Dateiendung „.bak“', 'count' => 1)));
+expect_same('card without rows', waf_panel_rule_hits($wb, $card_catalog, array()), array());
+
+expect_same('ip filter v4', waf_panel_ip_filter(array('ip' => ' 192.0.2.7 ')), '192.0.2.7');
+expect_same('ip filter v6', waf_panel_ip_filter(array('ip' => '2001:db8::1')), '2001:db8::1');
+expect_same('ip filter rejects text', waf_panel_ip_filter(array('ip' => '192.0.2.7<script>')), '');
+expect_same('ip filter without value', waf_panel_ip_filter(array()), '');
+expect_same('ip filter rejects arrays', waf_panel_ip_filter(array('ip' => array('192.0.2.7'))), '');
+expect_same('ip notice for text', waf_panel_ip_filter_rejected(array('ip' => ' kein-ip ')), 'kein-ip');
+expect_same('ip notice for an address', waf_panel_ip_filter_rejected(array('ip' => '192.0.2.7')), '');
+expect_same('ip notice without value', waf_panel_ip_filter_rejected(array('ip' => '  ')), '');
+expect_same('ip notice for arrays', waf_panel_ip_filter_rejected(array('ip' => array('x'))), '');
+expect_same('ip notice cuts long input', strlen(waf_panel_ip_filter_rejected(array('ip' => str_repeat('x', 300)))), 64);
+
+$catalog_rules = waf_panel_rules($wb, $rule_day_rows,
+	array('rules' => array('942100' => array('title' => 'SQL-Einschleusung (libinjection)')), 'groups' => array()));
+expect_same('rules with catalog titles', array_column($catalog_rules, 'title'),
+	array('SQL-Einschleusung (libinjection)', 'Skript-Einschleusung (XSS)', 'Regel 10010'));
+$catalog_enforce = waf_panel_enforce($wb, $site, $totals, $enforce_rules, $settings, '2026-09-16 12:00:00',
+	array('rules' => array('941100' => array('title' => 'XSS (libinjection)')), 'groups' => array()));
+expect_same('enforce with catalog titles', array_column($catalog_enforce['rules'], 'title'),
+	array('SQL-Einschleusung', 'XSS (libinjection)'));
+
+$catalog_hit = waf_panel_hit($wb, $hit_row,
+	array('rules' => array('942190' => array('title' => 'Ausspähen der Datenbank', 'class' => 'attack')), 'groups' => array()));
+expect_same('hit rule with catalog', array($catalog_hit['rules'][1]['title'], $catalog_hit['rules'][1]['class'],
+	$catalog_hit['rules'][1]['class_label'], $catalog_hit['rules'][1]['trigger'], $catalog_hit['rules'][1]['note']),
+	array('Ausspähen der Datenbank', 'attack', 'Angriffsversuch', 'Gefunden: „x“', ''));
+expect_same('hit score rule without trigger', array($catalog_hit['rules'][0]['title'], $catalog_hit['rules'][0]['trigger'],
+	$catalog_hit['rules'][0]['class'], $catalog_hit['rules'][0]['class_label'], $catalog_hit['rules'][0]['class_text']),
+	array('Punktgrenze überschritten', '', '', '', ''));
+
 // --- A3: rule catalog ----------------------------------------------------------
 
 expect_same('rule classes', waf_panel_rule_classes(),
