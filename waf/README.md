@@ -1,67 +1,90 @@
 # WAF für web.herkules
 
-ModSecurity als nginx-Modul mit dem OWASP-Regelwerk CRS, je Website schaltbar.
-Entwurf und Ablauf stehen in `docs/superpowers/specs/2026-09-16-waf-web-herkules-design.md`
-und `docs/superpowers/plans/2026-09-16-waf-web-herkules.md`.
+ModSecurity als nginx-Modul mit dem OWASP-Regelwerk CRS, je Website schaltbar. Bedient
+wird sie im Panel unter **Security > Abwehr** (malwatch ab 0.19.0) oder mit
+`waf-switch`. Entwürfe: `docs/superpowers/specs/2026-09-16-waf-web-herkules-design.md` und
+`docs/superpowers/specs/2026-09-16-malwatch-abwehr-design.md`.
 
-**Der Webserver darf niemals ausfallen.** Änderungen greifen erst nach `nginx -t`,
-nginx wird ausschließlich neu geladen, die Konfiguration bleibt jederzeit gültig.
+**Der Webserver darf niemals ausfallen.** Dateien der WAF ändern sich nur über eine
+geprüfte Kopie, `nginx -t` und einen Reload; scheitert ein Schritt, bleibt der vorherige
+Stand, und nginx wird nicht neu geladen.
 
 ## Inhalt
 
 | Pfad | Zweck |
 |---|---|
-| `lib/waf_block.inc.php` | reine Funktionen für den markierten Block im Feld „nginx-Direktiven" |
-| `lib/waf_audit.inc.php` | reine Funktionen zum Auswerten des Audit-Logs |
-| `waf-schalter` | Zustand je Website setzen, lesen, zurücknehmen, Notaus |
-| `waf-wache` | stündlicher Wächter über `nginx -t` |
-| `waf-bericht` | Auswertung des Audit-Logs |
+| `waf-switch` | Zustand je Website, Notaus, Seitenantwort, Aufträge, Einlesen, Wächter |
+| `waf-guard` | stündlicher Wächter über `nginx -t`, ruft `waf-switch guard` |
+| `waf-report` | Treffer je Website und Regel aus dem Audit-Log |
 | `conf/` | Dateien für `/etc/nginx/waf/`, die Einbindung und logrotate |
-| `install.sh` | spielt Dateien und Werkzeuge auf dem Server ein |
-| `tests/` | Tests der reinen Funktionen, mit erfundenen Beispieldaten |
+| `install.sh` | spielt alles ein und stellt von den ersten Namen um |
 
-## Tests
-
-```bash
-php waf/tests/waf_block_test.php
-php waf/tests/waf_audit_test.php
-```
+Die Funktionen liegen in malwatch (`ispconfig/interface/lib/malwatch_waf_lib.inc.php`,
+`ispconfig/server/lib/classes/malwatch_waf.inc.php`) und werden dort getestet.
 
 ## Einspielen
 
-Die Pakete `libnginx-mod-http-modsecurity` und `modsecurity-crs` müssen liegen, sonst
-bricht das Skript ab.
+Voraussetzung: die Pakete `libnginx-mod-http-modsecurity` und `modsecurity-crs`, dazu
+malwatch ab 0.19.0.
 
 ```bash
 scp -r waf ispconfig:/root/waf-einspielen
-ssh ispconfig 'cd /root/waf-einspielen && bash install.sh'
+ssh ispconfig 'bash /root/waf-einspielen/install.sh'
 ```
 
-Danach ist das Modul geladen und keine Website eingeschaltet.
+`install.sh` darf mehrfach laufen. Ein Server mit den ersten Namen (`waf-schalter`,
+`waf-wache`, `waf-bericht`, `einstellungen.conf`, `crs-zusatz.conf`,
+`ausnahmen-vorher.conf`, `ausnahmen-nachher.conf`, `zustand.conf`, `antwortrumpf.conf`)
+wird dabei umgestellt: neue Dateien neben die alten, neue `main.conf` nach Regelprüfung
+und `nginx -t`, erst danach verschwinden die alten Namen. Die Cron-Zeile wechselt auf
+`waf-guard`, und `waf-switch migrate` schreibt die alten Markierungen im Feld
+„nginx-Direktiven" um.
 
 ## Zustände je Website
 
-| Zustand | Wirkung |
-|---|---|
-| aus | kein Block im Feld „nginx-Direktiven" |
-| mitschreiben | `modsecurity on;`, Treffer gehen ins Audit-Log |
-| scharf | zusätzlich `SecRuleEngine On`, Anfragen werden abgewiesen |
+| Zustand | Oberfläche | Wirkung |
+|---|---|---|
+| `off` | aus | kein Block im Feld „nginx-Direktiven" |
+| `detect` | mitschreiben | `modsecurity on;`, Treffer gehen ins Audit-Log |
+| `enforce` | scharf | zusätzlich `SecRuleEngine On`, Anfragen werden abgewiesen |
 
 ```bash
-waf-schalter status
-waf-schalter probe mitschreiben beispiel.de
-waf-schalter setze mitschreiben beispiel.de
-waf-schalter setze mitschreiben --wordpress
-waf-schalter notaus
-waf-schalter zurueck /var/backups/waf-schalter/<zeitstempel>
+waf-switch status
+waf-switch probe detect beispiel.de
+waf-switch set detect beispiel.de --wait
+waf-switch set detect --wordpress
+waf-switch jobs
+waf-switch restore /var/backups/waf-switch/<zeitstempel>-job<nummer>
 ```
 
-`notaus` schreibt `SecRuleEngine Off` in `/etc/nginx/waf/zustand.conf`, setzt scharfe
-Websites auf „mitschreiben" zurück und lädt nginx neu. Mit `--hart` nimmt es zusätzlich
-den Block aus allen Websites, etwa wenn das Modul fehlt.
+`set` legt einen Auftrag an. Der Cron schreibt das Feld, wartet auf den vhost von
+ISPConfig, prüft `nginx -t` und bestätigt den Zustand; nach der Frist aus den
+Einstellungen nimmt er seine Änderung zurück, sofern niemand das Feld inzwischen geändert
+hat. „scharf" setzt voraus, dass die Website lange genug mitschreibt.
+
+## Notaus
+
+```bash
+waf-switch emergency on
+waf-switch emergency off
+waf-switch emergency on --hard
+```
+
+`on` schreibt `SecRuleEngine Off` in `/etc/nginx/waf/state.conf`, lädt nginx neu und setzt
+scharfe Websites auf „mitschreiben". `--hard` ist für ein nginx ohne Modul: die Einbindung
+wandert nach `waf.conf.off`, die vhosts verlieren ihre `modsecurity`-Zeilen, die Felder
+ihren Block. Wieder eingeschaltet wird dann mit `install.sh`.
+
+## Wächter
+
+`waf-guard` läuft stündlich über `hc-run waf-guard`. Besteht `nginx -t`, arbeitet er
+hängende Aufträge ab. Fehlt das Modul, folgt der harte Notaus; nennt der Fehler eine
+Datei der WAF, legt er den letzten geprüften Stand zurück. Protokoll:
+`/var/log/waf/guard.log`.
 
 ## Logs
 
 Audit-Log: `/var/log/waf/audit.log`, JSON, ein Eintrag je Anfrage mit Treffer, täglich
-rotiert und 7 Tage aufbewahrt. Passwörter der Anmeldewege und hochgeladene Dateien
-bleiben durch die Regeln 10010 und 10011 draußen.
+rotiert; die Zahl der Stände steht in den Einstellungen der Seite Abwehr. Passwörter der
+Anmeldewege und hochgeladene Dateien bleiben durch die Regeln 10010 und 10011 draußen.
+`waf-report` fasst das Log zusammen.

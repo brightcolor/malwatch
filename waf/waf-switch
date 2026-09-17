@@ -1,0 +1,349 @@
+#!/usr/bin/php
+<?php
+/**
+ * Command line side of the malwatch WAF part ("Abwehr").
+ *
+ *   waf-switch status
+ *   waf-switch set off|detect|enforce <domain ...|--wordpress|--all> [--wait]
+ *   waf-switch probe off|detect|enforce <domain ...|--wordpress|--all>
+ *   waf-switch emergency on|off [--hard]
+ *   waf-switch response-body [full|lean|status]
+ *   waf-switch restore <backup directory>
+ *   waf-switch jobs
+ *   waf-switch exception list
+ *   waf-switch exception add <domain|--all> <rule id> [--path=/path] [--param=name] [--note=text]
+ *   waf-switch exception remove <number>
+ *   waf-switch ingest [--dry-run] [--file=<audit log>]
+ *   waf-switch migrate
+ *   waf-switch snapshot
+ *   waf-switch guard
+ *
+ * The emergency stop and the response body run at once; set leaves its job
+ * to the cron unless --wait is given.
+ */
+if (php_sapi_name() !== 'cli') {
+	exit(2);
+}
+if (!is_file('/usr/local/ispconfig/server/lib/classes/malwatch_waf.inc.php')) {
+	fwrite(STDERR, "malwatch_waf.inc.php fehlt. Erst malwatch 0.19.0 einspielen.\n");
+	exit(2);
+}
+
+require_once '/usr/local/ispconfig/server/lib/config.inc.php';
+if (!defined('SCRIPT_PATH')) {
+	define('SCRIPT_PATH', '/usr/local/ispconfig/server');
+}
+require_once SCRIPT_PATH . '/lib/app.inc.php';
+
+// ISPConfig runs its scripts in UTC; the guard log follows the server's clock.
+$zone = trim((string) @file_get_contents('/etc/timezone'));
+if ($zone !== '') {
+	@date_default_timezone_set($zone);
+}
+
+$app->uses('malwatch_helper,malwatch_waf');
+$waf = $app->malwatch_waf;
+if (!$waf->ready()) {
+	fwrite(STDERR, "malwatch_waf_lib.inc.php fehlt. Erst malwatch 0.19.0 einspielen.\n");
+	exit(2);
+}
+
+$user = 'waf-switch';
+if (function_exists('posix_getpwuid') && function_exists('posix_geteuid')) {
+	$account = posix_getpwuid(posix_geteuid());
+	if (is_array($account)) {
+		$user .= ' (' . $account['name'] . ')';
+	}
+}
+
+function waf_cli_webs()
+{
+	global $app, $conf;
+	$rows = $app->dbmaster->queryAllRecords(
+		'SELECT w.domain_id, w.domain, w.document_root, w.nginx_directives, s.waf_state, s.waf_pending_state '
+		. 'FROM web_domain w LEFT JOIN malwatch_site s ON s.parent_domain_id = w.domain_id '
+		. "WHERE w.server_id = ? AND w.type = 'vhost' AND w.active = 'y' ORDER BY w.domain",
+		$conf['server_id']);
+	return is_array($rows) ? $rows : array();
+}
+
+function waf_cli_is_wordpress($web)
+{
+	return is_file(rtrim((string) $web['document_root'], '/') . '/web/wp-config.php');
+}
+
+function waf_cli_select($webs, $args)
+{
+	if (in_array('--all', $args, true)) {
+		return $webs;
+	}
+	if (in_array('--wordpress', $args, true)) {
+		return array_values(array_filter($webs, 'waf_cli_is_wordpress'));
+	}
+	$picked = array();
+	foreach ($webs as $web) {
+		if (in_array($web['domain'], $args, true)) {
+			$picked[] = $web;
+		}
+	}
+	return $picked;
+}
+
+function waf_cli_report($job)
+{
+	if (!is_array($job)) {
+		fwrite(STDERR, "Der Auftrag ließ sich nicht ausführen: Sperre belegt oder Bibliothek fehlt.\n");
+		return 1;
+	}
+	echo $job['job_log'], "\n";
+	return $job['job_status'] === 'done' ? 0 : 1;
+}
+
+function waf_cli_wait($waf, $job_id)
+{
+	$settings = $waf->settings();
+	$rounds = ($settings['waf_job_deadline_minutes'] + 2) * 12;
+	for ($i = 0; $i < $rounds; $i++) {
+		$waf->pass();
+		$job = $waf->job($job_id);
+		if (is_array($job) && ($job['job_status'] === 'done' || $job['job_status'] === 'error')) {
+			return waf_cli_report($job);
+		}
+		sleep(5);
+	}
+	echo "Der Auftrag $job_id läuft noch; der Cron führt ihn weiter.\n";
+	return 1;
+}
+
+function waf_cli_stats($stats)
+{
+	global $app;
+	printf("Zeilen %d, Treffer %d, neu %d, unlesbar %d, unbekannte Hosts %d%s\n", $stats['lines'], $stats['hits'],
+		$stats['new'], $stats['broken'], $stats['unknown'], $stats['more'] ? ', weitere Zeilen warten' : '');
+	foreach ($stats['sites'] as $site => $count) {
+		$row = $app->dbmaster->queryOneRecord('SELECT domain FROM web_domain WHERE domain_id = ?', (int) $site);
+		printf("  %-34s %d\n", is_array($row) ? $row['domain'] : '#' . $site, $count);
+	}
+	arsort($stats['unknown_hosts']);
+	foreach ($stats['unknown_hosts'] as $host => $count) {
+		printf("  unbekannt %-34s %d\n", $host, $count);
+	}
+}
+
+function waf_cli_response_mode($waf)
+{
+	$settings = $waf->settings();
+	return waf_response_body_mode((string) @file_get_contents($settings['waf_conf_dir'] . '/response-body.conf'));
+}
+
+$args = array_slice($argv, 1);
+$command = (string) array_shift($args);
+
+switch ($command) {
+	case 'status':
+		$settings = $waf->settings();
+		printf("%-34s %-10s %-10s %-11s %-10s %s\n", 'Website', 'Feld', 'vhost', 'bestätigt', 'wartet', 'WordPress');
+		foreach (waf_cli_webs() as $web) {
+			$field = (string) $web['nginx_directives'];
+			printf("%-34s %-10s %-10s %-10s %-10s %s\n", $web['domain'],
+				waf_block_state($field) . (waf_block_is_old($field) ? '*' : ''),
+				$waf->vhost_state($web['domain']),
+				$web['waf_state'] === null ? 'off' : $web['waf_state'],
+				(string) $web['waf_pending_state'],
+				waf_cli_is_wordpress($web) ? 'ja' : '');
+		}
+		echo "\n* alte Markierung, waf-switch migrate schreibt sie um\n";
+		echo 'Notaus: ', $settings['waf_emergency'] === 'y' ? 'aktiv seit ' . $settings['waf_emergency_since'] : 'aus', "\n";
+		echo 'Seitenantwort im Audit-Log: ', waf_cli_response_mode($waf), "\n";
+		exit(0);
+
+	case 'set':
+	case 'probe':
+		$state = (string) array_shift($args);
+		if (!waf_state_valid($state)) {
+			fwrite(STDERR, "Der Zustand heißt off, detect oder enforce.\n");
+			exit(2);
+		}
+		$selected = waf_cli_select(waf_cli_webs(), $args);
+		if (count($selected) === 0) {
+			fwrite(STDERR, "Keine Website ausgewählt.\n");
+			exit(2);
+		}
+		if ($command === 'probe') {
+			foreach ($selected as $web) {
+				$old = (string) $web['nginx_directives'];
+				$new = waf_block_set($old, $state);
+				echo $web['domain'], ': ', $old === $new ? 'unverändert' : strlen($old) . ' -> ' . strlen($new) . ' Zeichen', "\n";
+			}
+			exit(0);
+		}
+		$ids = array();
+		foreach ($selected as $web) {
+			$ids[] = (int) $web['domain_id'];
+		}
+		$job_id = $waf->queue('set_state', array('domain_ids' => $ids, 'state' => $state), $user);
+		echo 'Auftrag ', $job_id, ' eingereiht für ', count($ids), " Websites.\n";
+		exit(in_array('--wait', $args, true) ? waf_cli_wait($waf, $job_id) : 0);
+
+	case 'emergency':
+		$mode = (string) array_shift($args);
+		if ($mode !== 'on' && $mode !== 'off') {
+			fwrite(STDERR, "emergency on|off [--hard]\n");
+			exit(2);
+		}
+		exit(waf_cli_report($waf->execute_now('emergency',
+			array('on' => $mode === 'on', 'hard' => $mode === 'on' && in_array('--hard', $args, true)), $user)));
+
+	case 'response-body':
+		$mode = (string) array_shift($args);
+		if ($mode === '' || $mode === 'status') {
+			echo 'Seitenantwort im Audit-Log: ', waf_cli_response_mode($waf), "\n";
+			exit(0);
+		}
+		if (!waf_response_body_valid($mode)) {
+			fwrite(STDERR, "response-body full|lean|status\n");
+			exit(2);
+		}
+		exit(waf_cli_report($waf->execute_now('response_body', array('mode' => $mode), $user)));
+
+	case 'restore':
+		$dir = rtrim((string) array_shift($args), '/');
+		if ($dir === '' || !is_dir($dir)) {
+			fwrite(STDERR, "Ordner fehlt: $dir\n");
+			exit(2);
+		}
+		$by_name = array();
+		foreach (waf_cli_webs() as $web) {
+			$by_name[preg_replace('/[^A-Za-z0-9._-]/', '_', $web['domain'])] = $web;
+		}
+		$files = glob($dir . '/*.txt');
+		foreach (is_array($files) ? $files : array() as $file) {
+			$name = basename($file, '.txt');
+			if (!isset($by_name[$name])) {
+				echo $name, ": keine aktive Website dieses Namens, übersprungen\n";
+				continue;
+			}
+			$app->dbmaster->datalogUpdate('web_domain', array('nginx_directives' => (string) file_get_contents($file)),
+				'domain_id', (int) $by_name[$name]['domain_id']);
+			echo $name, ": Feldinhalt zurückgeschrieben\n";
+		}
+		echo 'Abgleich als Auftrag ', $waf->queue('migrate_markers', array(), $user), " eingereiht.\n";
+		exit(0);
+
+	case 'jobs':
+		$rows = $app->dbmaster->queryAllRecords(
+			'SELECT job_id, job_status, options, created_at, job_log FROM malwatch_job '
+			. "WHERE server_id = ? AND job_kind = 'waf' ORDER BY job_id DESC LIMIT 20", $conf['server_id']);
+		foreach (is_array($rows) ? $rows : array() as $row) {
+			$options = json_decode((string) $row['options'], true);
+			$lines = preg_split('/\R/', trim((string) $row['job_log']));
+			printf("%6d %-8s %-16s %-19s %s\n", $row['job_id'], $row['job_status'],
+				is_array($options) && isset($options['action']) ? $options['action'] : '?',
+				(string) $row['created_at'], $lines[0]);
+		}
+		exit(0);
+
+	case 'exception':
+		$sub = (string) array_shift($args);
+		if ($sub === 'list') {
+			$rows = $app->dbmaster->queryAllRecords(
+				'SELECT exception_id, scope, domain, rule_id, path, param, exception_state, error_reason '
+				. 'FROM malwatch_waf_exception WHERE server_id = ? ORDER BY exception_id', $conf['server_id']);
+			foreach (is_array($rows) ? $rows : array() as $row) {
+				printf("%5d %-10s %-30s %-8s %-28s %-14s %-8s %s\n", $row['exception_id'], $row['scope'],
+					$row['domain'] === '' ? '(alle)' : $row['domain'], $row['rule_id'], $row['path'], $row['param'],
+					$row['exception_state'], $row['error_reason']);
+			}
+			exit(0);
+		}
+		if ($sub === 'add') {
+			$target = (string) array_shift($args);
+			$rule = (string) array_shift($args);
+			$given = array('path' => '', 'param' => '', 'note' => '');
+			foreach ($args as $arg) {
+				foreach (array_keys($given) as $key) {
+					if (strpos($arg, '--' . $key . '=') === 0) {
+						$given[$key] = substr($arg, strlen($key) + 3);
+					}
+				}
+			}
+			$site = 0;
+			$domain = '';
+			if ($target !== '--all') {
+				foreach (waf_cli_webs() as $web) {
+					if ($web['domain'] === $target) {
+						$site = (int) $web['domain_id'];
+						$domain = $web['domain'];
+					}
+				}
+				if ($site === 0) {
+					fwrite(STDERR, "Keine aktive Website namens $target.\n");
+					exit(2);
+				}
+				$scope = $given['param'] !== '' ? 'site_param' : ($given['path'] !== '' ? 'site_path' : 'site');
+			} else {
+				$scope = $given['path'] !== '' ? 'all_path' : 'all';
+			}
+			$wrong = waf_exception_check(array('scope' => $scope, 'parent_domain_id' => $site, 'rule_id' => $rule,
+				'path' => $given['path'], 'param' => $given['param']));
+			if ($wrong !== '') {
+				fwrite(STDERR, "Ungültige Angabe: $wrong\n");
+				exit(2);
+			}
+			$app->dbmaster->query(
+				'INSERT INTO malwatch_waf_exception (sys_userid, sys_groupid, sys_perm_user, sys_perm_group, sys_perm_other, '
+				. 'server_id, scope, parent_domain_id, domain, rule_id, path, param, note, exception_state, created_by, created_at) '
+				. "VALUES (1, 1, 'riud', 'r', '', ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, NOW())",
+				$conf['server_id'], $scope, $site, $domain, $rule, $given['path'], $given['param'],
+				waf_cut($given['note'], 255), waf_cut($user, 64));
+			$id = (int) $app->dbmaster->insertID();
+			echo 'Ausnahme ', $id, ' angelegt (', $scope, ").\n";
+			exit(waf_cli_report($waf->execute_now('exception_add', array('exception_id' => $id), $user)));
+		}
+		if ($sub === 'remove') {
+			$id = (int) array_shift($args);
+			$app->dbmaster->query("UPDATE malwatch_waf_exception SET exception_state = 'removing' WHERE exception_id = ? AND server_id = ?",
+				$id, $conf['server_id']);
+			exit(waf_cli_report($waf->execute_now('exception_remove', array('exception_id' => $id), $user)));
+		}
+		fwrite(STDERR, "exception list | add <domain|--all> <regel> [--path=/pfad] [--param=name] [--note=text] | remove <nummer>\n");
+		exit(2);
+
+	case 'ingest':
+		$dry = in_array('--dry-run', $args, true);
+		$file = '';
+		foreach ($args as $arg) {
+			if (strpos($arg, '--file=') === 0) {
+				$file = substr($arg, 7);
+			}
+		}
+		if ($file !== '' && !$dry) {
+			fwrite(STDERR, "--file gilt nur zusammen mit --dry-run.\n");
+			exit(2);
+		}
+		$stats = $dry ? $waf->ingest(array('dry_run' => true, 'file' => $file)) : $waf->ingest_locked();
+		if (!is_array($stats)) {
+			fwrite(STDERR, "Die Sperre ist belegt; der nächste Aufruf versucht es erneut.\n");
+			exit(1);
+		}
+		waf_cli_stats($stats);
+		exit(0);
+
+	case 'migrate':
+		$job_id = $waf->queue('migrate_markers', array(), $user);
+		$waf->queue('apply_settings', array(), $user);
+		echo 'Abgleich (Auftrag ', $job_id, ") und Einstellungen eingereiht.\n";
+		exit(waf_cli_wait($waf, $job_id));
+
+	case 'snapshot':
+		exit($waf->snapshot() ? 0 : 1);
+
+	case 'guard':
+		exit($waf->guard());
+}
+
+fwrite(STDERR, "Befehle: status | set <off|detect|enforce> <domain…|--wordpress|--all> [--wait] | probe … | "
+	. "emergency on|off [--hard] | response-body [full|lean|status] | restore <ordner> | jobs | "
+	. "exception list|add|remove | "
+	. "ingest [--dry-run] [--file=<log>] | migrate | snapshot | guard\n");
+exit(2);

@@ -1075,6 +1075,146 @@ for sub in /waf /waf/responses /waf/staging /waf/last-good; do
 		|| fail "der Installer legt <state_dir>$sub nicht an"
 done
 
+# 53. WAF-Auftraege gehoeren dem Cron. Das Plugin laesst sie liegen,
+#     start_pending und die Zaehlung nehmen sie aus, weder das Einsammeln noch
+#     die Zeitsperre fassen sie an. Der Cron laedt malwatch_waf, ruft es jede
+#     Minute und stuendlich zum Aufraeumen.
+plugin="$root/server/plugins/malwatch_plugin.inc.php"
+cron="$root/server/lib/classes/cron.d/560-malwatch.inc.php"
+helper="$root/server/lib/classes/malwatch_helper.inc.php"
+grep -q "job_kind'\] === 'waf'" "$plugin" \
+	|| fail "malwatch_plugin.inc.php laesst WAF-Auftraege nicht liegen"
+grep -q "job_kind NOT IN ('vulncheck','waf')" "$cron" \
+	|| fail "start_pending nimmt WAF-Auftraege nicht aus"
+grep -q "job_kind NOT IN ('vulncheck','waf')" "$helper" \
+	|| fail "count_running_jobs zaehlt WAF-Auftraege mit"
+[ "$(grep -c "job_kind != 'waf'" "$cron")" -ge 2 ] \
+	|| fail "collect_finished oder die Zeitsperre fassen WAF-Auftraege an"
+grep -q "uses('[^']*malwatch_waf" "$cron" \
+	|| fail "der Cron laedt malwatch_waf nicht"
+grep -q 'malwatch_waf->cron_minute()' "$cron" \
+	|| fail "der Cron ruft malwatch_waf nicht jede Minute auf"
+grep -q 'malwatch_waf->cron_hourly()' "$cron" \
+	|| fail "der Cron raeumt die Treffer der WAF nicht auf"
+
+# 54. Die Werkzeuge unter waf/ tragen die neuen Namen und nutzen die
+#     gemeinsame Bibliothek. Die alten Namen stehen nur noch dort, wo
+#     install.sh umstellt und README.md davon erzaehlt.
+waf_dir="$root/../waf"
+if [ -d "$waf_dir" ]; then
+	for f in waf-switch waf-guard waf-report install.sh README.md conf/main.conf conf/waf.conf \
+		conf/settings.conf conf/crs-extra.conf conf/exclusions-before.conf conf/exclusions-after.conf \
+		conf/exclusions-panel-before.conf conf/exclusions-panel-after.conf conf/response-body.conf \
+		conf/state.conf conf/logrotate-waf; do
+		[ -f "$waf_dir/$f" ] || fail "waf/$f fehlt"
+	done
+	for f in waf-schalter waf-wache waf-bericht lib tests conf/einstellungen.conf conf/crs-zusatz.conf \
+		conf/ausnahmen-vorher.conf conf/ausnahmen-nachher.conf conf/zustand.conf conf/antwortrumpf.conf; do
+		if [ -e "$waf_dir/$f" ]; then
+			fail "waf/$f gibt es noch; die Umstellung ersetzt die alten Namen"
+		fi
+	done
+	grep -q 'malwatch_waf_lib.inc.php' "$waf_dir/waf-report" \
+		|| fail "waf-report bindet malwatch_waf_lib.inc.php nicht ein"
+	grep -q "uses('malwatch_helper,malwatch_waf')" "$waf_dir/waf-switch" \
+		|| fail "waf-switch laedt malwatch_waf nicht"
+	if grep -rlE 'einstellungen\.conf|zustand\.conf|antwortrumpf|waf-schalter|waf-wache|waf-bericht' "$waf_dir" \
+		| grep -vE '/(install\.sh|README\.md)$' | grep -q .; then
+		fail "unter waf/ nennt eine Datei ausser install.sh und README.md noch alte Namen"
+	fi
+fi
+
+# 55. Die Seiten der Abwehr pruefen die Administratorrechte selbst, und die
+#     Seitenantwort geht nur als Text hinaus: sie ist die Antwort auf die
+#     Anfrage eines Angreifers und laeuft im Panel nie als HTML.
+for page in "$root"/interface/malwatch_waf_*.php; do
+	[ -f "$page" ] || continue
+	grep -q 'is_admin()' "$page" || fail "$(basename "$page") prueft die Administratorrechte nicht"
+done
+response_page="$root/interface/malwatch_waf_response.php"
+if [ -f "$response_page" ]; then
+	for header in 'Content-Type: text/plain' 'X-Content-Type-Options: nosniff' "Content-Security-Policy: default-src 'none'"; do
+		grep -qF "$header" "$response_page" || fail "malwatch_waf_response.php sendet $header nicht"
+	done
+	grep -q 'basename(' "$response_page" || fail "malwatch_waf_response.php nimmt den Dateinamen ungeprueft"
+else
+	fail "interface/malwatch_waf_response.php fehlt"
+fi
+
+# 56. Die Abwehr steht im Menue, und die Uebersicht verfolgt laufende
+#     Auftraege ueber malwatch_waf_jobs.php; neu geladen wird sie erst, wenn
+#     keiner mehr laeuft.
+grep -q "'link'    => 'security/malwatch_waf_list.php'" "$root/interface/module.conf.php" \
+	|| fail "module.conf.php fuehrt die Abwehr nicht im Menue"
+if [ -f "$root/interface/templates/malwatch_waf_list.htm" ]; then
+	grep -q 'data-mw-jobs="security/malwatch_waf_jobs.php' "$root/interface/templates/malwatch_waf_list.htm" \
+		|| fail "malwatch_waf_list.htm fragt die laufenden Auftraege nicht ab"
+else
+	fail "interface/templates/malwatch_waf_list.htm fehlt"
+fi
+
+# 57. Die Seite einer Website traegt das Ausnahmeformular im Formular des
+#     Panels: ein Dialog am Ende von <body> schickte seine Felder nie mit. Die
+#     Vorschau kommt aus malwatch_waf_preview.php, die Seitenantwort oeffnet
+#     malwatch_waf_response.php in einem eigenen Fenster.
+show_tpl="$root/interface/templates/malwatch_waf_show.htm"
+if [ -f "$show_tpl" ]; then
+	for field in exc_site exc_scope exc_rule exc_path exc_param exc_note; do
+		grep -q "name=\"$field\"" "$show_tpl" || fail "malwatch_waf_show.htm hat kein Feld $field"
+	done
+	grep -q 'data-mw-preview="security/malwatch_waf_preview.php' "$show_tpl" \
+		|| fail "malwatch_waf_show.htm holt die Vorschau nicht aus malwatch_waf_preview.php"
+	grep -q 'href="security/malwatch_waf_response.php?hit=[^"]*" target="_blank" rel="noopener"' "$show_tpl" \
+		|| fail "malwatch_waf_show.htm oeffnet die Seitenantwort nicht in einem eigenen Fenster"
+	if grep -q 'class="[^"]*mw-modal[^"]*"[^>]*>[^<]*<[^>]*name="exc_' "$show_tpl"; then
+		fail "malwatch_waf_show.htm legt Felder der Ausnahme in einen Dialog"
+	fi
+else
+	fail "interface/templates/malwatch_waf_show.htm fehlt"
+fi
+
+# 58. Die Ausnahmeliste schickt "Entfernen" an sich selbst, damit ihre Filter
+#     nach dem Klick bleiben, und die Uebersicht fuehrt zu ihr.
+exc_tpl="$root/interface/templates/malwatch_waf_exception_list.htm"
+if [ -f "$exc_tpl" ]; then
+	grep -q 'data-mw-set-mw-waf-action="exception_remove"' "$exc_tpl" \
+		|| fail "malwatch_waf_exception_list.htm hat keinen Knopf Entfernen"
+	grep -q 'data-form-action="security/malwatch_waf_exception_list.php"' "$exc_tpl" \
+		|| fail "malwatch_waf_exception_list.htm schickt Entfernen nicht an die eigene Seite"
+else
+	fail "interface/templates/malwatch_waf_exception_list.htm fehlt"
+fi
+grep -q 'data-load-content="security/malwatch_waf_exception_list.php"' "$root/interface/templates/malwatch_waf_list.htm" \
+	|| fail "malwatch_waf_list.htm fuehrt nicht zur Ausnahmeliste"
+
+# 59. Die Einstellungsseite der Abwehr bekommt ihre Texte von tform, und tform
+#     liest nur de_/en_malwatch_waf_config.lng. Ein Schluessel aus einer
+#     anderen Sprachdatei besteht Pruefung 9 und bleibt trotzdem leer. Den
+#     Token prueft tform beim Speichern selbst; eine eigene Pruefung der Seite
+#     verbraucht ihn vorher, und das Speichern scheitert. Ueberschriften als
+#     p.fieldset-legend blendet ispconfig.css aus.
+cfg_tpl="$root/interface/templates/malwatch_waf_config_edit.htm"
+if [ -f "$cfg_tpl" ]; then
+	for key in $(grep -ohE "tmpl_var name=['\"][a-z_]+_txt['\"]" "$cfg_tpl" | sed -E "s/.*['\"]([a-z_]+_txt)['\"]/\1/" | sort -u); do
+		for lang in de en; do
+			grep -qE "\\\$wb\['$key'\]" "$root/interface/lang/${lang}_malwatch_waf_config.lng" 2>/dev/null \
+				|| fail "malwatch_waf_config_edit.htm nutzt {$key}, das ${lang}_malwatch_waf_config.lng nicht setzt"
+		done
+	done
+	grep -q 'data-form-action="security/malwatch_waf_config_edit.php"' "$cfg_tpl" \
+		|| fail "malwatch_waf_config_edit.htm speichert nicht ueber die eigene Seite"
+	grep -q 'formbutton-success' "$cfg_tpl" \
+		|| fail "malwatch_waf_config_edit.htm hat keinen Knopf formbutton-success; Enter speichert dann nicht"
+	if grep -q 'class="fieldset-legend"' "$cfg_tpl"; then
+		fail "malwatch_waf_config_edit.htm setzt Ueberschriften als p.fieldset-legend; ispconfig.css blendet sie aus"
+	fi
+else
+	fail "interface/templates/malwatch_waf_config_edit.htm fehlt"
+fi
+if grep -q -- '->csrf_token_check(' "$root/interface/malwatch_waf_config_edit.php" 2>/dev/null; then
+	fail "malwatch_waf_config_edit.php prueft den Token selbst; tform findet ihn danach nicht mehr"
+fi
+
 # 60. No template gives an element the class fieldset-legend. ispconfig.css
 #     hides p.fieldset-legend (display:none): the section headings of the
 #     settings page never showed, and scrollIntoView() on a hidden jump

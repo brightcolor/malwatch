@@ -55,6 +55,20 @@ $pages = array(
 	'malwatch_dump_list.php',
 	// JSON for the database picker, for the website the run picked.
 	'malwatch_dump_databases.php',
+	// Abwehr: the overview, once with a filter and the day view.
+	'malwatch_waf_list.php',
+	'malwatch_waf_list.php?days=1&state=detect',
+	// Abwehr: the website the run picked, over the longest period on offer.
+	'malwatch_waf_show.php',
+	'malwatch_waf_show.php?days=90',
+	// Abwehr: every exception, once filtered by a state.
+	'malwatch_waf_exception_list.php',
+	'malwatch_waf_exception_list.php?state=active',
+	// Abwehr: the settings, a form page like malwatch_config_edit.php.
+	'malwatch_waf_config_edit.php',
+	// JSON of the WAF jobs and of an exception preview on the website the run picked.
+	'malwatch_waf_jobs.php',
+	'malwatch_waf_preview.php?exc_scope=site&exc_rule=942100',
 );
 
 // Parent process: pick a website, then run each page as a child.
@@ -147,6 +161,8 @@ try {
 $mw_json = array(
 	'malwatch_upgrade_versions.php' => array('key' => 'choices', 'least' => 1, 'what' => 'versions'),
 	'malwatch_dump_databases.php' => array('key' => 'rows', 'least' => 0, 'what' => 'databases'),
+	'malwatch_waf_jobs.php' => array('key' => 'jobs', 'least' => 0, 'what' => 'jobs'),
+	'malwatch_waf_preview.php' => array('key' => 'preview', 'least' => 2, 'what' => 'figures'),
 );
 if (isset($mw_json[$mw_file])) {
 	$expect = $mw_json[$mw_file];

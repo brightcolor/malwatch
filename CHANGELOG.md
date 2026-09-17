@@ -2,6 +2,55 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.19.0] – 2026-09-17
+
+### Neu
+
+**Abwehr.** Unter **Security > Abwehr** steht die WAF aller Websites auf einer
+Seite. Der Kopf fasst zusammen, wie viele Websites mitschreiben und blockieren und
+wie viele Anfragen im gewählten Zeitraum abgewiesen worden wären. Die Liste zeigt
+je Website den Zustand, die Treffer mit ihrem Verlauf je Tag, „wäre abgewiesen“ und
+die häufigste Regel. Gefiltert wird nach Zustand, WordPress und Treffern; die
+Zeiträume reichen bis zur Aufbewahrung der Tageszahlen. Angehakte Websites wechseln
+gemeinsam auf „mitschreiben“, „scharf“ oder „aus“.
+
+**Website im Detail.** Die Seite einer Website zeigt den Verlauf, die Regeln im
+Klartext mit ihren häufigsten Pfaden und die gespeicherten Anfragen mit Kopfzeilen
+und Anfrageinhalt. Die Seitenantwort öffnet als Text in einem eigenen Fenster.
+„scharf“ wird frei, sobald die Website lange genug mitschreibt; die Vorschau nennt
+vorher, wie viele Anfragen der letzten Tage abgewiesen worden wären und wie viele
+davon von angemeldeten Nutzern kamen.
+
+**Ausnahmen per Knopf.** „Ausnahme …“ an einer Regel oder Anfrage füllt das
+Formular der Seite: für die Website, einen Pfad, einen Parameter oder alle
+Websites. Die Vorschau zählt, wie viele Treffer der letzten Tage die Ausnahme
+verhindert hätte. Eigene Regeln und die Punktwertung nimmt das Formular nicht an.
+Die Seite „Ausnahmen“ listet alle mit Zustand und Fehlergrund.
+
+**Notaus und Seitenantwort.** „Notaus“ schaltet die Regeln auf allen Websites ab
+und setzt scharfe Websites auf „mitschreiben“; ein rotes Band steht auf der Seite,
+bis „Notaus beenden“ folgt. Der Knopf „Seitenantwort“ wechselt zwischen
+vollständig und schlank.
+
+**Einstellungen der Abwehr.** Die Aufbewahrung der Anfragen, der Tageszahlen und
+des Audit-Logs, die Mindestdauer vor „scharf“, der Zeitraum der Vorschau, die
+Zeilen je Durchgang und die Frist für den vhost stehen auf einer eigenen Seite.
+
+### Geändert
+
+**Aufträge im Cron.** Jeder Knopf legt einen Auftrag an. Der malwatch-Cron liest
+jede Minute das Audit-Log ein und führt die Aufträge nacheinander aus, den Notaus
+zuerst. Jede Dateiänderung läuft über eine Kopie, `modsec-rules-check` und
+`nginx -t`, erst dann tauscht der Auftrag die Dateien und lädt nginx neu. Scheitert
+eine Prüfung, bleibt der vorherige Stand, und der Auftrag nennt den Grund.
+
+**WAF-Werkzeuge mit neuen Namen.** Auf dem Server heißen die Werkzeuge
+`waf-switch`, `waf-guard` und `waf-report`, die Dateien unter `/etc/nginx/waf`
+tragen englische Namen. `waf/install.sh` stellt einen bestehenden Server um und
+entfernt die alten Namen nach dem erfolgreichen Reload.
+
+**Deinstallieren** löscht auch die Tabellen der Dumps und der Datenbankliste.
+
 ## [0.18.0] – 2026-09-15
 
 ### Neu

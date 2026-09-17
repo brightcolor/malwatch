@@ -5642,7 +5642,8 @@ unlesbare Zeilen kommen mit Anzahl ins Protokoll; Adressen und Anfrageinhalte ni
 ssh ispconfig 'mysql -e "DROP DATABASE IF EXISTS mw_waf_probe"; rm -rf /root/waf-abwehr-stage /tmp/waf-probe-*; mysql -N -e "SHOW DATABASES LIKE '"'"'mw\_%'"'"'"; ls -d /root/waf-abwehr-stage 2>&1 | tail -1; date "+%d.%m.%Y, %H:%M:%S %Z"'
 ```
 
-Expected: keine Datenbank, `No such file or directory`, die Uhrzeit für das Protokoll.
+Expected: keine Datenbank `mw_waf_probe` (andere Datenbanken, deren Name mit `mw_` beginnt, bleiben
+unberührt), `No such file or directory`, die Uhrzeit für das Protokoll.
 
 - [ ] **Schritt 9: Protokoll**
 

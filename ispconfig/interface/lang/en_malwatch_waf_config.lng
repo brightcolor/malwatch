@@ -1,0 +1,48 @@
+<?php
+$wb['waf_config_head_txt'] = 'Abwehr – settings';
+$wb['waf_tab_txt'] = 'Settings';
+$wb['waf_config_desc_txt'] = 'Applies to every website on this server. The malwatch cron reads the values at every pass; a job writes the retention of the audit log into the logrotate file.';
+
+$wb['keep_head_txt'] = 'Retention';
+$wb['waf_detail_days_txt'] = 'Single requests (days)';
+$wb['waf_detail_days_hint_txt'] = 'Headers, request body and response body per hit. The day figures stay afterwards.';
+$wb['waf_stats_days_txt'] = 'Day figures (days)';
+$wb['waf_stats_days_hint_txt'] = 'Hits per day, rule and path. The longest period of the overview follows this value.';
+$wb['waf_log_keep_days_txt'] = 'Audit log (days)';
+$wb['waf_log_keep_days_hint_txt'] = 'logrotate rotates the audit log daily and keeps this many copies.';
+
+$wb['enforce_head_txt'] = 'Enforcing';
+$wb['waf_min_detect_days_txt'] = 'Detect before "enforce" (days)';
+$wb['waf_min_detect_days_hint_txt'] = 'A website detects this long before the button "enforce" is free. 0 frees it at once.';
+$wb['waf_preview_days_txt'] = 'Preview (days)';
+$wb['waf_preview_days_hint_txt'] = 'The preview for "enforce" and for exceptions counts over this period.';
+
+$wb['cron_head_txt'] = 'Cron';
+$wb['waf_ingest_max_lines_txt'] = 'Lines per pass';
+$wb['waf_ingest_max_lines_hint_txt'] = 'A pass reads at most this many lines of the audit log; the next pass reads the rest.';
+$wb['waf_job_deadline_minutes_txt'] = 'Deadline for the vhost (minutes)';
+$wb['waf_job_deadline_minutes_hint_txt'] = 'A change of state waits this long for ISPConfig to rewrite the vhost. After that the job takes the change back.';
+
+$wb['facts_head_txt'] = 'State on the server';
+$wb['audit_log_txt'] = 'Audit log';
+$wb['conf_dir_txt'] = 'Rule directory';
+$wb['response_body_txt'] = 'Response body';
+$wb['response_full_txt'] = 'full';
+$wb['response_lean_txt'] = 'lean';
+$wb['emergency_txt'] = 'Emergency stop';
+$wb['emergency_off_txt'] = 'off';
+$wb['emergency_on_txt'] = 'active since %s';
+$wb['facts_hint_txt'] = 'waf/install.sh sets the paths. The buttons on the overview switch the response body and the emergency stop.';
+
+$wb['btn_save_txt'] = 'Save settings';
+$wb['btn_back_txt'] = 'Back to the overview';
+$wb['msg_saved_txt'] = 'Saved. The cron applies the values with its next pass.';
+$wb['msg_saved_no_server_txt'] = 'Saved. No active web server is registered, so no job waits.';
+
+$wb['waf_detail_days_error_range'] = 'Single requests: 1 to 3650 days.';
+$wb['waf_stats_days_error_range'] = 'Day figures: 1 to 3650 days.';
+$wb['waf_log_keep_days_error_range'] = 'Audit log: 1 to 365 days.';
+$wb['waf_preview_days_error_range'] = 'Preview: 1 to 365 days.';
+$wb['waf_min_detect_days_error_range'] = 'Detect before "enforce": 0 to 365 days.';
+$wb['waf_ingest_max_lines_error_range'] = 'Lines per pass: 100 to 100000.';
+$wb['waf_job_deadline_minutes_error_range'] = 'Deadline for the vhost: 2 to 120 minutes.';

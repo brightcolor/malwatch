@@ -50,6 +50,15 @@ $items[] = array(
 	'html_id' => 'security_vulns'
 );
 
+// The WAF per website: switch it, read its hits, add exceptions. Next to the
+// vulnerabilities, since both look at the same websites from two sides.
+$items[] = array(
+	'title'   => 'Abwehr',
+	'target'  => 'content',
+	'link'    => 'security/malwatch_waf_list.php',
+	'html_id' => 'security_waf'
+);
+
 $items[] = array(
 	'title'   => 'Quarantäne',
 	'target'  => 'content',

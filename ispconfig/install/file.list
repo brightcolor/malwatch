@@ -33,6 +33,20 @@ c:interface/malwatch_vuln_list.php:interface/web/security/malwatch_vuln_list.php
 c:interface/malwatch_dump_list.php:interface/web/security/malwatch_dump_list.php
 c:interface/malwatch_dump_databases.php:interface/web/security/malwatch_dump_databases.php
 c:interface/malwatch_dump_download.php:interface/web/security/malwatch_dump_download.php
+c:interface/malwatch_waf_jobs.php:interface/web/security/malwatch_waf_jobs.php
+c:interface/malwatch_waf_preview.php:interface/web/security/malwatch_waf_preview.php
+c:interface/malwatch_waf_response.php:interface/web/security/malwatch_waf_response.php
+c:interface/malwatch_waf_list.php:interface/web/security/malwatch_waf_list.php
+c:interface/templates/malwatch_waf_list.htm:interface/web/security/templates/malwatch_waf_list.htm
+c:interface/malwatch_waf_show.php:interface/web/security/malwatch_waf_show.php
+c:interface/templates/malwatch_waf_show.htm:interface/web/security/templates/malwatch_waf_show.htm
+c:interface/malwatch_waf_exception_list.php:interface/web/security/malwatch_waf_exception_list.php
+c:interface/templates/malwatch_waf_exception_list.htm:interface/web/security/templates/malwatch_waf_exception_list.htm
+c:interface/malwatch_waf_config_edit.php:interface/web/security/malwatch_waf_config_edit.php
+c:interface/templates/malwatch_waf_config_edit.htm:interface/web/security/templates/malwatch_waf_config_edit.htm
+c:interface/form/malwatch_waf_config.tform.php:interface/web/security/form/malwatch_waf_config.tform.php
+c:interface/lang/de_malwatch_waf_config.lng:interface/web/security/lib/lang/de_malwatch_waf_config.lng
+c:interface/lang/en_malwatch_waf_config.lng:interface/web/security/lib/lang/en_malwatch_waf_config.lng
 c:interface/templates/malwatch_dump_list.htm:interface/web/security/templates/malwatch_dump_list.htm
 c:interface/lang/de_malwatch_dump.lng:interface/web/security/lib/lang/de_malwatch_dump.lng
 c:interface/lang/en_malwatch_dump.lng:interface/web/security/lib/lang/en_malwatch_dump.lng
@@ -91,6 +105,7 @@ c:server/lib/classes/malwatch_helper.inc.php:server/lib/classes/malwatch_helper.
 c:server/lib/classes/malwatch_runner.inc.php:server/lib/classes/malwatch_runner.inc.php
 c:server/lib/classes/malwatch_ingest.inc.php:server/lib/classes/malwatch_ingest.inc.php
 c:server/lib/classes/malwatch_actions.inc.php:server/lib/classes/malwatch_actions.inc.php
+c:server/lib/classes/malwatch_waf.inc.php:server/lib/classes/malwatch_waf.inc.php
 c:server/lib/classes/cron.d/560-malwatch.inc.php:server/lib/classes/cron.d/560-malwatch.inc.php
 
 c:server/conf/malwatch_notification_de.txt:server/conf/malwatch_notification_de.txt
@@ -111,3 +126,6 @@ c:interface/lib/malwatch_lib.inc.php:interface/web/security/lib/malwatch_lib.inc
 # Pure functions of the WAF part; the server class and the tools under waf/
 # include them from this installed path.
 c:interface/lib/malwatch_waf_lib.inc.php:interface/web/security/lib/malwatch_waf_lib.inc.php
+c:interface/lib/malwatch_waf_panel.inc.php:interface/web/security/lib/malwatch_waf_panel.inc.php
+c:interface/lang/de_malwatch_waf.lng:interface/web/security/lib/lang/de_malwatch_waf.lng
+c:interface/lang/en_malwatch_waf.lng:interface/web/security/lib/lang/en_malwatch_waf.lng
