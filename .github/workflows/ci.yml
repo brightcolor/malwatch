@@ -53,6 +53,8 @@ jobs:
         run: php ispconfig/tests/waf_panel_post_test.php
       - name: WAF rule catalog
         run: php ispconfig/tests/waf_rules_catalog_test.php
+      - name: WAF origin ranges
+        run: php ispconfig/tests/waf_origin_test.php
       - name: WAF tools
         run: |
           php -l waf/waf-switch
