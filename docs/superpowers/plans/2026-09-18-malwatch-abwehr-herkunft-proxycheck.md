@@ -1495,11 +1495,11 @@ for site in bright-color.de "$ZWEITE" "$DRITTE"; do curl -s -o /dev/null -w "%{h
 
 #### Block 1: Staging-Kopie, Schema und Proben
 
-- [ ] **Step 1: Freigabe einholen**
+- [x] **Step 1: Freigabe einholen**
 
 Mathias bekommt vorgelegt: „C7, Block 1: Ich kopiere den Stand nach `/root/mw-0220-src` und `/root/mw-0220-stage`, prüfe Syntax und Tests, sichere die Struktur der betroffenen Tabellen und lade das Schema: zwei Spalten in `malwatch_config`, der Wert `proxycheck` in der Auswahl des Netzes und zwei Spalten in `malwatch_waf_origin_source`. Danach läuft die Klassenprobe gegen eine Wegwerf-Datenbank — sie fragt keinen echten Dienst, die Antwort kommt aus einer Beispieldatei — und ich rendere die Seiten der Kopie gegen die echte Datenbank. Zum Schluss lösche ich Kopie und Wegwerf-Datenbank. nginx, die Websites und die laufende Erweiterung bleiben unberührt." Weiter erst nach seinem Ja.
 
-- [ ] **Step 2: Ausgangslage**
+- [x] **Step 2: Ausgangslage**
 
 Beide Messungen, dazu der Stand der Herkunft:
 
@@ -1509,7 +1509,7 @@ ssh ispconfig 'mysql -N dbispconfig -e "SELECT waf_origin_geo, waf_origin_tor, w
 
 Expected: `dbip torproject x4b`, fünf Quellen mit ihren Zahlen und die Zahl der Adressen. Diese Werte kommen ins Protokoll und sind der Vergleich für Block 4.
 
-- [ ] **Step 3: Kopie, Syntax, Tests**
+- [x] **Step 3: Kopie, Syntax, Tests**
 
 ```bash
 git archive --format=tar HEAD ispconfig waf | ssh ispconfig 'rm -rf /root/mw-0220-src /root/mw-0220-stage && mkdir -p /root/mw-0220-src /root/mw-0220-stage/interface/web && tar -x -C /root/mw-0220-src'
@@ -1543,7 +1543,7 @@ EOF
 
 Expected: keine Zeile aus den Syntaxprüfungen, siebenmal „alle Prüfungen bestanden", Version 0.22.0.
 
-- [ ] **Step 4: Schema laden**
+- [x] **Step 4: Schema laden**
 
 ```bash
 ssh ispconfig 'bash -s' <<'EOF'
@@ -1562,7 +1562,7 @@ EOF
 
 Expected: `waf_origin_proxycheck_daily 500` und `waf_origin_proxycheck_key` (leer), `enum('off','x4b','proxycheck')`, die Spalten `day` und `queries`, und die laufende Einstellung steht weiterhin auf `x4b 500`. Danach beide Messungen.
 
-- [ ] **Step 5: Klassenprobe und Seiten**
+- [x] **Step 5: Klassenprobe und Seiten**
 
 ```bash
 ssh ispconfig 'bash -s' <<'EOF'
@@ -1586,13 +1586,15 @@ EOF
 
 Expected: `waf_class_probe: alle Prüfungen bestanden`, jede Seite `ok`, `All pages render.` Die Klassenprobe fragt keinen Dienst: Ihre Naht `$poster` antwortet aus `tests/fixtures/proxycheck/answer.json`.
 
-- [ ] **Step 6: Aufräumen und Protokoll**
+- [x] **Step 6: Aufräumen und Protokoll**
 
 ```bash
 ssh ispconfig 'rm -rf /root/mw-0220-src /root/mw-0220-stage; mysql -N -e "SHOW DATABASES LIKE \"mw_probe_0220\""; date "+%d.%m.%Y, %H:%M:%S %Z"'
 ```
 
 Expected: keine Datenbank mehr, die Uhrzeit fürs Protokoll. Danach beide Messungen und der Eintrag ins Serverprotokoll (frisch lesen, gezielt einfügen) mit den Werten der Ausgangslage, dem Ergebnis der Probe und dem Rückweg (die zwei Spalten und der erweiterte enum bleiben folgenlos liegen, solange proxycheck.io aus ist).
+
+Ergebnis am 18.09.2026, 01:18:31–01:19:50 CEST (Protokolleintrag „Schema und Proben für proxycheck.io"): sieben Testreihen und die Klassenprobe im ersten Anlauf bestanden, Schema geladen (`enum('off','x4b','proxycheck')`, Schlüssel leer, Tageslimit 500, `day` und `queries` da), 25 Seiten gerendert, die Einstellungsseite zeigt die drei neuen Texte. Ausgangslage: fünf Quellen, 30 Adressen, Last 1,24, 5.700 MB frei. Danach aufgeräumt; Messwerte unverändert im Rahmen.
 
 #### Block 2: Veröffentlichen
 
