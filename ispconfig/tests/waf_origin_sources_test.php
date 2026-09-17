@@ -145,6 +145,25 @@ foreach (glob($dir . '/*') as $name) {
 }
 @rmdir($dir);
 
+// --- B4: when a source is due -------------------------------------------------
+
+$settings = array('waf_origin_geo' => 'dbip', 'waf_origin_tor' => 'torproject', 'waf_origin_net' => 'off',
+	'waf_origin_tor_hours' => 1, 'waf_origin_list_hours' => 24, 'waf_origin_db_hours' => 24);
+$now = '2026-09-17 20:00:00';
+expect_same('a source without a row is due', waf_origin_due('tor', null, $settings, $now), true);
+expect_same('a source checked long ago is due',
+	waf_origin_due('tor', array('checked_at' => '2026-09-17 18:30:00'), $settings, $now), true);
+expect_same('a source checked just now waits',
+	waf_origin_due('tor', array('checked_at' => '2026-09-17 19:30:00'), $settings, $now), false);
+expect_same('the database sources follow their own hours',
+	waf_origin_due('dbip_country', array('checked_at' => '2026-09-17 08:00:00'), $settings, $now), false);
+expect_same('the database sources after a day',
+	waf_origin_due('dbip_country', array('checked_at' => '2026-09-16 08:00:00'), $settings, $now), true);
+expect_same('a source that is off is never due',
+	waf_origin_due('x4b_vpn', null, $settings, $now), false);
+expect_same('an unknown source is never due', waf_origin_due('gibt-es-nicht', null, $settings, $now), false);
+expect_same('a row without a time is due', waf_origin_due('tor', array('checked_at' => null), $settings, $now), true);
+
 // --- summary -----------------------------------------------------------------
 if ($failures > 0) {
 	fwrite(STDERR, $failures . " Fehler\n");

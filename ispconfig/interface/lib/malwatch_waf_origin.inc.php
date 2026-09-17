@@ -698,3 +698,28 @@ function waf_origin_check($name, $counts, $previous)
 	}
 	return '';
 }
+
+/**
+ * Whether a source has to be looked at again. A source the settings leave off
+ * is never due; one without a row or without a time always is. $row is its row
+ * of malwatch_waf_origin_source, $now the time of the database.
+ */
+function waf_origin_due($name, $row, $settings, $now)
+{
+	$sources = waf_origin_sources();
+	if (!isset($sources[$name]) || !in_array($name, waf_origin_chosen($settings), true)) {
+		return false;
+	}
+	$checked = is_array($row) && isset($row['checked_at']) ? (string) $row['checked_at'] : '';
+	if ($checked === '' || $checked === '0000-00-00 00:00:00') {
+		return true;
+	}
+	$hours = isset($settings[$sources[$name]['hours']]) ? (int) $settings[$sources[$name]['hours']] : 24;
+	$hours = $hours < 1 ? 1 : $hours;
+	$then = strtotime($checked);
+	$point = strtotime((string) $now);
+	if ($then === false || $point === false) {
+		return true;
+	}
+	return $point - $then >= $hours * 3600;
+}

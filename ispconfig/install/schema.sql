@@ -983,6 +983,22 @@ SET @mw := (SELECT IF(COUNT(*) = 0,
   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_config' AND COLUMN_NAME = 'waf_origin_geo');
 PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
+--
+-- One row per server and origin source: which release is in use, when it was
+-- last checked and loaded, how many ranges it holds and what went wrong last.
+--
+CREATE TABLE IF NOT EXISTS `malwatch_waf_origin_source` (
+  `server_id` int(11) unsigned NOT NULL DEFAULT '0',
+  `source` varchar(32) NOT NULL DEFAULT '',
+  `version` varchar(32) NOT NULL DEFAULT '',
+  `checked_at` datetime DEFAULT NULL,
+  `fetched_at` datetime DEFAULT NULL,
+  `entries` int(11) unsigned NOT NULL DEFAULT '0',
+  `error` varchar(255) NOT NULL DEFAULT '',
+  `error_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`server_id`,`source`)
+) DEFAULT CHARSET=utf8mb4 ;
+
 -- waf carries the jobs of the page Abwehr. The malwatch cron works on them
 -- itself (malwatch_waf::run_jobs); the runner never starts one.
 SET @mw := (SELECT IF(COUNT(*) = 0,

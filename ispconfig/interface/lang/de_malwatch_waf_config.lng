@@ -23,6 +23,8 @@ $wb['waf_card_hits_hint_txt'] = 'So viele jüngste Einzeltreffer einer Website l
 
 $wb['origin_head_txt'] = 'Herkunft der Adressen';
 $wb['origin_intro_txt'] = 'Aus diesen Quellen bestimmt der Server Land, Provider und die Merkmale Tor, VPN und Rechenzentrum. Die Vorgabe ist „aus“: Erst mit einer Wahl lädt der Server eine Liste herunter.';
+$wb['origin_state_head_txt'] = 'Stand der gewählten Quellen';
+$wb['origin_state_none_chosen_txt'] = 'Es ist keine Quelle gewählt.';
 $wb['origin_off_txt'] = 'aus';
 $wb['origin_geo_dbip_txt'] = 'DB-IP Lite (frei, Namensnennung)';
 $wb['origin_geo_maxmind_txt'] = 'MaxMind GeoLite2 (Konto nötig)';

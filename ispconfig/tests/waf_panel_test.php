@@ -528,6 +528,34 @@ expect_same('mask of a short key', waf_panel_key_mask('AB'), '••••AB');
 expect_same('mask without a key', waf_panel_key_mask(''), '');
 expect_same('mask of something that is no text', waf_panel_key_mask(null), '');
 
+// --- B4: the state of the sources ---------------------------------------------
+
+$origin_settings = array('waf_origin_geo' => 'dbip', 'waf_origin_tor' => 'torproject', 'waf_origin_net' => 'off',
+	'waf_origin_tor_hours' => 1, 'waf_origin_list_hours' => 24, 'waf_origin_db_hours' => 24);
+$origin_rows = array(
+	'dbip_country' => array('source' => 'dbip_country', 'version' => '2026-09', 'entries' => '512345',
+		'fetched_at' => '2026-09-17 06:00:00', 'checked_at' => '2026-09-17 06:00:00', 'error' => '', 'error_at' => null),
+	'dbip_asn' => array('source' => 'dbip_asn', 'version' => '2026-09', 'entries' => '410000',
+		'fetched_at' => '2026-09-17 06:00:10', 'checked_at' => '2026-09-17 06:00:10',
+		'error' => 'Die Quelle dbip_asn liefert nur 12 Bereiche.', 'error_at' => '2026-09-17 18:00:00'),
+);
+expect_same('a time of the database', waf_panel_time_label('2026-09-17 06:00:00'), '17.09.2026 06:00');
+expect_same('a time that is none', waf_panel_time_label('0000-00-00 00:00:00'), '');
+$origin_view = waf_panel_origin_rows($wb, $origin_settings, $origin_rows, '2026-09-17 20:00:00');
+expect_same('a row for every chosen source', array_column($origin_view, 'source'),
+	array('dbip_country', 'dbip_asn', 'tor'));
+expect_same('the source in words', $origin_view[0]['label'], 'DB-IP Lite: Land');
+expect_same('the state of a loaded source', $origin_view[0]['state'],
+	'Stand 2026-09, 512.345 Bereiche, geladen am 17.09.2026 06:00');
+expect_same('a source with an error', array($origin_view[1]['failed'], $origin_view[1]['state']),
+	array(1, 'Die Quelle dbip_asn liefert nur 12 Bereiche. Es gilt der Stand von 17.09.2026 06:00.'));
+expect_same('a source that never loaded', array($origin_view[2]['failed'], $origin_view[2]['state']),
+	array(0, 'Noch nicht geladen. Der Cron holt die Liste beim nächsten stündlichen Durchgang.'));
+expect_same('the line of the overview', waf_panel_origin_line($wb, $origin_settings, $origin_rows),
+	'Herkunft: DB-IP Lite: Land 512.345 Bereiche, DB-IP Lite: Netz 410.000 Bereiche, Tor noch nicht geladen.');
+expect_same('the line with everything off', waf_panel_origin_line($wb, array(), array()),
+	'Herkunft der Adressen ist aus.');
+
 // --- summary -----------------------------------------------------------------
 if ($failures > 0) {
 	fwrite(STDERR, $failures . " Fehler\n");

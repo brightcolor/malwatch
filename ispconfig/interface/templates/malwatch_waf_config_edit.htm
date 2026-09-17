@@ -130,6 +130,15 @@
 	</div>
 </div>
 
+<p class="mw-wafcfg-note"><strong>{tmpl_var name='origin_state_head_txt'}</strong></p>
+<tmpl_if name="has_origin_states">
+<ul class="mw-wafcfg-states">
+	<tmpl_loop name="origin_states"><li><strong>{tmpl_var name='origin_label'}</strong> <span<tmpl_if name="origin_failed"> class="mw-wafcfg-failed"</tmpl_if>>{tmpl_var name='origin_state'}</span></li></tmpl_loop>
+</ul>
+<tmpl_else>
+<p class="mw-wafcfg-note">{tmpl_var name='origin_state_none_chosen_txt'}</p>
+</tmpl_if>
+
 <p class="mw-wafcfg-head">{tmpl_var name='cron_head_txt'}</p>
 
 <div class="form-group">
@@ -176,6 +185,8 @@
 .mw-wafcfg-num{max-width:14ch}
 .mw-wafcfg-note{max-width:80ch;opacity:.8;font-size:13px;margin:0 0 10px}
 .mw-wafcfg-clear{display:inline-flex;gap:6px;align-items:center;font-weight:400;margin:4px 0 0}
+.mw-wafcfg-states{margin:0 0 12px;padding-left:18px;font-size:13px;max-width:90ch}
+.mw-wafcfg-failed{color:var(--cic-bad-text,#d13f22)}
 .mw-wafcfg-facts{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:6px 18px;margin:0 0 8px}
 .mw-wafcfg-facts dt{font-weight:400;opacity:.72}
 .mw-wafcfg-facts dd{margin:0;word-break:break-all}

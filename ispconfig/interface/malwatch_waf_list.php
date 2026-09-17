@@ -125,6 +125,11 @@ $app->tpl->setVar('has_rows', count($rows) > 0 ? 1 : 0);
 $app->tpl->setVar('selected_template', $app->functions->htmlentities(
 	sprintf($wb['selected_template_txt'], number_format(count($rows), 0, ',', '.'))));
 $app->tpl->setVar('selected_none', $app->functions->htmlentities($wb['selected_none_txt']));
+$origin_states = array();
+foreach (waf_panel_rows($app->db->queryAllRecords('SELECT * FROM malwatch_waf_origin_source')) as $row) {
+	$origin_states[(string) $row['source']] = $row;
+}
+$app->tpl->setVar('origin_line', $app->functions->htmlentities(waf_panel_origin_line($wb, $settings, $origin_states)));
 
 $link = 'security/malwatch_waf_list.php?';
 $periods = array();

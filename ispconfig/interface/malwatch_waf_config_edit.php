@@ -138,6 +138,22 @@ class page_action extends tform_actions
 		$app->tpl->setVar('waf_origin_maxmind_key', $app->functions->htmlentities(waf_panel_key_mask($this->waf_stored_key)));
 		$app->tpl->setVar('origin_key_stored', $this->waf_stored_key === '' ? 0 : 1);
 
+		$clock = waf_panel_clock($app);
+		$states = array();
+		foreach (waf_panel_rows($app->db->queryAllRecords('SELECT * FROM malwatch_waf_origin_source')) as $row) {
+			$states[(string) $row['source']] = $row;
+		}
+		$origin_rows = array();
+		foreach (waf_panel_origin_rows($this->waf_wb, $settings, $states, $clock['now']) as $row) {
+			$origin_rows[] = array(
+				'origin_label' => $app->functions->htmlentities($row['label']),
+				'origin_state' => $app->functions->htmlentities($row['state']),
+				'origin_failed' => $row['failed'],
+			);
+		}
+		$app->tpl->setLoop('origin_states', $origin_rows);
+		$app->tpl->setVar('has_origin_states', count($origin_rows) > 0 ? 1 : 0);
+
 		parent::onShowEnd();
 	}
 }

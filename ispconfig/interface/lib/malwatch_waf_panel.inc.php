@@ -10,6 +10,7 @@
  */
 
 require_once __DIR__ . '/malwatch_waf_lib.inc.php';
+require_once __DIR__ . '/malwatch_waf_origin.inc.php';
 
 /** A language line, or $fallback when the file lacks it. */
 function waf_panel_text($wb, $key, $fallback)
@@ -551,6 +552,65 @@ function waf_panel_key_mask($key)
 {
 	$key = is_string($key) ? trim($key) : '';
 	return $key === '' ? '' : '••••' . substr($key, -4);
+}
+
+/** A time of the database as the pages print it; '' when there is none. */
+function waf_panel_time_label($value)
+{
+	$value = (string) $value;
+	$time = $value === '' || $value === '0000-00-00 00:00:00' ? false : strtotime($value);
+	return $time === false || $time <= 0 ? '' : date('d.m.Y H:i', $time);
+}
+
+/**
+ * The state of every chosen source for the settings page: its name, what the
+ * last pass found and whether the last attempt failed. $rows are the rows of
+ * malwatch_waf_origin_source keyed by source.
+ */
+function waf_panel_origin_rows($wb, $settings, $rows, $now)
+{
+	$view = array();
+	foreach (waf_origin_chosen($settings) as $name) {
+		$row = isset($rows[$name]) ? $rows[$name] : null;
+		$entries = is_array($row) ? (int) $row['entries'] : 0;
+		$version = is_array($row) ? (string) $row['version'] : '';
+		$fetched = is_array($row) ? waf_panel_time_label($row['fetched_at']) : '';
+		$error = is_array($row) ? (string) $row['error'] : '';
+		if ($fetched === '') {
+			$state = waf_panel_text($wb, 'origin_state_none_txt', '');
+		} elseif ($version !== '') {
+			$state = sprintf(waf_panel_text($wb, 'origin_state_txt', '%1$s %2$s %3$s'), $version,
+				number_format($entries, 0, ',', '.'), $fetched);
+		} else {
+			$state = sprintf(waf_panel_text($wb, 'origin_state_list_txt', '%1$s %2$s'),
+				number_format($entries, 0, ',', '.'), $fetched);
+		}
+		if ($error !== '') {
+			$state = $error . ' ' . ($fetched === '' ? waf_panel_text($wb, 'origin_state_none_hint_txt', '')
+				: sprintf(waf_panel_text($wb, 'origin_state_keep_txt', '%s'), $fetched));
+		}
+		$view[] = array(
+			'source' => $name,
+			'label' => waf_panel_text($wb, 'origin_source_' . $name . '_txt', $name),
+			'state' => $state,
+			'entries' => $entries,
+			'failed' => $error !== '' ? 1 : 0,
+		);
+	}
+	return $view;
+}
+
+/** The line of the overview: the chosen sources in short, or that the origin is off. */
+function waf_panel_origin_line($wb, $settings, $rows)
+{
+	$parts = array();
+	foreach (waf_panel_origin_rows($wb, $settings, $rows, '') as $row) {
+		$parts[] = $row['label'] . ' ' . ($row['entries'] > 0
+			? sprintf(waf_panel_text($wb, 'origin_line_entries_txt', '%s'), number_format($row['entries'], 0, ',', '.'))
+			: waf_panel_text($wb, 'origin_line_none_txt', ''));
+	}
+	return count($parts) === 0 ? waf_panel_text($wb, 'origin_line_off_txt', '')
+		: sprintf(waf_panel_text($wb, 'origin_line_txt', '%s'), implode(', ', $parts));
 }
 
 /**

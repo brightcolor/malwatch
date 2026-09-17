@@ -262,3 +262,22 @@ $wb['ip_filter_clear_txt'] = 'Remove filter';
 $wb['ip_filter_none_txt'] = 'No request from this address is stored.';
 $wb['ip_filter_invalid_txt'] = '"%s" is not a valid IP address. The list therefore shows every stored request; to filter, click an address on a rule card or in a request.';
 $wb['ip_only_txt'] = 'Only requests from this address';
+
+// The sources of the origin and their state.
+$wb['origin_source_dbip_country_txt'] = 'DB-IP Lite: country';
+$wb['origin_source_dbip_asn_txt'] = 'DB-IP Lite: network';
+$wb['origin_source_maxmind_country_txt'] = 'GeoLite2: country';
+$wb['origin_source_maxmind_asn_txt'] = 'GeoLite2: network';
+$wb['origin_source_tor_txt'] = 'Tor';
+$wb['origin_source_x4b_vpn_txt'] = 'X4BNet: VPN';
+$wb['origin_source_x4b_datacenter_txt'] = 'X4BNet: data centres';
+$wb['origin_state_txt'] = 'Release %1$s, %2$s ranges, loaded on %3$s';
+$wb['origin_state_list_txt'] = '%1$s ranges, loaded on %2$s';
+$wb['origin_state_none_txt'] = 'Not loaded yet. The cron fetches the list with its next hourly pass.';
+$wb['origin_state_none_hint_txt'] = 'There is no release yet; the cron tries again with its next pass.';
+$wb['origin_state_keep_txt'] = 'The release of %s stays in use.';
+$wb['origin_line_txt'] = 'Origin: %s.';
+$wb['origin_line_entries_txt'] = '%s ranges';
+$wb['origin_line_none_txt'] = 'not loaded yet';
+$wb['origin_line_off_txt'] = 'The origin of the addresses is off.';
+$wb['origin_settings_link_txt'] = 'Settings of the origin';

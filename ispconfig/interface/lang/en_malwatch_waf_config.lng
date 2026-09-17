@@ -23,6 +23,8 @@ $wb['waf_card_hits_hint_txt'] = 'The page reads this many of the latest single h
 
 $wb['origin_head_txt'] = 'Origin of the addresses';
 $wb['origin_intro_txt'] = 'The server works out country, provider and the marks Tor, VPN and data centre from these sources. Everything starts as "off": the server downloads a list only after you pick one.';
+$wb['origin_state_head_txt'] = 'State of the chosen sources';
+$wb['origin_state_none_chosen_txt'] = 'No source is chosen.';
 $wb['origin_off_txt'] = 'off';
 $wb['origin_geo_dbip_txt'] = 'DB-IP Lite (free, attribution)';
 $wb['origin_geo_maxmind_txt'] = 'MaxMind GeoLite2 (account needed)';

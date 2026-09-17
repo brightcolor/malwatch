@@ -1,5 +1,6 @@
 -- ISPConfig extension: malwatch - remove the schema.
 DROP TABLE IF EXISTS `malwatch_waf_exception`;
+DROP TABLE IF EXISTS `malwatch_waf_origin_source`;
 DROP TABLE IF EXISTS `malwatch_waf_day`;
 DROP TABLE IF EXISTS `malwatch_waf_site_day`;
 DROP TABLE IF EXISTS `malwatch_waf_hit`;

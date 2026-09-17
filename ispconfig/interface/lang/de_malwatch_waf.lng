@@ -262,3 +262,22 @@ $wb['ip_filter_clear_txt'] = 'Filter aufheben';
 $wb['ip_filter_none_txt'] = 'Von dieser Adresse ist keine Anfrage gespeichert.';
 $wb['ip_filter_invalid_txt'] = '„%s“ ist keine gültige IP-Adresse. Die Liste zeigt deshalb alle gespeicherten Anfragen; zum Filtern eine Adresse in einer Regel-Karte oder einer Anfrage anklicken.';
 $wb['ip_only_txt'] = 'Nur Anfragen dieser Adresse';
+
+// The sources of the origin and their state.
+$wb['origin_source_dbip_country_txt'] = 'DB-IP Lite: Land';
+$wb['origin_source_dbip_asn_txt'] = 'DB-IP Lite: Netz';
+$wb['origin_source_maxmind_country_txt'] = 'GeoLite2: Land';
+$wb['origin_source_maxmind_asn_txt'] = 'GeoLite2: Netz';
+$wb['origin_source_tor_txt'] = 'Tor';
+$wb['origin_source_x4b_vpn_txt'] = 'X4BNet: VPN';
+$wb['origin_source_x4b_datacenter_txt'] = 'X4BNet: Rechenzentren';
+$wb['origin_state_txt'] = 'Stand %1$s, %2$s Bereiche, geladen am %3$s';
+$wb['origin_state_list_txt'] = '%1$s Bereiche, geladen am %2$s';
+$wb['origin_state_none_txt'] = 'Noch nicht geladen. Der Cron holt die Liste beim nächsten stündlichen Durchgang.';
+$wb['origin_state_none_hint_txt'] = 'Es gibt noch keinen Stand; der Cron versucht es beim nächsten Durchgang erneut.';
+$wb['origin_state_keep_txt'] = 'Es gilt der Stand von %s.';
+$wb['origin_line_txt'] = 'Herkunft: %s.';
+$wb['origin_line_entries_txt'] = '%s Bereiche';
+$wb['origin_line_none_txt'] = 'noch nicht geladen';
+$wb['origin_line_off_txt'] = 'Herkunft der Adressen ist aus.';
+$wb['origin_settings_link_txt'] = 'Einstellungen der Herkunft';
