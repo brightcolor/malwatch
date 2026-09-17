@@ -47,6 +47,8 @@ jobs:
         run: php ispconfig/tests/panel_helpers_test.php
       - name: WAF functions
         run: php ispconfig/tests/waf_lib_test.php
+      - name: WAF page helpers
+        run: php ispconfig/tests/waf_panel_test.php
       - name: WAF tools
         run: |
           php -l waf/waf-switch

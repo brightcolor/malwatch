@@ -112,3 +112,6 @@ c:interface/lib/malwatch_lib.inc.php:interface/web/security/lib/malwatch_lib.inc
 # Pure functions of the WAF part; the server class and the tools under waf/
 # include them from this installed path.
 c:interface/lib/malwatch_waf_lib.inc.php:interface/web/security/lib/malwatch_waf_lib.inc.php
+c:interface/lib/malwatch_waf_panel.inc.php:interface/web/security/lib/malwatch_waf_panel.inc.php
+c:interface/lang/de_malwatch_waf.lng:interface/web/security/lib/lang/de_malwatch_waf.lng
+c:interface/lang/en_malwatch_waf.lng:interface/web/security/lib/lang/en_malwatch_waf.lng
