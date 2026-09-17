@@ -35,7 +35,7 @@ Task A3 übernimmt die Punkte 1 bis 6 in die Spec (Abschnitte 2, 4, 5 und 13), T
 4. **Auslöser ohne Stelle:** Für Regeln, deren `data` nur einen Wert enthält (etwa 920440 mit `.bak`), trägt der Katalog eine Vorlage `trigger` wie `Dateiendung „%s“`.
 5. **Obergrenze der Regel-Karten:** Einstellung `waf_card_hits` (Vorgabe 5000, 100 bis 100000). So viele jüngste Einzeltreffer einer Website liest die Seite für Adressen und Auslöser. Ein Scanner erzeugt auf einer Website leicht Hunderttausende Einzeltreffer in sieben Tagen.
 6. **Gruppen:** Die Gruppen 910, 912 und 922 bekommen einen Namen. Jede Gruppe bekommt im Katalog eine Erklärung und eine Klasse für Regeln außerhalb des Katalogs (Stufe 2 bis 4).
-7. **Index für den Adressfilter:** `site_ip` (`parent_domain_id`, `client_ip`, `seen_at`) auf `malwatch_waf_hit`. Liste und Zählung einer Adresse lesen damit nur deren Zeilen. Der Filter kommt nach einem Knopf als verstecktes Feld `ip` zurück, wie `days`.
+7. **Index für den Adressfilter:** `site_ip` (`parent_domain_id`, `client_ip`, `seen_at`) auf `malwatch_waf_hit`. Liste und Zählung einer Adresse lesen damit nur deren Zeilen. Der Filter kommt nach einem Knopf als verstecktes Feld `ip` zurück, wie `days`. Eine Angabe, die keine IP-Adresse ist, lässt die Liste ungefiltert und bekommt eine Meldung mit dem Weg zum Filtern (Vorgabe „Verständliche Fehlermeldungen“ vom 17.09.2026). Nach derselben Vorgabe nennen die Bereichsmeldungen der Einstellungsseite Feld, Grenzen und nächsten Schritt (Task A1).
 8. **Adresse im Einzeltreffer:** Die zugeklappte Zeile bleibt reiner Schalter zum Aufklappen. Aufgeklappt führt „Nur Anfragen dieser Adresse“ zum Filter, und jede Regel trägt ihre Einordnung zusätzlich als Chip.
 
 ## Dateien
@@ -91,7 +91,20 @@ $card = waf_settings(array('waf_card_hits' => '99'));
 expect_same('card hits floor', isset($card['waf_card_hits']) ? $card['waf_card_hits'] : null, 100);
 $card = waf_settings(array('waf_card_hits' => '250000'));
 expect_same('card hits ceiling', isset($card['waf_card_hits']) ? $card['waf_card_hits'] : null, 100000);
+
+// A range message names the limits of its field and what to do next.
+foreach (waf_settings_limits() as $key => $limit) {
+	$errmsg = isset($config_tab['fields'][$key]['validators'][0]['errmsg']) ? $config_tab['fields'][$key]['validators'][0]['errmsg'] : '';
+	$de = isset($config_words['de'][$errmsg]) ? $config_words['de'][$errmsg] : '';
+	$en = isset($config_words['en'][$errmsg]) ? $config_words['en'][$errmsg] : '';
+	expect_same("range message of $key", array(
+		strpos($de, $limit[0] . ' bis ' . $limit[1]) !== false, strpos($de, 'erneut speichern') !== false,
+		strpos($en, $limit[0] . ' to ' . $limit[1]) !== false, strpos($en, 'save again') !== false,
+	), array(true, true, true, true));
+}
 ```
+
+Die Schleife setzt die Regel „Verständliche Fehlermeldungen“ um: Jede Bereichsmeldung nennt Feld, Grenzen und den nächsten Schritt.
 
 In `ispconfig/tests/check_wiring.sh`, Prüfung 51, die Spaltenliste um `waf_card_hits` ergänzen:
 
@@ -104,7 +117,7 @@ for col in waf_detail_days waf_stats_days waf_log_keep_days waf_preview_days waf
 - [ ] **Step 2: Test laufen lassen, er muss scheitern**
 
 Run: `php ispconfig/tests/waf_panel_test.php`
-Expected: FAIL mit `FAIL card hits default: NULL, erwartet 5000` (und den beiden anderen), Exit-Code 1.
+Expected: `10 Fehler`, Exit-Code 1: `FAIL card hits default: NULL, erwartet 5000`, `FAIL card hits floor`, `FAIL card hits ceiling` und `FAIL range message of …` für die sieben bisherigen Felder (Grenzen stimmen, der nächste Schritt fehlt).
 
 - [ ] **Step 3: Vorgabe und Grenze**
 
@@ -123,7 +136,7 @@ In `waf_settings_limits()` nach `'waf_job_deadline_minutes' => array(2, 120),` e
 - [ ] **Step 4: Test laufen lassen**
 
 Run: `php ispconfig/tests/waf_panel_test.php`
-Expected: FAIL, jetzt nur noch mit `settings form edits the numbers only` und den Prüfungen `settings form type of waf_card_hits`, `… range of …`, `… default of …`, `… message of …`, `… label of …`. Die drei Prüfungen aus Step 1 bestehen.
+Expected: `14 Fehler`: `settings form edits the numbers only`, die Prüfungen `settings form type of waf_card_hits`, `… range of …`, `… default of …`, `… message of …`, `… label of …` und `range message of …` für alle acht Felder. Die drei Prüfungen `card hits …` bestehen.
 
 - [ ] **Step 5: Formular, Vorlage, Texte, Schema**
 
@@ -188,10 +201,17 @@ $wb['waf_card_hits_hint_txt'] = 'So viele jüngste Einzeltreffer einer Website l
 
 ```
 
-und nach `$wb['waf_job_deadline_minutes_error_range'] = …;`:
+und die sieben Zeilen von `$wb['waf_detail_days_error_range']` bis `$wb['waf_job_deadline_minutes_error_range']` am Dateiende ersetzen durch:
 
 ```php
-$wb['waf_card_hits_error_range'] = 'Einzeltreffer für die Regel-Karten: 100 bis 100000.';
+$wb['waf_detail_days_error_range'] = 'Einzelne Anfragen (Tage): Erlaubt sind ganze Zahlen von 1 bis 3650. Bitte den Wert anpassen und erneut speichern.';
+$wb['waf_stats_days_error_range'] = 'Tageszahlen (Tage): Erlaubt sind ganze Zahlen von 1 bis 3650. Bitte den Wert anpassen und erneut speichern.';
+$wb['waf_log_keep_days_error_range'] = 'Audit-Log (Tage): Erlaubt sind ganze Zahlen von 1 bis 365. Bitte den Wert anpassen und erneut speichern.';
+$wb['waf_preview_days_error_range'] = 'Vorschau (Tage): Erlaubt sind ganze Zahlen von 1 bis 365. Bitte den Wert anpassen und erneut speichern.';
+$wb['waf_min_detect_days_error_range'] = 'Mitschreiben vor „scharf“ (Tage): Erlaubt sind ganze Zahlen von 0 bis 365. Bitte den Wert anpassen und erneut speichern.';
+$wb['waf_ingest_max_lines_error_range'] = 'Zeilen je Durchgang: Erlaubt sind ganze Zahlen von 100 bis 100000. Bitte den Wert anpassen und erneut speichern.';
+$wb['waf_job_deadline_minutes_error_range'] = 'Frist für den vhost (Minuten): Erlaubt sind ganze Zahlen von 2 bis 120. Bitte den Wert anpassen und erneut speichern.';
+$wb['waf_card_hits_error_range'] = 'Einzeltreffer für die Regel-Karten: Erlaubt sind ganze Zahlen von 100 bis 100000. Bitte den Wert anpassen und erneut speichern.';
 ```
 
 In `ispconfig/interface/lang/en_malwatch_waf_config.lng` an denselben Stellen:
@@ -204,7 +224,14 @@ $wb['waf_card_hits_hint_txt'] = 'The page reads this many of the latest single h
 ```
 
 ```php
-$wb['waf_card_hits_error_range'] = 'Single hits for the rule cards: 100 to 100000.';
+$wb['waf_detail_days_error_range'] = 'Single requests (days): whole numbers from 1 to 3650 are allowed. Please adjust the value and save again.';
+$wb['waf_stats_days_error_range'] = 'Day figures (days): whole numbers from 1 to 3650 are allowed. Please adjust the value and save again.';
+$wb['waf_log_keep_days_error_range'] = 'Audit log (days): whole numbers from 1 to 365 are allowed. Please adjust the value and save again.';
+$wb['waf_preview_days_error_range'] = 'Preview (days): whole numbers from 1 to 365 are allowed. Please adjust the value and save again.';
+$wb['waf_min_detect_days_error_range'] = 'Detect before "enforce" (days): whole numbers from 0 to 365 are allowed. Please adjust the value and save again.';
+$wb['waf_ingest_max_lines_error_range'] = 'Lines per pass: whole numbers from 100 to 100000 are allowed. Please adjust the value and save again.';
+$wb['waf_job_deadline_minutes_error_range'] = 'Deadline for the vhost (minutes): whole numbers from 2 to 120 are allowed. Please adjust the value and save again.';
+$wb['waf_card_hits_error_range'] = 'Single hits for the rule cards: whole numbers from 100 to 100000 are allowed. Please adjust the value and save again.';
 ```
 
 In `ispconfig/install/schema.sql` vor der Zeile `-- waf carries the jobs of the page Abwehr. The malwatch cron works on them` einfügen:
@@ -2589,6 +2616,7 @@ git commit -m "feat(waf): rule catalog for scoring and responses, all 170 rules"
   - `waf_panel_ranked($counts)` → `array(array('key' => string, 'count' => int), …)`, höchste Zahl zuerst, bei Gleichstand nach Schlüssel
   - `waf_panel_rule_hits($wb, $catalog, $rows)` → `array(<rule_id> => array('hits' => int, 'logged_in' => int, 'addresses' => ranked, 'triggers' => ranked))`
   - `waf_panel_ip_filter($get)` → gültige IP-Adresse oder `''`
+  - `waf_panel_ip_filter_rejected($get)` → die eingegebene Angabe (höchstens 64 Bytes), wenn sie keine gültige IP-Adresse ist, sonst `''`; Task A8 zeigt dazu eine Meldung
   - `waf_panel_rules($wb, $rows, $catalog = array())`, `waf_panel_enforce($wb, $site, $totals, $rule_rows, $settings, $now, $catalog = array())`
   - `waf_panel_hit($wb, $row, $catalog = array())`: jede Regel trägt zusätzlich `trigger`, `class` (Schlüssel aus `waf_panel_rule_classes()` oder `''`), `class_label`, `class_text`, `note`
 
@@ -2635,6 +2663,11 @@ expect_same('ip filter v6', waf_panel_ip_filter(array('ip' => '2001:db8::1')), '
 expect_same('ip filter rejects text', waf_panel_ip_filter(array('ip' => '192.0.2.7<script>')), '');
 expect_same('ip filter without value', waf_panel_ip_filter(array()), '');
 expect_same('ip filter rejects arrays', waf_panel_ip_filter(array('ip' => array('192.0.2.7'))), '');
+expect_same('ip notice for text', waf_panel_ip_filter_rejected(array('ip' => ' kein-ip ')), 'kein-ip');
+expect_same('ip notice for an address', waf_panel_ip_filter_rejected(array('ip' => '192.0.2.7')), '');
+expect_same('ip notice without value', waf_panel_ip_filter_rejected(array('ip' => '  ')), '');
+expect_same('ip notice for arrays', waf_panel_ip_filter_rejected(array('ip' => array('x'))), '');
+expect_same('ip notice cuts long input', strlen(waf_panel_ip_filter_rejected(array('ip' => str_repeat('x', 300)))), 64);
 
 $catalog_rules = waf_panel_rules($wb, $rule_day_rows,
 	array('rules' => array('942100' => array('title' => 'SQL-Einschleusung (libinjection)')), 'groups' => array()));
@@ -2822,6 +2855,16 @@ function waf_panel_ip_filter($get)
 	$ip = isset($get['ip']) && is_string($get['ip']) ? trim($get['ip']) : '';
 	return filter_var($ip, FILTER_VALIDATE_IP) !== false ? $ip : '';
 }
+
+/**
+ * The address filter as typed when it is no valid IP address, cut to 64
+ * bytes for the notice on the page; '' when the filter is empty or valid.
+ */
+function waf_panel_ip_filter_rejected($get)
+{
+	$ip = isset($get['ip']) && is_string($get['ip']) ? trim($get['ip']) : '';
+	return $ip !== '' && filter_var($ip, FILTER_VALIDATE_IP) === false ? waf_cut($ip, 64) : '';
+}
 ```
 
 - [ ] **Step 4: Tests laufen lassen**
@@ -2853,7 +2896,7 @@ git commit -m "feat(waf): addresses and triggers per rule, address filter" -m "C
 - Consumes: `waf_panel_rule_catalog()`, `waf_panel_rule_catalog_file()`, `waf_panel_rule_info()` (A3); `waf_panel_rule_hits()`, `waf_panel_ip_filter()`, `waf_panel_rules()`, `waf_panel_enforce()` und `waf_panel_hit()` mit `$catalog` (A7); `waf_panel_settings($app)['waf_card_hits']` (A1)
 - Produces: `security/malwatch_waf_show.php?id=<n>&days=<n>&ip=<adresse>`; Index `site_ip` (`parent_domain_id`, `client_ip`, `seen_at`); die Sprachschlüssel aus Step 4; der Eintrag `malwatch_waf_show.php?ip=stored` in `render_pages.php`, den Task A10 auf dem Server nutzt
 
-Die Regel-Karten lesen die jüngsten `waf_card_hits` gespeicherten Anfragen der Website, sortiert wie die Liste der Einzeltreffer (`seen_at`, dann `hit_id`); so trägt der vorhandene Index `site_seen`. Der Adressfilter liest über den neuen Index `site_ip`. Nach einem Knopf kommt der Filter als verstecktes Feld `ip` zurück, wie `days`.
+Die Regel-Karten lesen die jüngsten `waf_card_hits` gespeicherten Anfragen der Website, sortiert wie die Liste der Einzeltreffer (`seen_at`, dann `hit_id`); so trägt der vorhandene Index `site_seen`. Der Adressfilter liest über den neuen Index `site_ip`. Nach einem Knopf kommt der Filter als verstecktes Feld `ip` zurück, wie `days`. Eine Angabe, die keine IP-Adresse ist, lässt die Liste ungefiltert; die Seite sagt das über den Einzeltreffern und nennt den Weg zum Filtern (Vorgabe „Verständliche Fehlermeldungen“).
 
 - [ ] **Step 1: Prüfungen schreiben**
 
@@ -3016,6 +3059,7 @@ $wb['crs_label_txt'] = 'Meldung des Regelwerks: %s';
 $wb['ip_filter_txt'] = 'Nur Anfragen von %s.';
 $wb['ip_filter_clear_txt'] = 'Filter aufheben';
 $wb['ip_filter_none_txt'] = 'Von dieser Adresse ist keine Anfrage gespeichert.';
+$wb['ip_filter_invalid_txt'] = '„%s“ ist keine gültige IP-Adresse. Die Liste zeigt deshalb alle gespeicherten Anfragen; zum Filtern eine Adresse in einer Regel-Karte oder einer Anfrage anklicken.';
 $wb['ip_only_txt'] = 'Nur Anfragen dieser Adresse';
 ```
 
@@ -3039,6 +3083,7 @@ $wb['crs_label_txt'] = 'Message of the rule set: %s';
 $wb['ip_filter_txt'] = 'Only requests from %s.';
 $wb['ip_filter_clear_txt'] = 'Remove filter';
 $wb['ip_filter_none_txt'] = 'No request from this address is stored.';
+$wb['ip_filter_invalid_txt'] = '"%s" is not a valid IP address. The list therefore shows every stored request; to filter, click an address on a rule card or in a request.';
 $wb['ip_only_txt'] = 'Only requests from this address';
 ```
 
@@ -3080,6 +3125,7 @@ $domain_id = $app->functions->intval(isset($_REQUEST['id']) ? $_REQUEST['id'] : 
 // The address filter of the stored requests; after a button it comes back as
 // a hidden field of the form.
 $ip_filter = waf_panel_ip_filter(array_merge($_GET, $_POST));
+$ip_rejected = waf_panel_ip_filter_rejected(array_merge($_GET, $_POST));
 $ip_query = $ip_filter !== '' ? '&ip=' . rawurlencode($ip_filter) : '';
 
 $message = '';
@@ -3302,6 +3348,9 @@ if ($ip_filter !== '') {
 		. 'ORDER BY seen_at DESC, hit_id DESC LIMIT 100', $domain_id);
 }
 $app->tpl->setVar('ip_filter', $ip_filter !== '' ? 1 : 0);
+$app->tpl->setVar('ip_jump', $ip_filter !== '' || $ip_rejected !== '' ? 1 : 0);
+$app->tpl->setVar('ip_rejected', $app->functions->htmlentities($ip_rejected !== ''
+	? sprintf($wb['ip_filter_invalid_txt'], $ip_rejected) : ''));
 $app->tpl->setVar('ip_filter_line', $app->functions->htmlentities(sprintf($wb['ip_filter_txt'], $ip_filter)));
 $app->tpl->setVar('ip_filter_clear_href', $app->functions->htmlentities($link . $days));
 $app->tpl->setVar('hits_none_line', $app->functions->htmlentities($ip_filter !== '' ? $wb['ip_filter_none_txt'] : $wb['hits_none_txt']));
@@ -3470,8 +3519,9 @@ ersetzen durch
 #mw-wafsite .mw-hitip{min-width:15ch}
 #mw-wafsite .mw-hitrules{list-style:none;margin:4px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
 #mw-wafsite .mw-hitrules > li{padding-left:10px;border-left:2px solid var(--cic-line-soft,rgba(128,128,128,.35))}
-#mw-wafsite .mw-ipfilter{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline;margin:0 0 8px;padding:8px 12px;font-size:13px;
+#mw-wafsite .mw-ipfilter,#mw-wafsite .mw-ipnotice{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline;margin:0 0 8px;padding:8px 12px;font-size:13px;
 	border:1px solid var(--cic-line-soft,rgba(128,128,128,.35));border-left:3px solid var(--cic-accent,#dd630d);border-radius:3px}
+#mw-wafsite .mw-ipnotice{border-left-color:var(--cic-bad-deep,#b13116)}
 #mw-wafsite #mw-hits{scroll-margin-top:80px}
 ```
 
@@ -3549,6 +3599,9 @@ ersetzen durch
 
 ```html
 <p class="mw-sec" id="mw-hits">{tmpl_var name='hits_head_txt'}</p>
+<tmpl_if name="ip_rejected">
+<p class="mw-ipnotice">{tmpl_var name='ip_rejected'}</p>
+</tmpl_if>
 <tmpl_if name="ip_filter">
 <p class="mw-ipfilter"><span>{tmpl_var name='ip_filter_line'}</span> <a href="#" data-load-content="{tmpl_var name='ip_filter_clear_href'}">{tmpl_var name='ip_filter_clear_txt'}</a></p>
 </tmpl_if>
@@ -3618,9 +3671,9 @@ Sprung zu den Einzeltreffern, die Zeile
 ersetzen durch
 
 ```html
-<tmpl_if name="ip_filter">
+<tmpl_if name="ip_jump">
 <!--
-	Opened from an address: the page comes into view at the stored requests.
+	Opened with an address filter: the page comes into view at the stored requests.
 	The panel scrolls to the top of every page it loads (ispconfig.js); that
 	scroll stops first.
 -->
@@ -3699,6 +3752,7 @@ Dann rendern und nachsehen:
 bash .superpowers/abwehr/harness/build_all.sh .
 cd .superpowers/abwehr/harness
 grep -c 'class="mw-ipfilter"' out_show.html out_show_ip.html out_show_badip.html
+grep -c 'class="mw-ipnotice">&bdquo;kein-ip&ldquo; ist keine g&uuml;ltige IP-Adresse' out_show.html out_show_ip.html out_show_badip.html
 grep -o 'data-load-content="security/malwatch_waf_show.php?id=11&amp;days=7&amp;ip=[^"]*"' out_show.html | sort | uniq -c
 grep -o '[0-9]* von [0-9]* Treffern kamen von angemeldeten Nutzern\.\|und [0-9]* weitere\|Parameter &bdquo;q&ldquo; enth&auml;lt &bdquo;s&amp;sos&ldquo; <span class="mw-dim">[0-9]*&times;\|Ausgelöst durch:' out_show.html | sort | uniq -c
 grep -cE '<b>x</b>|<script>alert|<img src=x>|<svg onload' out_show.html out_show_ip.html
@@ -3708,7 +3762,8 @@ cd ../../..
 Expected:
 
 - `build_all.sh` endet mit `Seiten gerendert; Klickseiten unter web/click_*.html, Protokoll web/clicks.log`, ohne `FEHLER`.
-- Hinweis zum Filter: `out_show.html:0`, `out_show_ip.html:1`, `out_show_badip.html:0` (eine Angabe, die keine Adresse ist, lässt die Seite ungefiltert).
+- Hinweis zum Filter: `out_show.html:0`, `out_show_ip.html:1`, `out_show_badip.html:0`.
+- Meldung zur ungültigen Angabe: `out_show.html:0`, `out_show_ip.html:0`, `out_show_badip.html:1`; die Liste bleibt dort ungefiltert.
 - Sechs Verweise mit je `1`: `ip=192.0.2.10` bis `ip=192.0.2.14` aus der Regel-Karte 942100 und `ip=198.51.100.7` aus dem Einzeltreffer. `2001:db8::7` steckt in „und 1 weitere“.
 - Je einmal `2 von 7 Treffern kamen von angemeldeten Nutzern.`, `Ausgelöst durch:`, `Parameter &bdquo;q&ldquo; enth&auml;lt &bdquo;s&amp;sos&ldquo; <span class="mw-dim">7&times;` und `und 1 weitere`.
 - Keine unmaskierten Beispielwerte: `out_show.html:0`, `out_show_ip.html:0`.
@@ -3879,6 +3934,10 @@ ersetzen durch:
   Einzeltreffern; sie zeigen dann nur diese Adresse, mit einem Hinweis und „Filter
   aufheben". Der Parameter wird mit `FILTER_VALIDATE_IP` geprüft und kommt nach einem
   Knopf als verstecktes Feld zurück. Der Index `site_ip` trägt Liste und Zählung.
+- Ist die Angabe keine IP-Adresse, bleibt die Liste ungefiltert. Über den
+  Einzeltreffern nennt eine Meldung die Angabe, sagt, dass die Liste deshalb alle
+  gespeicherten Anfragen zeigt, und verweist zum Filtern auf die Adressen in den
+  Regel-Karten und Anfragen.
 ```
 
 und den Punkt
