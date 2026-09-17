@@ -807,3 +807,121 @@ function waf_origin_stale($row, $newest)
 	}
 	return strtotime($newest) > strtotime($looked);
 }
+
+// --- proxycheck.io ------------------------------------------------------------
+
+/**
+ * The external source the settings chose, '' when there is none. proxycheck.io
+ * answers per address, so it is no entry of waf_origin_sources() and never
+ * gets a range file.
+ */
+function waf_origin_external($settings)
+{
+	$net = isset($settings['waf_origin_net']) ? (string) $settings['waf_origin_net'] : 'off';
+	return $net === 'proxycheck' ? 'proxycheck' : '';
+}
+
+/** 'y' when the answer marked the address, 'n' otherwise. */
+function waf_origin_mark($value)
+{
+	if ($value === true || $value === 1 || $value === '1') {
+		return 'y';
+	}
+	return is_string($value) && strtolower($value) === 'yes' ? 'y' : 'n';
+}
+
+/**
+ * The body of one v3 request: the addresses as the field `ips`. Anything that
+ * is no address is left out, and '' means there is nothing to ask.
+ */
+function waf_origin_proxycheck_body($ips)
+{
+	$clean = array();
+	foreach ($ips as $ip) {
+		$ip = trim((string) $ip);
+		if ($ip !== '' && waf_origin_bytes($ip) !== '' && !in_array($ip, $clean, true)) {
+			$clean[] = $ip;
+		}
+	}
+	return count($clean) === 0 ? '' : 'ips=' . implode(',', $clean);
+}
+
+/** The facts of one address from its part of a v3 answer. */
+function waf_origin_proxycheck_facts($entry)
+{
+	$detections = isset($entry['detections']) && is_array($entry['detections']) ? $entry['detections'] : array();
+	$network = isset($entry['network']) && is_array($entry['network']) ? $entry['network'] : array();
+	$location = isset($entry['location']) && is_array($entry['location']) ? $entry['location'] : array();
+	$operator = isset($entry['operator']) && is_array($entry['operator']) ? $entry['operator'] : array();
+	$provider = isset($network['provider']) ? trim((string) $network['provider']) : '';
+	if ($provider === '' && isset($network['organisation'])) {
+		$provider = trim((string) $network['organisation']);
+	}
+	$country = isset($location['country_code']) ? strtoupper(trim((string) $location['country_code'])) : '';
+	return array(
+		'country' => preg_match('/^[A-Z]{2}$/', $country) ? $country : '',
+		'asn' => isset($network['asn']) ? (int) preg_replace('/[^0-9]/', '', (string) $network['asn']) : 0,
+		'as_org' => waf_origin_cut($provider, 128),
+		'is_tor' => waf_origin_mark(isset($detections['tor']) ? $detections['tor'] : false),
+		'is_vpn' => waf_origin_mark(isset($detections['vpn']) ? $detections['vpn'] : false),
+		'is_hosting' => waf_origin_mark(isset($detections['hosting']) ? $detections['hosting'] : false),
+		'is_proxy' => waf_origin_mark(isset($detections['proxy']) ? $detections['proxy'] : false),
+		'vpn_operator' => waf_origin_cut(isset($operator['name']) ? trim((string) $operator['name']) : '', 64),
+	);
+}
+
+/**
+ * Reads one v3 answer. Returns array('ok' => bool, 'error' => text,
+ * 'ips' => array(address => facts)). The text names the cause and the next
+ * step; it comes from the answer alone and never carries the key.
+ */
+function waf_origin_proxycheck_read($text)
+{
+	$data = json_decode((string) $text, true);
+	if (!is_array($data)) {
+		return array('ok' => false, 'ips' => array(),
+			'error' => 'proxycheck.io antwortete nicht in JSON. Der nächste Durchgang fragt erneut.');
+	}
+	$status = isset($data['status']) ? strtolower((string) $data['status']) : '';
+	$message = isset($data['message'])
+		? waf_origin_cut(preg_replace('/\s+/', ' ', trim((string) $data['message'])), 150) : '';
+	if ($status === 'denied') {
+		return array('ok' => false, 'ips' => array(),
+			'error' => 'proxycheck.io hat die Anfrage abgelehnt' . ($message === '' ? '.' : ': ' . $message)
+				. ' Bitte den Schlüssel in den Einstellungen der Abwehr prüfen.');
+	}
+	if ($status === 'error') {
+		return array('ok' => false, 'ips' => array(),
+			'error' => 'proxycheck.io meldet einen Fehler' . ($message === '' ? '.' : ': ' . $message)
+				. ' Der nächste Durchgang fragt erneut.');
+	}
+	$ips = array();
+	foreach ($data as $key => $entry) {
+		if (is_array($entry) && waf_origin_bytes((string) $key) !== '') {
+			$ips[(string) $key] = waf_origin_proxycheck_facts($entry);
+		}
+	}
+	if (count($ips) === 0) {
+		return array('ok' => false, 'ips' => array(),
+			'error' => 'proxycheck.io nannte in seiner Antwort keine Adresse. Der nächste Durchgang fragt erneut.');
+	}
+	return array('ok' => true, 'error' => '', 'ips' => $ips);
+}
+
+/**
+ * The day and the number of queries of the external source, reset when the day
+ * turned. $row is the row of malwatch_waf_origin_source, $today a date as
+ * Y-m-d and $daily the limit from the settings.
+ */
+function waf_origin_quota($row, $today, $daily)
+{
+	$today = (string) $today;
+	$day = is_array($row) && isset($row['day']) ? substr((string) $row['day'], 0, 10) : '';
+	$queries = is_array($row) && isset($row['queries']) ? (int) $row['queries'] : 0;
+	if ($day !== $today) {
+		$day = $today;
+		$queries = 0;
+	}
+	$daily = max(1, (int) $daily);
+	return array('day' => $day, 'queries' => $queries, 'daily' => $daily, 'left' => max(0, $daily - $queries));
+}
