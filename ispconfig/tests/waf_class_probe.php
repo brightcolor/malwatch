@@ -43,6 +43,7 @@ $app->db = $db;
 $app->dbmaster = $db;
 
 require $stage . '/interface/lib/malwatch_waf_lib.inc.php';
+require $stage . '/interface/lib/malwatch_waf_origin.inc.php';
 require $stage . '/server/lib/classes/malwatch_waf.inc.php';
 $app->uses('malwatch_helper');
 
@@ -494,6 +495,42 @@ $waf->cron_minute();
 $waf->cron_hourly();
 expect_same('snapshot', $waf->snapshot(), true);
 expect_same('no job left behind', count_rows("SELECT job_id FROM malwatch_job WHERE job_status IN ('pending','running')"), 0);
+
+// --- B5: the origin update ----------------------------------------------------
+
+$probe_dir = $tmp . '/origin-probe';
+@mkdir($probe_dir . '/waf/origin/tmp', 0700, true);
+$waf->paths['state_dir'] = $probe_dir;
+$fixtures = $stage . '/tests/fixtures/origin';
+// The download is the place where the class talks to the world; the probe puts
+// the sample files there instead.
+$waf->fetcher = function ($url, $target, $limit, $auth) use ($fixtures) {
+	$map = array(
+		'dbip-country-lite' => $fixtures . '/dbip-country.csv',
+		'dbip-asn-lite' => $fixtures . '/dbip-asn.csv',
+		'torbulkexitlist' => $fixtures . '/tor.txt',
+		'vpn/ipv4.txt' => $fixtures . '/x4b-ipv4.txt',
+		'vpn/ipv6.txt' => $fixtures . '/x4b-ipv6.txt',
+	);
+	foreach ($map as $mark => $file) {
+		if (strpos($url, $mark) !== false) {
+			return copy($file, $target) ? array(true, '') : array(false, 'Kopie scheiterte.');
+		}
+	}
+	return array(false, 'Nicht gefunden (404).');
+};
+$probe_settings = array('waf_origin_geo' => 'dbip', 'waf_origin_tor' => 'torproject', 'waf_origin_net' => 'x4b',
+	'waf_origin_tor_hours' => 1, 'waf_origin_list_hours' => 24, 'waf_origin_db_hours' => 24);
+$result = $waf->origin_update_sources($probe_settings, array(), '2026-09-17 20:00:00');
+// The sample files are far too short for the real limits, so every source is
+// refused and the file in use stays as it is.
+expect_same('every chosen source is looked at', count($result), 5);
+expect_same('a short file is refused',
+	strpos($result['tor']['note'], 'liefert nur 3 Bereiche, erwartet sind mindestens 100') !== false, true);
+expect_same('nothing was swapped in', is_file($probe_dir . '/waf/origin/tor.bin'), false);
+expect_same('the temporary file is gone', count(glob($probe_dir . '/waf/origin/tmp/*')), 0);
+expect_same('a source that is not reachable',
+	strpos($result['dbip_country']['note'], 'Nicht gefunden') !== false, true);
 
 // --- summary -----------------------------------------------------------------
 waf_remove_dir($tmp);

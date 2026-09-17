@@ -53,6 +53,7 @@ $wb['job_exception_remove_txt'] = 'Ausnahme entfernen';
 $wb['job_emergency_txt'] = 'Notaus';
 $wb['job_response_body_txt'] = 'Seitenantwort';
 $wb['job_apply_settings_txt'] = 'Einstellungen';
+$wb['job_origin_update_txt'] = 'Herkunft der Adressen';
 $wb['job_status_pending_txt'] = 'wartet';
 $wb['job_status_running_txt'] = 'läuft';
 $wb['job_status_done_txt'] = 'erledigt';

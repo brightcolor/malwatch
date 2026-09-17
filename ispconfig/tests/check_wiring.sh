@@ -1364,6 +1364,27 @@ for lang in de en; do
 done
 
 
+# 67. The origin update keeps keys out of the job log and the state row. The
+#     class hands the licence key to curl and nowhere else: a note that names
+#     waf_origin_maxmind_key would end up in malwatch_job.job_log, which the
+#     panel shows to every administrator.
+waf_class="$root/server/lib/classes/malwatch_waf.inc.php"
+if [ -f "$waf_class" ]; then
+	if sed -n '/private function run_origin_update/,/^	}/p' "$waf_class" | grep -q 'maxmind_key'; then
+		fail "malwatch_waf::run_origin_update() names the licence key; the job log must not carry it"
+	fi
+	if sed -n '/private function origin_note/,/^	}/p' "$waf_class" | grep -q 'maxmind_key'; then
+		fail "malwatch_waf::origin_note() names the licence key; the state row must not carry it"
+	fi
+	grep -q "case 'origin_update':" "$waf_class" \
+		|| fail "malwatch_waf::start_job() knows no action origin_update"
+	grep -q 'CURLOPT_SSL_VERIFYPEER, true' "$waf_class" \
+		|| fail "malwatch_waf::fetch() loads without checking the certificate"
+	sed -n '/public function cron_hourly/,/^	}/p' "$waf_class" | grep -q 'queue_origin_update' \
+		|| fail "cron_hourly() never queues origin_update"
+fi
+
+
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'
 fi

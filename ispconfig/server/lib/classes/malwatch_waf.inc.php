@@ -21,6 +21,8 @@ class malwatch_waf
 {
 	/** Where install/file.list puts the shared functions. */
 	const LIB = '/usr/local/ispconfig/interface/web/security/lib/malwatch_waf_lib.inc.php';
+	/** The functions of the origin sources, installed next to the shared ones. */
+	const LIB_ORIGIN = '/usr/local/ispconfig/interface/web/security/lib/malwatch_waf_origin.inc.php';
 
 	/**
 	 * Paths outside the WAF directory. Public so tests/waf_class_probe.php can
@@ -37,6 +39,13 @@ class malwatch_waf
 	);
 
 	/** Takes the place of the real commands when set: function ($name, $argument) returning array(code, output). */
+
+	/**
+	 * Takes the place of the download when set: function ($url, $target,
+	 * $limit, $auth) returning array(ok, error). $auth is 'account:key' for
+	 * MaxMind and '' for every other source.
+	 */
+	public $fetcher = null;
 	public $runner = null;
 
 	/** The handle of the lock file while this process holds it. */
@@ -47,6 +56,9 @@ class malwatch_waf
 	{
 		if (!function_exists('waf_states') && is_file(self::LIB)) {
 			require_once self::LIB;
+		}
+		if (!function_exists('waf_origin_sources') && is_file(self::LIB_ORIGIN)) {
+			require_once self::LIB_ORIGIN;
 		}
 		return function_exists('waf_states');
 	}
@@ -281,6 +293,70 @@ class malwatch_waf
 		return array((int) $code, implode("\n", $output));
 	}
 
+	/**
+	 * Loads one address into $target. Returns array(ok, error); the error text
+	 * never carries the licence key. A download larger than $limit bytes is
+	 * cut off and counts as failed.
+	 */
+	public function fetch($url, $target, $limit, $auth)
+	{
+		if ($this->fetcher !== null) {
+			return call_user_func($this->fetcher, $url, $target, $limit, $auth);
+		}
+		if (!function_exists('curl_init')) {
+			return array(false, 'Die PHP-Erweiterung curl fehlt. Bitte php-curl nachinstallieren; ohne sie lädt der Server keine Liste.');
+		}
+		$handle = @fopen($target, 'wb');
+		if ($handle === false) {
+			return array(false, 'Die Datei ' . basename($target) . ' ließ sich nicht anlegen. Bitte Platz und Rechte unter dem Arbeitsverzeichnis prüfen.');
+		}
+		$curl = curl_init();
+		curl_setopt($curl, CURLOPT_URL, $url);
+		curl_setopt($curl, CURLOPT_FILE, $handle);
+		curl_setopt($curl, CURLOPT_FOLLOWLOCATION, true);
+		curl_setopt($curl, CURLOPT_MAXREDIRS, 3);
+		curl_setopt($curl, CURLOPT_CONNECTTIMEOUT, 10);
+		curl_setopt($curl, CURLOPT_TIMEOUT, 120);
+		curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, true);
+		curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, 2);
+		curl_setopt($curl, CURLOPT_USERAGENT, 'malwatch/' . $this->version());
+		if ((string) $auth !== '') {
+			curl_setopt($curl, CURLOPT_USERPWD, (string) $auth);
+			curl_setopt($curl, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+		}
+		curl_setopt($curl, CURLOPT_NOPROGRESS, false);
+		curl_setopt($curl, CURLOPT_PROGRESSFUNCTION, function ($curl, $expected, $loaded) use ($limit) {
+			return $loaded > $limit || $expected > $limit ? 1 : 0;
+		});
+		$ok = curl_exec($curl) !== false;
+		$status = (int) curl_getinfo($curl, CURLINFO_RESPONSE_CODE);
+		$error = $ok ? '' : curl_error($curl);
+		$aborted = curl_errno($curl) === CURLE_ABORTED_BY_CALLBACK;
+		curl_close($curl);
+		fclose($handle);
+		if ($aborted) {
+			@unlink($target);
+			return array(false, 'Die Datei ist größer als ' . (int) ($limit / 1048576) . ' MB. Der Abruf wurde abgebrochen.');
+		}
+		if (!$ok) {
+			@unlink($target);
+			return array(false, 'Der Abruf scheiterte: ' . waf_cut(preg_replace('/\s+/', ' ', $error), 150));
+		}
+		if ($status >= 400) {
+			@unlink($target);
+			return array(false, 'Die Quelle antwortete mit ' . $status . '.');
+		}
+		return array(true, '');
+	}
+
+	/** The version of the addon, for the user agent of a download. */
+	private function version()
+	{
+		$file = '/usr/local/ispconfig/extensions/malwatch/version';
+		$version = is_file($file) ? trim((string) file_get_contents($file)) : '';
+		return preg_match('/^[0-9.]{1,16}$/', $version) ? $version : '0';
+	}
+
 	/** Stores one hit; true when it was new. Only a new hit counts in the day tables. */
 	private function store_hit($site, $domain, $hit)
 	{
@@ -408,7 +484,7 @@ class malwatch_waf
 				}
 			}
 		}
-		foreach (array('/staging', '/last-good') as $sub) {
+		foreach (array('/staging', '/last-good', '/origin', '/origin/tmp') as $sub) {
 			if (!is_dir($base . $sub)) {
 				@mkdir($base . $sub, 0750, true);
 			}
@@ -514,11 +590,48 @@ class malwatch_waf
 		}
 		try {
 			$this->cleanup();
+			$this->queue_origin_update();
 		} catch (Throwable $e) {
 			$app->log('malwatch: the WAF cleanup failed: ' . $e->getMessage(), LOGLEVEL_WARN);
 		} finally {
 			$this->unlock();
 		}
+	}
+
+	/**
+	 * Queues origin_update when a chosen source is due and no job of that kind
+	 * waits already. The settings page queues one right after a save.
+	 */
+	private function queue_origin_update()
+	{
+		global $app, $conf;
+
+		$settings = $this->settings();
+		$states = array();
+		foreach ($this->rows($app->dbmaster->queryAllRecords(
+			'SELECT * FROM malwatch_waf_origin_source WHERE server_id = ?', $conf['server_id'])) as $row) {
+			$states[(string) $row['source']] = $row;
+		}
+		$now = $this->now();
+		$due = false;
+		foreach (waf_origin_chosen($settings) as $name) {
+			$due = $due || waf_origin_due($name, isset($states[$name]) ? $states[$name] : null, $settings, $now);
+		}
+		if (!$due) {
+			return;
+		}
+		$open = $app->dbmaster->queryOneRecord(
+			"SELECT COUNT(*) AS n FROM malwatch_job WHERE server_id = ? AND job_kind = 'waf' "
+			. "AND job_status IN ('pending','running') AND options LIKE '%\"action\":\"origin_update\"%'",
+			$conf['server_id']);
+		if (is_array($open) && (int) $open['n'] > 0) {
+			return;
+		}
+		$app->dbmaster->query(
+			'INSERT INTO malwatch_job (sys_userid, sys_groupid, sys_perm_user, sys_perm_group, sys_perm_other, server_id, '
+			. "parent_domain_id, domain, scan_path, job_source, job_kind, job_status, options, created_at) "
+			. "VALUES (1, 1, 'riud', 'r', '', ?, 0, '', '', 'cron', 'waf', 'pending', ?, ?)",
+			$conf['server_id'], waf_json(array('action' => 'origin_update', 'user' => 'cron')), $now);
 	}
 
 	/** One round of run_jobs() under the lock, for waf-switch set --wait. */
@@ -532,6 +645,255 @@ class malwatch_waf
 		} finally {
 			$this->unlock();
 		}
+	}
+
+	/**
+	 * Loads every source that is due and swaps its range file in. A source the
+	 * settings left off loses its file and its row. The log names sources and
+	 * numbers, never a key and never an address.
+	 */
+	private function run_origin_update($job)
+	{
+		global $app, $conf;
+
+		$settings = $this->settings();
+		$states = array();
+		foreach ($this->rows($app->dbmaster->queryAllRecords(
+			'SELECT * FROM malwatch_waf_origin_source WHERE server_id = ?', $conf['server_id'])) as $row) {
+			$states[(string) $row['source']] = $row;
+		}
+		$notes = array();
+		$failed = false;
+		$dir = $this->ensure_dirs() . '/origin';
+
+		foreach ($states as $name => $row) {
+			if (in_array($name, waf_origin_chosen($settings), true)) {
+				continue;
+			}
+			@unlink($dir . '/' . $name . '.bin');
+			$app->dbmaster->query('DELETE FROM malwatch_waf_origin_source WHERE server_id = ? AND source = ?',
+				$conf['server_id'], $name);
+			$app->dbmaster->query('UPDATE malwatch_waf_ip SET local_at = NULL WHERE server_id = ?', $conf['server_id']);
+			$notes[] = $name . ': abgeschaltet, Datei entfernt';
+		}
+
+		$results = $this->origin_update_sources($settings, $states, $this->now());
+		foreach ($results as $name => $result) {
+			$notes[] = $name . ': ' . $result['note'];
+			$failed = $failed || !$result['ok'];
+		}
+		if (count($notes) === 0) {
+			return $this->finish($job, true, 'Keine Quelle war fällig.');
+		}
+		return $this->finish($job, !$failed, waf_cut(implode('; ', $notes), 60000));
+	}
+
+	/**
+	 * Works through the sources that are due and returns one entry per source
+	 * with ok, note and the counts. Public so tests/waf_class_probe.php can
+	 * call it with its own fetcher.
+	 */
+	public function origin_update_sources($settings, $states, $now)
+	{
+		$results = array();
+		$dir = $this->ensure_dirs() . '/origin';
+		foreach (waf_origin_chosen($settings) as $name) {
+			$row = isset($states[$name]) ? $states[$name] : null;
+			if (!waf_origin_due($name, $row, $settings, $now)) {
+				continue;
+			}
+			$results[$name] = $this->origin_update_source($name, $settings, $row, $dir, $now);
+		}
+		return $results;
+	}
+
+	/** One source: load, read, check, swap. Returns array(ok, note, entries, version). */
+	private function origin_update_source($name, $settings, $row, $dir, $now)
+	{
+		$sources = waf_origin_sources();
+		$source = $sources[$name];
+		$tmp = $dir . '/tmp';
+		$target = $dir . '/' . $name . '.bin';
+		$previous = is_file($target) ? waf_origin_ranges(waf_origin_open($target)) : 0;
+		$version = strpos($name, 'dbip_') === 0 ? gmdate('Y-m', strtotime((string) $now)) : '';
+		$auth = '';
+		if (strpos($name, 'maxmind_') === 0) {
+			if (!class_exists('ZipArchive')) {
+				return $this->origin_note($name, false, 'Die PHP-Erweiterung zip fehlt. Bitte php-zip nachinstallieren oder bei „Land und Provider“ DB-IP wählen.', $row, $now);
+			}
+			if ((string) $settings['waf_origin_maxmind_account'] === '' || (string) $settings['waf_origin_maxmind_key'] === '') {
+				return $this->origin_note($name, false, 'Konto-ID oder Lizenzschlüssel fehlt. Bitte beide in den Einstellungen der Abwehr eintragen.', $row, $now);
+			}
+			$auth = $settings['waf_origin_maxmind_account'] . ':' . $settings['waf_origin_maxmind_key'];
+		}
+		// DB-IP publishes one file per month; at the turn of the month the new
+		// one may be missing, then the one of last month still counts.
+		$months = strpos($name, 'dbip_') === 0
+			? array($version, gmdate('Y-m', strtotime((string) $now) - 15 * 86400)) : array('');
+		$files = array();
+		$error = '';
+		foreach ($months as $month) {
+			$files = array();
+			$error = '';
+			$version = $month;
+			foreach (waf_origin_urls($name, $month) as $index => $url) {
+				$file = $tmp . '/' . $name . '-' . $index . '.tmp';
+				@unlink($file);
+				$loaded = $this->fetch($url, $file, (int) $source['bytes'], $auth);
+				if (!$loaded[0]) {
+					$error = $loaded[1];
+					break;
+				}
+				$files[] = $file;
+			}
+			if ($error === '') {
+				break;
+			}
+		}
+		if ($error !== '') {
+			$this->origin_clean($files);
+			if (strpos($name, 'maxmind_') === 0 && strpos($error, '401') !== false) {
+				$error = 'MaxMind hat Konto-ID oder Lizenzschlüssel abgelehnt. Bitte beide in den Einstellungen der Abwehr prüfen.';
+			}
+			return $this->origin_note($name, false, $error, $row, $now);
+		}
+		if (strpos($name, 'maxmind_') === 0) {
+			$unpacked = $this->origin_unzip($name, $files[0], $tmp);
+			$this->origin_clean($files);
+			if ($unpacked === null) {
+				return $this->origin_note($name, false, 'Das Archiv ließ sich nicht entpacken. Der nächste Abruf versucht es erneut.', $row, $now);
+			}
+			$files = $unpacked['files'];
+			$version = $unpacked['version'];
+		}
+		// A release that is already in use needs no rebuild.
+		if ($version !== '' && is_array($row) && (string) $row['version'] === $version && $previous > 0) {
+			$this->origin_clean($files);
+			return $this->origin_note($name, true, 'Stand ' . $version . ' unverändert, ' . $previous . ' Bereiche.', $row, $now, $version, $previous, true);
+		}
+		$fresh = $tmp . '/' . $name . '.bin';
+		@unlink($fresh);
+		$counts = $this->origin_read($name, $files, $fresh);
+		$this->origin_clean($files);
+		if ($counts === null) {
+			@unlink($fresh);
+			return $this->origin_note($name, false, 'Die Datei ließ sich nicht umbauen. Bitte Platz unter ' . $dir . ' prüfen.', $row, $now);
+		}
+		$refused = waf_origin_check($name, $counts, $previous);
+		if ($refused !== '') {
+			@unlink($fresh);
+			return $this->origin_note($name, false, $refused, $row, $now);
+		}
+		if (!@rename($fresh, $target)) {
+			@unlink($fresh);
+			return $this->origin_note($name, false, 'Die neue Datei ließ sich nicht an ihren Platz legen. Der bisherige Stand bleibt aktiv.', $row, $now);
+		}
+		@chmod($target, 0640);
+		return $this->origin_note($name, true, $counts['ranges'] . ' Bereiche, ' . $counts['bad'] . ' unbrauchbare Zeilen'
+			. ($version === '' ? '' : ', Stand ' . $version) . '.', $row, $now, $version, $counts['ranges']);
+	}
+
+	/** Reads the files of one source into the range file $fresh. */
+	private function origin_read($name, $files, $fresh)
+	{
+		switch ($name) {
+			case 'dbip_country':
+				return waf_origin_read_dbip_country($files, $fresh);
+			case 'dbip_asn':
+				return waf_origin_read_dbip_asn($files, $fresh);
+			case 'maxmind_country':
+				$blocks = array();
+				$locations = '';
+				foreach ($files as $file) {
+					if (strpos($file, 'Locations') !== false) {
+						$locations = $file;
+					} elseif (strpos($file, 'Blocks') !== false) {
+						$blocks[] = $file;
+					}
+				}
+				return $locations === '' ? null : waf_origin_read_maxmind_country($blocks, $locations, $fresh);
+			case 'maxmind_asn':
+				return waf_origin_read_maxmind_asn($files, $fresh);
+		}
+		return waf_origin_read_list($files, $fresh);
+	}
+
+	/** Unpacks the GeoLite2 archive; returns array(files, version) or null. */
+	private function origin_unzip($name, $archive, $tmp)
+	{
+		$zip = new ZipArchive();
+		if ($zip->open($archive) !== true) {
+			return null;
+		}
+		$files = array();
+		$version = '';
+		for ($i = 0; $i < $zip->numFiles; $i++) {
+			$inside = (string) $zip->getNameIndex($i);
+			if (preg_match('/_(\d{8})\//', $inside, $m)) {
+				$version = $m[1];
+			}
+			if (substr($inside, -4) !== '.csv') {
+				continue;
+			}
+			$plain = basename($inside);
+			// The country archive holds the locations in every language; German
+			// and English carry the same country codes.
+			if (strpos($plain, 'Locations') !== false && strpos($plain, 'Locations-en') === false) {
+				continue;
+			}
+			$file = $tmp . '/' . $name . '-' . $plain;
+			$stream = $zip->getStream($inside);
+			$out = $stream === false ? false : @fopen($file, 'wb');
+			if ($out === false) {
+				continue;
+			}
+			while (!feof($stream)) {
+				fwrite($out, (string) fread($stream, 65536));
+			}
+			fclose($out);
+			fclose($stream);
+			$files[] = $file;
+		}
+		$zip->close();
+		sort($files, SORT_STRING);
+		return count($files) === 0 ? null : array('files' => $files, 'version' => $version);
+	}
+
+	/** Removes the temporary files of one source. */
+	private function origin_clean($files)
+	{
+		foreach (is_array($files) ? $files : array() as $file) {
+			@unlink($file);
+		}
+	}
+
+	/** Writes the state of one source and returns what the job log says about it. */
+	private function origin_note($name, $ok, $note, $row, $now, $version = '', $entries = 0, $unchanged = false)
+	{
+		global $app, $conf;
+
+		$keep = is_array($row);
+		$fetched = $ok && !$unchanged ? $now : ($keep ? $row['fetched_at'] : null);
+		$app->dbmaster->query(
+			'INSERT INTO malwatch_waf_origin_source (server_id, source, version, checked_at, fetched_at, entries, error, error_at) '
+			. 'VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE version = VALUES(version), '
+			. 'checked_at = VALUES(checked_at), fetched_at = VALUES(fetched_at), entries = VALUES(entries), '
+			. 'error = VALUES(error), error_at = VALUES(error_at)',
+			$conf['server_id'], $name,
+			$ok ? $version : ($keep ? (string) $row['version'] : ''),
+			$now, $fetched,
+			$ok ? (int) $entries : ($keep ? (int) $row['entries'] : 0),
+			$ok ? '' : waf_cut($note, 255),
+			$ok ? null : $now);
+		return array('ok' => $ok, 'note' => $note, 'entries' => (int) $entries, 'version' => (string) $version);
+	}
+
+	/** The time of the database, as the jobs write it. */
+	private function now()
+	{
+		global $app;
+		$row = $app->dbmaster->queryOneRecord('SELECT NOW() AS now_at');
+		return is_array($row) ? (string) $row['now_at'] : date('Y-m-d H:i:s');
 	}
 
 	/** Queues a WAF job for this server and returns its id. $user names the person in the action log. */
@@ -667,6 +1029,9 @@ class malwatch_waf
 				break;
 			case 'apply_settings':
 				$this->run_apply_settings($job);
+				break;
+			case 'origin_update':
+				$this->run_origin_update($job);
 				break;
 			default:
 				$this->finish($job, false, 'Unbekannte Aktion: ' . $this->job_action($job));

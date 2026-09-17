@@ -53,6 +53,7 @@ $wb['job_exception_remove_txt'] = 'Remove exception';
 $wb['job_emergency_txt'] = 'Emergency stop';
 $wb['job_response_body_txt'] = 'Response body';
 $wb['job_apply_settings_txt'] = 'Settings';
+$wb['job_origin_update_txt'] = 'Origin of the addresses';
 $wb['job_status_pending_txt'] = 'waiting';
 $wb['job_status_running_txt'] = 'running';
 $wb['job_status_done_txt'] = 'done';
