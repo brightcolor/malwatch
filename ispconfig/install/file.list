@@ -91,6 +91,7 @@ c:server/lib/classes/malwatch_helper.inc.php:server/lib/classes/malwatch_helper.
 c:server/lib/classes/malwatch_runner.inc.php:server/lib/classes/malwatch_runner.inc.php
 c:server/lib/classes/malwatch_ingest.inc.php:server/lib/classes/malwatch_ingest.inc.php
 c:server/lib/classes/malwatch_actions.inc.php:server/lib/classes/malwatch_actions.inc.php
+c:server/lib/classes/malwatch_waf.inc.php:server/lib/classes/malwatch_waf.inc.php
 c:server/lib/classes/cron.d/560-malwatch.inc.php:server/lib/classes/cron.d/560-malwatch.inc.php
 
 c:server/conf/malwatch_notification_de.txt:server/conf/malwatch_notification_de.txt
