@@ -1144,8 +1144,33 @@ fi
 # 56. Die Abwehr steht im Menue, und die Uebersicht verfolgt laufende
 #     Auftraege ueber malwatch_waf_jobs.php; neu geladen wird sie erst, wenn
 #     keiner mehr laeuft.
-grep -q "'link'    => 'security/malwatch_waf_list.php'" "$root/interface/module.conf.php" \
-	|| fail "module.conf.php fuehrt die Abwehr nicht im Menue"
+#     The menu has two groups: Scanner and Abwehr. Every page of the Abwehr
+#     with its own entry sits under Abwehr, and none of them under Scanner.
+nav=$(php -r '
+	if (!is_file($argv[1])) {
+		fwrite(STDOUT, "file missing");
+		exit(1);
+	}
+	$module = array();
+	include $argv[1];
+	if (empty($module["nav"]) || !is_array($module["nav"])) {
+		fwrite(STDOUT, "no menu defined");
+		exit(1);
+	}
+	foreach ($module["nav"] as $group) {
+		foreach ($group["items"] as $item) {
+			echo $group["title"], "|", $item["link"], "\n";
+		}
+	}' "$root/interface/module.conf.php" 2>&1) || fail "module.conf.php cannot be read: $nav"
+for page in malwatch_waf_list.php malwatch_waf_exception_list.php malwatch_waf_config_edit.php; do
+	printf '%s\n' "$nav" | grep -qxF "Abwehr|security/$page" \
+		|| fail "module.conf.php does not list $page in the menu group Abwehr"
+done
+if printf '%s\n' "$nav" | grep -v '^Abwehr|' | grep -q 'malwatch_waf_'; then
+	fail "module.conf.php lists a page of the Abwehr outside the menu group Abwehr"
+fi
+printf '%s\n' "$nav" | grep -qxF "Scanner|security/status.php" \
+	|| fail "module.conf.php does not list the status page in the menu group Scanner"
 if [ -f "$root/interface/templates/malwatch_waf_list.htm" ]; then
 	grep -q 'data-mw-jobs="security/malwatch_waf_jobs.php' "$root/interface/templates/malwatch_waf_list.htm" \
 		|| fail "malwatch_waf_list.htm fragt die laufenden Auftraege nicht ab"

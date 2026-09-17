@@ -2,6 +2,22 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.19.1] – 2026-09-17
+
+### Geändert
+
+**Menü in zwei Gruppen.** Das Modul Security trennt jetzt **Scanner** (Status, Funde,
+Schwachstellen, Quarantäne, Dumps, Prüfläufe, Einstellungen) und **Abwehr**
+(Übersicht, Ausnahmen, Einstellungen). Ausnahmen und Einstellungen der Abwehr stehen
+damit direkt im Menü; bisher führten nur Links auf der Übersicht dorthin.
+
+### Behoben
+
+**`waf/install.sh` bei einer bestehenden WAF.** Die Sicherung legte
+`/etc/logrotate.d/waf` unter demselben Namen ab wie die Kopie von `/etc/nginx/waf`;
+`cp` brach ab, und das Skript endete, bevor es etwas umstellte. Die Datei heißt in
+der Sicherung jetzt `logrotate-waf`.
+
 ## [0.19.0] – 2026-09-17
 
 ### Neu

@@ -50,15 +50,6 @@ $items[] = array(
 	'html_id' => 'security_vulns'
 );
 
-// The WAF per website: switch it, read its hits, add exceptions. Next to the
-// vulnerabilities, since both look at the same websites from two sides.
-$items[] = array(
-	'title'   => 'Abwehr',
-	'target'  => 'content',
-	'link'    => 'security/malwatch_waf_list.php',
-	'html_id' => 'security_waf'
-);
-
 $items[] = array(
 	'title'   => 'Quarantäne',
 	'target'  => 'content',
@@ -89,8 +80,40 @@ $items[] = array(
 	'html_id' => 'security_settings'
 );
 
+// Two groups: the scanner looks at the files of the websites, the Abwehr
+// (the WAF) at the requests that reach them.
 $module['nav'][] = array(
-	'title' => 'Security',
+	'title' => 'Scanner',
+	'open'  => 1,
+	'items' => $items
+);
+
+$items = array();
+
+// The WAF per website: switch it and read its hits.
+$items[] = array(
+	'title'   => 'Übersicht',
+	'target'  => 'content',
+	'link'    => 'security/malwatch_waf_list.php',
+	'html_id' => 'security_waf'
+);
+
+$items[] = array(
+	'title'   => 'Ausnahmen',
+	'target'  => 'content',
+	'link'    => 'security/malwatch_waf_exception_list.php',
+	'html_id' => 'security_waf_exceptions'
+);
+
+$items[] = array(
+	'title'   => 'Einstellungen',
+	'target'  => 'content',
+	'link'    => 'security/malwatch_waf_config_edit.php',
+	'html_id' => 'security_waf_settings'
+);
+
+$module['nav'][] = array(
+	'title' => 'Abwehr',
 	'open'  => 1,
 	'items' => $items
 );

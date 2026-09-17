@@ -28,7 +28,7 @@ ab- und wieder anmelden, dann steht **Security** in der oberen Leiste.
 
 Auf einem Server ohne Netzzugang scheitert nur der Download des Scanners; die
 Erweiterung ist trotzdem installiert. Den Scanner dann von Hand ablegen und den
-Pfad unter **Security > Einstellungen** prüfen.
+Pfad unter **Security > Scanner > Einstellungen** prüfen.
 
 ## Was wo passiert
 
@@ -44,7 +44,7 @@ also innerhalb einer Minute, das Ergebnis erscheint, sobald der Lauf fertig ist.
 
 ## Schwachstellen
 
-**Security > Schwachstellen** gliedert nach Websites: je Website ihre
+**Security > Scanner > Schwachstellen** gliedert nach Websites: je Website ihre
 Installationen mit bekannten Lücken, die schwerste Einstufung zuerst. In der
 Zeile jeder Website führen Knöpfe zu ihren Updates, zu ihren Lücken und, bei
 offenen Funden, zu den Malware-Funden auf ihrer Seite. Die Seite
@@ -60,7 +60,7 @@ Gefüllt wird die Liste auf zwei Wegen:
    eingestellten gleichzeitigen Prüfungen. Der Knopf **Alle Websites jetzt
    abgleichen** stößt die Runde sofort an.
 
-Unter **Security > Einstellungen** lässt sich der Abgleich abschalten und ein
+Unter **Security > Scanner > Einstellungen** lässt sich der Abgleich abschalten und ein
 WPScan-API-Schlüssel eintragen. Der Runner legt den Schlüssel als
 `state/wpscan.token` mit Rechten 0600 ab und übergibt dem Scanner nur den
 Dateinamen. Laut WPScan braucht einen Enterprise-Tarif, wer die Daten in einen
@@ -88,11 +88,11 @@ Runner das Update ab.
 
 Scheitert die Nachprüfung, holt malwatch den alten Stand zurück und meldet es
 dem Betreiber, bei eingeschaltetem „Kunde benachrichtigen“ auch dem Kunden. Den
-Pfad zu WP-CLI trägt **Security > Einstellungen**.
+Pfad zu WP-CLI trägt **Security > Scanner > Einstellungen**.
 
 ## Dumps
 
-**Security > Dumps** packt eine Website in ein `tar.gz`: das Webverzeichnis,
+**Security > Scanner > Dumps** packt eine Website in ein `tar.gz`: das Webverzeichnis,
 die angehakten Datenbanken und auf Wunsch das Protokollverzeichnis.
 
 Die Auswahl zeigt je Datenbank ihre Größe, die Zahl der Tabellen, die
@@ -125,7 +125,7 @@ den Verweis sofort ungültig und lässt Dump und Panel-Download unberührt.
 
 ## Abwehr
 
-**Security > Abwehr** zeigt die WAF aller Websites dieses Servers. Die Seite füllt
+**Security > Abwehr > Übersicht** zeigt die WAF aller Websites dieses Servers. Die Seite füllt
 sich, sobald `waf/install.sh` ModSecurity im nginx eingerichtet hat
 ([waf/README.md](../waf/README.md)).
 

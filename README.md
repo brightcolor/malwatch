@@ -307,7 +307,7 @@ verdächtige Dateien nach einem geplanten Lauf gleich in Quarantäne legt.
 
 Was `repair` beim Tauschen ersetzt, was die automatische Maßnahme nach einem
 geplanten Lauf einreiht, und was von Hand aus einem Fund entfernt wird, landet
-serverweit an einer Stelle unter **Security > Quarantäne** — über alle
+serverweit an einer Stelle unter **Security > Scanner > Quarantäne** — über alle
 Websites dieses Servers hinweg, nicht nur der einen, von der ein Eintrag
 stammt.
 
@@ -331,7 +331,7 @@ keine eigene Kopie.
 
 ### Abwehr
 
-**Security > Abwehr** schaltet die Web Application Firewall (ModSecurity mit dem
+**Security > Abwehr > Übersicht** schaltet die Web Application Firewall (ModSecurity mit dem
 OWASP-Regelwerk) je Website zwischen „aus“, „mitschreiben“ und „scharf“ und wertet
 ihr Audit-Log aus: Treffer je Website und Tag, Regeln im Klartext, einzelne Anfragen
 und die Vorschau, was „scharf“ abgewiesen hätte. Ausnahmen entstehen per Knopf aus
