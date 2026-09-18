@@ -638,6 +638,46 @@ expect_same('the attribution of MaxMind',
 expect_same('no attribution while the source is off', waf_panel_origin_credit($wb, array()),
 	array('text' => '', 'url' => ''));
 
+// --- Die Seite Sperren --------------------------------------------------------
+
+expect_same('a permanent block', waf_panel_ban_until($wb, array('state' => 'active', 'until' => null),
+	'2026-09-18 10:00:00'), 'dauerhaft');
+expect_same('a block that runs', waf_panel_ban_until($wb, array('state' => 'active', 'until' => '2026-09-18 10:47:00'),
+	'2026-09-18 10:00:00'), 'noch 47 Minuten');
+expect_same('a block that runs for hours', waf_panel_ban_until($wb,
+	array('state' => 'active', 'until' => '2026-09-19 10:00:00'), '2026-09-18 10:00:00'), 'noch 24 Stunden');
+expect_same('an expired block', waf_panel_ban_until($wb, array('state' => 'expired', 'until' => '2026-09-18 09:00:00'),
+	'2026-09-18 10:00:00'), 'abgelaufen');
+expect_same('a proposal has no end', waf_panel_ban_until($wb, array('state' => 'proposed', 'until' => null),
+	'2026-09-18 10:00:00'), '');
+
+$ban_rows = array(
+	array('ip' => '192.0.2.50', 'state' => 'active', 'rule' => '930130', 'score' => '60', 'hits' => '12',
+		'reason' => '60 Punkte aus 12 Treffern in 10 Minuten auf beispiel.test, meist Regel 930130.',
+		'level' => '1', 'source' => 'auto', 'created_at' => '2026-09-18 09:50:00',
+		'blocked_at' => '2026-09-18 09:50:00', 'until' => '2026-09-18 10:50:00', 'lifted_at' => null,
+		'lifted_by' => '', 'denied' => '318', 'denied_at' => '2026-09-18 09:59:00'),
+	array('ip' => '198.51.100.50', 'state' => 'proposed', 'rule' => '', 'score' => '55', 'hits' => '11',
+		'reason' => '55 Punkte aus 11 Treffern in 10 Minuten auf zweite.test.',
+		'level' => '1', 'source' => 'auto', 'created_at' => '2026-09-18 09:55:00', 'blocked_at' => null,
+		'until' => null, 'lifted_at' => null, 'lifted_by' => '', 'denied' => '0', 'denied_at' => null),
+);
+$ban_origins = array('192.0.2.50' => array('country' => 'de', 'asn' => '3320', 'as_org' => 'Deutsche Telekom AG',
+	'is_tor' => 'n', 'is_vpn' => 'n', 'is_hosting' => 'y', 'is_proxy' => 'n', 'vpn_operator' => '',
+	'external_state' => 'none'));
+$ban_view = waf_panel_ban_rows($wb, $ban_rows, $ban_origins, '2026-09-18 10:00:00', 'de');
+expect_same('a row per block', array_column($ban_view, 'ip'), array('192.0.2.50', '198.51.100.50'));
+expect_same('the state in words', array($ban_view[0]['state_label'], $ban_view[1]['state_label']),
+	array('gesperrt', 'Vorschlag'));
+expect_same('the end in words', $ban_view[0]['until_label'], 'noch 50 Minuten');
+expect_same('the turned away requests', $ban_view[0]['denied'], '318');
+expect_same('the origin travels with the address',
+	array($ban_view[0]['origin']['country'], $ban_view[0]['origin']['provider']),
+	array('DE', 'AS3320 Deutsche Telekom AG'));
+expect_same('where it came from', array($ban_view[0]['source_label'], $ban_view[0]['rule']),
+	array('automatisch', '930130'));
+expect_same('an address without origin stays empty', $ban_view[1]['origin']['known'], false);
+
 // --- summary -----------------------------------------------------------------
 if ($failures > 0) {
 	fwrite(STDERR, $failures . " Fehler\n");

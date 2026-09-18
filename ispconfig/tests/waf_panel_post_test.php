@@ -201,6 +201,52 @@ expect_same('preview of a parameter', $preview['preview'], array('covered' => 1,
 expect_same('preview of bad input', waf_panel_preview($app, $wb, array('id' => '11', 'exc_scope' => 'site', 'exc_rule' => 'x')),
 	array('valid' => false, 'preview' => array('covered' => 0, 'total' => 0), 'text' => $wb['reason_rule_id_txt']));
 
+// --- Sperren ------------------------------------------------------------------
+
+$db = fresh_db();
+$result = waf_panel_handle_post($app, $wb, array('waf_action' => 'ban_mode', 'waf_mode' => 'propose'));
+expect_same('the mode is queued', array($result[1], jobs_of($db)),
+	array('', array(array(1, 'waf', array('mode' => 'propose', 'action' => 'ban_mode', 'user' => 'admin')))));
+
+$db = fresh_db();
+$result = waf_panel_handle_post($app, $wb, array('waf_action' => 'ban_mode', 'waf_mode' => 'vielleicht'));
+expect_same('an unknown mode is refused', array($result[0], jobs_of($db)), array('', array()));
+
+$db = fresh_db();
+$result = waf_panel_handle_post($app, $wb, array('waf_action' => 'ban_add', 'waf_ip' => '192.0.2.50'));
+expect_same('a block by hand is queued', jobs_of($db),
+	array(array(1, 'waf', array('ip' => '192.0.2.50', 'permanent' => 'n', 'action' => 'ban_add', 'user' => 'admin'))));
+
+$db = fresh_db();
+$result = waf_panel_handle_post($app, $wb, array('waf_action' => 'ban_add', 'waf_ip' => 'kein-ip'));
+expect_same('what is no address never becomes a job', array($result[0], jobs_of($db)), array('', array()));
+
+$db = fresh_db();
+waf_panel_handle_post($app, $wb, array('waf_action' => 'ban_add', 'waf_ip' => '192.0.2.50', 'waf_permanent' => '1'));
+expect_same('permanent travels with it', jobs_of($db)[0][2]['permanent'], 'y');
+
+$db = fresh_db();
+waf_panel_handle_post($app, $wb, array('waf_action' => 'ban_lift'));
+expect_same('lifting without an address lifts everything', jobs_of($db)[0][2]['ip'], 'all');
+
+$db = fresh_db();
+waf_panel_handle_post($app, $wb, array('waf_action' => 'ban_allow_add', 'waf_cidr' => '203.0.113.0/24',
+	'waf_note' => 'Büro'));
+expect_same('an exception is queued with its note', jobs_of($db),
+	array(array(1, 'waf', array('cidr' => '203.0.113.0/24', 'note' => 'Büro', 'action' => 'ban_allow_add',
+		'user' => 'admin'))));
+
+$db = fresh_db();
+$result = waf_panel_handle_post($app, $wb, array('waf_action' => 'ban_allow_add', 'waf_cidr' => 'unsinn'));
+expect_same('an exception that is no range is refused', array($result[0], jobs_of($db)), array('', array()));
+
+$db = fresh_db();
+waf_panel_handle_post($app, $wb, array('waf_action' => 'ban_site', 'waf_site' => '11', 'waf_score' => '80',
+	'waf_trigger' => 'y'));
+expect_same('the threshold of a website is queued', jobs_of($db),
+	array(array(1, 'waf', array('domain_id' => 11, 'score' => 80, 'trigger' => 'y', 'action' => 'ban_site',
+		'user' => 'admin'))));
+
 if ($failures > 0) {
 	fwrite(STDERR, $failures . " Fehler\n");
 	exit(1);

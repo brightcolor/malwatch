@@ -1005,6 +1005,22 @@ function waf_panel_queue($app, $server_id, $action, $fields)
  * Carries out a button of the Abwehr pages; the page has checked the token.
  * Returns array(message, error), both plain text.
  */
+/**
+ * Queues one action of the page „Sperren" on every web server and answers with
+ * the message the page shows.
+ */
+function waf_panel_ban_queue($app, $wb, $action, $fields)
+{
+	$servers = waf_panel_web_servers($app);
+	if (count($servers) === 0) {
+		return array('', waf_panel_text($wb, 'msg_saved_no_server_txt', ''));
+	}
+	foreach ($servers as $server_id) {
+		waf_panel_queue($app, $server_id, $action, $fields);
+	}
+	return array(waf_panel_text($wb, 'ban_msg_queued_txt', ''), '');
+}
+
 function waf_panel_handle_post($app, $wb, $post)
 {
 	$action = isset($post['waf_action']) ? (string) $post['waf_action'] : '';
@@ -1058,6 +1074,62 @@ function waf_panel_handle_post($app, $wb, $post)
 			$message .= ' ' . sprintf($wb['msg_state_skipped_txt'], number_format($skipped, 0, ',', '.'));
 		}
 		return array($message, '');
+	}
+
+	// --- Sperren: jeder Knopf wird ein Auftrag, der Cron führt ihn aus. ---------
+
+	if ($action === 'ban_mode') {
+		$mode = isset($post['waf_mode']) ? (string) $post['waf_mode'] : '';
+		if (!in_array($mode, waf_ban_modes(), true)) {
+			return array('', waf_panel_text($wb, 'ban_err_mode_txt', ''));
+		}
+		return waf_panel_ban_queue($app, $wb, 'ban_mode', array('mode' => $mode));
+	}
+
+	if ($action === 'ban_add' || $action === 'ban_lift' || $action === 'ban_extend' || $action === 'ban_dismiss') {
+		$ip = isset($post['waf_ip']) ? trim((string) $post['waf_ip']) : '';
+		if ($action === 'ban_lift' && $ip === '') {
+			return waf_panel_ban_queue($app, $wb, 'ban_lift', array('ip' => 'all'));
+		}
+		if (waf_origin_bytes($ip) === '') {
+			return array('', waf_panel_text($wb, 'ban_err_ip_txt', ''));
+		}
+		$fields = array('ip' => $ip);
+		if ($action === 'ban_add') {
+			$fields['permanent'] = isset($post['waf_permanent']) && (string) $post['waf_permanent'] !== '' ? 'y' : 'n';
+		}
+		return waf_panel_ban_queue($app, $wb, $action, $fields);
+	}
+
+	if ($action === 'ban_allow_add') {
+		$cidr = isset($post['waf_cidr']) ? trim((string) $post['waf_cidr']) : '';
+		if (waf_origin_cidr($cidr) === null) {
+			return array('', waf_panel_text($wb, 'ban_err_cidr_txt', ''));
+		}
+		return waf_panel_ban_queue($app, $wb, 'ban_allow_add', array('cidr' => $cidr,
+			'note' => isset($post['waf_note']) ? waf_cut((string) $post['waf_note'], 255) : ''));
+	}
+
+	if ($action === 'ban_allow_remove') {
+		$id = (int) (isset($post['waf_allow_id']) ? $post['waf_allow_id'] : 0);
+		if ($id <= 0) {
+			return array('', waf_panel_text($wb, 'ban_err_allow_txt', ''));
+		}
+		return waf_panel_ban_queue($app, $wb, 'ban_allow_remove', array('allow_id' => $id));
+	}
+
+	if ($action === 'ban_site') {
+		$domain_id = (int) (isset($post['waf_site']) ? $post['waf_site'] : 0);
+		$score = (int) (isset($post['waf_score']) ? $post['waf_score'] : 0);
+		$trigger = isset($post['waf_trigger']) && (string) $post['waf_trigger'] === 'n' ? 'n' : 'y';
+		if ($domain_id <= 0) {
+			return array('', waf_panel_text($wb, 'err_no_site_txt', ''));
+		}
+		if ($score !== 0 && ($score < 5 || $score > 10000)) {
+			return array('', waf_panel_text($wb, 'ban_err_score_txt', ''));
+		}
+		return waf_panel_ban_queue($app, $wb, 'ban_site',
+			array('domain_id' => $domain_id, 'score' => $score, 'trigger' => $trigger));
 	}
 
 	if ($action === 'emergency_on' || $action === 'emergency_off') {
@@ -1241,4 +1313,68 @@ function waf_panel_exception_query($filters, $changes)
 		$parts[] = 'site=' . rawurlencode($merged['site']);
 	}
 	return implode('&', $parts);
+}
+
+/**
+ * When a block ends, in words: permanently, in so many minutes, hours or days,
+ * or already over. A proposal has no end yet.
+ */
+function waf_panel_ban_until($wb, $row, $now)
+{
+	$state = isset($row['state']) ? (string) $row['state'] : '';
+	if ($state === 'proposed' || $state === 'dismissed') {
+		return '';
+	}
+	if ($state !== 'active') {
+		return waf_panel_text($wb, 'ban_until_over_txt', '');
+	}
+	$until = isset($row['until']) ? (string) $row['until'] : '';
+	if ($until === '' || $until === '0000-00-00 00:00:00') {
+		return waf_panel_text($wb, 'ban_until_forever_txt', '');
+	}
+	$left = strtotime($until) - strtotime((string) $now);
+	if ($left <= 0) {
+		return waf_panel_text($wb, 'ban_until_over_txt', '');
+	}
+	if ($left < 3600) {
+		return sprintf(waf_panel_text($wb, 'ban_until_minutes_txt', '%s'), (int) ceil($left / 60));
+	}
+	if ($left < 172800) {
+		return sprintf(waf_panel_text($wb, 'ban_until_hours_txt', '%s'), (int) round($left / 3600));
+	}
+	return sprintf(waf_panel_text($wb, 'ban_until_days_txt', '%s'), (int) round($left / 86400));
+}
+
+/**
+ * The rows of the page „Sperren": state, reason, end, turned away requests and
+ * the origin of the address, ready for the template.
+ */
+function waf_panel_ban_rows($wb, $rows, $origins, $now, $language = 'de')
+{
+	$states = array('active' => 'ban_state_active_txt', 'proposed' => 'ban_state_proposed_txt',
+		'expired' => 'ban_state_expired_txt', 'lifted' => 'ban_state_lifted_txt',
+		'dismissed' => 'ban_state_dismissed_txt');
+	$sources = array('auto' => 'ban_source_auto_txt', 'manual' => 'ban_source_manual_txt',
+		'fail2ban' => 'ban_source_fail2ban_txt');
+	$view = array();
+	foreach ($rows as $row) {
+		$ip = isset($row['ip']) ? (string) $row['ip'] : '';
+		$state = isset($row['state']) ? (string) $row['state'] : '';
+		$source = isset($row['source']) ? (string) $row['source'] : 'auto';
+		$since = isset($row['blocked_at']) && $row['blocked_at'] !== null
+			? $row['blocked_at'] : (isset($row['created_at']) ? $row['created_at'] : '');
+		$view[] = array(
+			'ip' => $ip,
+			'state' => $state,
+			'state_label' => waf_panel_text($wb, isset($states[$state]) ? $states[$state] : '', $state),
+			'reason' => isset($row['reason']) ? (string) $row['reason'] : '',
+			'rule' => isset($row['rule']) ? (string) $row['rule'] : '',
+			'since' => waf_panel_time_label($since),
+			'until_label' => waf_panel_ban_until($wb, $row, $now),
+			'denied' => isset($row['denied']) ? (string) $row['denied'] : '0',
+			'source_label' => waf_panel_text($wb, isset($sources[$source]) ? $sources[$source] : '', $source),
+			'origin' => waf_panel_origin($wb, isset($origins[$ip]) ? $origins[$ip] : null, $language),
+		);
+	}
+	return $view;
 }
