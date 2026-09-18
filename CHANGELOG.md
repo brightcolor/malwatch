@@ -2,6 +2,14 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.23.3] – 2026-09-18
+
+### Behoben
+
+**Zahl der abgewehrten Versuche.** Gezählt wurden auch Antworten 403, die eine
+Website selbst gegeben hatte, bevor die Sperre stand. Der Zähler nimmt jetzt nur
+noch Zeilen, die nach dem Beginn der Sperre entstanden sind.
+
 ## [0.23.2] – 2026-09-18
 
 ### Behoben

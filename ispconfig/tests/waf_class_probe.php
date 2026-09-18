@@ -682,12 +682,18 @@ $answers = array();
 $waf->ban_apply();
 
 // Das Zählen der abgewehrten Versuche.
+$blocked_at = (string) $db->queryOneRecord("SELECT blocked_at FROM malwatch_waf_ban WHERE ip = '192.0.2.50'")['blocked_at'];
+$stamp = strtotime($blocked_at);
+$before = date('Y-m-d', $stamp - 60) . 'T' . date('H:i:s', $stamp - 60) . '+02:00';
+$after_one = date('Y-m-d', $stamp + 5) . 'T' . date('H:i:s', $stamp + 5) . '+02:00';
+$after_two = date('Y-m-d', $stamp + 6) . 'T' . date('H:i:s', $stamp + 6) . '+02:00';
 file_put_contents($tmp . '/blocked.log',
-	"2026-09-18T10:00:01+02:00 192.0.2.50 403 beispiel.test \"GET /wp-login.php HTTP/1.1\"\n"
-	. "2026-09-18T10:00:02+02:00 192.0.2.50 403 beispiel.test \"GET /.env HTTP/1.1\"\n"
-	. "2026-09-18T10:00:03+02:00 198.51.100.50 200 beispiel.test \"GET / HTTP/1.1\"\n");
+	$before . " 192.0.2.50 403 beispiel.test \"GET /vor-der-sperre HTTP/1.1\"\n"
+	. $after_one . " 192.0.2.50 403 beispiel.test \"GET /wp-login.php HTTP/1.1\"\n"
+	. $after_two . " 192.0.2.50 403 beispiel.test \"GET /.env HTTP/1.1\"\n"
+	. $after_two . " 198.51.100.50 200 beispiel.test \"GET / HTTP/1.1\"\n");
 expect_same('one blocked address was counted', $waf->ban_count(), 1);
-expect_same('two attempts were turned away',
+expect_same('only what bounced after the block counts',
 	(int) $db->queryOneRecord("SELECT denied FROM malwatch_waf_ban WHERE ip = '192.0.2.50'")['denied'], 2);
 expect_same('a second pass counts nothing twice', $waf->ban_count(), 0);
 

@@ -188,7 +188,12 @@ function waf_ban_log_line($line)
 	if ((int) $parts[2] !== 403 || waf_origin_bytes($parts[1]) === '') {
 		return null;
 	}
-	return array('ip' => (string) $parts[1]);
+	// The time comes as 2026-09-18T13:54:02+02:00 and belongs to the same clock
+	// as the database, so the counter can tell before from after a block.
+	if (!preg_match('/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})/', (string) $parts[0], $when)) {
+		return null;
+	}
+	return array('ip' => (string) $parts[1], 'at' => $when[1] . ' ' . $when[2]);
 }
 
 /**

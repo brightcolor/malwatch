@@ -142,7 +142,11 @@ expect_same('an empty list gives a file without a single deny',
 
 expect_same('a line of a turned away request',
 	waf_ban_log_line('2026-09-18T10:00:01+02:00 192.0.2.10 403 beispiel.test "GET /wp-login.php HTTP/1.1"'),
-	array('ip' => '192.0.2.10'));
+	array('ip' => '192.0.2.10', 'at' => '2026-09-18 10:00:01'));
+expect_same('the time comes in the shape of the database',
+	waf_ban_log_line('2026-09-18T23:59:59+02:00 192.0.2.10 403 x "GET / HTTP/1.1"')['at'], '2026-09-18 23:59:59');
+expect_same('a line without a usable time does not count',
+	waf_ban_log_line('kaputt 192.0.2.10 403 x "GET / HTTP/1.1"'), null);
 expect_same('another answer does not count',
 	waf_ban_log_line('2026-09-18T10:00:01+02:00 192.0.2.10 200 beispiel.test "GET / HTTP/1.1"'), null);
 expect_same('a line without an address',

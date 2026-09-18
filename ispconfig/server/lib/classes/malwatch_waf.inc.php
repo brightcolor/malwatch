@@ -1367,12 +1367,20 @@ class malwatch_waf
 		if ($offset > 0) {
 			fseek($handle, $offset);
 		}
+		// Gezählt wird nur, was nach dem Beginn der Sperre abprallte; die Antworten
+		// 403, die eine Website vorher selbst gab, gehören nicht dazu.
+		$since = array();
+		foreach ($this->rows($app->dbmaster->queryAllRecords(
+			"SELECT ip, blocked_at FROM malwatch_waf_ban WHERE server_id = ? AND state = 'active'",
+			$conf['server_id'])) as $row) {
+			$since[(string) $row['ip']] = (string) $row['blocked_at'];
+		}
 		$seen = array();
 		$lines = 0;
 		while (($line = fgets($handle)) !== false && $lines < 20000) {
 			$lines++;
 			$one = waf_ban_log_line($line);
-			if ($one === null) {
+			if ($one === null || !isset($since[$one['ip']]) || $one['at'] < $since[$one['ip']]) {
 				continue;
 			}
 			$seen[$one['ip']] = isset($seen[$one['ip']]) ? $seen[$one['ip']] + 1 : 1;
