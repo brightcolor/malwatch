@@ -2745,3 +2745,16 @@ Stufe 1 ist fertig, wenn:
 - das Serverprotokoll die Blöcke 1 bis 5 enthält.
 
 Danach folgen mit eigener Freigabe Stufe 2 (fail2ban im Panel) und Stufe 3 (URL-Tabelle für die OPNsense) aus derselben Spec.
+
+## Nachtrag 18.09.2026: Zähler und Klassenprobe
+
+- **0.23.3** — Der Zähler der abgewehrten Versuche nahm auch die Antworten 403,
+  die eine Website selbst gab, bevor die Sperre stand. `waf_ban_log_line()`
+  liefert jetzt Adresse und Zeitstempel, `ban_count()` zählt nur Zeilen hinter
+  `blocked_at`.
+- **0.23.4** — `start_set_state()` sah für die Einbindung der Sperrliste immer
+  unter `/etc/nginx/conf.d` nach; sie folgt jetzt der eingestellten Einbindung
+  (`blocked_include()`). Die Klassenprobe prüft, dass das Feld mit vorhandener
+  Einbindung auch das zweite Zugriffslog schreibt.
+- Wirkung der ersten Sperre: pulsivemedia.com gab unter den Scanner-Wellen bis zu
+  199 Antworten 503 je Welle; seit der Sperre keine einzige mehr.
