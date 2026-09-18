@@ -1736,6 +1736,12 @@ class malwatch_waf
 		return is_array($row) ? (int) $row['n'] : 0;
 	}
 
+	/** Where the include of the block list sits, beside the include of the rules. */
+	private function blocked_include()
+	{
+		return dirname($this->paths['conf_include']) . '/waf-blocked.conf';
+	}
+
 	/** Phase one: back up and write the field of every website, then look once at the vhosts. */
 	private function start_set_state($job, $options, $mode)
 	{
@@ -1743,7 +1749,7 @@ class malwatch_waf
 
 		$settings = $this->settings();
 		// nginx knows the format mw_block only with the include of waf/install.sh.
-		$settings['waf_ban_log'] = is_file('/etc/nginx/conf.d/waf-blocked.conf') ? 'y' : '';
+		$settings['waf_ban_log'] = is_file($this->blocked_include()) ? 'y' : '';
 		$target = isset($options['state']) ? (string) $options['state'] : '';
 		$ids = isset($options['domain_ids']) && is_array($options['domain_ids']) ? $options['domain_ids'] : array();
 		$now = $this->db_value('SELECT NOW() AS value');

@@ -735,6 +735,17 @@ expect_same('and the file is empty',
 	substr_count((string) file_get_contents($tmp . '/waf/blocked.conf'), 'deny '), 0);
 $db->query('DELETE FROM malwatch_waf_hit');
 
+// Steht die Einbindung der Sperrliste, schreibt das Feld auch das zweite Zugriffslog.
+file_put_contents($tmp . '/conf.d/waf-blocked.conf', 'include ' . $tmp . "/waf/blocked.conf;
+");
+$db->query('UPDATE web_domain SET nginx_directives = ? WHERE domain_id = 11', $own);
+$db->query("UPDATE malwatch_site SET waf_state = '', waf_pending_state = '' WHERE parent_domain_id = 11");
+$waf->queue('set_state', array('domain_ids' => array(11), 'state' => 'detect'), 'probe');
+$waf->pass();
+expect_same('with the include the field also writes the second access log',
+	field(11), $own . waf_block_text('detect', true));
+unlink($tmp . '/conf.d/waf-blocked.conf');
+
 $db->query("DELETE FROM malwatch_waf_hit WHERE unique_id = 'probe-origin'");
 $waf->cleanup();
 expect_same('the address goes with its last hit',

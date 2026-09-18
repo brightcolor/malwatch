@@ -2,6 +2,16 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.23.4] – 2026-09-18
+
+### Behoben
+
+**Klassenprobe.** Beim Schreiben der Website-Felder sah die Serverklasse für die
+Einbindung der Sperrliste immer unter `/etc/nginx/conf.d` nach, auch wenn ein
+anderer Ordner eingestellt war. Sie folgt jetzt der eingestellten Einbindung, und
+eine neue Prüfung hält fest, dass das Feld mit vorhandener Einbindung auch das
+zweite Zugriffslog schreibt.
+
 ## [0.23.3] – 2026-09-18
 
 ### Behoben
