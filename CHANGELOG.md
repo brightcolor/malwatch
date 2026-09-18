@@ -2,6 +2,15 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.25.1] – 2026-09-18
+
+### Behoben
+
+**Meldungen von `waf-switch ban`.** Die Kommandozeile antwortete mit einem festen
+Satz, auch wenn der Auftrag abgewiesen wurde: `ban add` auf eine Adresse unter
+„Nie sperren" meldete „Sperre eingetragen", obwohl nichts gesperrt wurde. Jetzt
+steht dort die Meldung des Auftrags, und der Rückgabewert stimmt.
+
 ## [0.25.0] – 2026-09-18
 
 ### Neu

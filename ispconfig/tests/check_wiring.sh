@@ -1547,6 +1547,19 @@ if [ -f "$root/../waf/waf-switch" ]; then
 	grep -q "sub === 'origin'" "$root/../waf/waf-switch" 		|| fail "waf-switch cannot switch the origin criterion off"
 fi
 
+# 83. waf-switch sagt, was der Auftrag gemeldet hat. Ein fester Satz wuerde
+#     einen abgewiesenen Auftrag als Erfolg ausgeben.
+tool="$root/../waf/waf-switch"
+if [ -f "$tool" ]; then
+	block=$(sed -n "/case 'ban':/,/^	default:/p" "$tool")
+	for call in ban_mode ban_add ban_lift ban_allow_add ban_token_new; do
+		printf '%s
+' "$block" | grep -q "execute_now('$call'" 			|| fail "waf-switch does not run $call any more; the check needs an update"
+	done
+	printf '%s
+' "$block" | grep -c 'waf_cli_report(' | grep -qE '^[5-9]|^[0-9]{2}' 		|| fail "a ban command of waf-switch answers with a fixed sentence instead of the job log"
+fi
+
 # 82. Die Woerter der Herkunft stehen in beiden Woerterbuechern.
 for lang in de en; do
 	for key in ban_origin_head_txt ban_origin_intro_txt ban_origin_days_txt ban_origin_save_txt 		ban_origin_none_txt ban_err_origin_kind_txt; do

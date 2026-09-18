@@ -380,7 +380,10 @@ switch ($command) {
 		if ($sub === 'url') {
 			$next = (string) array_shift($args);
 			if ($next === 'new') {
-				$waf->execute_now('ban_token_new', array(), $user);
+				$made = $waf->execute_now('ban_token_new', array(), $user);
+				if (waf_cli_report($made) !== 0) {
+					exit(1);
+				}
 				$next = (string) array_shift($args);
 			}
 			// Der Name des Panels steht in keiner Einstellung: Das Panel antwortet
@@ -406,32 +409,23 @@ switch ($command) {
 		}
 		if ($sub === 'off' || $sub === 'propose' || $sub === 'on') {
 			$mode = $sub === 'on' ? 'block' : $sub;
-			$waf->execute_now('ban_mode', array('mode' => $mode), $user);
-			if ($sub === 'off') {
+			$code = waf_cli_report($waf->execute_now('ban_mode', array('mode' => $mode), $user));
+			if ($sub === 'off' && $code === 0) {
 				// Der Rückweg: Automatik aus und alle laufenden Sperren weg.
-				$waf->execute_now('ban_lift', array('ip' => 'all'), $user);
-				echo "Automatik aus, alle Sperren aufgehoben.
-";
-				exit(0);
+				$code = waf_cli_report($waf->execute_now('ban_lift', array('ip' => 'all'), $user));
 			}
-			echo 'Automatik steht auf ', $mode, ".
-";
-			exit(0);
+			exit($code);
 		}
 		if ($sub === 'add') {
 			$ip = (string) array_shift($args);
 			$permanent = in_array('--permanent', $args, true) ? 'y' : 'n';
-			$waf->execute_now('ban_add', array('ip' => $ip, 'permanent' => $permanent), $user);
-			echo 'Sperre für ', $ip, " eingetragen.
-";
-			exit(0);
+			exit(waf_cli_report($waf->execute_now('ban_add',
+				array('ip' => $ip, 'permanent' => $permanent), $user)));
 		}
 		if ($sub === 'lift') {
 			$ip = (string) array_shift($args);
-			$waf->execute_now('ban_lift', array('ip' => $ip === '--all' || $ip === '' ? 'all' : $ip), $user);
-			echo "Aufgehoben.
-";
-			exit(0);
+			exit(waf_cli_report($waf->execute_now('ban_lift',
+				array('ip' => $ip === '--all' || $ip === '' ? 'all' : $ip), $user)));
 		}
 		if ($sub === 'allow') {
 			$cidr = (string) array_shift($args);
@@ -441,10 +435,8 @@ switch ($command) {
 					$note = substr((string) $one, 7);
 				}
 			}
-			$waf->execute_now('ban_allow_add', array('cidr' => $cidr, 'note' => $note), $user);
-			echo 'Ausnahme ', $cidr, " eingetragen.
-";
-			exit(0);
+			exit(waf_cli_report($waf->execute_now('ban_allow_add',
+				array('cidr' => $cidr, 'note' => $note), $user)));
 		}
 		fwrite(STDERR, "ban status|off|propose|on|list|add <ip>|lift <ip|--all>|allow <cidr>|url [new]|origin [on|off]
 ");
