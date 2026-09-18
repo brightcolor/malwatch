@@ -59,6 +59,8 @@ jobs:
         run: php ispconfig/tests/waf_origin_sources_test.php
       - name: WAF proxycheck
         run: php ispconfig/tests/waf_proxycheck_test.php
+      - name: WAF ban
+        run: php ispconfig/tests/waf_ban_test.php
       - name: WAF tools
         run: |
           php -l waf/waf-switch

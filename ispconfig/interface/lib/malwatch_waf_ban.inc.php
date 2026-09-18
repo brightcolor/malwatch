@@ -1,0 +1,104 @@
+<?php
+/**
+ * Blocking attacker addresses: who crosses a threshold, for how long and with
+ * which reason. Everything here works without a database and without a network,
+ * so tests/waf_ban_test.php can check it on its own. The texts are German, like
+ * the notes of the jobs.
+ *
+ * The name is "ban", because waf_block_text() and its neighbours in
+ * malwatch_waf_lib.inc.php already build the managed block of a vhost.
+ */
+require_once __DIR__ . '/malwatch_waf_origin.inc.php';
+
+/**
+ * The points a website needs before an address is blocked: its own value, the
+ * value of the server, or 0 when the website never triggers a block.
+ */
+function waf_ban_site_score($settings, $site)
+{
+	$trigger = is_array($site) && isset($site['waf_ban_trigger']) ? (string) $site['waf_ban_trigger'] : 'y';
+	if ($trigger !== 'y') {
+		return 0;
+	}
+	$own = is_array($site) && isset($site['waf_ban_score']) ? (int) $site['waf_ban_score'] : 0;
+	return $own > 0 ? $own : (int) $settings['waf_ban_score'];
+}
+
+/**
+ * The addresses that crossed the threshold of at least one website. $groups are
+ * the sums of the window with client_ip, parent_domain_id, score, hits and the
+ * rule that appeared most; $sites holds the websites by parent_domain_id. One
+ * entry per address, naming the website with the most points.
+ */
+function waf_ban_decide($groups, $settings, $sites)
+{
+	$picked = array();
+	foreach ($groups as $row) {
+		$id = (int) $row['parent_domain_id'];
+		$site = isset($sites[$id]) ? $sites[$id] : null;
+		$limit = waf_ban_site_score($settings, $site);
+		$score = (int) $row['score'];
+		if ($limit <= 0 || $score < $limit) {
+			continue;
+		}
+		$ip = (string) $row['client_ip'];
+		if (isset($picked[$ip]) && $picked[$ip]['score'] >= $score) {
+			continue;
+		}
+		$picked[$ip] = array(
+			'ip' => $ip,
+			'domain' => is_array($site) && isset($site['domain']) ? (string) $site['domain'] : '',
+			'score' => $score,
+			'hits' => (int) $row['hits'],
+			'rule' => isset($row['rule']) ? (string) $row['rule'] : '',
+			'limit' => $limit,
+		);
+	}
+	return array_values($picked);
+}
+
+/**
+ * The level of a block: 1 the first time, 2 the second, 3 from then on.
+ * $earlier is the level of the earlier block of the same address, 0 when there
+ * was none.
+ */
+function waf_ban_level($earlier)
+{
+	$earlier = (int) $earlier;
+	if ($earlier < 1) {
+		return 1;
+	}
+	return $earlier === 1 ? 2 : 3;
+}
+
+/** The hours a block of that level lasts. */
+function waf_ban_hours($level, $settings)
+{
+	if ((int) $level >= 3) {
+		return (int) $settings['waf_ban_hours_third'];
+	}
+	return (int) $level === 2 ? (int) $settings['waf_ban_hours_second'] : (int) $settings['waf_ban_hours_first'];
+}
+
+/** When a block of that level ends, counted from $now. */
+function waf_ban_until($level, $settings, $now)
+{
+	return gmdate('Y-m-d H:i:s', strtotime((string) $now) + waf_ban_hours($level, $settings) * 3600);
+}
+
+/**
+ * The reason of a block as one sentence: points, hits, window, website and the
+ * rule that appeared most, in words.
+ */
+function waf_ban_reason($pick, $minutes, $rule_label)
+{
+	$reason = number_format((int) $pick['score'], 0, ',', '.') . ' Punkte aus ' . (int) $pick['hits']
+		. ' Treffern in ' . (int) $minutes . ' Minuten';
+	if ((string) $pick['domain'] !== '') {
+		$reason .= ' auf ' . $pick['domain'];
+	}
+	if ((string) $rule_label !== '') {
+		$reason .= ', meist ' . $rule_label;
+	}
+	return waf_origin_cut($reason . '.', 255);
+}
