@@ -2,6 +2,14 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.24.1] – 2026-09-18
+
+### Behoben
+
+**Klassenprobe.** Die neue Prüfung der Liste für die Firewall sah im ersten
+Arbeitsbereich der Probe nach, während die Klasse seit dem Abschnitt zur
+Herkunft in einem zweiten schreibt.
+
 ## [0.24.0] – 2026-09-18
 
 ### Neu

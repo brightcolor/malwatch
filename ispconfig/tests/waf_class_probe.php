@@ -665,7 +665,7 @@ expect_same('nginx was tested and reloaded', $calls, array('nginx_test', 'nginx_
 expect_same('the address stands in the file',
 	strpos((string) file_get_contents($tmp . '/waf/blocked.conf'), 'deny 192.0.2.50;') !== false, true);
 expect_same('and in the list for the OPNsense',
-	file_get_contents($tmp . '/state/waf/blocked.txt'), "192.0.2.50
+	file_get_contents($probe_dir . '/waf/blocked.txt'), "192.0.2.50
 ");
 expect_same('a second run changes nothing', $waf->ban_apply(), array(false, ''));
 
@@ -750,7 +750,7 @@ $fresh = (string) config_value('waf_ban_token');
 expect_same('a new key is another one', array(waf_ban_token_ok($fresh), $fresh === $token), array(true, false));
 expect_same('the key stays out of the job log', strpos((string) job_row($job)['job_log'], $fresh), false);
 expect_same('the list is empty while nothing is blocked',
-	file_get_contents($tmp . '/state/waf/blocked.txt'), '');
+	file_get_contents($probe_dir . '/waf/blocked.txt'), '');
 $db->query("UPDATE malwatch_config SET waf_ban_mode = 'block' WHERE config_id = 1");
 
 // Steht die Einbindung der Sperrliste, schreibt das Feld auch das zweite Zugriffslog.
