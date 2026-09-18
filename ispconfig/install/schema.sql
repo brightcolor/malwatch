@@ -1026,6 +1026,63 @@ SET @mw := (SELECT IF(COUNT(*) = 0,
   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_waf_origin_source' AND COLUMN_NAME = 'day');
 PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
+-- Sperren kommen mit 0.23.0: die Werte der Automatik.
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_config` ADD COLUMN `waf_ban_mode` enum(''off'',''propose'',''block'') NOT NULL DEFAULT ''off'', ADD COLUMN `waf_ban_score` int(11) unsigned NOT NULL DEFAULT ''50'', ADD COLUMN `waf_ban_window_minutes` int(11) unsigned NOT NULL DEFAULT ''10'', ADD COLUMN `waf_ban_hours_first` int(11) unsigned NOT NULL DEFAULT ''1'', ADD COLUMN `waf_ban_hours_second` int(11) unsigned NOT NULL DEFAULT ''24'', ADD COLUMN `waf_ban_hours_third` int(11) unsigned NOT NULL DEFAULT ''168'', ADD COLUMN `waf_ban_max` int(11) unsigned NOT NULL DEFAULT ''5000'', ADD COLUMN `waf_ban_keep_days` int(11) unsigned NOT NULL DEFAULT ''30'', ADD COLUMN `waf_ban_bots` enum(''off'',''on'') NOT NULL DEFAULT ''on''',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_config' AND COLUMN_NAME = 'waf_ban_mode');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- The threshold of a website; 0 means the value of the server.
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_site` ADD COLUMN `waf_ban_score` int(11) unsigned NOT NULL DEFAULT ''0'', ADD COLUMN `waf_ban_trigger` enum(''y'',''n'') NOT NULL DEFAULT ''y''',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_site' AND COLUMN_NAME = 'waf_ban_score');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+--
+-- One row per server and address: why it is blocked, since when, until when and
+-- how many attempts were turned away since. cleanup() removes a row once its
+-- end lies further back than waf_ban_keep_days.
+--
+CREATE TABLE IF NOT EXISTS `malwatch_waf_ban` (
+  `server_id` int(11) unsigned NOT NULL DEFAULT '0',
+  `ip` varchar(45) NOT NULL DEFAULT '',
+  `state` enum('proposed','active','expired','lifted','dismissed') NOT NULL DEFAULT 'proposed',
+  `reason` varchar(255) NOT NULL DEFAULT '',
+  `rule` varchar(16) NOT NULL DEFAULT '',
+  `score` int(11) unsigned NOT NULL DEFAULT '0',
+  `hits` int(11) unsigned NOT NULL DEFAULT '0',
+  `level` tinyint(3) unsigned NOT NULL DEFAULT '1',
+  `source` enum('auto','manual','fail2ban') NOT NULL DEFAULT 'auto',
+  `created_at` datetime DEFAULT NULL,
+  `blocked_at` datetime DEFAULT NULL,
+  `until` datetime DEFAULT NULL,
+  `lifted_at` datetime DEFAULT NULL,
+  `lifted_by` varchar(64) NOT NULL DEFAULT '',
+  `denied` int(11) unsigned NOT NULL DEFAULT '0',
+  `denied_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`server_id`,`ip`),
+  KEY `state_until` (`server_id`,`state`,`until`)
+) DEFAULT CHARSET=utf8mb4 ;
+
+--
+-- Addresses and ranges that are never blocked. The fixed networks of the server
+-- are in the code, not here.
+--
+CREATE TABLE IF NOT EXISTS `malwatch_waf_allow` (
+  `allow_id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `server_id` int(11) unsigned NOT NULL DEFAULT '0',
+  `cidr` varchar(64) NOT NULL DEFAULT '',
+  `note` varchar(255) NOT NULL DEFAULT '',
+  `created_at` datetime DEFAULT NULL,
+  `created_by` varchar(64) NOT NULL DEFAULT '',
+  PRIMARY KEY (`allow_id`),
+  UNIQUE KEY `server_cidr` (`server_id`,`cidr`)
+) DEFAULT CHARSET=utf8mb4 ;
+
 --
 -- One row per server and address: what the range files said and, later, what
 -- an external service added. cleanup() removes a row as soon as no hit names

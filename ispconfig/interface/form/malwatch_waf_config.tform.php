@@ -234,6 +234,102 @@ $form['tabs']['waf'] = array(
 			'width' => '10',
 			'maxlength' => '6'
 		),
+		'waf_ban_mode' => array(
+			'datatype' => 'VARCHAR',
+			'formtype' => 'SELECT',
+			'default' => 'off',
+			'value' => array(
+				'off' => 'ban_mode_off_txt',
+				'propose' => 'ban_mode_propose_txt',
+				'block' => 'ban_mode_block_txt'
+			)
+		),
+		'waf_ban_score' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '50',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '5:10000', 'errmsg' => 'waf_ban_score_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '5'
+		),
+		'waf_ban_window_minutes' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '10',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '1:1440', 'errmsg' => 'waf_ban_window_minutes_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '4'
+		),
+		'waf_ban_hours_first' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '1',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '1:8760', 'errmsg' => 'waf_ban_hours_first_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '4'
+		),
+		'waf_ban_hours_second' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '24',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '1:8760', 'errmsg' => 'waf_ban_hours_second_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '4'
+		),
+		'waf_ban_hours_third' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '168',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '1:8760', 'errmsg' => 'waf_ban_hours_third_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '4'
+		),
+		'waf_ban_max' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '5000',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '100:100000', 'errmsg' => 'waf_ban_max_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '6'
+		),
+		'waf_ban_keep_days' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '30',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '1:365', 'errmsg' => 'waf_ban_keep_days_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '3'
+		),
+		'waf_ban_bots' => array(
+			'datatype' => 'VARCHAR',
+			'formtype' => 'SELECT',
+			'default' => 'on',
+			'value' => array(
+				'on' => 'ban_bots_on_txt',
+				'off' => 'ban_bots_off_txt'
+			)
+		),
 		'waf_origin_tor_hours' => array(
 			'datatype' => 'INTEGER',
 			'formtype' => 'TEXT',

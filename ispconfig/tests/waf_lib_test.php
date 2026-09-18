@@ -559,6 +559,24 @@ expect_same('the daily limit stays in its range',
 expect_same('without a row the limit is the default',
 	waf_settings(array())['waf_origin_proxycheck_daily'], 500);
 
+// --- Sperren ------------------------------------------------------------------
+
+expect_same('the three modes', waf_ban_modes(), array('off', 'propose', 'block'));
+$ban = waf_settings(array());
+expect_same('blocking is off by default', $ban['waf_ban_mode'], 'off');
+expect_same('the defaults of the numbers', array($ban['waf_ban_score'], $ban['waf_ban_window_minutes'],
+	$ban['waf_ban_hours_first'], $ban['waf_ban_hours_second'], $ban['waf_ban_hours_third'],
+	$ban['waf_ban_max'], $ban['waf_ban_keep_days']), array(50, 10, 1, 24, 168, 5000, 30));
+expect_same('search engines are spared by default', $ban['waf_ban_bots'], 'on');
+$ban = waf_settings(array('waf_ban_mode' => 'propose', 'waf_ban_score' => '80',
+	'waf_ban_window_minutes' => '5', 'waf_ban_max' => '99', 'waf_ban_keep_days' => '400',
+	'waf_ban_bots' => 'off'));
+expect_same('a chosen mode is kept', $ban['waf_ban_mode'], 'propose');
+expect_same('numbers inside their limits', array($ban['waf_ban_score'], $ban['waf_ban_window_minutes'],
+	$ban['waf_ban_max'], $ban['waf_ban_keep_days']), array(80, 5, 100, 365));
+expect_same('search engines can be switched off', $ban['waf_ban_bots'], 'off');
+expect_same('an unknown mode falls back', waf_settings(array('waf_ban_mode' => 'vielleicht'))['waf_ban_mode'], 'off');
+
 // --- summary -----------------------------------------------------------------
 if ($failures > 0) {
 	fwrite(STDERR, $failures . " Fehler\n");

@@ -819,10 +819,25 @@ function waf_settings_defaults()
 		'waf_origin_net' => 'off',
 		'waf_origin_proxycheck_key' => '',
 		'waf_origin_proxycheck_daily' => 500,
+		'waf_ban_mode' => 'off',
+		'waf_ban_score' => 50,
+		'waf_ban_window_minutes' => 10,
+		'waf_ban_hours_first' => 1,
+		'waf_ban_hours_second' => 24,
+		'waf_ban_hours_third' => 168,
+		'waf_ban_max' => 5000,
+		'waf_ban_keep_days' => 30,
+		'waf_ban_bots' => 'on',
 		'waf_origin_tor_hours' => 1,
 		'waf_origin_list_hours' => 24,
 		'waf_origin_db_hours' => 24,
 	);
+}
+
+/** The three states of the automatic blocking. */
+function waf_ban_modes()
+{
+	return array('off', 'propose', 'block');
 }
 
 /** The range each number is held to: array(min, max). */
@@ -838,6 +853,13 @@ function waf_settings_limits()
 		'waf_job_deadline_minutes' => array(2, 120),
 		'waf_card_hits' => array(100, 100000),
 		'waf_origin_proxycheck_daily' => array(1, 100000),
+		'waf_ban_score' => array(5, 10000),
+		'waf_ban_window_minutes' => array(1, 1440),
+		'waf_ban_hours_first' => array(1, 8760),
+		'waf_ban_hours_second' => array(1, 8760),
+		'waf_ban_hours_third' => array(1, 8760),
+		'waf_ban_max' => array(100, 100000),
+		'waf_ban_keep_days' => array(1, 365),
 		'waf_origin_tor_hours' => array(1, 168),
 		'waf_origin_list_hours' => array(1, 720),
 		'waf_origin_db_hours' => array(1, 720),
@@ -887,6 +909,10 @@ function waf_settings($row)
 	// travels in the address of the request.
 	$settings['waf_origin_proxycheck_key'] = preg_match('/^[A-Za-z0-9-]{0,128}$/', (string) $settings['waf_origin_proxycheck_key'])
 		? (string) $settings['waf_origin_proxycheck_key'] : '';
+	if (!in_array($settings['waf_ban_mode'], waf_ban_modes(), true)) {
+		$settings['waf_ban_mode'] = $defaults['waf_ban_mode'];
+	}
+	$settings['waf_ban_bots'] = $settings['waf_ban_bots'] === 'off' ? 'off' : 'on';
 	return $settings;
 }
 
