@@ -2,6 +2,14 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.23.2] – 2026-09-18
+
+### Behoben
+
+**Regel im Grund einer Sperre.** Der Grund nannte „meist Regel Array" statt der
+Regelnummer: Die Treffer speichern ihre Regeln als Objekte mit `id` und `msg`, die
+Auswertung erwartete nackte Nummern. Sie versteht jetzt beides.
+
 ## [0.23.1] – 2026-09-18
 
 ### Behoben

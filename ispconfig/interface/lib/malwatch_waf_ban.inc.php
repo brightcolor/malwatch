@@ -206,6 +206,11 @@ function waf_ban_top_rule($rows)
 			continue;
 		}
 		foreach ($ids as $id) {
+			// A hit stores its rules as objects with id and msg; older rows and the
+			// tests also know the bare id.
+			if (is_array($id)) {
+				$id = isset($id['id']) ? $id['id'] : '';
+			}
 			$id = trim((string) $id);
 			if ($id === '' || in_array($id, $scoring, true)) {
 				continue;

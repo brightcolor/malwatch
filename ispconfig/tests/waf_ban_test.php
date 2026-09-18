@@ -94,6 +94,16 @@ expect_same('only scoring rules means no rule',
 	waf_ban_top_rule(array(array('rules' => '["949110","980130"]'))), '');
 expect_same('no hits, no rule', waf_ban_top_rule(array()), '');
 
+// So stehen die Regeln wirklich in malwatch_waf_hit: als Objekte mit id und msg.
+$hits_real = array(
+	array('rules' => '[{"id":"930130","msg":"Restricted File Access Attempt"},{"id":"949110","msg":"Score"}]'),
+	array('rules' => '[{"id":"930130","msg":"Restricted File Access Attempt"}]'),
+	array('rules' => '[{"id":"941100","msg":"XSS"},{"id":"949110","msg":"Score"}]'),
+);
+expect_same('the rules of a hit are objects', waf_ban_top_rule($hits_real), '930130');
+expect_same('objects with only scoring rules give none',
+	waf_ban_top_rule(array(array('rules' => '[{"id":"949110","msg":"Score"}]'))), '');
+
 // --- What is never blocked ----------------------------------------------------
 
 expect_same('the fixed networks', waf_ban_fixed_allow(), array('127.0.0.0/8', '::1/128', '10.50.0.0/24'));
