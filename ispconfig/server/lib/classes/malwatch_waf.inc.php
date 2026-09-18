@@ -24,6 +24,9 @@ class malwatch_waf
 	/** The functions of the origin sources, installed next to the shared ones. */
 	const LIB_ORIGIN = '/usr/local/ispconfig/interface/web/security/lib/malwatch_waf_origin.inc.php';
 
+	/** The library that decides who is blocked; installed next to the panel. */
+	const LIB_BAN = '/usr/local/ispconfig/interface/web/security/lib/malwatch_waf_ban.inc.php';
+
 	/**
 	 * Paths outside the WAF directory. Public so tests/waf_class_probe.php can
 	 * point them at a scratch directory. vhost_dir comes from the ISPConfig
@@ -52,6 +55,9 @@ class malwatch_waf
 	 * function ($url, $body, $limit) returning array(ok, text).
 	 */
 	public $poster = null;
+
+	/** The log nginx writes the turned away requests into; a probe points it elsewhere. */
+	public $ban_log = '/var/log/waf/blocked.log';
 	public $runner = null;
 
 	/** The handle of the lock file while this process holds it. */
@@ -65,6 +71,9 @@ class malwatch_waf
 		}
 		if (!function_exists('waf_origin_sources') && is_file(self::LIB_ORIGIN)) {
 			require_once self::LIB_ORIGIN;
+		}
+		if (!function_exists('waf_ban_decide') && is_file(self::LIB_BAN)) {
+			require_once self::LIB_BAN;
 		}
 		return function_exists('waf_states');
 	}
@@ -624,6 +633,9 @@ class malwatch_waf
 			$this->ingest(array());
 			$this->origin_lookup();
 			$this->origin_external();
+			$this->ban_scan();
+			$this->ban_count();
+			$this->ban_apply();
 			$this->run_jobs();
 		} catch (Throwable $e) {
 			$app->log('malwatch: the WAF pass failed: ' . $e->getMessage(), LOGLEVEL_WARN);
@@ -641,6 +653,7 @@ class malwatch_waf
 		}
 		try {
 			$this->cleanup();
+			$this->ban_expire();
 			$this->queue_origin_update();
 		} catch (Throwable $e) {
 			$app->log('malwatch: the WAF cleanup failed: ' . $e->getMessage(), LOGLEVEL_WARN);
@@ -1134,6 +1147,261 @@ class malwatch_waf
 			. "fetched_at = IF(VALUES(error) = '', VALUES(checked_at), fetched_at)",
 			$conf['server_id'], $name, $now, $error === '' ? $now : null, $entries, $error,
 			$error === '' ? null : $now, $quota['day'], $quota['queries']);
+	}
+
+	/**
+	 * Looks at the window and writes down every address that crossed the
+	 * threshold of a website: as a proposal in the mode propose, as a block in
+	 * the mode block. Returns how many rows were written.
+	 */
+	public function ban_scan()
+	{
+		global $app, $conf;
+
+		$settings = $this->settings();
+		$mode = (string) $settings['waf_ban_mode'];
+		if ($mode !== 'propose' && $mode !== 'block') {
+			return 0;
+		}
+		$now = $this->now();
+		$minutes = (int) $settings['waf_ban_window_minutes'];
+		$since = gmdate('Y-m-d H:i:s', strtotime($now) - $minutes * 60);
+		$groups = $this->rows($app->dbmaster->queryAllRecords(
+			'SELECT client_ip, parent_domain_id, SUM(anomaly_score) AS score, COUNT(*) AS hits '
+			. "FROM malwatch_waf_hit WHERE server_id = ? AND seen_at >= ? AND client_ip != '' "
+			. 'GROUP BY client_ip, parent_domain_id', $conf['server_id'], $since));
+		if (count($groups) === 0) {
+			return 0;
+		}
+		$sites = array();
+		foreach ($this->rows($app->dbmaster->queryAllRecords(
+			'SELECT parent_domain_id, domain, waf_ban_score, waf_ban_trigger FROM malwatch_site WHERE server_id = ?',
+			$conf['server_id'])) as $row) {
+			$sites[(int) $row['parent_domain_id']] = $row;
+		}
+		$picked = waf_ban_decide($groups, $settings, $sites);
+		if (count($picked) === 0) {
+			return 0;
+		}
+		$known = array();
+		foreach ($this->rows($app->dbmaster->queryAllRecords(
+			'SELECT ip, state, level, created_at, lifted_at FROM malwatch_waf_ban WHERE server_id = ?',
+			$conf['server_id'])) as $row) {
+			$known[(string) $row['ip']] = $row;
+		}
+		$allow = $this->ban_allow_list();
+		$readers = waf_origin_readers($this->ensure_dirs() . '/origin',
+			(string) $settings['waf_ban_bots'] === 'on' ? array('searchbots') : array());
+		$reader = isset($readers['searchbots']) ? $readers['searchbots'] : null;
+		$active = (int) $this->db_value('SELECT COUNT(*) AS value FROM malwatch_waf_ban WHERE server_id = '
+			. (int) $conf['server_id'] . " AND state = 'active'");
+		$written = 0;
+		foreach ($picked as $pick) {
+			$ip = $pick['ip'];
+			if (isset($known[$ip]) && $this->ban_keeps_quiet($known[$ip], $since)) {
+				continue;
+			}
+			if (waf_ban_allowed($ip, $allow, $reader)) {
+				continue;
+			}
+			if ($mode === 'block' && $active >= (int) $settings['waf_ban_max']) {
+				$app->log('malwatch: die Sperrliste ist voll (' . (int) $settings['waf_ban_max']
+					. ' Adressen); ' . $ip . ' wurde nicht gesperrt.', LOGLEVEL_WARN);
+				break;
+			}
+			$top = waf_ban_top_rule($this->rows($app->dbmaster->queryAllRecords(
+				'SELECT rules FROM malwatch_waf_hit WHERE server_id = ? AND client_ip = ? AND seen_at >= ? LIMIT 200',
+				$conf['server_id'], $ip, $since)));
+			$level = waf_ban_level(isset($known[$ip]) ? (int) $known[$ip]['level'] : 0);
+			$state = $mode === 'block' ? 'active' : 'proposed';
+			$app->dbmaster->query('INSERT INTO malwatch_waf_ban (server_id, ip, state, reason, rule, score, hits, '
+				. 'level, source, created_at, blocked_at, until, lifted_at, lifted_by, denied, denied_at) '
+				. "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'auto', ?, ?, ?, NULL, '', 0, NULL) "
+				. 'ON DUPLICATE KEY UPDATE state = VALUES(state), reason = VALUES(reason), rule = VALUES(rule), '
+				. 'score = VALUES(score), hits = VALUES(hits), level = VALUES(level), source = VALUES(source), '
+				. 'created_at = VALUES(created_at), blocked_at = VALUES(blocked_at), until = VALUES(until), '
+				. "lifted_at = NULL, lifted_by = '', denied = 0, denied_at = NULL",
+				$conf['server_id'], $ip, $state,
+				waf_ban_reason($pick, $minutes, $top === '' ? '' : 'Regel ' . $top), $top,
+				$pick['score'], $pick['hits'], $level, $now,
+				$state === 'active' ? $now : null,
+				$state === 'active' ? waf_ban_until($level, $settings, $now) : null);
+			if ($state === 'active') {
+				$active++;
+			}
+			$written++;
+		}
+		waf_origin_readers_close($readers);
+		return $written;
+	}
+
+	/**
+	 * true when an address is left alone: it carries a running block or a waiting
+	 * proposal, or its proposal was dismissed or its block lifted inside the
+	 * window — then the decision of the operator counts, not the counter.
+	 */
+	private function ban_keeps_quiet($row, $since)
+	{
+		$state = (string) $row['state'];
+		if ($state === 'proposed' || $state === 'active') {
+			return true;
+		}
+		if ($state === 'dismissed') {
+			return (string) $row['created_at'] >= (string) $since;
+		}
+		return $state === 'lifted' && (string) $row['lifted_at'] >= (string) $since;
+	}
+
+	/**
+	 * The addresses and ranges that are never blocked: the list of the operator
+	 * plus every address the server itself carries.
+	 */
+	private function ban_allow_list()
+	{
+		global $app, $conf;
+
+		$list = array();
+		foreach ($this->rows($app->dbmaster->queryAllRecords(
+			'SELECT cidr FROM malwatch_waf_allow WHERE server_id = ?', $conf['server_id'])) as $row) {
+			$list[] = (string) $row['cidr'];
+		}
+		foreach ($this->rows($app->dbmaster->queryAllRecords(
+			'SELECT ip_address FROM server_ip WHERE server_id = ?', $conf['server_id'])) as $row) {
+			$list[] = (string) $row['ip_address'];
+		}
+		return $list;
+	}
+
+	/**
+	 * Writes the deny file of nginx from the active blocks and reloads nginx when
+	 * its content changed. Returns array(changed, error); the error text names
+	 * what happened and what holds now. A configuration nginx refuses never
+	 * reaches the running server: the old file comes back and nothing is
+	 * reloaded.
+	 */
+	public function ban_apply()
+	{
+		global $app, $conf;
+
+		$settings = $this->settings();
+		$file = rtrim((string) $settings['waf_conf_dir'], '/') . '/blocked.conf';
+		$max = (int) $settings['waf_ban_max'];
+		$ips = array();
+		foreach ($this->rows($app->dbmaster->queryAllRecords(
+			"SELECT ip FROM malwatch_waf_ban WHERE server_id = ? AND state = 'active' "
+			. "AND source IN ('auto','manual') ORDER BY ip LIMIT ?", $conf['server_id'], $max)) as $row) {
+			$ips[] = (string) $row['ip'];
+		}
+		$want = waf_ban_file($ips, $this->now(), $max);
+		$have = is_file($file) ? (string) @file_get_contents($file) : '';
+		if ($have === $want) {
+			return array(false, '');
+		}
+		if (@file_put_contents($file, $want) === false) {
+			return array(false, 'Die Sperrdatei ' . $file . ' ließ sich nicht schreiben. Bitte Platz und Rechte '
+				. 'unter dem Regelverzeichnis prüfen; es gilt weiter der vorherige Stand.');
+		}
+		@chmod($file, 0644);
+		$test = $this->run_command('nginx_test', '');
+		if ((int) $test[0] !== 0) {
+			if ($have === '') {
+				@file_put_contents($file, "# von malwatch erzeugt, leer\n");
+			} else {
+				@file_put_contents($file, $have);
+			}
+			return array(false, 'nginx hat die Sperrdatei abgelehnt: '
+				. waf_cut(preg_replace('/\s+/', ' ', (string) $test[1]), 200)
+				. ' Der vorherige Stand gilt weiter, es wurde nicht neu geladen.');
+		}
+		$reload = $this->run_command('nginx_reload', '');
+		if ((int) $reload[0] !== 0) {
+			return array(false, 'nginx ließ sich nicht neu laden: '
+				. waf_cut(preg_replace('/\s+/', ' ', (string) $reload[1]), 200)
+				. ' Die Sperren stehen in der Datei und wirken nach dem nächsten Reload.');
+		}
+		@copy($file, $this->ensure_dirs() . '/last-good/blocked.conf');
+		return array(true, '');
+	}
+
+	/**
+	 * Sets the blocks whose end has passed to expired and removes rows that are
+	 * older than the keeping time. Returns how many blocks ended.
+	 */
+	public function ban_expire()
+	{
+		global $app, $conf;
+
+		$settings = $this->settings();
+		$now = $this->now();
+		$app->dbmaster->query("UPDATE malwatch_waf_ban SET state = 'expired' WHERE server_id = ? "
+			. "AND state = 'active' AND until IS NOT NULL AND until <= ?", $conf['server_id'], $now);
+		$ended = (int) $app->dbmaster->affectedRows();
+		$keep = gmdate('Y-m-d H:i:s', strtotime($now) - (int) $settings['waf_ban_keep_days'] * 86400);
+		$app->dbmaster->query("DELETE FROM malwatch_waf_ban WHERE server_id = ? "
+			. "AND state IN ('expired','lifted','dismissed') AND COALESCE(lifted_at, until, created_at) < ?",
+			$conf['server_id'], $keep);
+		return $ended;
+	}
+
+	/**
+	 * Counts the requests nginx turned away since the last pass. The log holds
+	 * one line per answer 403; only addresses that are blocked are counted, the
+	 * rest belongs to the websites themselves.
+	 */
+	public function ban_count()
+	{
+		global $app, $conf;
+
+		$file = $this->ban_log;
+		if (!is_file($file)) {
+			return 0;
+		}
+		$state = $this->ban_reader_state();
+		$inode = (int) @fileinode($file);
+		$size = (int) @filesize($file);
+		$offset = ($inode !== $state['inode'] || $size < $state['offset']) ? 0 : $state['offset'];
+		$handle = @fopen($file, 'rb');
+		if ($handle === false) {
+			return 0;
+		}
+		if ($offset > 0) {
+			fseek($handle, $offset);
+		}
+		$seen = array();
+		$lines = 0;
+		while (($line = fgets($handle)) !== false && $lines < 20000) {
+			$lines++;
+			$one = waf_ban_log_line($line);
+			if ($one === null) {
+				continue;
+			}
+			$seen[$one['ip']] = isset($seen[$one['ip']]) ? $seen[$one['ip']] + 1 : 1;
+		}
+		$offset = ftell($handle);
+		fclose($handle);
+		$this->save_ban_reader_state($inode, $offset);
+		$now = $this->now();
+		foreach ($seen as $ip => $count) {
+			$app->dbmaster->query('UPDATE malwatch_waf_ban SET denied = denied + ?, denied_at = ? '
+				. "WHERE server_id = ? AND ip = ? AND state = 'active'", (int) $count, $now, $conf['server_id'], $ip);
+		}
+		return count($seen);
+	}
+
+	/** Where the reader of the block log stopped last time. */
+	private function ban_reader_state()
+	{
+		$doc = json_decode((string) @file_get_contents($this->ensure_dirs() . '/blocked-reader.json'), true);
+		return array(
+			'inode' => is_array($doc) && isset($doc['inode']) ? (int) $doc['inode'] : 0,
+			'offset' => is_array($doc) && isset($doc['offset']) ? (int) $doc['offset'] : 0,
+		);
+	}
+
+	private function save_ban_reader_state($inode, $offset)
+	{
+		waf_write_atomic($this->ensure_dirs() . '/blocked-reader.json',
+			json_encode(array('inode' => (int) $inode, 'offset' => (int) $offset)) . "\n");
 	}
 
 	public function queue($action, $fields, $user)

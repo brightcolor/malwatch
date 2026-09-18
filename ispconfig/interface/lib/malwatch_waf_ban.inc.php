@@ -188,3 +188,32 @@ function waf_ban_log_line($line)
 	}
 	return array('ip' => (string) $parts[1]);
 }
+
+/**
+ * The rule that appeared most in the hits of the window. The four scoring rules
+ * of the CRS stand in almost every hit and say nothing about the attack, so
+ * they are left out.
+ */
+function waf_ban_top_rule($rows)
+{
+	$scoring = array('949110', '959100', '980130', '980140');
+	$count = array();
+	foreach ($rows as $row) {
+		$ids = json_decode(isset($row['rules']) ? (string) $row['rules'] : '', true);
+		if (!is_array($ids)) {
+			continue;
+		}
+		foreach ($ids as $id) {
+			$id = trim((string) $id);
+			if ($id === '' || in_array($id, $scoring, true)) {
+				continue;
+			}
+			$count[$id] = isset($count[$id]) ? $count[$id] + 1 : 1;
+		}
+	}
+	arsort($count);
+	foreach ($count as $id => $seen) {
+		return (string) $id;
+	}
+	return '';
+}

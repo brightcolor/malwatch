@@ -75,6 +75,19 @@ expect_same('a reason without a rule in words',
 		'rule' => '', 'limit' => 50), 10, ''),
 	'1.200 Punkte aus 240 Treffern in 10 Minuten auf beispiel.test.');
 
+// --- The rule that appeared most ----------------------------------------------
+
+$hits = array(
+	array('rules' => '["930130","949110"]'),
+	array('rules' => '["930130","949110"]'),
+	array('rules' => '["941100","949110"]'),
+	array('rules' => 'kein json'),
+);
+expect_same('the rule that appeared most, without the scoring rules', waf_ban_top_rule($hits), '930130');
+expect_same('only scoring rules means no rule',
+	waf_ban_top_rule(array(array('rules' => '["949110","980130"]'))), '');
+expect_same('no hits, no rule', waf_ban_top_rule(array()), '');
+
 // --- What is never blocked ----------------------------------------------------
 
 expect_same('the fixed networks', waf_ban_fixed_allow(), array('127.0.0.0/8', '::1/128', '10.50.0.0/24'));
