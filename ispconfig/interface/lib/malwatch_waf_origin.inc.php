@@ -353,11 +353,18 @@ function waf_origin_sources()
 function waf_origin_chosen($settings)
 {
 	$chosen = array();
+	$mode = isset($settings['waf_ban_mode']) ? (string) $settings['waf_ban_mode'] : 'off';
 	foreach (waf_origin_sources() as $name => $source) {
 		$setting = isset($settings[$source['setting']]) ? (string) $settings[$source['setting']] : 'off';
-		if ($setting === $source['value']) {
-			$chosen[] = $name;
+		if ($setting !== $source['value']) {
+			continue;
 		}
+		// The ranges of the search engines only protect against a block; without
+		// the automatic blocking nothing needs to be downloaded for them.
+		if ($name === 'searchbots' && $mode === 'off') {
+			continue;
+		}
+		$chosen[] = $name;
 	}
 	return $chosen;
 }

@@ -44,6 +44,7 @@ $app->dbmaster = $db;
 
 require $stage . '/interface/lib/malwatch_waf_lib.inc.php';
 require $stage . '/interface/lib/malwatch_waf_origin.inc.php';
+require $stage . '/interface/lib/malwatch_waf_ban.inc.php';
 require $stage . '/server/lib/classes/malwatch_waf.inc.php';
 $app->uses('malwatch_helper');
 

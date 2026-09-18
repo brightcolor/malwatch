@@ -206,7 +206,9 @@ foreach (glob($look . '/*') as $name) {
 
 expect_same('search engines are a source of their own', isset(waf_origin_sources()['searchbots']), true);
 expect_same('the search engines are chosen with their own setting',
-	waf_origin_chosen(array('waf_ban_bots' => 'on')), array('searchbots'));
+	waf_origin_chosen(array('waf_ban_bots' => 'on', 'waf_ban_mode' => 'propose')), array('searchbots'));
+expect_same('with the automatic blocking off nothing is downloaded for them',
+	waf_origin_chosen(array('waf_ban_bots' => 'on', 'waf_ban_mode' => 'off')), array());
 expect_same('two addresses for the search engines', count(waf_origin_urls('searchbots', '')), 2);
 $bots = __DIR__ . '/fixtures/bots';
 $bots_out = $dir . '/searchbots.bin';
