@@ -194,6 +194,18 @@ Adressen und bleibt unter dem Tageslimit aus den Einstellungen. Er ersetzt die
 Merkmale VPN, Rechenzentrum und Proxy; Land, Provider und Tor bleiben bei den
 lokalen Quellen, solange eine davon gewählt ist.
 
+Aus Treffern werden Sperren: Sammelt eine Adresse im Zeitfenster mehr
+Anomalie-Punkte, als die Website erlaubt (Vorgabe 50 Punkte in 10 Minuten, je
+Website einstellbar), legt der Cron eine Sperre an — im Zustand „vorschlagen"
+nur zur Ansicht, im Zustand „sperren" wirksam. Die aktiven Sperren stehen als
+`deny`-Zeilen in `/etc/nginx/waf/blocked.conf`, eingebunden über
+`/etc/nginx/conf.d/waf-blocked.conf`; geschrieben wird die Datei nur von der
+Serverklasse, und nginx wird erst geprüft und dann neu geladen. Die erste Sperre
+dauert eine Stunde, die zweite 24, ab der dritten sieben Tage. Nie gesperrt
+werden die eigenen Netze, die Ausnahmeliste und die Adressbereiche von Google und
+Bing. `/var/log/waf/blocked.log` zählt, was seither abgeprallt ist.
+`waf-switch ban off` macht ohne Panel wieder auf.
+
 ## Aktionen
 
 Je Website einzeln schaltbar, jede mit eigener Mindeststufe:

@@ -2,6 +2,30 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.23.0] – 2026-09-18
+
+### Neu
+
+**Sperren.** Wer in kurzer Zeit zu viele Anomalie-Punkte sammelt, wird serverweit
+mit 403 abgewiesen. Die neue Seite **Security > Abwehr > Sperren** zeigt, wer
+gesperrt ist, warum, seit wann, bis wann und wie viele Versuche seither abgeprallt
+sind. Die Automatik beginnt bei „aus“; „vorschlagen“ rechnet nur mit, „sperren“
+handelt. Von Hand geht jederzeit — auch direkt an jeder Adresse in den Regel-Karten
+und Einzeltreffern.
+
+**Schwelle je Website.** Jede Website kann eine eigene Schwelle bekommen oder gar
+keine Sperre auslösen; ohne eigenen Wert gilt der Wert des Servers (Vorgabe 50
+Punkte in 10 Minuten).
+
+**Staffel und Ausnahmen.** Die erste Sperre dauert eine Stunde, die zweite 24, ab
+der dritten sieben Tage — alles einstellbar. Nie gesperrt werden die eigenen Netze,
+die Adressen der Ausnahmeliste und die veröffentlichten Adressbereiche von Google
+und Bing, die malwatch wie die übrigen Herkunftslisten lädt.
+
+**Rückweg.** `waf-switch ban off` hebt alle Sperren auf und schaltet die Automatik
+aus, auch ohne Panel. Lehnt nginx die erzeugte Datei ab, kommt der vorherige Stand
+zurück und es wird nicht neu geladen.
+
 ## [0.22.0] – 2026-09-18
 
 ### Neu
