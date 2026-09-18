@@ -738,6 +738,54 @@ expect_same('and the file is empty',
 	substr_count((string) file_get_contents($tmp . '/waf/blocked.conf'), 'deny '), 0);
 $db->query('DELETE FROM malwatch_waf_hit');
 
+// Herkunft senkt die Schwelle: derselbe Scanner, einmal ohne und einmal mit.
+$db->query('DELETE FROM malwatch_waf_ban');
+$db->query('DELETE FROM malwatch_waf_hit');
+$db->query("UPDATE malwatch_config SET waf_ban_mode = 'propose', waf_ban_score = 50, waf_ban_origin = 'off', "
+	. "waf_ban_origin_score = 20, waf_ban_origin_factor = 200, waf_ban_origin_now = 'off', "
+	. "waf_ban_origin_countries = 'FR', waf_ban_origin_asn = '', waf_ban_origin_hosting = 'off' "
+	. 'WHERE config_id = 1');
+$db->query("UPDATE malwatch_site SET waf_ban_score = 0, waf_ban_trigger = 'y'");
+$db->query('INSERT INTO malwatch_waf_ip (server_id, ip, country, asn, as_org, is_tor, is_vpn, is_hosting, '
+	. "is_proxy, vpn_operator, local_at) VALUES (?, '198.51.100.70', 'FR', 202425, 'Bucklog SARL', 'n', 'n', "
+	. "'n', 'n', '', NOW()) ON DUPLICATE KEY UPDATE country = VALUES(country), asn = VALUES(asn)", $server);
+for ($i = 0; $i < 6; $i++) {
+	$db->query('INSERT INTO malwatch_waf_hit (server_id, parent_domain_id, domain, unique_id, seen_at, client_ip, '
+		. "method, uri, path, status, anomaly_score, would_block, logged_in, rules, request_headers) "
+		. "VALUES (?, 11, 'beispiel.test', ?, NOW(), '198.51.100.70', 'GET', '/x', '/x', 404, 5, 'y', 'n', "
+		. "'[\"930130\"]', '{}')", $server, 'probe-origin-' . $i);
+}
+expect_same('30 points stay below the normal threshold', $waf->ban_scan(), 0);
+$db->query("UPDATE malwatch_config SET waf_ban_origin = 'on' WHERE config_id = 1");
+expect_same('with the origin counted the same address is picked', $waf->ban_scan(), 1);
+$found = $db->queryOneRecord("SELECT state, score, reason FROM malwatch_waf_ban WHERE ip = '198.51.100.70'");
+expect_same('the points were doubled and it is only a proposal',
+	array($found['state'], (int) $found['score']), array('proposed', 60));
+expect_same('the reason names the country',
+	strpos((string) $found['reason'], 'Herkunft: Land FR') !== false, true);
+
+// Der Anbieter zählt vor dem Land, und mit dem Schalter wird sofort gesperrt.
+$db->query('DELETE FROM malwatch_waf_ban');
+$db->query("UPDATE malwatch_config SET waf_ban_origin_asn = 'AS202425', waf_ban_origin_now = 'on' "
+	. 'WHERE config_id = 1');
+expect_same('the same address again', $waf->ban_scan(), 1);
+$found = $db->queryOneRecord("SELECT state, reason, until FROM malwatch_waf_ban WHERE ip = '198.51.100.70'");
+expect_same('now it is blocked at once, named by its provider',
+	array($found['state'], strpos((string) $found['reason'], 'Herkunft: Anbieter Bucklog SARL') !== false,
+		$found['until'] !== null), array('active', true, true));
+
+$waf->queue('ban_origin_list', array('kind' => 'countries', 'values' => array('de', 'X', 'cn')), 'probe');
+$waf->pass();
+expect_same('the chosen countries are stored in one text',
+	config_value('waf_ban_origin_countries'), 'DE,CN');
+$waf->queue('ban_origin_list', array('kind' => 'asn', 'values' => array()), 'probe');
+$waf->pass();
+expect_same('an empty choice clears the list', config_value('waf_ban_origin_asn'), '');
+$db->query('DELETE FROM malwatch_waf_ban');
+$db->query('DELETE FROM malwatch_waf_hit');
+$db->query("UPDATE malwatch_config SET waf_ban_origin = 'off', waf_ban_origin_now = 'off' WHERE config_id = 1");
+$waf->ban_apply();
+
 // Der Schlüssel der veröffentlichten Liste.
 $db->query("UPDATE malwatch_config SET waf_ban_token = '' WHERE config_id = 1");
 $waf->queue('ban_mode', array('mode' => 'propose'), 'probe');

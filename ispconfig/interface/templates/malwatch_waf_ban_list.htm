@@ -199,6 +199,75 @@
 		data-submit-form="pageForm" data-form-action="security/malwatch_waf_ban_list.php">{tmpl_var name='ban_allow_add_txt'}</button>
 </div>
 
+<h2>{tmpl_var name='ban_origin_head_txt'}</h2>
+<p class="mw-sub">{tmpl_var name='ban_origin_intro_txt'} {tmpl_var name='origin_days'}</p>
+<tmpl_if name="origin_mode_on">
+<tmpl_else>
+<p class="mw-sub">{tmpl_var name='ban_origin_off_hint_txt'}</p>
+</tmpl_if>
+
+<h3>{tmpl_var name='ban_origin_countries_txt'}</h3>
+<tmpl_if name="has_origin_country">
+<div class="table-wrapper">
+<table class="table">
+	<thead class="dark">
+		<tr>
+			<th>{tmpl_var name='ban_origin_col_suspicious_txt'}</th>
+			<th>{tmpl_var name='ban_origin_col_country_txt'}</th>
+			<th>{tmpl_var name='ban_origin_col_hits_txt'}</th>
+			<th>{tmpl_var name='ban_origin_col_addresses_txt'}</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tmpl_loop name="origin_country">
+		<tr>
+			<td><input type="checkbox" name="waf_origin_country[]" value="{tmpl_var name='origin_value'}"<tmpl_if name="origin_chosen"> checked="checked"</tmpl_if> /></td>
+			<td>{tmpl_var name='origin_label'}</td>
+			<td class="mw-num">{tmpl_var name='origin_hits'}</td>
+			<td class="mw-num">{tmpl_var name='origin_addresses'}</td>
+		</tr>
+		</tmpl_loop>
+	</tbody>
+</table>
+</div>
+<button class="btn btn-default btn-xs" type="button"
+	data-mw-set-mw-waf-action="ban_origin_list" data-mw-set-mw-waf-kind="countries"
+	data-submit-form="pageForm" data-form-action="security/malwatch_waf_ban_list.php">{tmpl_var name='ban_origin_save_txt'}</button>
+<tmpl_else>
+<p class="mw-sub">{tmpl_var name='ban_origin_none_txt'}</p>
+</tmpl_if>
+
+<h3>{tmpl_var name='ban_origin_providers_txt'}</h3>
+<tmpl_if name="has_origin_asn">
+<div class="table-wrapper">
+<table class="table">
+	<thead class="dark">
+		<tr>
+			<th>{tmpl_var name='ban_origin_col_suspicious_txt'}</th>
+			<th>{tmpl_var name='ban_origin_col_provider_txt'}</th>
+			<th>{tmpl_var name='ban_origin_col_hits_txt'}</th>
+			<th>{tmpl_var name='ban_origin_col_addresses_txt'}</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tmpl_loop name="origin_asn">
+		<tr>
+			<td><input type="checkbox" name="waf_origin_asn[]" value="{tmpl_var name='origin_value'}"<tmpl_if name="origin_chosen"> checked="checked"</tmpl_if> /></td>
+			<td>{tmpl_var name='origin_label'}</td>
+			<td class="mw-num">{tmpl_var name='origin_hits'}</td>
+			<td class="mw-num">{tmpl_var name='origin_addresses'}</td>
+		</tr>
+		</tmpl_loop>
+	</tbody>
+</table>
+</div>
+<button class="btn btn-default btn-xs" type="button"
+	data-mw-set-mw-waf-action="ban_origin_list" data-mw-set-mw-waf-kind="asn"
+	data-submit-form="pageForm" data-form-action="security/malwatch_waf_ban_list.php">{tmpl_var name='ban_origin_save_txt'}</button>
+<tmpl_else>
+<p class="mw-sub">{tmpl_var name='ban_origin_none_txt'}</p>
+</tmpl_if>
+
 <h2>{tmpl_var name='ban_url_head_txt'}</h2>
 <p class="mw-sub">{tmpl_var name='ban_url_intro_txt'}</p>
 <tmpl_if name="has_ban_url">

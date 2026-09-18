@@ -2,6 +2,24 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.25.0] – 2026-09-18
+
+### Neu
+
+**Die Herkunft senkt die Schwelle.** Für Adressen aus ausgewählten Ländern, von
+ausgewählten Anbietern oder aus Rechenzentren, VPN und Tor gilt eine eigene,
+niedrigere Schwelle, und ihre Punkte zählen um einen einstellbaren Anteil mehr.
+Ein eigener Schalter sperrt solche Adressen sofort, während die Automatik sonst
+nur vorschlägt. Alles beginnt ausgeschaltet.
+
+Länder und Anbieter werden auf der Seite Security > Abwehr > Sperren aus den
+echten Treffern angekreuzt — mit Trefferzahl und Zahl der Adressen daneben, also
+ohne Kürzelraten. Der Grund einer Sperre nennt das Merkmal mit, etwa „Herkunft:
+Anbieter Google LLC". Der Wille des Betreibers geht vor: Eine Website, die keine
+Sperre auslöst, bleibt frei, und die Ausnahmeliste wirkt wie bisher.
+
+Rückweg ohne Panel: `waf-switch ban origin off`.
+
 ## [0.24.1] – 2026-09-18
 
 ### Behoben

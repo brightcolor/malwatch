@@ -1091,6 +1091,17 @@ function waf_panel_handle_post($app, $wb, $post)
 		return waf_panel_ban_queue($app, $wb, 'ban_token_new', array());
 	}
 
+	if ($action === 'ban_origin_list') {
+		$kind = isset($post['waf_kind']) ? (string) $post['waf_kind'] : '';
+		if ($kind !== 'countries' && $kind !== 'asn') {
+			return array('', waf_panel_text($wb, 'ban_err_origin_kind_txt', ''));
+		}
+		$field = $kind === 'countries' ? 'waf_origin_country' : 'waf_origin_asn';
+		$values = isset($post[$field]) && is_array($post[$field]) ? $post[$field] : array();
+		return waf_panel_ban_queue($app, $wb, 'ban_origin_list',
+			array('kind' => $kind, 'values' => array_map('strval', array_slice($values, 0, 500))));
+	}
+
 	if ($action === 'ban_add' || $action === 'ban_lift' || $action === 'ban_extend' || $action === 'ban_dismiss') {
 		$ip = isset($post['waf_ip']) ? trim((string) $post['waf_ip']) : '';
 		if ($action === 'ban_lift' && $ip === '') {
@@ -1354,6 +1365,46 @@ function waf_panel_ban_until($wb, $row, $now)
  * The rows of the page „Sperren": state, reason, end, turned away requests and
  * the origin of the address, ready for the template.
  */
+/**
+ * The countries or providers the hits came from, the busiest first, each with
+ * the number of hits and whether it counts as suspicious today. $rows carries
+ * value, label, hits and addresses; $chosen the values already on the list.
+ */
+function waf_panel_ban_origin_rows($rows, $chosen, $max = 25)
+{
+	$chosen = array_map('strval', $chosen);
+	$view = array();
+	foreach ($rows as $row) {
+		$value = isset($row['value']) ? trim((string) $row['value']) : '';
+		if ($value === '') {
+			continue;
+		}
+		$view[] = array(
+			'value' => $value,
+			'label' => isset($row['label']) && (string) $row['label'] !== '' ? (string) $row['label'] : $value,
+			'hits' => number_format((int) (isset($row['hits']) ? $row['hits'] : 0), 0, ',', '.'),
+			'addresses' => number_format((int) (isset($row['addresses']) ? $row['addresses'] : 0), 0, ',', '.'),
+			'chosen' => in_array($value, $chosen, true) ? 1 : 0,
+		);
+		if (count($view) >= (int) $max) {
+			break;
+		}
+	}
+	// Was schon auf der Liste steht, aber zuletzt keine Treffer hatte, bleibt
+	// sichtbar - sonst verschwindet es beim nächsten Speichern unbemerkt.
+	$seen = array();
+	foreach ($view as $one) {
+		$seen[] = $one['value'];
+	}
+	foreach ($chosen as $value) {
+		if ($value === '' || in_array($value, $seen, true)) {
+			continue;
+		}
+		$view[] = array('value' => $value, 'label' => $value, 'hits' => '0', 'addresses' => '0', 'chosen' => 1);
+	}
+	return $view;
+}
+
 /**
  * The published list as the page shows it: the address the OPNsense fetches,
  * how many addresses stand in it and what it means. Without a key there is no

@@ -1179,7 +1179,16 @@ class malwatch_waf
 			$conf['server_id'])) as $row) {
 			$sites[(int) $row['parent_domain_id']] = $row;
 		}
-		$picked = waf_ban_decide($groups, $settings, $sites);
+		// Die Herkunft der Adressen des Zeitfensters; sie kann die Schwelle senken.
+		$origins = array();
+		if ((string) $settings['waf_ban_origin'] === 'on') {
+			foreach ($this->rows($app->dbmaster->queryAllRecords(
+				'SELECT ip, country, asn, as_org, is_tor, is_vpn, is_hosting FROM malwatch_waf_ip '
+				. 'WHERE server_id = ?', $conf['server_id'])) as $row) {
+				$origins[(string) $row['ip']] = $row;
+			}
+		}
+		$picked = waf_ban_decide($groups, $settings, $sites, $origins);
 		if (count($picked) === 0) {
 			return 0;
 		}
@@ -1204,7 +1213,8 @@ class malwatch_waf
 			if (waf_ban_allowed($ip, $allow, $reader)) {
 				continue;
 			}
-			if ($mode === 'block' && $active >= (int) $settings['waf_ban_max']) {
+			if (($mode === 'block' || (string) $settings['waf_ban_origin_now'] === 'on')
+				&& $active >= (int) $settings['waf_ban_max']) {
 				$app->log('malwatch: die Sperrliste ist voll (' . (int) $settings['waf_ban_max']
 					. ' Adressen); ' . $ip . ' wurde nicht gesperrt.', LOGLEVEL_WARN);
 				break;
@@ -1213,7 +1223,10 @@ class malwatch_waf
 				'SELECT rules FROM malwatch_waf_hit WHERE server_id = ? AND client_ip = ? AND seen_at >= ? LIMIT 200',
 				$conf['server_id'], $ip, $since)));
 			$level = waf_ban_level(isset($known[$ip]) ? (int) $known[$ip]['level'] : 0);
-			$state = $mode === 'block' ? 'active' : 'proposed';
+			// Eine auffällige Herkunft darf sperren, während sonst nur vorgeschlagen
+			// wird - das ist ein eigener Schalter und steht von Haus aus aus.
+			$at_once = waf_ban_origin_at_once(isset($pick['origin']) ? $pick['origin'] : '', $settings);
+			$state = ($mode === 'block' || $at_once) ? 'active' : 'proposed';
 			$app->dbmaster->query('INSERT INTO malwatch_waf_ban (server_id, ip, state, reason, rule, score, hits, '
 				. 'level, source, created_at, blocked_at, until, lifted_at, lifted_by, denied, denied_at) '
 				. "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'auto', ?, ?, ?, NULL, '', 0, NULL) "
@@ -1492,6 +1505,28 @@ class malwatch_waf
 					. 'OPNsense auf die neue Adresse umstellen.';
 				break;
 
+			case 'ban_origin_list':
+				$kind = isset($options['kind']) ? (string) $options['kind'] : '';
+				$raw = isset($options['values']) && is_array($options['values'])
+					? implode(',', array_map('strval', $options['values'])) : '';
+				if ($kind === 'countries') {
+					$list = waf_ban_origin_countries($raw);
+					$column = 'waf_ban_origin_countries';
+					$note = count($list) === 0 ? 'Kein Land gilt mehr als auffällig.'
+						: count($list) . ' Länder gelten als auffällig: ' . implode(', ', $list) . '.';
+				} elseif ($kind === 'asn') {
+					$list = waf_ban_origin_asns($raw);
+					$column = 'waf_ban_origin_asn';
+					$note = count($list) === 0 ? 'Kein Anbieter gilt mehr als auffällig.'
+						: count($list) . ' Anbieter gelten als auffällig.';
+				} else {
+					return $this->finish($job, false, 'Unbekannte Liste. Erlaubt sind Länder und Anbieter.');
+				}
+				// Der Spaltenname kommt aus den beiden Zweigen darüber, nie aus dem Auftrag.
+				$app->dbmaster->query('UPDATE malwatch_config SET ' . $column . ' = ? WHERE config_id = 1',
+					waf_ban_origin_store($list));
+				break;
+
 			case 'ban_add':
 				if (waf_origin_bytes($ip) === '') {
 					return $this->finish($job, false, 'Das ist keine Adresse. Bitte eine IPv4- oder IPv6-Adresse '
@@ -1752,6 +1787,7 @@ class malwatch_waf
 				break;
 			case 'ban_mode':
 			case 'ban_token_new':
+			case 'ban_origin_list':
 			case 'ban_add':
 			case 'ban_lift':
 			case 'ban_extend':

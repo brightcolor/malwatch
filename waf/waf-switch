@@ -20,6 +20,7 @@
  *   waf-switch ban lift <ip|--all>
  *   waf-switch ban allow <cidr> [--note=text]
  *   waf-switch ban url [new] [<name des panels>]
+ *   waf-switch ban origin [on|off]
  *   waf-switch ingest [--dry-run] [--file=<audit log>]
  *   waf-switch migrate
  *   waf-switch snapshot
@@ -346,6 +347,36 @@ switch ($command) {
 			}
 			exit(0);
 		}
+		if ($sub === 'origin') {
+			$next = (string) array_shift($args);
+			if ($next === 'off' || $next === 'on') {
+				$app->dbmaster->query('UPDATE malwatch_config SET waf_ban_origin = ? WHERE config_id = 1',
+					$next === 'on' ? 'on' : 'off');
+				if ($next === 'off') {
+					// Der Rückweg nimmt auch das sofortige Sperren mit.
+					$app->dbmaster->query("UPDATE malwatch_config SET waf_ban_origin_now = 'off' WHERE config_id = 1");
+				}
+			}
+			$settings = $waf->settings();
+			printf("Herkunft schärfer bewerten: %s, sofort sperren: %s
+",
+				$settings['waf_ban_origin'], $settings['waf_ban_origin_now']);
+			printf("Eigene Schwelle: %d Punkte, Faktor: %d Prozent
+",
+				$settings['waf_ban_origin_score'], $settings['waf_ban_origin_factor']);
+			$countries = waf_ban_origin_countries($settings['waf_ban_origin_countries']);
+			$asns = waf_ban_origin_asns($settings['waf_ban_origin_asn']);
+			printf("Länder: %s
+", count($countries) > 0 ? implode(', ', $countries) : 'keine');
+			printf("Anbieter: %s
+", count($asns) > 0 ? 'AS' . implode(', AS', $asns) : 'keine');
+			printf("Rechenzentrum: %s, VPN: %s, Tor: %s
+", $settings['waf_ban_origin_hosting'],
+				$settings['waf_ban_origin_vpn'], $settings['waf_ban_origin_tor']);
+			echo "Die Listen werden im Panel gepflegt: Security > Abwehr > Sperren.
+";
+			exit(0);
+		}
 		if ($sub === 'url') {
 			$next = (string) array_shift($args);
 			if ($next === 'new') {
@@ -415,7 +446,7 @@ switch ($command) {
 ";
 			exit(0);
 		}
-		fwrite(STDERR, "ban status|off|propose|on|list|add <ip>|lift <ip|--all>|allow <cidr>|url [new]
+		fwrite(STDERR, "ban status|off|propose|on|list|add <ip>|lift <ip|--all>|allow <cidr>|url [new]|origin [on|off]
 ");
 		exit(2);
 
@@ -454,6 +485,6 @@ switch ($command) {
 
 fwrite(STDERR, "Befehle: status | set <off|detect|enforce> <domain…|--wordpress|--all> [--wait] | probe … | "
 	. "emergency on|off [--hard] | response-body [full|lean|status] | restore <ordner> | jobs | "
-	. "exception list|add|remove | ban status|off|propose|on|list|add|lift|allow|url | "
+	. "exception list|add|remove | ban status|off|propose|on|list|add|lift|allow|url|origin | "
 	. "ingest [--dry-run] [--file=<log>] | migrate | snapshot | guard\n");
 exit(2);

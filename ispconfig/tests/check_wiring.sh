@@ -1525,6 +1525,38 @@ for lang in de en; do
 	done
 done
 
+# 80. Die schaerfere Bewertung der Herkunft beginnt aus, in jedem einzelnen Wert.
+lib="$root/interface/lib/malwatch_waf_lib.inc.php"
+for key in waf_ban_origin waf_ban_origin_now waf_ban_origin_hosting waf_ban_origin_vpn waf_ban_origin_tor; do
+	sed -n '/function waf_settings_defaults/,/^}/p' "$lib" | grep -qF "'$key' => 'off'," 		|| fail "waf_settings_defaults() does not start $key as off"
+	grep -q "ADD COLUMN \`$key\`" "$root/install/schema.sql" 		|| fail "malwatch_config bekommt keine Spalte $key"
+done
+for key in waf_ban_origin_countries waf_ban_origin_asn; do
+	sed -n '/function waf_settings_defaults/,/^}/p' "$lib" | grep -qF "'$key' => ''," 		|| fail "waf_settings_defaults() does not start $key empty"
+done
+
+# 81. Der Wille des Betreibers geht vor jedem Merkmal: Eine Website, die keine
+#     Sperre ausloest, bleibt frei, und die Herkunft wird erst danach gefragt.
+ban_lib="$root/interface/lib/malwatch_waf_ban.inc.php"
+if [ -f "$ban_lib" ]; then
+	sed -n '/function waf_ban_decide/,/^}/p' "$ban_lib" | grep -q '\$limit > 0' 		|| fail "waf_ban_decide() asks the origin before it looks at the will of the website"
+	sed -n '/function waf_ban_origin_at_once/,/^}/p' "$ban_lib" | grep -q "waf_ban_origin_now" 		|| fail "waf_ban_origin_at_once() does not ask its own switch"
+	grep -q "function waf_ban_origin_match" "$ban_lib" 		|| fail "the library has no waf_ban_origin_match()"
+fi
+if [ -f "$root/../waf/waf-switch" ]; then
+	grep -q "sub === 'origin'" "$root/../waf/waf-switch" 		|| fail "waf-switch cannot switch the origin criterion off"
+fi
+
+# 82. Die Woerter der Herkunft stehen in beiden Woerterbuechern.
+for lang in de en; do
+	for key in ban_origin_head_txt ban_origin_intro_txt ban_origin_days_txt ban_origin_save_txt 		ban_origin_none_txt ban_err_origin_kind_txt; do
+		grep -q "\$wb\['$key'\]" "$root/interface/lang/${lang}_malwatch_waf.lng" 			|| fail "${lang}_malwatch_waf.lng is missing $key"
+	done
+	for key in waf_ban_origin_txt waf_ban_origin_score_txt waf_ban_origin_factor_txt waf_ban_origin_now_txt 		ban_origin_kind_on_txt ban_origin_head_txt; do
+		grep -q "\$wb\['$key'\]" "$root/interface/lang/${lang}_malwatch_waf_config.lng" 			|| fail "${lang}_malwatch_waf_config.lng is missing $key"
+	done
+done
+
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'
 fi

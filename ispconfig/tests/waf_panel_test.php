@@ -678,6 +678,27 @@ expect_same('where it came from', array($ban_view[0]['source_label'], $ban_view[
 	array('automatisch', '930130'));
 expect_same('an address without origin stays empty', $ban_view[1]['origin']['known'], false);
 
+// --- Die Auswahl der Herkunft -------------------------------------------------
+
+$rows = array(
+	array('value' => 'FR', 'label' => 'FR', 'hits' => 2272, 'addresses' => 2),
+	array('value' => 'BE', 'label' => 'BE', 'hits' => 1006, 'addresses' => 2),
+	array('value' => '', 'label' => '', 'hits' => 9, 'addresses' => 1),
+);
+$view = waf_panel_ban_origin_rows($rows, array('FR', 'CN'));
+expect_same('the busiest come first and the empty row stays out',
+	array_map(function ($one) { return $one['value']; }, $view), array('FR', 'BE', 'CN'));
+expect_same('what is on the list is ticked',
+	array($view[0]['chosen'], $view[1]['chosen'], $view[2]['chosen']), array(1, 0, 1));
+expect_same('the numbers are written out', array($view[0]['hits'], $view[0]['addresses']), array('2.272', '2'));
+expect_same('a chosen value without hits stays visible',
+	array($view[2]['value'], $view[2]['hits']), array('CN', '0'));
+$long = array();
+for ($i = 0; $i < 40; $i++) {
+	$long[] = array('value' => 'L' . $i, 'label' => 'L' . $i, 'hits' => 40 - $i, 'addresses' => 1);
+}
+expect_same('the list stays short', count(waf_panel_ban_origin_rows($long, array())), 25);
+
 // --- Die Adresse der veröffentlichten Liste ----------------------------------
 
 $key = str_repeat('a1b2', 8);

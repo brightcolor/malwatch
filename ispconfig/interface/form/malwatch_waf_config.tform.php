@@ -330,6 +330,73 @@ $form['tabs']['waf'] = array(
 				'off' => 'ban_bots_off_txt'
 			)
 		),
+		'waf_ban_origin' => array(
+			'datatype' => 'VARCHAR',
+			'formtype' => 'SELECT',
+			'default' => 'off',
+			'value' => array(
+				'off' => 'ban_origin_off_txt',
+				'on' => 'ban_origin_on_txt'
+			)
+		),
+		'waf_ban_origin_score' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '20',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '0:10000', 'errmsg' => 'waf_ban_origin_score_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '5'
+		),
+		'waf_ban_origin_factor' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '200',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '100:1000', 'errmsg' => 'waf_ban_origin_factor_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '4'
+		),
+		'waf_ban_origin_now' => array(
+			'datatype' => 'VARCHAR',
+			'formtype' => 'SELECT',
+			'default' => 'off',
+			'value' => array(
+				'off' => 'ban_origin_now_off_txt',
+				'on' => 'ban_origin_now_on_txt'
+			)
+		),
+		'waf_ban_origin_hosting' => array(
+			'datatype' => 'VARCHAR',
+			'formtype' => 'SELECT',
+			'default' => 'off',
+			'value' => array(
+				'off' => 'ban_origin_kind_off_txt',
+				'on' => 'ban_origin_kind_on_txt'
+			)
+		),
+		'waf_ban_origin_vpn' => array(
+			'datatype' => 'VARCHAR',
+			'formtype' => 'SELECT',
+			'default' => 'off',
+			'value' => array(
+				'off' => 'ban_origin_kind_off_txt',
+				'on' => 'ban_origin_kind_on_txt'
+			)
+		),
+		'waf_ban_origin_tor' => array(
+			'datatype' => 'VARCHAR',
+			'formtype' => 'SELECT',
+			'default' => 'off',
+			'value' => array(
+				'off' => 'ban_origin_kind_off_txt',
+				'on' => 'ban_origin_kind_on_txt'
+			)
+		),
 		'waf_origin_tor_hours' => array(
 			'datatype' => 'INTEGER',
 			'formtype' => 'TEXT',

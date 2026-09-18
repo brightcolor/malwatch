@@ -40,7 +40,8 @@ $app->tpl->newTemplate('form.tpl.htm');
 $app->tpl->setInclude('content_tpl', 'templates/malwatch_waf_ban_list.htm');
 $app->tpl->setVar($wb);
 $app->tpl->setVar(malwatch_attr_texts($wb, array('ban_lift_all_txt', 'ban_lift_all_confirm_txt', 'ban_lift_txt',
-	'ban_add_txt', 'ban_allow_remove_txt', 'ban_url_new_txt', 'ban_url_new_confirm_txt')));
+	'ban_add_txt', 'ban_allow_remove_txt', 'ban_url_new_txt', 'ban_url_new_confirm_txt',
+	'ban_origin_save_txt')));
 $app->tpl->setVar('message', $app->functions->htmlentities($message));
 $app->tpl->setVar('error', $app->functions->htmlentities($error));
 
@@ -126,6 +127,39 @@ $app->tpl->setLoop('ban_modes', $modes);
 $app->tpl->setVar('ban_mode_now', $app->functions->htmlentities(waf_panel_text($wb, 'ban_mode_' . $mode . '_txt', $mode)));
 $app->tpl->setVar('ban_score_now', $app->functions->htmlentities(number_format((int) $settings['waf_ban_score'], 0, ',', '.')));
 $app->tpl->setVar('ban_window_now', $app->functions->htmlentities(number_format((int) $settings['waf_ban_window_minutes'], 0, ',', '.')));
+// Herkunft: Länder und Anbieter aus den Treffern der Aufbewahrungszeit, die
+// Häufigsten zuerst. Wer die Kürzel nicht kennt, sieht hier die echten Zahlen.
+$days = (int) $settings['waf_ban_keep_days'];
+$countries = waf_panel_ban_origin_rows(waf_panel_rows($app->db->queryAllRecords(
+	'SELECT i.country AS value, i.country AS label, COUNT(*) AS hits, COUNT(DISTINCT h.client_ip) AS addresses '
+	. 'FROM malwatch_waf_hit h JOIN malwatch_waf_ip i ON i.ip = h.client_ip '
+	. "WHERE h.seen_at > DATE_SUB(NOW(), INTERVAL ? DAY) AND i.country != '' "
+	. 'GROUP BY i.country ORDER BY hits DESC', $days)),
+	waf_ban_origin_countries($settings['waf_ban_origin_countries']));
+$providers = waf_panel_ban_origin_rows(waf_panel_rows($app->db->queryAllRecords(
+	'SELECT i.asn AS value, i.as_org AS label, COUNT(*) AS hits, COUNT(DISTINCT h.client_ip) AS addresses '
+	. 'FROM malwatch_waf_hit h JOIN malwatch_waf_ip i ON i.ip = h.client_ip '
+	. 'WHERE h.seen_at > DATE_SUB(NOW(), INTERVAL ? DAY) AND i.asn > 0 '
+	. 'GROUP BY i.asn, i.as_org ORDER BY hits DESC', $days)),
+	waf_ban_origin_asns($settings['waf_ban_origin_asn']));
+foreach (array('country' => $countries, 'asn' => $providers) as $kind => $list) {
+	$loop = array();
+	foreach ($list as $one) {
+		$loop[] = array(
+			'origin_value' => $app->functions->htmlentities($one['value']),
+			'origin_label' => $app->functions->htmlentities($one['label']),
+			'origin_hits' => $app->functions->htmlentities($one['hits']),
+			'origin_addresses' => $app->functions->htmlentities($one['addresses']),
+			'origin_chosen' => $one['chosen'],
+		);
+	}
+	$app->tpl->setLoop('origin_' . $kind, $loop);
+	$app->tpl->setVar('has_origin_' . $kind, count($loop) > 0 ? 1 : 0);
+}
+$app->tpl->setVar('origin_mode_on', (string) $settings['waf_ban_origin'] === 'on' ? 1 : 0);
+$app->tpl->setVar('origin_days', $app->functions->htmlentities(sprintf(
+	waf_panel_text($wb, 'ban_origin_days_txt', '%s'), number_format($days, 0, ',', '.'))));
+
 // Die veröffentlichte Liste: dieselbe Auswahl, die auch in die Datei für nginx geht.
 // Der Name, unter dem das Panel gerade aufgerufen wurde; die Form prüft
 // waf_ban_list_url(). Ohne Anfrage (Probelauf auf der Kommandozeile) der Name

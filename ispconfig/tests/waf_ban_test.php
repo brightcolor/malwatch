@@ -154,6 +154,82 @@ expect_same('a line without an address',
 expect_same('an empty line', waf_ban_log_line(''), null);
 expect_same('a fragment', waf_ban_log_line('2026-09-18T10:00:01+02:00 192.0.2.10'), null);
 
+// --- Herkunft senkt die Schwelle ----------------------------------------------
+
+expect_same('a stored list of countries is read in upper case',
+	waf_ban_origin_countries(' fr , be,de '), array('FR', 'BE', 'DE'));
+expect_same('what is no country stays out',
+	waf_ban_origin_countries('FR, Deutschland, , X, 42'), array('FR'));
+expect_same('doubles go', waf_ban_origin_countries('FR,fr,FR'), array('FR'));
+expect_same('a stored list of providers holds numbers',
+	waf_ban_origin_asns(' AS15169 , 8075,as0 '), array(15169, 8075));
+expect_same('a list is stored as one text', waf_ban_origin_store(array('FR', 'BE')), 'FR,BE');
+expect_same('an empty list is an empty text', waf_ban_origin_store(array()), '');
+
+$on = array('waf_ban_origin' => 'on', 'waf_ban_origin_countries' => 'FR,CN', 'waf_ban_origin_asn' => '15169',
+	'waf_ban_origin_hosting' => 'on', 'waf_ban_origin_vpn' => 'on', 'waf_ban_origin_tor' => 'on');
+$fr = array('country' => 'FR', 'asn' => 202425, 'as_org' => 'Bucklog SARL', 'is_tor' => 'n', 'is_vpn' => 'n',
+	'is_hosting' => 'n');
+$google = array('country' => 'BE', 'asn' => 15169, 'as_org' => 'Google LLC', 'is_tor' => 'n', 'is_vpn' => 'n',
+	'is_hosting' => 'y');
+$plain = array('country' => 'DE', 'asn' => 3320, 'as_org' => 'Telekom', 'is_tor' => 'n', 'is_vpn' => 'n',
+	'is_hosting' => 'n');
+
+expect_same('a country on the list is named', waf_ban_origin_match($fr, $on), 'Land FR');
+expect_same('the provider comes before the country',
+	waf_ban_origin_match($google, $on), 'Anbieter Google LLC');
+expect_same('a provider without a name is named by its number',
+	waf_ban_origin_match(array('country' => 'BE', 'asn' => 15169, 'as_org' => '', 'is_tor' => 'n',
+		'is_vpn' => 'n', 'is_hosting' => 'n'), $on), 'Anbieter AS15169');
+expect_same('a data centre alone is enough',
+	waf_ban_origin_match(array('country' => 'US', 'asn' => 0, 'as_org' => '', 'is_tor' => 'n', 'is_vpn' => 'n',
+		'is_hosting' => 'y'), $on), 'Rechenzentrum');
+expect_same('so is Tor', waf_ban_origin_match(array('country' => 'US', 'asn' => 0, 'as_org' => '',
+	'is_tor' => 'y', 'is_vpn' => 'n', 'is_hosting' => 'n'), $on), 'Tor');
+expect_same('so is a VPN', waf_ban_origin_match(array('country' => 'US', 'asn' => 0, 'as_org' => '',
+	'is_tor' => 'n', 'is_vpn' => 'y', 'is_hosting' => 'n'), $on), 'VPN');
+expect_same('an ordinary visitor stays free', waf_ban_origin_match($plain, $on), '');
+expect_same('without an entry in the origin table nothing is known',
+	waf_ban_origin_match(null, $on), '');
+expect_same('the master switch turns everything off',
+	waf_ban_origin_match($google, array_merge($on, array('waf_ban_origin' => 'off'))), '');
+expect_same('a criterion that is off does not trigger',
+	waf_ban_origin_match(array('country' => 'US', 'asn' => 0, 'as_org' => '', 'is_tor' => 'n', 'is_vpn' => 'n',
+		'is_hosting' => 'y'), array_merge($on, array('waf_ban_origin_hosting' => 'off'))), '');
+
+// Die Wirkung: eigene Schwelle und Faktor auf die Punkte.
+$settings = array('waf_ban_score' => 50, 'waf_ban_origin' => 'on', 'waf_ban_origin_score' => 20,
+	'waf_ban_origin_factor' => 200, 'waf_ban_origin_countries' => 'FR', 'waf_ban_origin_asn' => '',
+	'waf_ban_origin_hosting' => 'off', 'waf_ban_origin_vpn' => 'off', 'waf_ban_origin_tor' => 'off');
+$sites = array(11 => array('domain' => 'beispiel.test', 'waf_ban_score' => 0, 'waf_ban_trigger' => 'y'));
+$groups = array(
+	array('client_ip' => '192.0.2.10', 'parent_domain_id' => 11, 'score' => 15, 'hits' => 3),
+	array('client_ip' => '192.0.2.20', 'parent_domain_id' => 11, 'score' => 15, 'hits' => 3),
+);
+$origins = array('192.0.2.10' => $fr);
+$picked = waf_ban_decide($groups, $settings, $sites, $origins);
+expect_same('only the address with the suspicious origin is picked',
+	array_map(function ($one) { return $one['ip']; }, $picked), array('192.0.2.10'));
+expect_same('its points were doubled and its threshold lowered',
+	array($picked[0]['score'], $picked[0]['limit'], $picked[0]['origin']), array(30, 20, 'Land FR'));
+expect_same('the reason names the origin',
+	strpos(waf_ban_reason($picked[0], 10, 'Regel 930130'), 'Herkunft: Land FR') !== false, true);
+
+$off = array_merge($settings, array('waf_ban_origin' => 'off'));
+expect_same('with the mechanism off nothing changes', waf_ban_decide($groups, $off, $sites, $origins), array());
+$never = array(11 => array('domain' => 'beispiel.test', 'waf_ban_score' => 0, 'waf_ban_trigger' => 'n'));
+expect_same('a website that never triggers stays free, whatever the origin says',
+	waf_ban_decide($groups, $settings, $never, $origins), array());
+$high = array_merge($settings, array('waf_ban_origin_score' => 0));
+expect_same('without an own threshold the normal one counts, the factor stays',
+	waf_ban_decide($groups, $high, $sites, $origins), array());
+
+expect_same('the automatic blocks at once only when that is switched on', array(
+	waf_ban_origin_at_once('Land FR', array('waf_ban_origin_now' => 'on')),
+	waf_ban_origin_at_once('Land FR', array('waf_ban_origin_now' => 'off')),
+	waf_ban_origin_at_once('', array('waf_ban_origin_now' => 'on')),
+), array(true, false, false));
+
 // --- Die veröffentlichte Liste ------------------------------------------------
 
 $token = waf_ban_token_new();

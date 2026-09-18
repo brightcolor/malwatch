@@ -209,6 +209,23 @@ expect_same('the mode is queued', array($result[1], jobs_of($db)),
 	array('', array(array(1, 'waf', array('mode' => 'propose', 'action' => 'ban_mode', 'user' => 'admin')))));
 
 $db = fresh_db();
+$result = waf_panel_handle_post($app, $wb, array('waf_action' => 'ban_origin_list',
+	'waf_kind' => 'countries', 'waf_origin_country' => array('FR', 'CN')));
+expect_same('the chosen countries are queued', array($result[1], jobs_of($db)),
+	array('', array(array(1, 'waf', array('kind' => 'countries', 'values' => array('FR', 'CN'),
+		'action' => 'ban_origin_list', 'user' => 'admin')))));
+
+$db = fresh_db();
+$result = waf_panel_handle_post($app, $wb, array('waf_action' => 'ban_origin_list', 'waf_kind' => 'asn'));
+expect_same('an empty choice clears the list', array($result[1], jobs_of($db)),
+	array('', array(array(1, 'waf', array('kind' => 'asn', 'values' => array(),
+		'action' => 'ban_origin_list', 'user' => 'admin')))));
+
+$db = fresh_db();
+$result = waf_panel_handle_post($app, $wb, array('waf_action' => 'ban_origin_list', 'waf_kind' => 'unsinn'));
+expect_same('an unknown list is refused', array($result[0], jobs_of($db)), array('', array()));
+
+$db = fresh_db();
 $result = waf_panel_handle_post($app, $wb, array('waf_action' => 'ban_token_new'));
 expect_same('a new key is queued', array($result[1], jobs_of($db)),
 	array('', array(array(1, 'waf', array('action' => 'ban_token_new', 'user' => 'admin')))));

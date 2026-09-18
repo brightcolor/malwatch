@@ -25,12 +25,96 @@ function waf_ban_site_score($settings, $site)
 }
 
 /**
+ * The countries of a stored list: two letters each, upper case, without
+ * doubles. Everything else is dropped, so a typo never becomes a criterion.
+ */
+function waf_ban_origin_countries($text)
+{
+	$list = array();
+	foreach (explode(',', (string) $text) as $one) {
+		$one = strtoupper(trim($one));
+		if (preg_match('/^[A-Z]{2}$/', $one) && !in_array($one, $list, true)) {
+			$list[] = $one;
+		}
+	}
+	return $list;
+}
+
+/** The provider numbers of a stored list; "AS15169" and "15169" mean the same. */
+function waf_ban_origin_asns($text)
+{
+	$list = array();
+	foreach (explode(',', (string) $text) as $one) {
+		$one = trim($one);
+		if (stripos($one, 'as') === 0) {
+			$one = substr($one, 2);
+		}
+		$number = (int) $one;
+		if ($number > 0 && !in_array($number, $list, true)) {
+			$list[] = $number;
+		}
+	}
+	return $list;
+}
+
+/** A list as it is stored in the configuration. */
+function waf_ban_origin_store($values)
+{
+	return implode(',', array_map('strval', $values));
+}
+
+/**
+ * What makes an address suspicious, as a short German label for the reason of
+ * the block, or '' when nothing does. The provider comes first, because it says
+ * the most: one entry catches a whole scanner network. A criterion that is
+ * switched off never triggers, and without the master switch none does.
+ */
+function waf_ban_origin_match($origin, $settings)
+{
+	$on = isset($settings['waf_ban_origin']) ? (string) $settings['waf_ban_origin'] : 'off';
+	if ($on !== 'on' || !is_array($origin)) {
+		return '';
+	}
+	$asn = isset($origin['asn']) ? (int) $origin['asn'] : 0;
+	if ($asn > 0 && in_array($asn, waf_ban_origin_asns(isset($settings['waf_ban_origin_asn'])
+		? $settings['waf_ban_origin_asn'] : ''), true)) {
+		$name = isset($origin['as_org']) ? trim((string) $origin['as_org']) : '';
+		return 'Anbieter ' . ($name !== '' ? $name : 'AS' . $asn);
+	}
+	$country = isset($origin['country']) ? strtoupper(trim((string) $origin['country'])) : '';
+	if ($country !== '' && in_array($country, waf_ban_origin_countries(isset($settings['waf_ban_origin_countries'])
+		? $settings['waf_ban_origin_countries'] : ''), true)) {
+		return 'Land ' . $country;
+	}
+	foreach (array('is_tor' => array('waf_ban_origin_tor', 'Tor'),
+		'is_vpn' => array('waf_ban_origin_vpn', 'VPN'),
+		'is_hosting' => array('waf_ban_origin_hosting', 'Rechenzentrum')) as $field => $one) {
+		if (isset($origin[$field]) && (string) $origin[$field] === 'y'
+			&& isset($settings[$one[0]]) && (string) $settings[$one[0]] === 'on') {
+			return $one[1];
+		}
+	}
+	return '';
+}
+
+/**
+ * true while a suspicious origin is blocked at once, even though the automatic
+ * only proposes. Without a label nothing happens, so the switch alone never
+ * blocks anybody.
+ */
+function waf_ban_origin_at_once($label, $settings)
+{
+	return (string) $label !== '' && isset($settings['waf_ban_origin_now'])
+		&& (string) $settings['waf_ban_origin_now'] === 'on';
+}
+
+/**
  * The addresses that crossed the threshold of at least one website. $groups are
  * the sums of the window with client_ip, parent_domain_id, score, hits and the
  * rule that appeared most; $sites holds the websites by parent_domain_id. One
  * entry per address, naming the website with the most points.
  */
-function waf_ban_decide($groups, $settings, $sites)
+function waf_ban_decide($groups, $settings, $sites, $origins = array())
 {
 	$picked = array();
 	foreach ($groups as $row) {
@@ -38,10 +122,23 @@ function waf_ban_decide($groups, $settings, $sites)
 		$site = isset($sites[$id]) ? $sites[$id] : null;
 		$limit = waf_ban_site_score($settings, $site);
 		$score = (int) $row['score'];
+		$ip = (string) $row['client_ip'];
+		// A suspicious origin weighs the hits more heavily and may bring a
+		// threshold of its own. A website that never triggers stays free: the
+		// decision of the operator comes before every criterion.
+		$label = $limit > 0
+			? waf_ban_origin_match(isset($origins[$ip]) ? $origins[$ip] : null, $settings) : '';
+		if ($label !== '') {
+			$factor = isset($settings['waf_ban_origin_factor']) ? (int) $settings['waf_ban_origin_factor'] : 100;
+			$score = (int) round($score * max(100, $factor) / 100);
+			$own = isset($settings['waf_ban_origin_score']) ? (int) $settings['waf_ban_origin_score'] : 0;
+			if ($own > 0 && $own < $limit) {
+				$limit = $own;
+			}
+		}
 		if ($limit <= 0 || $score < $limit) {
 			continue;
 		}
-		$ip = (string) $row['client_ip'];
 		if (isset($picked[$ip]) && $picked[$ip]['score'] >= $score) {
 			continue;
 		}
@@ -52,6 +149,7 @@ function waf_ban_decide($groups, $settings, $sites)
 			'hits' => (int) $row['hits'],
 			'rule' => isset($row['rule']) ? (string) $row['rule'] : '',
 			'limit' => $limit,
+			'origin' => $label,
 		);
 	}
 	return array_values($picked);
@@ -101,6 +199,9 @@ function waf_ban_reason($pick, $minutes, $rule_label)
 	}
 	if ((string) $rule_label !== '') {
 		$reason .= ', meist ' . $rule_label;
+	}
+	if (isset($pick['origin']) && (string) $pick['origin'] !== '') {
+		$reason .= ', Herkunft: ' . $pick['origin'];
 	}
 	return waf_origin_cut($reason . '.', 255);
 }
