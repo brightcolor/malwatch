@@ -1404,6 +1404,153 @@ class malwatch_waf
 			json_encode(array('inode' => (int) $inode, 'offset' => (int) $offset)) . "\n");
 	}
 
+	/**
+	 * Every button of the page „Sperren" lands here. Each case says in one
+	 * sentence what happened; the file of nginx is written once at the end, so a
+	 * click takes effect at once.
+	 */
+	private function run_ban($job, $options)
+	{
+		global $app, $conf;
+
+		$now = $this->now();
+		$user = $this->job_user($job);
+		$settings = $this->settings();
+		$ip = isset($options['ip']) ? trim((string) $options['ip']) : '';
+		$note = '';
+		switch ($this->job_action($job)) {
+			case 'ban_mode':
+				$mode = isset($options['mode']) ? (string) $options['mode'] : '';
+				if (!in_array($mode, waf_ban_modes(), true)) {
+					return $this->finish($job, false, 'Unbekannter Zustand für die Automatik. Erlaubt sind aus, '
+						. 'vorschlagen und sperren.');
+				}
+				$app->dbmaster->query('UPDATE malwatch_config SET waf_ban_mode = ? WHERE config_id = 1', $mode);
+				$note = 'Automatik steht auf ' . $mode . '.';
+				break;
+
+			case 'ban_add':
+				if (waf_origin_bytes($ip) === '') {
+					return $this->finish($job, false, 'Das ist keine Adresse. Bitte eine IPv4- oder IPv6-Adresse '
+						. 'angeben, etwa 192.0.2.10.');
+				}
+				if (waf_ban_allowed($ip, $this->ban_allow_list(), null)) {
+					return $this->finish($job, false, 'Diese Adresse steht unter „Nie sperren" oder gehört zum '
+						. 'Server selbst. Erst den Eintrag dort entfernen, dann sperren.');
+				}
+				$row = $app->dbmaster->queryOneRecord(
+					'SELECT level FROM malwatch_waf_ban WHERE server_id = ? AND ip = ?', $conf['server_id'], $ip);
+				$level = waf_ban_level(is_array($row) ? (int) $row['level'] : 0);
+				$permanent = isset($options['permanent']) && (string) $options['permanent'] === 'y';
+				$until = $permanent ? null : waf_ban_until($level, $settings, $now);
+				$app->dbmaster->query('INSERT INTO malwatch_waf_ban (server_id, ip, state, reason, rule, score, '
+					. 'hits, level, source, created_at, blocked_at, until, lifted_at, lifted_by, denied, denied_at) '
+					. "VALUES (?, ?, 'active', ?, '', 0, 0, ?, 'manual', ?, ?, ?, NULL, '', 0, NULL) "
+					. 'ON DUPLICATE KEY UPDATE state = VALUES(state), reason = VALUES(reason), level = VALUES(level), '
+					. 'source = VALUES(source), blocked_at = VALUES(blocked_at), until = VALUES(until), '
+					. "lifted_at = NULL, lifted_by = '', denied = 0, denied_at = NULL",
+					$conf['server_id'], $ip, 'Von Hand gesperrt von ' . $user . '.', $level, $now, $now, $until);
+				$note = 'Adresse gesperrt, ' . ($permanent ? 'dauerhaft' : 'bis ' . $until) . '.';
+				break;
+
+			case 'ban_lift':
+				if ($ip === 'all') {
+					$app->dbmaster->query("UPDATE malwatch_waf_ban SET state = 'lifted', lifted_at = ?, "
+						. "lifted_by = ? WHERE server_id = ? AND state IN ('active','proposed')",
+						$now, $user, $conf['server_id']);
+					$note = (int) $app->dbmaster->affectedRows() . ' Sperren und Vorschläge aufgehoben.';
+					break;
+				}
+				$app->dbmaster->query("UPDATE malwatch_waf_ban SET state = 'lifted', lifted_at = ?, lifted_by = ? "
+					. "WHERE server_id = ? AND ip = ? AND state IN ('active','proposed')",
+					$now, $user, $conf['server_id'], $ip);
+				if ((int) $app->dbmaster->affectedRows() === 0) {
+					return $this->finish($job, false, 'Für diese Adresse gab es keine laufende Sperre. '
+						. 'Vielleicht ist sie schon abgelaufen.');
+				}
+				$note = 'Sperre aufgehoben.';
+				break;
+
+			case 'ban_extend':
+				$row = $app->dbmaster->queryOneRecord("SELECT level FROM malwatch_waf_ban WHERE server_id = ? "
+					. "AND ip = ? AND state = 'active'", $conf['server_id'], $ip);
+				if (!is_array($row)) {
+					return $this->finish($job, false, 'Für diese Adresse läuft keine Sperre, die sich verlängern ließe.');
+				}
+				$level = waf_ban_level((int) $row['level']);
+				$until = waf_ban_until($level, $settings, $now);
+				$app->dbmaster->query('UPDATE malwatch_waf_ban SET level = ?, until = ? WHERE server_id = ? AND ip = ?',
+					$level, $until, $conf['server_id'], $ip);
+				$note = 'Sperre verlängert bis ' . $until . '.';
+				break;
+
+			case 'ban_dismiss':
+				$app->dbmaster->query("UPDATE malwatch_waf_ban SET state = 'dismissed', created_at = ? "
+					. "WHERE server_id = ? AND ip = ? AND state = 'proposed'", $now, $conf['server_id'], $ip);
+				if ((int) $app->dbmaster->affectedRows() === 0) {
+					return $this->finish($job, false, 'Für diese Adresse gab es keinen offenen Vorschlag.');
+				}
+				$note = 'Vorschlag verworfen; im laufenden Zeitfenster kommt er nicht wieder.';
+				break;
+
+			case 'ban_allow_add':
+				$cidr = isset($options['cidr']) ? trim((string) $options['cidr']) : '';
+				if (waf_origin_cidr($cidr) === null) {
+					return $this->finish($job, false, 'Das ist keine Adresse und kein Bereich. Erlaubt sind '
+						. 'Angaben wie 203.0.113.7 oder 203.0.113.0/24.');
+				}
+				$app->dbmaster->query('INSERT INTO malwatch_waf_allow (server_id, cidr, note, created_at, created_by) '
+					. 'VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE note = VALUES(note)',
+					$conf['server_id'], $cidr, waf_cut(isset($options['note']) ? (string) $options['note'] : '', 255),
+					$now, $user);
+				$lifted = 0;
+				foreach ($this->rows($app->dbmaster->queryAllRecords(
+					"SELECT ip FROM malwatch_waf_ban WHERE server_id = ? AND state IN ('active','proposed')",
+					$conf['server_id'])) as $row) {
+					if (!waf_ban_allow_match(array($cidr), (string) $row['ip'])) {
+						continue;
+					}
+					$app->dbmaster->query("UPDATE malwatch_waf_ban SET state = 'lifted', lifted_at = ?, "
+						. 'lifted_by = ? WHERE server_id = ? AND ip = ?', $now, $user, $conf['server_id'], $row['ip']);
+					$lifted++;
+				}
+				$note = 'Ausnahme eingetragen' . ($lifted > 0 ? ', ' . $lifted . ' Sperre(n) dazu aufgehoben' : '') . '.';
+				break;
+
+			case 'ban_allow_remove':
+				$app->dbmaster->query('DELETE FROM malwatch_waf_allow WHERE server_id = ? AND allow_id = ?',
+					$conf['server_id'], (int) (isset($options['allow_id']) ? $options['allow_id'] : 0));
+				if ((int) $app->dbmaster->affectedRows() === 0) {
+					return $this->finish($job, false, 'Diesen Eintrag gibt es nicht mehr.');
+				}
+				$note = 'Ausnahme gelöscht.';
+				break;
+
+			case 'ban_site':
+				$domain_id = (int) (isset($options['domain_id']) ? $options['domain_id'] : 0);
+				$score = (int) (isset($options['score']) ? $options['score'] : 0);
+				$trigger = isset($options['trigger']) && (string) $options['trigger'] === 'n' ? 'n' : 'y';
+				if ($score !== 0 && ($score < 5 || $score > 10000)) {
+					return $this->finish($job, false, 'Eigene Schwelle: Erlaubt sind 0 (wie der Server) oder ganze '
+						. 'Zahlen von 5 bis 10000.');
+				}
+				$app->dbmaster->query('UPDATE malwatch_site SET waf_ban_score = ?, waf_ban_trigger = ? '
+					. 'WHERE server_id = ? AND parent_domain_id = ?', $score, $trigger, $conf['server_id'], $domain_id);
+				if ((int) $app->dbmaster->affectedRows() === 0) {
+					return $this->finish($job, false, 'Diese Website kennt malwatch nicht.');
+				}
+				$note = $trigger === 'n' ? 'Diese Website löst keine Sperre mehr aus.'
+					: ($score === 0 ? 'Diese Website nimmt wieder die Schwelle des Servers.'
+						: 'Eigene Schwelle: ' . $score . ' Punkte.');
+				break;
+		}
+		$applied = $this->ban_apply();
+		if ($applied[1] !== '') {
+			return $this->finish($job, false, $note . ' ' . $applied[1]);
+		}
+		return $this->finish($job, true, $note);
+	}
+
 	public function queue($action, $fields, $user)
 	{
 		global $app, $conf;
@@ -1539,6 +1686,16 @@ class malwatch_waf
 				break;
 			case 'origin_update':
 				$this->run_origin_update($job);
+				break;
+			case 'ban_mode':
+			case 'ban_add':
+			case 'ban_lift':
+			case 'ban_extend':
+			case 'ban_dismiss':
+			case 'ban_allow_add':
+			case 'ban_allow_remove':
+			case 'ban_site':
+				$this->run_ban($job, $options);
 				break;
 			default:
 				$this->finish($job, false, 'Unbekannte Aktion: ' . $this->job_action($job));

@@ -623,6 +623,109 @@ $cleared = $db->queryOneRecord("SELECT * FROM malwatch_waf_ip WHERE ip = '192.0.
 expect_same('its marks left the addresses',
 	array($cleared['is_proxy'], $cleared['vpn_operator'], $cleared['external_state']), array('n', '', 'none'));
 
+// --- D: Sperren ---------------------------------------------------------------
+
+$waf->ban_log = $tmp . '/blocked.log';
+$db->query('DELETE FROM malwatch_waf_ban');
+$db->query('DELETE FROM malwatch_waf_allow');
+$db->query("UPDATE malwatch_config SET waf_ban_mode = 'block', waf_ban_score = 50, "
+	. 'waf_ban_window_minutes = 10, waf_ban_max = 3 WHERE config_id = 1');
+$db->query("UPDATE malwatch_site SET waf_ban_score = 0, waf_ban_trigger = 'y'");
+$db->query('DELETE FROM malwatch_waf_hit');
+// Zwei Angreifer und ein Besucher mit einem einzelnen Fehlalarm, dazu der Proxy.
+foreach (array(array('192.0.2.50', 12, 5, '["930130"]'), array('198.51.100.50', 2, 5, '["941100"]'),
+	array('10.50.0.1', 20, 5, '["930130"]')) as $one) {
+	for ($i = 0; $i < $one[1]; $i++) {
+		$db->query('INSERT INTO malwatch_waf_hit (server_id, parent_domain_id, domain, unique_id, seen_at, client_ip, '
+			. "method, uri, path, status, anomaly_score, would_block, logged_in, rules, request_headers) "
+			. "VALUES (?, 11, 'beispiel.test', ?, NOW(), ?, 'GET', '/x', '/x', 404, ?, 'y', 'n', ?, '{}')",
+			$server, 'probe-ban-' . $one[0] . '-' . $i, $one[0], $one[2], $one[3]);
+	}
+}
+$calls = array();
+expect_same('one address crosses the threshold', $waf->ban_scan(), 1);
+$ban = $db->queryOneRecord("SELECT * FROM malwatch_waf_ban WHERE ip = '192.0.2.50'");
+expect_same('the block is active at level one',
+	array($ban['state'], (int) $ban['level'], $ban['source'], (int) $ban['score'], (int) $ban['hits']),
+	array('active', 1, 'auto', 60, 12));
+expect_same('the reason names points, hits, window, website and rule',
+	strpos($ban['reason'], '60 Punkte aus 12 Treffern in 10 Minuten auf beispiel.test, meist Regel 930130') === 0, true);
+expect_same('the visitor with one false alarm stays free',
+	count_rows("SELECT ip FROM malwatch_waf_ban WHERE ip = '198.51.100.50'"), 0);
+expect_same('the proxy is never blocked', count_rows("SELECT ip FROM malwatch_waf_ban WHERE ip = '10.50.0.1'"), 0);
+expect_same('a second pass adds nothing', $waf->ban_scan(), 0);
+
+// Die Datei für nginx entsteht, nginx wird geprüft und neu geladen.
+$applied = $waf->ban_apply();
+expect_same('the file was written', $applied, array(true, ''));
+expect_same('nginx was tested and reloaded', $calls, array('nginx_test', 'nginx_reload'));
+expect_same('the address stands in the file',
+	strpos((string) file_get_contents($tmp . '/waf/blocked.conf'), 'deny 192.0.2.50;') !== false, true);
+expect_same('a second run changes nothing', $waf->ban_apply(), array(false, ''));
+
+// Eine Konfiguration, die nginx ablehnt, erreicht den laufenden Server nicht.
+$db->query('INSERT INTO malwatch_waf_ban (server_id, ip, state, reason, source, created_at, blocked_at, until) '
+	. "VALUES (?, '198.51.100.60', 'active', 'von Hand', 'manual', NOW(), NOW(), DATE_ADD(NOW(), INTERVAL 1 HOUR))",
+	$server);
+$answers = array('nginx_test' => array(array(1, 'nginx: [emerg] invalid parameter')));
+$calls = array();
+$applied = $waf->ban_apply();
+expect_same('a refused file is taken back', array($applied[0], strpos($applied[1], 'abgelehnt') !== false),
+	array(false, true));
+expect_same('nothing was reloaded', $calls, array('nginx_test'));
+expect_same('the old file is back',
+	strpos((string) file_get_contents($tmp . '/waf/blocked.conf'), 'deny 198.51.100.60;'), false);
+$answers = array();
+$waf->ban_apply();
+
+// Das Zählen der abgewehrten Versuche.
+file_put_contents($tmp . '/blocked.log',
+	"2026-09-18T10:00:01+02:00 192.0.2.50 403 beispiel.test \"GET /wp-login.php HTTP/1.1\"\n"
+	. "2026-09-18T10:00:02+02:00 192.0.2.50 403 beispiel.test \"GET /.env HTTP/1.1\"\n"
+	. "2026-09-18T10:00:03+02:00 198.51.100.50 200 beispiel.test \"GET / HTTP/1.1\"\n");
+expect_same('one blocked address was counted', $waf->ban_count(), 1);
+expect_same('two attempts were turned away',
+	(int) $db->queryOneRecord("SELECT denied FROM malwatch_waf_ban WHERE ip = '192.0.2.50'")['denied'], 2);
+expect_same('a second pass counts nothing twice', $waf->ban_count(), 0);
+
+// Ablaufen, Sperren von Hand und die Ausnahme, die eine Sperre beendet.
+$db->query("UPDATE malwatch_waf_ban SET until = DATE_SUB(NOW(), INTERVAL 1 MINUTE) WHERE ip = '198.51.100.60'");
+expect_same('one block ended', $waf->ban_expire(), 1);
+$waf->ban_apply();
+expect_same('it left the file',
+	strpos((string) file_get_contents($tmp . '/waf/blocked.conf'), 'deny 198.51.100.60;'), false);
+
+$waf->queue('ban_add', array('ip' => '203.0.113.7', 'permanent' => 'y'), 'probe');
+$waf->pass();
+$manual = $db->queryOneRecord("SELECT * FROM malwatch_waf_ban WHERE ip = '203.0.113.7'");
+expect_same('a manual block is permanent', array($manual['state'], $manual['source'], $manual['until']),
+	array('active', 'manual', null));
+
+$waf->queue('ban_allow_add', array('cidr' => '203.0.113.0/24', 'note' => 'Büro'), 'probe');
+$waf->pass();
+expect_same('the exception ended the block',
+	$db->queryOneRecord("SELECT state FROM malwatch_waf_ban WHERE ip = '203.0.113.7'")['state'], 'lifted');
+$waf->queue('ban_add', array('ip' => '203.0.113.9'), 'probe');
+$waf->pass();
+expect_same('an address of the exception is refused',
+	count_rows("SELECT ip FROM malwatch_waf_ban WHERE ip = '203.0.113.9'"), 0);
+
+$waf->queue('ban_site', array('domain_id' => 11, 'score' => 0, 'trigger' => 'n'), 'probe');
+$waf->pass();
+expect_same('the website triggers nothing any more',
+	$db->queryOneRecord('SELECT waf_ban_trigger FROM malwatch_site WHERE parent_domain_id = 11')['waf_ban_trigger'], 'n');
+$db->query("UPDATE malwatch_waf_ban SET state = 'expired' WHERE ip = '192.0.2.50'");
+expect_same('and so nothing is found any more', $waf->ban_scan(), 0);
+
+$waf->queue('ban_lift', array('ip' => 'all'), 'probe');
+$waf->pass();
+expect_same('nothing is blocked any more',
+	count_rows("SELECT ip FROM malwatch_waf_ban WHERE state = 'active'"), 0);
+$waf->ban_apply();
+expect_same('and the file is empty',
+	substr_count((string) file_get_contents($tmp . '/waf/blocked.conf'), 'deny '), 0);
+$db->query('DELETE FROM malwatch_waf_hit');
+
 $db->query("DELETE FROM malwatch_waf_hit WHERE unique_id = 'probe-origin'");
 $waf->cleanup();
 expect_same('the address goes with its last hit',
