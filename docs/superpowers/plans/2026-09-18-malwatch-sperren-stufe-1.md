@@ -87,7 +87,7 @@ Die Werte, an denen alles hängt: Modus, Schwelle, Fenster, drei Dauern, Obergre
   - `$settings['waf_ban_mode']`, `['waf_ban_score']`, `['waf_ban_window_minutes']`, `['waf_ban_hours_first']`, `['waf_ban_hours_second']`, `['waf_ban_hours_third']`, `['waf_ban_max']`, `['waf_ban_keep_days']`, `['waf_ban_bots']`
   - Tabellen `malwatch_waf_ban`, `malwatch_waf_allow`; Spalten `malwatch_site.waf_ban_score`, `.waf_ban_trigger`
 
-- [ ] **Step 1: Die scheiternden Prüfungen schreiben**
+- [x] **Step 1: Die scheiternden Prüfungen schreiben**
 
 In `ispconfig/tests/waf_lib_test.php` ans Ende des Abschnitts zur Herkunft anfügen:
 
@@ -112,12 +112,12 @@ expect_same('an unknown mode falls back',
 	waf_settings(array('waf_ban_mode' => 'vielleicht'))['waf_ban_mode'], 'off');
 ```
 
-- [ ] **Step 2: Prüflauf, der scheitern muss**
+- [x] **Step 2: Prüflauf, der scheitern muss**
 
 Run: `php ispconfig/tests/waf_lib_test.php`
 Expected: `PHP Fatal error: Uncaught Error: Call to undefined function waf_ban_modes()`
 
-- [ ] **Step 3: Die Einstellungen schreiben**
+- [x] **Step 3: Die Einstellungen schreiben**
 
 In `ispconfig/interface/lib/malwatch_waf_lib.inc.php` hinter `waf_origin_choices()`:
 
@@ -164,12 +164,12 @@ In `waf_settings()` hinter der Prüfung des proxycheck-Schlüssels:
 	$settings['waf_ban_bots'] = $settings['waf_ban_bots'] === 'off' ? 'off' : 'on';
 ```
 
-- [ ] **Step 4: Prüflauf, der bestehen muss**
+- [x] **Step 4: Prüflauf, der bestehen muss**
 
 Run: `php ispconfig/tests/waf_lib_test.php`
 Expected: `waf_lib: alle Prüfungen bestanden`
 
-- [ ] **Step 5: Das Formular ergänzen**
+- [x] **Step 5: Das Formular ergänzen**
 
 In `ispconfig/interface/form/malwatch_waf_config.tform.php` hinter dem Feld `waf_origin_proxycheck_daily`:
 
@@ -272,7 +272,7 @@ In `ispconfig/interface/form/malwatch_waf_config.tform.php` hinter dem Feld `waf
 		),
 ```
 
-- [ ] **Step 6: Die Vorlage ergänzen**
+- [x] **Step 6: Die Vorlage ergänzen**
 
 In `ispconfig/interface/templates/malwatch_waf_config_edit.htm` vor dem Abschnitt „Cron" einfügen:
 
@@ -355,7 +355,7 @@ In `ispconfig/interface/templates/malwatch_waf_config_edit.htm` vor dem Abschnit
 
 Der Stilname `mw-wafcfg-head` steht bereits im Stilblock derselben Datei und wird für die Überschriften der Abschnitte genutzt; falls dort ein anderer Name steht, wird der genommen — maßgeblich ist der Block, den die Datei selbst mitbringt.
 
-- [ ] **Step 7: Die Texte ergänzen**
+- [x] **Step 7: Die Texte ergänzen**
 
 In `ispconfig/interface/lang/de_malwatch_waf_config.lng` ans Ende:
 
@@ -396,7 +396,7 @@ $wb['waf_ban_keep_days_error_range'] = 'Sperren aufbewahren (Tage): Erlaubt sind
 
 In `ispconfig/interface/lang/en_malwatch_waf_config.lng` dieselben Schlüssel auf Englisch, Satz für Satz — etwa `$wb['ban_head_txt'] = 'Blocking';`, `$wb['ban_mode_propose_txt'] = 'propose';`, `$wb['waf_ban_score_error_range'] = 'Points for a block: whole numbers from 5 to 10000 are allowed. Please adjust the value and save again.';`
 
-- [ ] **Step 8: Das Schema ergänzen**
+- [x] **Step 8: Das Schema ergänzen**
 
 In `ispconfig/install/schema.sql` hinter dem Block, der die proxycheck-Spalten anlegt:
 
@@ -467,7 +467,7 @@ DROP TABLE IF EXISTS `malwatch_waf_ban`;
 DROP TABLE IF EXISTS `malwatch_waf_allow`;
 ```
 
-- [ ] **Step 9: Die Kulisse der Vorschau nachziehen**
+- [x] **Step 9: Die Kulisse der Vorschau nachziehen**
 
 In `.superpowers/abwehr/harness/fake_db.php` (außerhalb des Repositorys) die Konfigurationszeile um die neun Werte ergänzen, sonst rendert die Einstellungsseite ohne sie:
 
@@ -477,7 +477,7 @@ In `.superpowers/abwehr/harness/fake_db.php` (außerhalb des Repositorys) die Ko
 				'waf_ban_max' => '5000', 'waf_ban_keep_days' => '30', 'waf_ban_bots' => 'on',
 ```
 
-- [ ] **Step 10: Prüfen**
+- [x] **Step 10: Prüfen**
 
 Run: `php ispconfig/tests/waf_lib_test.php && php ispconfig/tests/waf_panel_test.php && php ispconfig/tests/waf_panel_post_test.php`
 Expected: dreimal `alle Prüfungen bestanden`
@@ -488,7 +488,7 @@ Expected: `Seiten gerendert; …` ohne `FEHLER`
 Run: `grep -c 'Punkte für eine Sperre\|Zeitfenster (Minuten)\|Höchstzahl gesperrter Adressen' .superpowers/abwehr/harness/out_cfg.html`
 Expected: mindestens `3`
 
-- [ ] **Step 11: Commit**
+- [x] **Step 11: Commit**
 
 ```bash
 git add ispconfig/install ispconfig/interface ispconfig/tests/waf_lib_test.php
@@ -517,7 +517,7 @@ Eine eigene Bibliothek für alles, was ohne Datenbank auskommt. Sie beantwortet 
   - `waf_ban_until($level, $settings, $now)` → `'Y-m-d H:i:s'`
   - `waf_ban_reason($pick, $minutes, $rule_label)` → deutscher Satz, höchstens 255 Bytes
 
-- [ ] **Step 1: Den scheiternden Test schreiben**
+- [x] **Step 1: Den scheiternden Test schreiben**
 
 `ispconfig/tests/waf_ban_test.php`:
 
@@ -608,12 +608,12 @@ if ($failures > 0) {
 echo 'waf_ban: alle Prüfungen bestanden' . PHP_EOL;
 ```
 
-- [ ] **Step 2: Prüflauf, der scheitern muss**
+- [x] **Step 2: Prüflauf, der scheitern muss**
 
 Run: `php ispconfig/tests/waf_ban_test.php`
 Expected: `PHP Warning: require(...malwatch_waf_ban.inc.php): Failed to open stream`
 
-- [ ] **Step 3: Die Bibliothek schreiben**
+- [x] **Step 3: Die Bibliothek schreiben**
 
 `ispconfig/interface/lib/malwatch_waf_ban.inc.php`:
 
@@ -717,19 +717,19 @@ function waf_ban_reason($pick, $minutes, $rule_label)
 }
 ```
 
-- [ ] **Step 4: Prüflauf, der bestehen muss**
+- [x] **Step 4: Prüflauf, der bestehen muss**
 
 Run: `php ispconfig/tests/waf_ban_test.php`
 Expected: `waf_ban: alle Prüfungen bestanden`
 
-- [ ] **Step 5: Die Bibliothek wird mitkopiert**
+- [x] **Step 5: Die Bibliothek wird mitkopiert**
 
 In `ispconfig/install/file.list` hinter der Zeile für `malwatch_waf_origin.inc.php` dieselbe Form mit `malwatch_waf_ban.inc.php` einfügen — die Datei gehört in `interface/web/security/lib/`, wie ihre Nachbarn.
 
 Run: `grep -c 'malwatch_waf_ban.inc.php' ispconfig/install/file.list`
 Expected: `1`
 
-- [ ] **Step 6: Die CI kennt den neuen Test**
+- [x] **Step 6: Die CI kennt den neuen Test**
 
 In `.github/workflows/ci.yml` hinter dem Schritt „WAF proxycheck":
 
@@ -738,7 +738,7 @@ In `.github/workflows/ci.yml` hinter dem Schritt „WAF proxycheck":
         run: php ispconfig/tests/waf_ban_test.php
 ```
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add ispconfig/interface/lib/malwatch_waf_ban.inc.php ispconfig/tests/waf_ban_test.php ispconfig/install/file.list .github/workflows/ci.yml
@@ -766,7 +766,7 @@ Drei Schutzschichten vor jeder Sperre: die eigenen Netze, die Ausnahmeliste des 
   - `waf_origin_read_bots($in, $out)` → wie die anderen Leser `array('ranges', 'values', 'lines', 'bad', 'skipped')` oder `null`
   - Quelle `searchbots` in `waf_origin_sources()`
 
-- [ ] **Step 1: Die Beispieldateien anlegen**
+- [x] **Step 1: Die Beispieldateien anlegen**
 
 `ispconfig/tests/fixtures/bots/googlebot.json`:
 
@@ -793,7 +793,7 @@ Drei Schutzschichten vor jeder Sperre: die eigenen Netze, die Ausnahmeliste des 
 }
 ```
 
-- [ ] **Step 2: Die scheiternden Prüfungen schreiben**
+- [x] **Step 2: Die scheiternden Prüfungen schreiben**
 
 In `ispconfig/tests/waf_ban_test.php` vor dem Abschnitt „summary" anfügen:
 
@@ -843,12 +843,12 @@ expect_same('a file that is no JSON gives nothing',
 	waf_origin_read_bots(array($bots . '/gibt-es-nicht.json'), $dir . '/leer.bin'), null);
 ```
 
-- [ ] **Step 3: Prüflauf, der scheitern muss**
+- [x] **Step 3: Prüflauf, der scheitern muss**
 
 Run: `php ispconfig/tests/waf_ban_test.php`
 Expected: `PHP Fatal error: Uncaught Error: Call to undefined function waf_ban_fixed_allow()`
 
-- [ ] **Step 4: Die Ausnahmen schreiben**
+- [x] **Step 4: Die Ausnahmen schreiben**
 
 Ans Ende von `ispconfig/interface/lib/malwatch_waf_ban.inc.php`:
 
@@ -900,7 +900,7 @@ function waf_ban_allowed($ip, $cidrs, $reader)
 }
 ```
 
-- [ ] **Step 5: Die Quelle der Suchmaschinen schreiben**
+- [x] **Step 5: Die Quelle der Suchmaschinen schreiben**
 
 In `ispconfig/interface/lib/malwatch_waf_origin.inc.php` in `waf_origin_sources()` hinter `x4b_datacenter` einfügen:
 
@@ -982,7 +982,7 @@ In `waf_origin_facts()` als erste Zeile der Schleife einfügen — die Suchmasch
 		}
 ```
 
-- [ ] **Step 6: Der Cron kennt den neuen Leser**
+- [x] **Step 6: Der Cron kennt den neuen Leser**
 
 In `ispconfig/server/lib/classes/malwatch_waf.inc.php` in `origin_read()` vor der abschließenden Zeile `return waf_origin_read_list($files, $fresh);`:
 
@@ -991,7 +991,7 @@ In `ispconfig/server/lib/classes/malwatch_waf.inc.php` in `origin_read()` vor de
 				return waf_origin_read_bots($files, $fresh);
 ```
 
-- [ ] **Step 7: Prüflauf, der bestehen muss**
+- [x] **Step 7: Prüflauf, der bestehen muss**
 
 Run: `php ispconfig/tests/waf_ban_test.php && php ispconfig/tests/waf_origin_sources_test.php && php ispconfig/tests/waf_origin_test.php && php ispconfig/tests/waf_proxycheck_test.php`
 Expected: viermal `alle Prüfungen bestanden`
@@ -999,7 +999,7 @@ Expected: viermal `alle Prüfungen bestanden`
 Run: `php -l ispconfig/server/lib/classes/malwatch_waf.inc.php`
 Expected: `No syntax errors detected`
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add ispconfig/interface/lib ispconfig/server/lib/classes/malwatch_waf.inc.php ispconfig/tests
@@ -1022,7 +1022,7 @@ Zwei kleine, aber heikle Stücke: der Inhalt von `/etc/nginx/waf/blocked.conf` �
   - `waf_ban_file($ips, $now, $max)` → Inhalt der Datei, endet auf `\n`
   - `waf_ban_log_line($line)` → `array('ip' => '…')` oder `null`
 
-- [ ] **Step 1: Die scheiternden Prüfungen schreiben**
+- [x] **Step 1: Die scheiternden Prüfungen schreiben**
 
 In `ispconfig/tests/waf_ban_test.php` vor dem Abschnitt „summary" anfügen:
 
@@ -1054,12 +1054,12 @@ expect_same('an empty line', waf_ban_log_line(''), null);
 expect_same('a fragment', waf_ban_log_line('2026-09-18T10:00:01+02:00 192.0.2.10'), null);
 ```
 
-- [ ] **Step 2: Prüflauf, der scheitern muss**
+- [x] **Step 2: Prüflauf, der scheitern muss**
 
 Run: `php ispconfig/tests/waf_ban_test.php`
 Expected: `PHP Fatal error: Uncaught Error: Call to undefined function waf_ban_file()`
 
-- [ ] **Step 3: Die beiden Funktionen schreiben**
+- [x] **Step 3: Die beiden Funktionen schreiben**
 
 Ans Ende von `ispconfig/interface/lib/malwatch_waf_ban.inc.php`:
 
@@ -1107,12 +1107,12 @@ function waf_ban_log_line($line)
 }
 ```
 
-- [ ] **Step 4: Prüflauf, der bestehen muss**
+- [x] **Step 4: Prüflauf, der bestehen muss**
 
 Run: `php ispconfig/tests/waf_ban_test.php`
 Expected: `waf_ban: alle Prüfungen bestanden`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add ispconfig/interface/lib/malwatch_waf_ban.inc.php ispconfig/tests/waf_ban_test.php
@@ -1139,7 +1139,7 @@ Erkennen, schreiben, neu laden, ablaufen, zählen. Die Klasse braucht eine Daten
   - `malwatch_waf::ban_expire()` → Zahl der abgelaufenen Sperren
   - `malwatch_waf::ban_count()` → Zahl der gezählten Zeilen
 
-- [ ] **Step 1: Die scheiternde Prüfung für die häufigste Regel schreiben**
+- [x] **Step 1: Die scheiternde Prüfung für die häufigste Regel schreiben**
 
 In `ispconfig/tests/waf_ban_test.php` hinter dem Abschnitt „Why" anfügen:
 
@@ -1158,12 +1158,12 @@ expect_same('only scoring rules means no rule',
 expect_same('no hits, no rule', waf_ban_top_rule(array()), '');
 ```
 
-- [ ] **Step 2: Prüflauf, der scheitern muss**
+- [x] **Step 2: Prüflauf, der scheitern muss**
 
 Run: `php ispconfig/tests/waf_ban_test.php`
 Expected: `PHP Fatal error: Uncaught Error: Call to undefined function waf_ban_top_rule()`
 
-- [ ] **Step 3: Die Funktion schreiben**
+- [x] **Step 3: Die Funktion schreiben**
 
 Ans Ende von `ispconfig/interface/lib/malwatch_waf_ban.inc.php`:
 
@@ -1199,12 +1199,12 @@ function waf_ban_top_rule($rows)
 }
 ```
 
-- [ ] **Step 4: Prüflauf, der bestehen muss**
+- [x] **Step 4: Prüflauf, der bestehen muss**
 
 Run: `php ispconfig/tests/waf_ban_test.php`
 Expected: `waf_ban: alle Prüfungen bestanden`
 
-- [ ] **Step 5: Die Bibliothek in der Klasse laden**
+- [x] **Step 5: Die Bibliothek in der Klasse laden**
 
 In `ispconfig/server/lib/classes/malwatch_waf.inc.php` hinter `const LIB_ORIGIN`:
 
@@ -1222,7 +1222,7 @@ Dazu bei den Eigenschaften, neben `$fetcher` und `$poster`:
 
 In `ready()` wird sie wie die anderen geladen — dieselbe Zeile wie für `LIB_ORIGIN`, mit `LIB_BAN`.
 
-- [ ] **Step 6: Das Erkennen schreiben**
+- [x] **Step 6: Das Erkennen schreiben**
 
 Hinter `origin_external_state()` in derselben Datei:
 
@@ -1351,7 +1351,7 @@ Hinter `origin_external_state()` in derselben Datei:
 	}
 ```
 
-- [ ] **Step 7: Das Anwenden schreiben**
+- [x] **Step 7: Das Anwenden schreiben**
 
 Direkt dahinter:
 
@@ -1408,7 +1408,7 @@ Direkt dahinter:
 	}
 ```
 
-- [ ] **Step 8: Ablaufen und Zählen schreiben**
+- [x] **Step 8: Ablaufen und Zählen schreiben**
 
 Direkt dahinter:
 
@@ -1495,7 +1495,7 @@ Direkt dahinter:
 	}
 ```
 
-- [ ] **Step 9: An den Cron anschließen**
+- [x] **Step 9: An den Cron anschließen**
 
 In `cron_minute()` hinter `$this->origin_external();`:
 
@@ -1513,7 +1513,7 @@ In `cron_hourly()` hinter `$this->cleanup();`:
 
 `ban_apply()` steht bewusst als letztes: Erst entstehen Sperren, dann wird gezählt, dann schreibt ein einziger Lauf die Datei und lädt nginx höchstens einmal je Minute neu. `ban_expire()` im Stundenlauf beendet abgelaufene Sperren; die Datei zieht der nächste Minutenlauf nach.
 
-- [ ] **Step 10: Syntax und Prüfreihen**
+- [x] **Step 10: Syntax und Prüfreihen**
 
 Run: `php -l ispconfig/server/lib/classes/malwatch_waf.inc.php && php -l ispconfig/interface/lib/malwatch_waf_ban.inc.php`
 Expected: zweimal `No syntax errors detected`
@@ -1521,7 +1521,7 @@ Expected: zweimal `No syntax errors detected`
 Run: `php ispconfig/tests/waf_ban_test.php && php ispconfig/tests/waf_lib_test.php && php ispconfig/tests/waf_panel_test.php`
 Expected: dreimal `alle Prüfungen bestanden`
 
-- [ ] **Step 11: Commit**
+- [x] **Step 11: Commit**
 
 ```bash
 git add ispconfig/interface/lib/malwatch_waf_ban.inc.php ispconfig/server/lib/classes/malwatch_waf.inc.php ispconfig/tests/waf_ban_test.php
@@ -1542,7 +1542,7 @@ Jeder Klick im Panel wird ein Auftrag, den der Cron ausführt: Automatik umschal
 - Consumes: `ban_apply()`, `ban_allow_list()`, `waf_ban_allowed()`, `waf_ban_level()`, `waf_ban_until()`, `waf_ban_modes()`, `waf_origin_bytes()`, `waf_origin_cidr()`
 - Produces: die Auftragsfälle `ban_mode`, `ban_add`, `ban_lift`, `ban_dismiss`, `ban_allow_add`, `ban_allow_remove`, `ban_site`; alle nehmen ihre Werte aus `options`
 
-- [ ] **Step 1: Die Fälle in `start_job()` eintragen**
+- [x] **Step 1: Die Fälle in `start_job()` eintragen**
 
 In `ispconfig/server/lib/classes/malwatch_waf.inc.php` in `start_job()` hinter `case 'origin_update':`:
 
@@ -1558,7 +1558,7 @@ In `ispconfig/server/lib/classes/malwatch_waf.inc.php` in `start_job()` hinter `
 				return $this->run_block($job, $options);
 ```
 
-- [ ] **Step 2: Die Aufträge schreiben**
+- [x] **Step 2: Die Aufträge schreiben**
 
 Hinter `ban_count()`:
 
@@ -1712,7 +1712,7 @@ Hinter `ban_count()`:
 	}
 ```
 
-- [ ] **Step 3: Die Probe schreiben**
+- [x] **Step 3: Die Probe schreiben**
 
 In `ispconfig/tests/waf_class_probe.php` hinter dem Abschnitt „C5: proxycheck.io" anfügen:
 
@@ -1818,12 +1818,12 @@ expect_same('and the file is empty',
 	substr_count((string) file_get_contents($tmp . '/waf/blocked.conf'), 'deny '), 0);
 ```
 
-- [ ] **Step 4: Syntax prüfen**
+- [x] **Step 4: Syntax prüfen**
 
 Run: `php -l ispconfig/server/lib/classes/malwatch_waf.inc.php && php -l ispconfig/tests/waf_class_probe.php`
 Expected: zweimal `No syntax errors detected`. Der Lauf der Probe braucht root und eine Wegwerf-Datenbank und kommt in Task D10, Block 1.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add ispconfig/server/lib/classes/malwatch_waf.inc.php ispconfig/tests/waf_class_probe.php
@@ -1853,7 +1853,7 @@ Eine Seite, die zeigt, wer draußen ist und warum — und an der jeder Knopf ein
   - `waf_panel_ban_rows($wb, $rows, $origins, $now, $language)` → Zeilen für die Vorlage mit `ip`, `state`, `state_label`, `reason`, `rule_label`, `since`, `until_label`, `denied`, `source_label`, `origin`
   - `waf_panel_ban_post($app, $wb, $post)` → `array(Meldung, Fehler)`; legt den passenden Auftrag an
 
-- [ ] **Step 1: Die scheiternden Prüfungen schreiben**
+- [x] **Step 1: Die scheiternden Prüfungen schreiben**
 
 In `ispconfig/tests/waf_panel_test.php` vor dem Abschnitt „summary" anfügen:
 
@@ -1898,12 +1898,12 @@ expect_same('an address without origin stays empty', $view[1]['origin']['known']
 
 Der Text zur Regel kommt aus dem Katalog, den `waf_panel_rule_label()` seit 0.20.0 liefert; steht die Regel nicht im Katalog, bleibt `rule_label` leer.
 
-- [ ] **Step 2: Prüflauf, der scheitern muss**
+- [x] **Step 2: Prüflauf, der scheitern muss**
 
 Run: `php ispconfig/tests/waf_panel_test.php`
 Expected: `PHP Fatal error: Uncaught Error: Call to undefined function waf_panel_ban_until()`
 
-- [ ] **Step 3: Die Anzeige schreiben**
+- [x] **Step 3: Die Anzeige schreiben**
 
 In `ispconfig/interface/lib/malwatch_waf_panel.inc.php` ans Ende:
 
@@ -2046,12 +2046,12 @@ function waf_panel_ban_post($app, $wb, $post)
 }
 ```
 
-- [ ] **Step 4: Prüflauf, der bestehen muss**
+- [x] **Step 4: Prüflauf, der bestehen muss**
 
 Run: `php ispconfig/tests/waf_panel_test.php`
 Expected: `waf_panel: alle Prüfungen bestanden`
 
-- [ ] **Step 5: Die Seite schreiben**
+- [x] **Step 5: Die Seite schreiben**
 
 `ispconfig/interface/malwatch_waf_ban_list.php` — gebaut wie `malwatch_waf_exception_list.php`: Rechte prüfen, Wörterbuch laden, POST über `waf_panel_ban_post()`, danach die drei Listen holen und der Vorlage übergeben:
 
@@ -2106,7 +2106,7 @@ $allow = waf_panel_rows($app->db->queryAllRecords('SELECT * FROM malwatch_waf_al
 
 Danach setzt die Seite die Schleifen `ban_active`, `ban_proposed`, `ban_past`, `ban_allow`, dazu die Zähler, den Zustand der Automatik (`waf_ban_mode`), die Meldung, den Fehler und den Token — genau wie es `malwatch_waf_exception_list.php` für seine Listen tut. Die Namen der Helfer (`waf_panel_wordbook()`, `waf_panel_clock()`, `waf_panel_token_check()`, `waf_panel_rows()`) werden aus dieser Datei übernommen, damit beide Seiten gleich aufgebaut sind.
 
-- [ ] **Step 6: Die Vorlage schreiben**
+- [x] **Step 6: Die Vorlage schreiben**
 
 `ispconfig/interface/templates/malwatch_waf_ban_list.htm` mit vier Abschnitten, im Stil von `malwatch_waf_exception_list.htm`:
 
@@ -2117,7 +2117,7 @@ Danach setzt die Seite die Schleifen `ban_active`, `ban_proposed`, `ban_past`, `
 
 **Wichtig:** Jede Schleife bekommt ein Flag (`has_active`, `has_proposed`, `has_past`, `has_allow`), weil vlibTemplate eine leere Schleife sonst einmal leer durchläuft.
 
-- [ ] **Step 7: Das Menü und die Kopien**
+- [x] **Step 7: Das Menü und die Kopien**
 
 In `ispconfig/interface/module.conf.php` in der Gruppe „Abwehr" hinter dem Eintrag „Ausnahmen":
 
@@ -2138,11 +2138,11 @@ In `ispconfig/tests/render_pages.php` in die Seitenliste aufnehmen:
 	'malwatch_waf_ban_list.php',
 ```
 
-- [ ] **Step 8: Website-Seite: Knopf und Schwelle**
+- [x] **Step 8: Website-Seite: Knopf und Schwelle**
 
 In `ispconfig/interface/malwatch_waf_show.php` bekommt jede Adresse in den Karten und Einzeltreffern zusätzlich das Feld `ban_link` — eine Form-Schaltfläche, die `waf_ban_action=add` mit der Adresse an `malwatch_waf_ban_list.php` schickt. Im Kasten „Zustand" kommt ein kleines Formular dazu: Auswahl „wie der Server (%s Punkte)", „eigene Schwelle" mit Zahlenfeld und „diese Website löst nie eine Sperre aus", das `waf_ban_action=site` mit `waf_ban_domain`, `waf_ban_site_score` und `waf_ban_site_trigger` sendet. Die Seite liest dafür `waf_ban_score` und `waf_ban_trigger` aus `malwatch_site` mit.
 
-- [ ] **Step 9: Die Texte**
+- [x] **Step 9: Die Texte**
 
 In `ispconfig/interface/lang/de_malwatch_waf.lng` ans Ende, dazu die englische Fassung in `en_malwatch_waf.lng`:
 
@@ -2188,7 +2188,7 @@ $wb['ban_site_own_txt'] = 'eigene Schwelle';
 $wb['ban_site_never_txt'] = 'diese Website löst nie eine Sperre aus';
 ```
 
-- [ ] **Step 10: Prüfen**
+- [x] **Step 10: Prüfen**
 
 Run: `php ispconfig/tests/waf_panel_test.php && php ispconfig/tests/waf_panel_post_test.php && php ispconfig/tests/waf_ban_test.php`
 Expected: dreimal `alle Prüfungen bestanden`
@@ -2196,7 +2196,7 @@ Expected: dreimal `alle Prüfungen bestanden`
 Run: `bash .superpowers/abwehr/harness/build_all.sh .`
 Expected: `Seiten gerendert; …` ohne `FEHLER`. Die Kulisse `fake_db.php` bekommt dafür je zwei Zeilen in `malwatch_waf_ban` und `malwatch_waf_allow`.
 
-- [ ] **Step 11: Commit**
+- [x] **Step 11: Commit**
 
 ```bash
 git add ispconfig/interface ispconfig/install/file.list ispconfig/tests
@@ -2220,7 +2220,7 @@ Damit die Sperre auch ohne Panel bedienbar ist und nginx die Datei überhaupt ei
 - Consumes: `malwatch_waf::ban_scan()`, `ban_apply()`, `ban_expire()`, `ban_count()`, die Auftragsfälle aus D6
 - Produces: `/etc/nginx/conf.d/waf-blocked.conf` (fest), `/etc/nginx/waf/blocked.conf` (von malwatch geschrieben), `/var/log/waf/blocked.log`; `waf-switch block …`
 
-- [ ] **Step 1: Die feste nginx-Datei anlegen**
+- [x] **Step 1: Die feste nginx-Datei anlegen**
 
 `waf/conf/waf-blocked.conf`:
 
@@ -2238,7 +2238,7 @@ map $status $mw_denied {
 log_format mw_block '$time_iso8601 $remote_addr $status $host "$request"';
 ```
 
-- [ ] **Step 2: Den Installierer ergänzen**
+- [x] **Step 2: Den Installierer ergänzen**
 
 In `waf/install.sh` hinter der Stelle, die `/var/log/waf/audit.log` anlegt:
 
@@ -2259,7 +2259,7 @@ In `waf/conf/logrotate-waf` das zweite Log aufnehmen — dieselbe Zeile wie für
 
 Nach dem Kopieren prüft `install.sh` wie bisher mit `nginx -t` und lädt erst dann neu; scheitert die Prüfung, kommt die Sicherung zurück.
 
-- [ ] **Step 3: Das zweite Zugriffslog in den vhost**
+- [x] **Step 3: Das zweite Zugriffslog in den vhost**
 
 Ohne eine Zeile im vhost schreibt nginx nichts nach `/var/log/waf/blocked.log`. Sie kommt in den verwalteten Abschnitt, den `waf_block_text()` in `ispconfig/interface/lib/malwatch_waf_lib.inc.php` erzeugt — das ist die bestehende Funktion für den vhost-Abschnitt, nicht die neue Bibliothek.
 
@@ -2302,7 +2302,7 @@ Die Aufrufer in `malwatch_waf.inc.php` und `waf-switch` übergeben `is_file('/et
 Run: `php ispconfig/tests/waf_lib_test.php`
 Expected: `waf_lib: alle Prüfungen bestanden`
 
-- [ ] **Step 4: `waf-switch` ergänzen**
+- [x] **Step 4: `waf-switch` ergänzen**
 
 In `waf/waf-switch` den Kopfkommentar um die neuen Aufrufe erweitern und den Unterbefehl einbauen:
 
@@ -2337,7 +2337,7 @@ Die Umsetzung nutzt dieselben Wege wie die übrigen Unterbefehle: `status` und `
 
 Für `db_count` wird die bestehende Hilfe der Klasse genutzt (`db_value`), öffentlich gemacht oder über eine kleine öffentliche Methode `ban_active_count()` angeboten — maßgeblich ist, dass `waf-switch` keine eigene Datenbankverbindung aufmacht.
 
-- [ ] **Step 5: Die Verdrahtung prüfen**
+- [x] **Step 5: Die Verdrahtung prüfen**
 
 In `ispconfig/tests/check_wiring.sh` vor dem abschließenden `if [ "$status" -eq 0 ]; then` einfügen:
 
@@ -2382,12 +2382,12 @@ done
 Run (im Hintergrund): `sh ispconfig/tests/check_wiring.sh`
 Expected: `Wiring OK`
 
-- [ ] **Step 6: Der Trockenlauf des Installierers**
+- [x] **Step 6: Der Trockenlauf des Installierers**
 
 Run: `sh .superpowers/abwehr/install_probe.sh`
 Expected: der Probelauf legt die neue Einbindung an, `nginx -t` (nachgestellt) bestätigt, und ein erzwungener Fehlschlag rollt zurück. Der Probelauf liegt außerhalb des Repositorys und stellt nginx, systemctl und crontab nach.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add waf ispconfig/interface/lib/malwatch_waf_lib.inc.php ispconfig/tests
@@ -2403,11 +2403,11 @@ git commit -m "feat(waf): nginx include, block log and the block command of waf-
 - Modify: `internal/version/version.go`, `ispconfig/version`, `CHANGELOG.md`, `README.md`, `ispconfig/README.md`
 - Modify: `docs/superpowers/specs/2026-09-18-malwatch-sperren-design.md` (Notiz zur Stufe 1)
 
-- [ ] **Step 1: Version hochziehen**
+- [x] **Step 1: Version hochziehen**
 
 `internal/version/version.go` auf `var Version = "0.23.0"`, `ispconfig/version` auf `0.23.0`.
 
-- [ ] **Step 2: Changelog**
+- [x] **Step 2: Changelog**
 
 In `CHANGELOG.md` über den Eintrag `## [0.22.0]`:
 
@@ -2437,15 +2437,15 @@ aus, auch ohne Panel. Lehnt nginx die erzeugte Datei ab, kommt der vorherige Sta
 zurück und es wird nicht neu geladen.
 ```
 
-- [ ] **Step 3: READMEs**
+- [x] **Step 3: READMEs**
 
 In `README.md` und `ispconfig/README.md` den Abschnitt zur Abwehr um einen Absatz über die Sperren ergänzen: wie erkannt wird, wo die Datei liegt (`/etc/nginx/waf/blocked.conf`), dass nginx nur geprüft und neu geladen wird, wie der Zähler entsteht und wie man ohne Panel wieder aufmacht.
 
-- [ ] **Step 4: Die Spec bekommt ihre Notiz**
+- [x] **Step 4: Die Spec bekommt ihre Notiz**
 
 In `docs/superpowers/specs/2026-09-18-malwatch-sperren-design.md` in der Tabelle der Stufen hinter „1 | 0.23.0 …" den Vermerk „umgesetzt, Plan `docs/superpowers/plans/2026-09-18-malwatch-sperren-stufe-1.md`" ergänzen.
 
-- [ ] **Step 5: Die ganze Prüfstrecke**
+- [x] **Step 5: Die ganze Prüfstrecke**
 
 Run: `gofmt -l . && go vet ./... && go build ./... && echo "Go: ok"`
 Expected: `Go: ok`
@@ -2462,7 +2462,7 @@ Expected: `Wiring OK`
 Run: `bash .superpowers/abwehr/harness/build_all.sh .`
 Expected: `Seiten gerendert; …` ohne `FEHLER`
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add internal/version/version.go ispconfig/version CHANGELOG.md README.md ispconfig/README.md docs/superpowers/specs/2026-09-18-malwatch-sperren-design.md
@@ -2471,6 +2471,17 @@ git commit -m "release: 0.23.0, blocking attacker addresses" -m "Co-Authored-By:
 ```
 
 ---
+**Notizen aus der Umsetzung (18.09.2026):**
+
+- Die neuen Bezeichner heißen `ban`, weil `waf_block_text()`, `waf_block_set()` und `waf_block_remove()` in `malwatch_waf_lib.inc.php` schon den verwalteten Abschnitt eines vhosts bauen (31 Aufrufstellen). Tabellen, Einstellungen, Funktionen und Aufträge tragen deshalb `ban`; die Oberfläche bleibt bei „Sperren“.
+- Die Beispieldateien der Suchmaschinen hatten zwei aneinandergrenzende IPv6-Bereiche; der Leser fasst so etwas richtigerweise zusammen. Der Bereich von Bing steht jetzt auf `2001:db8:5::/48`, damit die Prüfung fünf Bereiche sieht.
+- `waf_origin_sources_test.php` prüft die Liste der Quellen als Ganzes und brauchte den Eintrag `searchbots`.
+- `waf_logrotate_text()` erzeugt die ausgelieferte logrotate-Datei; das zweite Log kam dort hinein, sonst wäre die mitgelieferte Datei aus dem Tritt geraten.
+- Die Zeile fürs zweite Zugriffslog steht nur im vhost, wenn `/etc/nginx/conf.d/waf-blocked.conf` existiert: `waf_block_set($text, $state, $with_ban_log)` reicht das durch, die Serverklasse setzt `$settings['waf_ban_log']` aus der Dateiprüfung. Ohne das würde nginx das unbekannte Format `mw_block` ablehnen.
+- Prüfung 73 musste geschärft werden: Ein Kommentar mit `blocked.conf` in einer Bibliothek ist kein Schreiben; sie sucht jetzt nach Seiten, die `blocked.conf` **und** `file_put_contents` enthalten.
+- Die neue Seite band anfangs `malwatch_modal.htm` nicht ein — Prüfung 47 hat es gefangen.
+- Commits auf `waf-herkules`: `9f2495c` (D1), `602885f` (D2), `6761c7d` (D3), `e41445e` (D4), `9409e2d` (D5), `19e7e7b` (D6), `af880a9` und `750e9a0` (D7), `5353d96` (D8), `aca5c10` (D9).
+
 ### Task D10: Einführung auf web.herkules
 
 malwatch 0.23.0 kommt in fünf Blöcken auf den Server, jeder mit eigener Freigabe von Mathias und mit Eintrag im Serverprotokoll:
