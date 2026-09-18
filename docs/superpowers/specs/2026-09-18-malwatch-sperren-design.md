@@ -67,29 +67,29 @@ Abwehr an die Kante des Netzes.
 
 | Spalte | Typ, Vorgabe | Grenzen |
 |---|---|---|
-| `waf_block_mode` | enum `off`, `propose`, `block`; `off` | |
-| `waf_block_score` | int; 50 | 5 bis 10000 |
-| `waf_block_window_minutes` | int; 10 | 1 bis 1440 |
-| `waf_block_hours_first` | int; 1 | 1 bis 8760 |
-| `waf_block_hours_second` | int; 24 | 1 bis 8760 |
-| `waf_block_hours_third` | int; 168 | 1 bis 8760 |
-| `waf_block_max` | int; 5000 | 100 bis 100000 |
-| `waf_block_keep_days` | int; 30 | 1 bis 365 |
-| `waf_block_bots` | enum `off`, `on`; `on` | Suchmaschinen verschonen |
-| `waf_block_token` | varchar(64); leer | Token der veröffentlichten Liste, Stufe 3; wird beim Einschalten erzeugt |
+| `waf_ban_mode` | enum `off`, `propose`, `block`; `off` | |
+| `waf_ban_score` | int; 50 | 5 bis 10000 |
+| `waf_ban_window_minutes` | int; 10 | 1 bis 1440 |
+| `waf_ban_hours_first` | int; 1 | 1 bis 8760 |
+| `waf_ban_hours_second` | int; 24 | 1 bis 8760 |
+| `waf_ban_hours_third` | int; 168 | 1 bis 8760 |
+| `waf_ban_max` | int; 5000 | 100 bis 100000 |
+| `waf_ban_keep_days` | int; 30 | 1 bis 365 |
+| `waf_ban_bots` | enum `off`, `on`; `on` | Suchmaschinen verschonen |
+| `waf_ban_token` | varchar(64); leer | Token der veröffentlichten Liste, Stufe 3; wird beim Einschalten erzeugt |
 
 ### Neue Spalten in `malwatch_site` — die Schwelle je Website
 
 | Spalte | Typ, Vorgabe | Inhalt |
 |---|---|---|
-| `waf_block_score` | int; 0 | eigene Schwelle dieser Website; `0` heißt „wie der Server" |
-| `waf_block_trigger` | enum `y`, `n`; `y` | ob Treffer dieser Website überhaupt zu einer Sperre führen |
+| `waf_ban_score` | int; 0 | eigene Schwelle dieser Website; `0` heißt „wie der Server" |
+| `waf_ban_trigger` | enum `y`, `n`; `y` | ob Treffer dieser Website überhaupt zu einer Sperre führen |
 
-Die wirksame Schwelle einer Website ist also: `waf_block_trigger = 'n'` → keine
-Sperre; `waf_block_score = 0` → der Wert aus den Einstellungen; sonst der eigene
+Die wirksame Schwelle einer Website ist also: `waf_ban_trigger = 'n'` → keine
+Sperre; `waf_ban_score = 0` → der Wert aus den Einstellungen; sonst der eigene
 Wert. Die Grenzen sind dieselben wie beim Server (5 bis 10000).
 
-### `malwatch_waf_block` — eine Zeile je Adresse und Server
+### `malwatch_waf_ban` — eine Zeile je Adresse und Server
 
 | Spalte | Inhalt |
 |---|---|
@@ -127,7 +127,7 @@ Herkunft, unter demselben Lock.
    `SELECT client_ip, parent_domain_id, SUM(anomaly_score), COUNT(*) FROM malwatch_waf_hit
    WHERE server_id = ? AND seen_at >= ? GROUP BY client_ip, parent_domain_id`.
    Jede Zeile wird gegen die wirksame Schwelle ihrer Website gehalten (Abschnitt 5);
-   Websites mit `waf_block_trigger = 'n'` fallen vorher heraus. Es reicht **eine**
+   Websites mit `waf_ban_trigger = 'n'` fallen vorher heraus. Es reicht **eine**
    Website, deren Schwelle überschritten ist — gesperrt wird die Adresse danach
    serverweit, weil die `deny`-Zeilen im `http`-Kontext stehen.
 2. Adressen aussortieren, die geschützt sind (Abschnitt 10), schon eine Zeile mit
@@ -146,8 +146,8 @@ entstehen gar nicht erst.
 ## 7. Sperren und Dauer
 
 - **Stufe** ist die Zahl der Sperren derselben Adresse in den letzten
-  `waf_block_keep_days` Tagen, begrenzt auf 3. Daraus folgt die Dauer:
-  `waf_block_hours_first`, `_second`, `_third`.
+  `waf_ban_keep_days` Tagen, begrenzt auf 3. Daraus folgt die Dauer:
+  `waf_ban_hours_first`, `_second`, `_third`.
 - **Von Hand** gesperrt wird über den Knopf an einer Adresse oder auf der Seite
   „Sperren": Zustand sofort `active`, `source = manual`, Grund „von Hand gesperrt
   von <Benutzer>", Dauer wie Stufe 1 oder dauerhaft.
@@ -172,7 +172,7 @@ Ablauf beim Anwenden, höchstens einmal je Cron-Durchgang und nur bei Änderung:
 
 1. Gewünschten Inhalt aus den eigenen aktiven Sperren bilden — `state = 'active'`
    und `source` in `auto`, `manual`, aufsteigend nach Adresse, höchstens
-   `waf_block_max` Zeilen —, mit Kopfzeile „von malwatch erzeugt, <Zeit>".
+   `waf_ban_max` Zeilen —, mit Kopfzeile „von malwatch erzeugt, <Zeit>".
 2. Unterscheidet er sich von der Datei: alte Datei nach
    `/var/lib/malwatch/waf/last-good/blocked.conf` sichern, neue schreiben.
 3. `nginx -t`. Scheitert die Prüfung: alte Datei zurück, kein Reload, Fehler in den
@@ -205,7 +205,7 @@ Vor jeder Sperre wird geprüft, in dieser Reihenfolge:
    `10.50.0.0/24`, alle Adressen des Servers (`ip -o addr`, einmal je Cronlauf
    gelesen).
 2. **Ausnahmeliste** aus `malwatch_waf_allow`, Adressen und Bereiche in CIDR.
-3. **Suchmaschinen**, wenn `waf_block_bots` auf `on` steht. Ihre Adressbereiche
+3. **Suchmaschinen**, wenn `waf_ban_bots` auf `on` steht. Ihre Adressbereiche
    kommen über die Maschinerie der Herkunft aus 0.21.0: eine weitere Quelle
    `searchbots` lädt die veröffentlichten Listen von Google
    (`https://developers.google.com/static/search/apis/ipranges/googlebot.json`) und
@@ -229,7 +229,7 @@ Neuer Menüpunkt **Security > Abwehr > Sperren**.
 - **Vorschläge**: dieselbe Darstellung mit „jetzt sperren" und „verwerfen". Ein
   verworfener Vorschlag bekommt `state = 'dismissed'` und kommt für die Dauer des
   Fensters nicht wieder.
-- **Abgelaufen und aufgehoben**: die letzten `waf_block_keep_days` Tage, knapp.
+- **Abgelaufen und aufgehoben**: die letzten `waf_ban_keep_days` Tage, knapp.
 - **Nie sperren**: die Ausnahmeliste mit Notiz, Knöpfen zum Anlegen und Löschen.
 
 Dazu ein Knopf **„sperren"** an jeder Adresse in den Regel-Karten und in den
@@ -249,7 +249,7 @@ der Abwehr; die Seite lädt sich nach, sobald er fertig ist.
 Ein Abschnitt auf derselben Seite, unter den eigenen Sperren:
 
 - Der Cron liest je Jail `fail2ban-client status <jail>` und hält Jail, Adresse und
-  Zeitpunkt in `malwatch_waf_block` mit `source = 'fail2ban'` fest — dieselbe
+  Zeitpunkt in `malwatch_waf_ban` mit `source = 'fail2ban'` fest — dieselbe
   Darstellung, dieselbe Herkunft, aber ohne eigene Datei: die Sperre gehört fail2ban.
 - Grund ist der Jail im Klartext: „Mail: zu viele fehlgeschlagene Anmeldungen
   (postfix-sasl)".
@@ -261,7 +261,7 @@ Ein Abschnitt auf derselben Seite, unter den eigenen Sperren:
 - Der Cron schreibt bei jeder Änderung `/var/lib/malwatch/waf/blocked.txt`: eine
   Adresse je Zeile, nur aktive Sperren, ohne Kommentare.
 - Ausgeliefert wird sie über eine eigene Stelle im Panel-vhost unter einem Pfad mit
-  Token aus der Konfiguration (`waf_block_token`, 32 Zeichen, beim Einschalten
+  Token aus der Konfiguration (`waf_ban_token`, 32 Zeichen, beim Einschalten
   erzeugt). Ohne Token antwortet die Stelle mit 404.
 - Die OPNsense holt die Liste als „URL Table (IPs)"-Alias in ihrem eigenen Takt und
   sperrt an der Kante. Eingerichtet wird das dort von Hand; die Spec nennt nur die
@@ -271,9 +271,9 @@ Ein Abschnitt auf derselben Seite, unter den eigenen Sperren:
 ## 14. Aufräumen und Datenschutz
 
 - `cron_hourly()` setzt abgelaufene Sperren auf `expired` und entfernt Zeilen, deren
-  Ende länger als `waf_block_keep_days` zurückliegt.
+  Ende länger als `waf_ban_keep_days` zurückliegt.
 - Adressen stehen ohnehin schon in `malwatch_waf_hit` und `malwatch_waf_ip`; die
-  Sperrliste hält sie nicht länger als deren Aufbewahrung plus `waf_block_keep_days`.
+  Sperrliste hält sie nicht länger als deren Aufbewahrung plus `waf_ban_keep_days`.
 - Die veröffentlichte Liste enthält keine Namen, keine Zeiten, keine Gründe.
 - Auftragsprotokolle nennen Zahlen und Gründe, keine Zugangsdaten.
 - Nur Administratoren sehen die Seiten, wie bisher.
@@ -284,7 +284,7 @@ Ein Abschnitt auf derselben Seite, unter den eigenen Sperren:
 |---|---|
 | `nginx -t` scheitert | alte Datei zurück, kein Reload, Auftrag auf Fehler, Meldung auf der Seite |
 | Datei nicht schreibbar, Platte voll | wie oben, Meldung nennt Pfad und Rechte |
-| Obergrenze `waf_block_max` erreicht | keine neue Sperre, Meldung auf der Seite, bestehende laufen weiter |
+| Obergrenze `waf_ban_max` erreicht | keine neue Sperre, Meldung auf der Seite, bestehende laufen weiter |
 | Adresse steht in den Ausnahmen | Sperre wird nicht angelegt; eine bestehende wird aufgehoben |
 | Der Betreiber sperrt sich selbst aus | `waf-switch sperren aus` leert die Datei und lädt nginx neu, ohne Panel |
 | Suchmaschinenliste fehlt oder ist alt | Suchmaschinen werden nicht verschont; die Seite sagt es, gesperrt wird trotzdem |
