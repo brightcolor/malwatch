@@ -53,7 +53,7 @@ Treffern stehen bei 1.137 und 1.135 Anfragen.
 
 | Stufe | Release | Inhalt |
 |---|---|---|
-| 1 | 0.23.0 | Sperrliste, Erkennung im Vorschlagsmodus, Seite „Sperren", Ausnahmeliste, Sperren von Hand, `deny`-Datei, Not-Aus, Zähler  - Plan `docs/superpowers/plans/2026-09-18-malwatch-sperren-stufe-1.md` |
+| 1 | 0.23.0 | Sperrliste, Erkennung im Vorschlagsmodus, Seite „Sperren", Ausnahmeliste, Sperren von Hand, `deny`-Datei, Not-Aus, Zähler — Plan `docs/superpowers/plans/2026-09-18-malwatch-sperren-stufe-1.md` |
 | 2 | 0.24.0 | fail2ban im Panel: Sperren mit Grund und Ende, Knopf zum Aufheben |
 | 3 | 0.25.0 | URL-Tabelle für die OPNsense |
 
