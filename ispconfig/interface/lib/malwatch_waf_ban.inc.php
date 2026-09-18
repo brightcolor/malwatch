@@ -102,3 +102,48 @@ function waf_ban_reason($pick, $minutes, $rule_label)
 	}
 	return waf_origin_cut($reason . '.', 255);
 }
+
+/**
+ * The networks that are never blocked, whatever the settings say: localhost and
+ * the network of the proxy in front of the server. Without them the server
+ * could lock itself out.
+ */
+function waf_ban_fixed_allow()
+{
+	return array('127.0.0.0/8', '::1/128', '10.50.0.0/24');
+}
+
+/** true when the address lies in one of the given addresses or ranges. */
+function waf_ban_allow_match($cidrs, $ip)
+{
+	$bytes = waf_origin_bytes($ip);
+	if ($bytes === '') {
+		return false;
+	}
+	foreach ($cidrs as $cidr) {
+		$range = waf_origin_cidr($cidr);
+		if ($range === null) {
+			continue;
+		}
+		if (strcmp($bytes, $range[0]) >= 0 && strcmp($bytes, $range[1]) <= 0) {
+			return true;
+		}
+	}
+	return false;
+}
+
+/**
+ * The three layers before a block: the fixed networks, the list of the operator
+ * (which carries the addresses of the server itself) and the ranges of the
+ * search engines. $reader is the open reader of the source searchbots or null.
+ */
+function waf_ban_allowed($ip, $cidrs, $reader)
+{
+	if (waf_ban_allow_match(waf_ban_fixed_allow(), $ip)) {
+		return true;
+	}
+	if (waf_ban_allow_match($cidrs, $ip)) {
+		return true;
+	}
+	return $reader !== null && waf_origin_find($reader, $ip) !== '';
+}

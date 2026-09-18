@@ -25,7 +25,8 @@ $dir = sys_get_temp_dir() . '/waf_origin_sources_test_' . getmypid();
 // --- The sources themselves ---------------------------------------------------
 
 expect_same('every source names its setting', array_keys(waf_origin_sources()),
-	array('dbip_country', 'dbip_asn', 'maxmind_country', 'maxmind_asn', 'tor', 'x4b_vpn', 'x4b_datacenter'));
+	array('dbip_country', 'dbip_asn', 'maxmind_country', 'maxmind_asn', 'tor', 'x4b_vpn', 'x4b_datacenter',
+		'searchbots'));
 expect_same('sources of the settings', waf_origin_chosen(array('waf_origin_geo' => 'dbip', 'waf_origin_tor' => 'torproject',
 	'waf_origin_net' => 'off')), array('dbip_country', 'dbip_asn', 'tor'));
 expect_same('sources with everything off', waf_origin_chosen(array()), array());
@@ -200,6 +201,26 @@ foreach (glob($look . '/*') as $name) {
 }
 @rmdir($look);
 
+
+// --- The ranges of the search engines -----------------------------------------
+
+expect_same('search engines are a source of their own', isset(waf_origin_sources()['searchbots']), true);
+expect_same('the search engines are chosen with their own setting',
+	waf_origin_chosen(array('waf_ban_bots' => 'on')), array('searchbots'));
+expect_same('two addresses for the search engines', count(waf_origin_urls('searchbots', '')), 2);
+$bots = __DIR__ . '/fixtures/bots';
+$bots_out = $dir . '/searchbots.bin';
+$bot_counts = waf_origin_read_bots(array($bots . '/googlebot.json', $bots . '/bingbot.json'), $bots_out);
+expect_same('every prefix became a range', array($bot_counts['ranges'], $bot_counts['bad']), array(5, 0));
+$bot_reader = waf_origin_open($bots_out);
+expect_same('an address of Google', waf_origin_find($bot_reader, '192.0.2.77'), 'y');
+expect_same('an address of Bing', waf_origin_find($bot_reader, '203.0.113.5'), 'y');
+expect_same('an address of Bing outside its range', waf_origin_find($bot_reader, '203.0.113.200'), '');
+expect_same('an IPv6 address of a search engine', waf_origin_find($bot_reader, '2001:db8:1::9'), 'y');
+expect_same('an address of nobody', waf_origin_find($bot_reader, '198.51.100.9'), '');
+waf_origin_close($bot_reader);
+expect_same('a file that is no JSON gives nothing',
+	waf_origin_read_bots(array($bots . '/gibt-es-nicht.json'), $dir . '/leer.bin'), null);
 
 // --- summary -----------------------------------------------------------------
 if ($failures > 0) {

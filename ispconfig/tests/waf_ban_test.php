@@ -75,6 +75,24 @@ expect_same('a reason without a rule in words',
 		'rule' => '', 'limit' => 50), 10, ''),
 	'1.200 Punkte aus 240 Treffern in 10 Minuten auf beispiel.test.');
 
+// --- What is never blocked ----------------------------------------------------
+
+expect_same('the fixed networks', waf_ban_fixed_allow(), array('127.0.0.0/8', '::1/128', '10.50.0.0/24'));
+expect_same('the proxy is protected', waf_ban_allow_match(waf_ban_fixed_allow(), '10.50.0.1'), true);
+expect_same('localhost is protected', waf_ban_allow_match(waf_ban_fixed_allow(), '127.0.0.1'), true);
+expect_same('a visitor is not', waf_ban_allow_match(waf_ban_fixed_allow(), '192.0.2.10'), false);
+expect_same('an address of the list', waf_ban_allow_match(array('203.0.113.0/24', '198.51.100.7'), '203.0.113.99'), true);
+expect_same('a single address of the list', waf_ban_allow_match(array('198.51.100.7'), '198.51.100.7'), true);
+expect_same('the neighbour of a single address', waf_ban_allow_match(array('198.51.100.7'), '198.51.100.8'), false);
+expect_same('IPv6 in a range', waf_ban_allow_match(array('2001:db8::/32'), '2001:db8:1::5'), true);
+expect_same('IPv6 outside a range', waf_ban_allow_match(array('2001:db8::/32'), '2001:db9::5'), false);
+expect_same('what is no address is never allowed', waf_ban_allow_match(array('0.0.0.0/0'), 'kein-ip'), false);
+expect_same('an entry that is no range is skipped',
+	waf_ban_allow_match(array('unsinn', '203.0.113.0/24'), '203.0.113.9'), true);
+expect_same('the three layers together, without a reader',
+	array(waf_ban_allowed('10.50.0.1', array(), null), waf_ban_allowed('203.0.113.9', array('203.0.113.0/24'), null),
+		waf_ban_allowed('192.0.2.10', array('203.0.113.0/24'), null)), array(true, true, false));
+
 // --- summary -----------------------------------------------------------------
 
 if ($failures > 0) {

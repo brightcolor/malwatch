@@ -875,6 +875,8 @@ class malwatch_waf
 				return $locations === '' ? null : waf_origin_read_maxmind_country($blocks, $locations, $fresh);
 			case 'maxmind_asn':
 				return waf_origin_read_maxmind_asn($files, $fresh);
+			case 'searchbots':
+				return waf_origin_read_bots($files, $fresh);
 		}
 		return waf_origin_read_list($files, $fresh);
 	}

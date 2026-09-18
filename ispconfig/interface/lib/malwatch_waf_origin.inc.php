@@ -344,6 +344,8 @@ function waf_origin_sources()
 			'min' => 1000, 'bytes' => 20 * 1024 * 1024, 'hours' => 'waf_origin_list_hours'),
 		'x4b_datacenter' => array('setting' => 'waf_origin_net', 'value' => 'x4b', 'kind' => 'list',
 			'min' => 1000, 'bytes' => 20 * 1024 * 1024, 'hours' => 'waf_origin_list_hours'),
+		'searchbots' => array('setting' => 'waf_ban_bots', 'value' => 'on', 'kind' => 'bots',
+			'min' => 10, 'bytes' => 8 * 1024 * 1024, 'hours' => 'waf_origin_list_hours'),
 	);
 }
 
@@ -363,6 +365,13 @@ function waf_origin_chosen($settings)
 /** The addresses the source is loaded from, one download per entry. */
 function waf_origin_urls($name, $month)
 {
+	if ($name === 'searchbots') {
+		// Google and Bing publish the ranges of their crawlers as JSON.
+		return array(
+			'https://developers.google.com/static/search/apis/ipranges/googlebot.json',
+			'https://www.bing.com/toolbox/bingbot.json',
+		);
+	}
 	$month = preg_match('/^\d{4}-\d{2}$/', (string) $month) ? (string) $month : gmdate('Y-m');
 	switch ($name) {
 		case 'dbip_country':
@@ -637,6 +646,58 @@ function waf_origin_read_list($files, $out)
 }
 
 /** The value of a network range: its number and its name, kept apart by a unit separator. */
+/**
+ * The published ranges of the search engines. Google and Bing answer with JSON
+ * whose entries carry ipv4Prefix or ipv6Prefix; the prefixes go through the
+ * reader of the plain lists, so sorting and merging stay in one place.
+ */
+function waf_origin_read_bots($in, $out)
+{
+	$files = is_array($in) ? $in : array($in);
+	$plain = $out . '.list';
+	$handle = @fopen($plain, 'wb');
+	if ($handle === false) {
+		return null;
+	}
+	$bad = 0;
+	$found = 0;
+	foreach ($files as $file) {
+		$data = json_decode((string) @file_get_contents($file), true);
+		if (!is_array($data) || !isset($data['prefixes']) || !is_array($data['prefixes'])) {
+			$bad++;
+			continue;
+		}
+		foreach ($data['prefixes'] as $entry) {
+			$cidr = '';
+			if (is_array($entry)) {
+				if (isset($entry['ipv4Prefix'])) {
+					$cidr = (string) $entry['ipv4Prefix'];
+				} elseif (isset($entry['ipv6Prefix'])) {
+					$cidr = (string) $entry['ipv6Prefix'];
+				}
+			}
+			if ($cidr === '') {
+				$bad++;
+				continue;
+			}
+			fwrite($handle, $cidr . "
+");
+			$found++;
+		}
+	}
+	fclose($handle);
+	if ($found === 0) {
+		@unlink($plain);
+		return null;
+	}
+	$counts = waf_origin_read_list(array($plain), $out);
+	@unlink($plain);
+	if (is_array($counts)) {
+		$counts['bad'] += $bad;
+	}
+	return $counts;
+}
+
 function waf_origin_as_value($number, $name)
 {
 	$name = trim(preg_replace('/\s+/', ' ', (string) $name));
@@ -762,6 +823,9 @@ function waf_origin_facts($readers, $ip)
 {
 	$facts = array('country' => '', 'asn' => 0, 'as_org' => '', 'is_tor' => 'n', 'is_vpn' => 'n', 'is_hosting' => 'n');
 	foreach ($readers as $name => $reader) {
+		if ($name === 'searchbots') {
+			continue;
+		}
 		$value = waf_origin_find($reader, $ip);
 		if ($value === '') {
 			continue;
