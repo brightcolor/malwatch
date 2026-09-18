@@ -209,6 +209,11 @@ expect_same('the mode is queued', array($result[1], jobs_of($db)),
 	array('', array(array(1, 'waf', array('mode' => 'propose', 'action' => 'ban_mode', 'user' => 'admin')))));
 
 $db = fresh_db();
+$result = waf_panel_handle_post($app, $wb, array('waf_action' => 'ban_token_new'));
+expect_same('a new key is queued', array($result[1], jobs_of($db)),
+	array('', array(array(1, 'waf', array('action' => 'ban_token_new', 'user' => 'admin')))));
+
+$db = fresh_db();
 $result = waf_panel_handle_post($app, $wb, array('waf_action' => 'ban_mode', 'waf_mode' => 'vielleicht'));
 expect_same('an unknown mode is refused', array($result[0], jobs_of($db)), array('', array()));
 

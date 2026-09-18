@@ -1127,8 +1127,11 @@ fi
 # 55. Die Seiten der Abwehr pruefen die Administratorrechte selbst, und die
 #     Seitenantwort geht nur als Text hinaus: sie ist die Antwort auf die
 #     Anfrage eines Angreifers und laeuft im Panel nie als HTML.
+#     Einzige Ausnahme ist die Liste fuer die Firewall: Sie wird von einem Geraet
+#     ohne Sitzung geholt und haengt darum an ihrem Schluessel (Pruefung 77).
 for page in "$root"/interface/malwatch_waf_*.php; do
 	[ -f "$page" ] || continue
+	[ "$(basename "$page")" = "malwatch_waf_ban_url.php" ] && continue
 	grep -q 'is_admin()' "$page" || fail "$(basename "$page") prueft die Administratorrechte nicht"
 done
 response_page="$root/interface/malwatch_waf_response.php"
@@ -1483,6 +1486,42 @@ for lang in de en; do
 	for key in ban_state_active_txt ban_until_forever_txt ban_lift_all_confirm_txt ban_none_active_txt ban_site_never_txt; do
 		grep -q "\\\$wb\['$key'\]" "$book" \
 			|| fail "${lang}_malwatch_waf.lng is missing $key"
+	done
+done
+
+# 77. Die veroeffentlichte Liste haengt an ihrem Schluessel: Die Stelle prueft die
+#     Form, vergleicht mit hash_equals und verlangt weder Anmeldung noch Modul.
+page="$root/interface/malwatch_waf_ban_url.php"
+if [ -f "$page" ]; then
+	grep -q 'waf_ban_token_ok' "$page" 		|| fail "malwatch_waf_ban_url.php does not check the shape of the key"
+	grep -q 'hash_equals' "$page" 		|| fail "malwatch_waf_ban_url.php compares the key without hash_equals"
+	grep -q '404 Not Found' "$page" 		|| fail "malwatch_waf_ban_url.php answers a wrong key with something other than 404"
+	if grep -q 'check_module_permissions' "$page"; then
+		fail "malwatch_waf_ban_url.php asks for a module permission; the firewall has no session"
+	fi
+	grep -q '^c:interface/malwatch_waf_ban_url.php:' "$root/install/file.list" 		|| fail "the installer does not copy malwatch_waf_ban_url.php"
+fi
+
+# 78. Der Cron schreibt die Liste, und die Stelle liest sie; der Schluessel selbst
+#     steht in keinem Auftragsprotokoll.
+class="$root/server/lib/classes/malwatch_waf.inc.php"
+if [ -f "$class" ]; then
+	grep -q 'blocked.txt' "$class" 		|| fail "the class never writes blocked.txt for the firewall"
+	grep -q 'function ban_token' "$class" 		|| fail "the class has no ban_token()"
+	if ! sed -n "/case 'ban_token_new':/,/break;/p" "$class" | grep -q 'Neuer Schl'; then
+		fail "the job ban_token_new has no message of its own"
+	fi
+	if sed -n "/case 'ban_token_new':/,/break;/p" "$class" | grep -q 'note = .*\$token'; then
+		fail "the job ban_token_new writes the key into its message"
+	fi
+fi
+
+# 79. Die Woerter der Liste stehen in beiden Woerterbuechern.
+for lang in de en; do
+	book="$root/interface/lang/${lang}_malwatch_waf.lng"
+	[ -f "$book" ] || continue
+	for key in ban_url_head_txt ban_url_intro_txt ban_url_count_txt ban_url_hint_txt ban_url_none_txt 		ban_url_new_txt ban_url_new_confirm_txt; do
+		grep -q "\$wb\['$key'\]" "$book" 			|| fail "${lang}_malwatch_waf.lng is missing $key"
 	done
 done
 

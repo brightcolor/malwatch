@@ -19,6 +19,7 @@
  *   waf-switch ban add <ip> [--permanent]
  *   waf-switch ban lift <ip|--all>
  *   waf-switch ban allow <cidr> [--note=text]
+ *   waf-switch ban url [new] [<name des panels>]
  *   waf-switch ingest [--dry-run] [--file=<audit log>]
  *   waf-switch migrate
  *   waf-switch snapshot
@@ -345,6 +346,33 @@ switch ($command) {
 			}
 			exit(0);
 		}
+		if ($sub === 'url') {
+			$next = (string) array_shift($args);
+			if ($next === 'new') {
+				$waf->execute_now('ban_token_new', array(), $user);
+				$next = (string) array_shift($args);
+			}
+			// Der Name des Panels steht in keiner Einstellung: Das Panel antwortet
+			// unter jedem Namen. Ohne Angabe gilt der Name des Rechners.
+			$host = $next !== '' ? $next : (string) php_uname('n');
+			$token = $waf->ban_token();
+			$url = waf_ban_list_url($host, $token);
+			if ($url === '') {
+				fwrite(STDERR, "Für diesen Namen lässt sich keine Adresse bilden. Bitte den Namen angeben, unter "
+					. "dem das Panel erreichbar ist: waf-switch ban url <name>
+");
+				exit(1);
+			}
+			$rows = $app->dbmaster->queryAllRecords("SELECT ip FROM malwatch_waf_ban WHERE server_id = ? "
+				. "AND state = 'active' AND source IN ('auto','manual')", $conf['server_id']);
+			printf("Adresse: %s
+", $url);
+			printf("Adressen in der Liste: %d
+", count(is_array($rows) ? $rows : array()));
+			echo "Anderer Name des Panels: waf-switch ban url <name>
+";
+			exit(0);
+		}
 		if ($sub === 'off' || $sub === 'propose' || $sub === 'on') {
 			$mode = $sub === 'on' ? 'block' : $sub;
 			$waf->execute_now('ban_mode', array('mode' => $mode), $user);
@@ -387,7 +415,7 @@ switch ($command) {
 ";
 			exit(0);
 		}
-		fwrite(STDERR, "ban status|off|propose|on|list|add <ip>|lift <ip|--all>|allow <cidr>
+		fwrite(STDERR, "ban status|off|propose|on|list|add <ip>|lift <ip|--all>|allow <cidr>|url [new]
 ");
 		exit(2);
 
@@ -426,6 +454,6 @@ switch ($command) {
 
 fwrite(STDERR, "Befehle: status | set <off|detect|enforce> <domain…|--wordpress|--all> [--wait] | probe … | "
 	. "emergency on|off [--hard] | response-body [full|lean|status] | restore <ordner> | jobs | "
-	. "exception list|add|remove | ban status|off|propose|on|list|add|lift|allow | "
+	. "exception list|add|remove | ban status|off|propose|on|list|add|lift|allow|url | "
 	. "ingest [--dry-run] [--file=<log>] | migrate | snapshot | guard\n");
 exit(2);

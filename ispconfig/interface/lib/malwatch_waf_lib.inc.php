@@ -834,6 +834,7 @@ function waf_settings_defaults()
 		'waf_ban_max' => 5000,
 		'waf_ban_keep_days' => 30,
 		'waf_ban_bots' => 'on',
+		'waf_ban_token' => '',
 		'waf_origin_tor_hours' => 1,
 		'waf_origin_list_hours' => 24,
 		'waf_origin_db_hours' => 24,

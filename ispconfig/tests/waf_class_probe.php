@@ -664,6 +664,9 @@ expect_same('the file was written', $applied, array(true, ''));
 expect_same('nginx was tested and reloaded', $calls, array('nginx_test', 'nginx_reload'));
 expect_same('the address stands in the file',
 	strpos((string) file_get_contents($tmp . '/waf/blocked.conf'), 'deny 192.0.2.50;') !== false, true);
+expect_same('and in the list for the OPNsense',
+	file_get_contents($tmp . '/state/waf/blocked.txt'), "192.0.2.50
+");
 expect_same('a second run changes nothing', $waf->ban_apply(), array(false, ''));
 
 // Eine Konfiguration, die nginx ablehnt, erreicht den laufenden Server nicht.
@@ -734,6 +737,21 @@ $waf->ban_apply();
 expect_same('and the file is empty',
 	substr_count((string) file_get_contents($tmp . '/waf/blocked.conf'), 'deny '), 0);
 $db->query('DELETE FROM malwatch_waf_hit');
+
+// Der Schlüssel der veröffentlichten Liste.
+$db->query("UPDATE malwatch_config SET waf_ban_token = '' WHERE config_id = 1");
+$waf->queue('ban_mode', array('mode' => 'propose'), 'probe');
+$waf->pass();
+$token = (string) config_value('waf_ban_token');
+expect_same('switching the automatic on makes a key', waf_ban_token_ok($token), true);
+$job = $waf->queue('ban_token_new', array(), 'probe');
+$waf->pass();
+$fresh = (string) config_value('waf_ban_token');
+expect_same('a new key is another one', array(waf_ban_token_ok($fresh), $fresh === $token), array(true, false));
+expect_same('the key stays out of the job log', strpos((string) job_row($job)['job_log'], $fresh), false);
+expect_same('the list is empty while nothing is blocked',
+	file_get_contents($tmp . '/state/waf/blocked.txt'), '');
+$db->query("UPDATE malwatch_config SET waf_ban_mode = 'block' WHERE config_id = 1");
 
 // Steht die Einbindung der Sperrliste, schreibt das Feld auch das zweite Zugriffslog.
 file_put_contents($tmp . '/conf.d/waf-blocked.conf', 'include ' . $tmp . "/waf/blocked.conf;

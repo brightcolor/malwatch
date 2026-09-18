@@ -1294,6 +1294,10 @@ class malwatch_waf
 		}
 		$want = waf_ban_file($ips, $this->now(), $max);
 		$have = is_file($file) ? (string) @file_get_contents($file) : '';
+		// The published list follows the database, not nginx: an address the
+		// firewall at the edge turns away before nginx ever sees it is the point
+		// of that list, and stale is the one thing it must never be.
+		$this->ban_list_write($ips);
 		if ($have === $want) {
 			return array(false, '');
 		}
@@ -1321,6 +1325,44 @@ class malwatch_waf
 		}
 		@copy($file, $this->ensure_dirs() . '/last-good/blocked.conf');
 		return array(true, '');
+	}
+
+	/**
+	 * Writes the list the OPNsense fetches: one address per line, nothing else.
+	 * A failure here never stops a block; the next pass writes it again.
+	 */
+	private function ban_list_write($ips)
+	{
+		$file = $this->ensure_dirs() . '/blocked.txt';
+		$want = waf_ban_list_text($ips);
+		if (is_file($file) && (string) @file_get_contents($file) === $want) {
+			return true;
+		}
+		if (@file_put_contents($file, $want) === false) {
+			return false;
+		}
+		// The panel reads it as its own user; it holds addresses, nothing secret.
+		@chmod($file, 0644);
+		return true;
+	}
+
+	/**
+	 * The key of the published list. It comes into being the first time it is
+	 * asked for, so switching the automatic blocking on is enough to have an
+	 * address for the OPNsense.
+	 */
+	public function ban_token($renew = false)
+	{
+		global $app;
+
+		$row = $app->dbmaster->queryOneRecord('SELECT waf_ban_token FROM malwatch_config WHERE config_id = 1');
+		$token = is_array($row) ? (string) $row['waf_ban_token'] : '';
+		if (!$renew && waf_ban_token_ok($token)) {
+			return $token;
+		}
+		$token = waf_ban_token_new();
+		$app->dbmaster->query('UPDATE malwatch_config SET waf_ban_token = ? WHERE config_id = 1', $token);
+		return $token;
 	}
 
 	/**
@@ -1434,7 +1476,20 @@ class malwatch_waf
 						. 'vorschlagen und sperren.');
 				}
 				$app->dbmaster->query('UPDATE malwatch_config SET waf_ban_mode = ? WHERE config_id = 1', $mode);
+				if ($mode !== 'off') {
+					// So the address for the OPNsense exists as soon as there is
+					// anything to publish.
+					$this->ban_token();
+				}
 				$note = 'Automatik steht auf ' . $mode . '.';
+				break;
+
+			case 'ban_token_new':
+				// The key itself never lands in a job log; the page and waf-switch
+				// read it from the configuration.
+				$this->ban_token(true);
+				$note = 'Neuer Schlüssel erzeugt. Die alte Adresse antwortet nicht mehr; bitte den Alias in der '
+					. 'OPNsense auf die neue Adresse umstellen.';
 				break;
 
 			case 'ban_add':
@@ -1696,6 +1751,7 @@ class malwatch_waf
 				$this->run_origin_update($job);
 				break;
 			case 'ban_mode':
+			case 'ban_token_new':
 			case 'ban_add':
 			case 'ban_lift':
 			case 'ban_extend':

@@ -678,6 +678,18 @@ expect_same('where it came from', array($ban_view[0]['source_label'], $ban_view[
 	array('automatisch', '930130'));
 expect_same('an address without origin stays empty', $ban_view[1]['origin']['known'], false);
 
+// --- Die Adresse der veröffentlichten Liste ----------------------------------
+
+$key = str_repeat('a1b2', 8);
+$view = waf_panel_ban_url($wb, array('waf_ban_token' => $key), 'cp.beispiel.test', 3);
+expect_same('the page shows the address and how many stand in the list',
+	array($view['url'], $view['has_url']),
+	array('https://cp.beispiel.test/security/malwatch_waf_ban_url.php?list=' . $key, 1));
+expect_same('the number is written out', strpos($view['count'], '3') !== false, true);
+$none = waf_panel_ban_url($wb, array('waf_ban_token' => ''), 'cp.beispiel.test', 0);
+expect_same('without a key there is no address yet', array($none['url'], $none['has_url']), array('', 0));
+expect_same('and the hint says where it comes from', $none['hint'] !== '' && $none['hint'] !== $view['hint'], true);
+
 // --- summary -----------------------------------------------------------------
 if ($failures > 0) {
 	fwrite(STDERR, $failures . " Fehler\n");

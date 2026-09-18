@@ -40,7 +40,7 @@ $app->tpl->newTemplate('form.tpl.htm');
 $app->tpl->setInclude('content_tpl', 'templates/malwatch_waf_ban_list.htm');
 $app->tpl->setVar($wb);
 $app->tpl->setVar(malwatch_attr_texts($wb, array('ban_lift_all_txt', 'ban_lift_all_confirm_txt', 'ban_lift_txt',
-	'ban_add_txt', 'ban_allow_remove_txt')));
+	'ban_add_txt', 'ban_allow_remove_txt', 'ban_url_new_txt', 'ban_url_new_confirm_txt')));
 $app->tpl->setVar('message', $app->functions->htmlentities($message));
 $app->tpl->setVar('error', $app->functions->htmlentities($error));
 
@@ -126,6 +126,17 @@ $app->tpl->setLoop('ban_modes', $modes);
 $app->tpl->setVar('ban_mode_now', $app->functions->htmlentities(waf_panel_text($wb, 'ban_mode_' . $mode . '_txt', $mode)));
 $app->tpl->setVar('ban_score_now', $app->functions->htmlentities(number_format((int) $settings['waf_ban_score'], 0, ',', '.')));
 $app->tpl->setVar('ban_window_now', $app->functions->htmlentities(number_format((int) $settings['waf_ban_window_minutes'], 0, ',', '.')));
+// Die veröffentlichte Liste: dieselbe Auswahl, die auch in die Datei für nginx geht.
+// Der Name, unter dem das Panel gerade aufgerufen wurde; die Form prüft
+// waf_ban_list_url(). Ohne Anfrage (Probelauf auf der Kommandozeile) der Name
+// des Rechners.
+$host = isset($_SERVER['HTTP_HOST']) && (string) $_SERVER['HTTP_HOST'] !== ''
+	? (string) $_SERVER['HTTP_HOST'] : (string) php_uname('n');
+$url = waf_panel_ban_url($wb, $settings, $host, count($active));
+$app->tpl->setVar('ban_url', $app->functions->htmlentities($url['url']));
+$app->tpl->setVar('has_ban_url', $url['has_url']);
+$app->tpl->setVar('ban_url_count', $app->functions->htmlentities($url['count']));
+$app->tpl->setVar('ban_url_hint', $app->functions->htmlentities($url['hint']));
 $app->tpl->setVar('self_href', 'security/malwatch_waf_ban_list.php');
 
 $csrf = $app->auth->csrf_token_get('malwatch_waf_ban_list');

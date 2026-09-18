@@ -1034,6 +1034,15 @@ SET @mw := (SELECT IF(COUNT(*) = 0,
   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_config' AND COLUMN_NAME = 'waf_ban_mode');
 PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
+-- Der Schlüssel der veröffentlichten Sperrliste kommt mit 0.24.0; er entsteht,
+-- sobald die Automatik läuft.
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_config` ADD COLUMN `waf_ban_token` varchar(64) NOT NULL DEFAULT ''''',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_config' AND COLUMN_NAME = 'waf_ban_token');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
 -- The threshold of a website; 0 means the value of the server.
 SET @mw := (SELECT IF(COUNT(*) = 0,
   'ALTER TABLE `malwatch_site` ADD COLUMN `waf_ban_score` int(11) unsigned NOT NULL DEFAULT ''0'', ADD COLUMN `waf_ban_trigger` enum(''y'',''n'') NOT NULL DEFAULT ''y''',

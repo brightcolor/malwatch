@@ -54,8 +54,10 @@ Treffern stehen bei 1.137 und 1.135 Anfragen.
 | Stufe | Release | Inhalt |
 |---|---|---|
 | 1 | 0.23.0 | Sperrliste, Erkennung im Vorschlagsmodus, Seite „Sperren", Ausnahmeliste, Sperren von Hand, `deny`-Datei, Not-Aus, Zähler — Plan `docs/superpowers/plans/2026-09-18-malwatch-sperren-stufe-1.md`, umgesetzt als 0.23.0 |
-| 2 | 0.24.0 | fail2ban im Panel: Sperren mit Grund und Ende, Knopf zum Aufheben |
-| 3 | 0.25.0 | URL-Tabelle für die OPNsense |
+| 3 | 0.24.0 | URL-Tabelle für die OPNsense — Plan `docs/superpowers/plans/2026-09-18-malwatch-sperren-stufe-3.md`, umgesetzt als 0.24.0 |
+| 2 | 0.25.0 | fail2ban im Panel: Sperren mit Grund und Ende, Knopf zum Aufheben |
+
+Mathias hat am 18.09.2026 Stufe 3 vorgezogen; die Stufen hängen nicht voneinander ab.
 
 Jede Stufe ist für sich nutzbar. Stufe 1 sperrt bereits wirksam; Stufe 2 bringt
 Überblick über die Sperren, die fail2ban ohnehin schon setzt; Stufe 3 verschiebt die

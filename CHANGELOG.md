@@ -2,6 +2,22 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.24.0] – 2026-09-18
+
+### Neu
+
+**Sperrliste für die Firewall.** Die gesperrten Adressen stehen unter einer
+eigenen Adresse bereit, eine Adresse je Zeile. Die OPNsense holt sie als Alias
+vom Typ „URL Table (IPs)" und sperrt damit an der Kante, bevor die Anfragen den
+Webserver erreichen. Die Adresse trägt einen Schlüssel aus 32 Zeichen; ohne ihn
+antwortet die Stelle mit 404. Auf der Seite Security > Abwehr > Sperren stehen
+die Adresse, die Zahl der Einträge und ein Knopf für einen neuen Schlüssel; auf
+der Kommandozeile zeigt `waf-switch ban url` dasselbe.
+
+Der Schlüssel entsteht von selbst, sobald die Automatik auf „vorschlagen" oder
+„sperren" steht. Die Liste enthält Adressen, sonst nichts — keine Namen, keine
+Zeiten, keine Gründe.
+
 ## [0.23.4] – 2026-09-18
 
 ### Behoben

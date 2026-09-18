@@ -10,6 +10,7 @@
  */
 
 require_once __DIR__ . '/malwatch_waf_lib.inc.php';
+require_once __DIR__ . '/malwatch_waf_ban.inc.php';
 require_once __DIR__ . '/malwatch_waf_origin.inc.php';
 
 /** A language line, or $fallback when the file lacks it. */
@@ -1086,6 +1087,10 @@ function waf_panel_handle_post($app, $wb, $post)
 		return waf_panel_ban_queue($app, $wb, 'ban_mode', array('mode' => $mode));
 	}
 
+	if ($action === 'ban_token_new') {
+		return waf_panel_ban_queue($app, $wb, 'ban_token_new', array());
+	}
+
 	if ($action === 'ban_add' || $action === 'ban_lift' || $action === 'ban_extend' || $action === 'ban_dismiss') {
 		$ip = isset($post['waf_ip']) ? trim((string) $post['waf_ip']) : '';
 		if ($action === 'ban_lift' && $ip === '') {
@@ -1349,6 +1354,24 @@ function waf_panel_ban_until($wb, $row, $now)
  * The rows of the page „Sperren": state, reason, end, turned away requests and
  * the origin of the address, ready for the template.
  */
+/**
+ * The published list as the page shows it: the address the OPNsense fetches,
+ * how many addresses stand in it and what it means. Without a key there is no
+ * address yet - it comes into being with the automatic blocking.
+ */
+function waf_panel_ban_url($wb, $settings, $host, $count)
+{
+	$url = waf_ban_list_url($host, isset($settings['waf_ban_token']) ? $settings['waf_ban_token'] : '');
+	return array(
+		'url' => $url,
+		'has_url' => $url !== '' ? 1 : 0,
+		'count' => sprintf(waf_panel_text($wb, 'ban_url_count_txt', '%s'),
+			number_format((int) $count, 0, ',', '.')),
+		'hint' => $url === '' ? waf_panel_text($wb, 'ban_url_none_txt', '')
+			: waf_panel_text($wb, 'ban_url_hint_txt', ''),
+	);
+}
+
 function waf_panel_ban_rows($wb, $rows, $origins, $now, $language = 'de')
 {
 	$states = array('active' => 'ban_state_active_txt', 'proposed' => 'ban_state_proposed_txt',

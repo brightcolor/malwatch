@@ -229,3 +229,52 @@ function waf_ban_top_rule($rows)
 	}
 	return '';
 }
+
+/**
+ * A new key for the published list: 32 characters from a to f and 0 to 9. The
+ * key is the whole protection of that address, so it comes from the strong
+ * source of the system.
+ */
+function waf_ban_token_new()
+{
+	return bin2hex(random_bytes(16));
+}
+
+/** True while a value has the shape of a key; nothing else ever names a path. */
+function waf_ban_token_ok($token)
+{
+	return (bool) preg_match('/^[a-f0-9]{32}$/', (string) $token);
+}
+
+/**
+ * The published list: one address per line, sorted, without doubles and
+ * without comments. That is what a firewall reads as a table of addresses;
+ * anything else in the file would end up as an address there.
+ */
+function waf_ban_list_text($ips)
+{
+	$seen = array();
+	foreach ($ips as $ip) {
+		$ip = trim((string) $ip);
+		if ($ip === '' || waf_origin_bytes($ip) === '' || isset($seen[$ip])) {
+			continue;
+		}
+		$seen[$ip] = true;
+	}
+	if (count($seen) === 0) {
+		return '';
+	}
+	$list = array_keys($seen);
+	sort($list);
+	return implode("\n", $list) . "\n";
+}
+
+/** The address the OPNsense fetches. Without host or key there is none. */
+function waf_ban_list_url($host, $token)
+{
+	$host = trim((string) $host);
+	if ($host === '' || !preg_match('/^[A-Za-z0-9.-]+$/', $host) || !waf_ban_token_ok($token)) {
+		return '';
+	}
+	return 'https://' . $host . '/security/malwatch_waf_ban_url.php?list=' . (string) $token;
+}

@@ -154,6 +154,40 @@ expect_same('a line without an address',
 expect_same('an empty line', waf_ban_log_line(''), null);
 expect_same('a fragment', waf_ban_log_line('2026-09-18T10:00:01+02:00 192.0.2.10'), null);
 
+// --- Die veröffentlichte Liste ------------------------------------------------
+
+$token = waf_ban_token_new();
+expect_same('a key has 32 characters from a to f and 0 to 9',
+	(bool) preg_match('/^[a-f0-9]{32}$/', $token), true);
+expect_same('two keys differ', $token === waf_ban_token_new(), false);
+expect_same('the shape of a key is checked', array(
+	waf_ban_token_ok($token),
+	waf_ban_token_ok(''),
+	waf_ban_token_ok(strtoupper($token)),
+	waf_ban_token_ok(substr($token, 0, 31)),
+	waf_ban_token_ok($token . 'a'),
+	waf_ban_token_ok('../../etc/passwd'),
+), array(true, false, false, false, false, false));
+
+expect_same('the list holds one address per line and ends with a line break',
+	waf_ban_list_text(array('192.0.2.10', '2001:db8::1')), "192.0.2.10
+2001:db8::1
+");
+expect_same('doubles go, the rest is sorted',
+	waf_ban_list_text(array('192.0.2.20', '192.0.2.10', '192.0.2.20')), "192.0.2.10
+192.0.2.20
+");
+expect_same('what is no address stays out',
+	waf_ban_list_text(array('192.0.2.10', 'kein-ip', '', '192.0.2.300')), "192.0.2.10
+");
+expect_same('an empty list is an empty text', waf_ban_list_text(array()), '');
+
+expect_same('the address names host and key',
+	waf_ban_list_url('cp.beispiel.test', $token),
+	'https://cp.beispiel.test/security/malwatch_waf_ban_url.php?list=' . $token);
+expect_same('without a key there is no address', waf_ban_list_url('cp.beispiel.test', ''), '');
+expect_same('without a host there is no address', waf_ban_list_url('', $token), '');
+
 // --- summary -----------------------------------------------------------------
 
 if ($failures > 0) {
