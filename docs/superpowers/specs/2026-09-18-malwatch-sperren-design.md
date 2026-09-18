@@ -53,7 +53,7 @@ Treffern stehen bei 1.137 und 1.135 Anfragen.
 
 | Stufe | Release | Inhalt |
 |---|---|---|
-| 1 | 0.23.0 | Sperrliste, Erkennung im Vorschlagsmodus, Seite „Sperren", Ausnahmeliste, Sperren von Hand, `deny`-Datei, Not-Aus, Zähler |
+| 1 | 0.23.0 | Sperrliste, Erkennung im Vorschlagsmodus, Seite „Sperren", Ausnahmeliste, Sperren von Hand, `deny`-Datei, Not-Aus, Zähler  - Plan `docs/superpowers/plans/2026-09-18-malwatch-sperren-stufe-1.md` |
 | 2 | 0.24.0 | fail2ban im Panel: Sperren mit Grund und Ende, Knopf zum Aufheben |
 | 3 | 0.25.0 | URL-Tabelle für die OPNsense |
 
@@ -62,6 +62,11 @@ Jede Stufe ist für sich nutzbar. Stufe 1 sperrt bereits wirksam; Stufe 2 bringt
 Abwehr an die Kante des Netzes.
 
 ## 5. Datenmodell
+
+Die neuen Bezeichner heißen `ban`, nicht `block`: `waf_block_text()`, `waf_block_set()` und
+`waf_block_remove()` gibt es in `malwatch_waf_lib.inc.php` bereits — sie bauen den verwalteten
+Abschnitt im vhost. Tabellen, Einstellungen und Funktionen der Sperren tragen deshalb durchgehend
+`ban` im Namen; die Oberfläche bleibt bei „Sperren“.
 
 ### Neue Einstellungen in `malwatch_config`
 
