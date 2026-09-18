@@ -2607,11 +2607,11 @@ Ergebnis am 18.09.2026, 04:09:56–04:11:52 CEST (Protokolleintrag „Schema und
 
 #### Block 2: Veröffentlichen
 
-- [ ] **Step 7: Freigabe einholen**
+- [x] **Step 7: Freigabe einholen**
 
 „D10, Block 2: `waf-herkules` per Fast-Forward nach `main`, schieben, CI abwarten, Marke `v0.23.0` setzen, Release abwarten." Weiter erst nach seinem Ja.
 
-- [ ] **Step 8: main, CI, Marke, Release**
+- [x] **Step 8: main, CI, Marke, Release**
 
 ```bash
 git fetch origin
@@ -2632,11 +2632,11 @@ Expected: `Fast-Forward möglich`, CI grün mit dem Schritt „WAF ban", Release
 
 #### Block 3: Einspielen
 
-- [ ] **Step 9: Freigabe einholen**
+- [x] **Step 9: Freigabe einholen**
 
 „D10, Block 3: Ich spiele 0.23.0 ein. Dabei kommt eine neue nginx-Einbindung dazu (`/etc/nginx/conf.d/waf-blocked.conf`) und eine leere Sperrdatei; `waf/install.sh` prüft mit `nginx -t` und lädt nur neu, wenn die Prüfung besteht. Die Automatik bleibt auf „aus", es wird niemand gesperrt." Weiter erst nach seinem Ja.
 
-- [ ] **Step 10: Einspielen**
+- [x] **Step 10: Einspielen**
 
 Zuerst beide Messungen, dann derselbe Ablauf wie bei 0.22.0, mit `mw-0230-deploy` und `v0.23.0`; zusätzlich läuft danach `waf/install.sh` aus der Einspielquelle, weil die nginx-Einbindung neu ist:
 
@@ -2673,11 +2673,11 @@ Die Einspielquelle `/root/waf-einspielen` wird vorher aktualisiert: `git archive
 
 #### Block 4: Auf „vorschlagen"
 
-- [ ] **Step 11: Freigabe einholen**
+- [x] **Step 11: Freigabe einholen**
 
 „D10, Block 4: Ich schalte die Automatik auf „vorschlagen". malwatch rechnet dann mit und zeigt auf der Seite „Sperren", wen es gesperrt hätte — gesperrt wird niemand. Ein paar Tage später sehen wir uns die Vorschläge an." Weiter erst nach seinem Ja.
 
-- [ ] **Step 12: Umschalten und beobachten**
+- [x] **Step 12: Umschalten und beobachten**
 
 ```bash
 ssh ispconfig 'php -r "require \"/usr/local/ispconfig/server/lib/config.inc.php\"; " 2>/dev/null; waf-switch block propose; waf-switch block status'
@@ -2692,6 +2692,10 @@ ssh ispconfig 'mysql dbispconfig -e "SELECT state, COUNT(*) FROM malwatch_waf_ba
 ```
 
 Expected: Vorschläge sammeln sich, die Sperrdatei bleibt leer (nur die Kopfzeile). Die Liste der Vorschläge geht an Mathias: Ist jemand dabei, der nicht gesperrt werden dürfte, kommt er in die Ausnahmen oder die Schwelle der Website wird angehoben. Beobachtungszeit und Werte kommen ins Protokoll.
+
+Ergebnis am 18.09.2026, 04:20:59–04:25:40 CEST (Protokolleintrag „0.23.0 eingespielt: Sperren im Vorschlagsmodus"): Mathias gab die restlichen Blöcke in einem Zug frei („zieh einfach durch … machs fertig"). CI-Lauf 35298583673 grün mit dem Schritt „WAF ban", Release 35298908933 mit vier Dateien im ersten Anlauf, `Kopien geprüft: 95, abweichend: 0`, `install.sh` legte die nginx-Einbindung, die leere Sperrdatei und das zweite Log an, `nginx -t` erfolgreich. `waf-switch ban propose` schaltete um; der Minutenlauf schreibt die Sperrdatei seither neu. Ein Auftrag `origin_update` holte die Suchmaschinenliste: 63 Bereiche, Googlebot wird verschont. In den ersten Minuten kein Vorschlag, weil in der Nacht keine Treffer hereinkamen.
+
+Block 5 bleibt offen: Auf „sperren" wird erst umgeschaltet, wenn die Vorschläge ein paar Tage beobachtet sind.
 
 #### Block 5: Auf „sperren"
 
