@@ -559,6 +559,13 @@ expect_same('the daily limit stays in its range',
 expect_same('without a row the limit is the default',
 	waf_settings(array())['waf_origin_proxycheck_daily'], 500);
 
+// Das zweite Zugriffslog steht nur im vhost, wenn nginx das Format kennt.
+expect_same('without the include of malwatch no second log',
+	strpos(waf_block_text('detect'), 'blocked.log'), false);
+expect_same('with it the line is there',
+	strpos(waf_block_text('detect', true), 'access_log /var/log/waf/blocked.log mw_block if=$mw_denied;') !== false, true);
+expect_same('a website that is off keeps its vhost clean', waf_block_text('off', true), '');
+
 // --- Sperren ------------------------------------------------------------------
 
 expect_same('the three modes', waf_ban_modes(), array('off', 'propose', 'block'));

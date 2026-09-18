@@ -13,6 +13,12 @@
  *   waf-switch exception list
  *   waf-switch exception add <domain|--all> <rule id> [--path=/path] [--param=name] [--note=text]
  *   waf-switch exception remove <number>
+ *   waf-switch ban status
+ *   waf-switch ban off|propose|on
+ *   waf-switch ban list
+ *   waf-switch ban add <ip> [--permanent]
+ *   waf-switch ban lift <ip|--all>
+ *   waf-switch ban allow <cidr> [--note=text]
  *   waf-switch ingest [--dry-run] [--file=<audit log>]
  *   waf-switch migrate
  *   waf-switch snapshot
@@ -309,6 +315,82 @@ switch ($command) {
 		fwrite(STDERR, "exception list | add <domain|--all> <regel> [--path=/pfad] [--param=name] [--note=text] | remove <nummer>\n");
 		exit(2);
 
+	case 'ban':
+		$sub = (string) array_shift($args);
+		if ($sub === '' || $sub === 'status') {
+			$settings = $waf->settings();
+			$rows = $app->dbmaster->queryAllRecords("SELECT state, COUNT(*) AS n FROM malwatch_waf_ban "
+				. 'WHERE server_id = ? GROUP BY state', $conf['server_id']);
+			$counts = array();
+			foreach (is_array($rows) ? $rows : array() as $row) {
+				$counts[(string) $row['state']] = (int) $row['n'];
+			}
+			printf("Automatik: %s, Schwelle: %d Punkte in %d Minuten
+", $settings['waf_ban_mode'],
+				$settings['waf_ban_score'], $settings['waf_ban_window_minutes']);
+			printf("gesperrt: %d, Vorschläge: %d, beendet: %d
+", isset($counts['active']) ? $counts['active'] : 0,
+				isset($counts['proposed']) ? $counts['proposed'] : 0,
+				(isset($counts['expired']) ? $counts['expired'] : 0) + (isset($counts['lifted']) ? $counts['lifted'] : 0));
+			exit(0);
+		}
+		if ($sub === 'list') {
+			$rows = $app->dbmaster->queryAllRecords('SELECT ip, state, until, denied, reason FROM malwatch_waf_ban '
+				. "WHERE server_id = ? AND state IN ('active','proposed') ORDER BY state, ip", $conf['server_id']);
+			foreach (is_array($rows) ? $rows : array() as $row) {
+				printf("%-40s %-9s %-19s %6d  %s
+", $row['ip'], $row['state'],
+					$row['until'] === null ? 'dauerhaft' : (string) $row['until'], (int) $row['denied'],
+					waf_cut((string) $row['reason'], 80));
+			}
+			exit(0);
+		}
+		if ($sub === 'off' || $sub === 'propose' || $sub === 'on') {
+			$mode = $sub === 'on' ? 'block' : $sub;
+			$waf->execute_now('ban_mode', array('mode' => $mode), $user);
+			if ($sub === 'off') {
+				// Der Rückweg: Automatik aus und alle laufenden Sperren weg.
+				$waf->execute_now('ban_lift', array('ip' => 'all'), $user);
+				echo "Automatik aus, alle Sperren aufgehoben.
+";
+				exit(0);
+			}
+			echo 'Automatik steht auf ', $mode, ".
+";
+			exit(0);
+		}
+		if ($sub === 'add') {
+			$ip = (string) array_shift($args);
+			$permanent = in_array('--permanent', $args, true) ? 'y' : 'n';
+			$waf->execute_now('ban_add', array('ip' => $ip, 'permanent' => $permanent), $user);
+			echo 'Sperre für ', $ip, " eingetragen.
+";
+			exit(0);
+		}
+		if ($sub === 'lift') {
+			$ip = (string) array_shift($args);
+			$waf->execute_now('ban_lift', array('ip' => $ip === '--all' || $ip === '' ? 'all' : $ip), $user);
+			echo "Aufgehoben.
+";
+			exit(0);
+		}
+		if ($sub === 'allow') {
+			$cidr = (string) array_shift($args);
+			$note = '';
+			foreach ($args as $one) {
+				if (strpos((string) $one, '--note=') === 0) {
+					$note = substr((string) $one, 7);
+				}
+			}
+			$waf->execute_now('ban_allow_add', array('cidr' => $cidr, 'note' => $note), $user);
+			echo 'Ausnahme ', $cidr, " eingetragen.
+";
+			exit(0);
+		}
+		fwrite(STDERR, "ban status|off|propose|on|list|add <ip>|lift <ip|--all>|allow <cidr>
+");
+		exit(2);
+
 	case 'ingest':
 		$dry = in_array('--dry-run', $args, true);
 		$file = '';
@@ -344,6 +426,6 @@ switch ($command) {
 
 fwrite(STDERR, "Befehle: status | set <off|detect|enforce> <domain…|--wordpress|--all> [--wait] | probe … | "
 	. "emergency on|off [--hard] | response-body [full|lean|status] | restore <ordner> | jobs | "
-	. "exception list|add|remove | "
+	. "exception list|add|remove | ban status|off|propose|on|list|add|lift|allow | "
 	. "ingest [--dry-run] [--file=<log>] | migrate | snapshot | guard\n");
 exit(2);

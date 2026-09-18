@@ -1449,6 +1449,43 @@ if [ -f "$waf_class" ]; then
 	fi
 fi
 
+# 73. The deny file of nginx is written by the class alone. A page would write it
+#     as www-data and without the check of nginx.
+for page in "$root"/interface/*.php; do
+	[ -f "$page" ] || continue
+	if grep -q 'blocked.conf' "$page" && grep -q 'file_put_contents' "$page"; then
+		fail "$(basename "$page") writes blocked.conf; that belongs into malwatch_waf.inc.php"
+	fi
+done
+
+# 74. Every block passes the exceptions first, and the file is written through the
+#     same function in every case; nginx is tested before it is reloaded.
+if [ -f "$waf_class" ]; then
+	sed -n '/public function ban_scan(/,/^	}/p' "$waf_class" | grep -q 'waf_ban_allowed(' \
+		|| fail "ban_scan() blocks without asking the exceptions"
+	sed -n '/private function run_ban(/,/^	}/p' "$waf_class" | grep -q 'ban_apply(' \
+		|| fail "run_ban() never writes the file of nginx"
+	sed -n '/public function ban_apply(/,/^	}/p' "$waf_class" | grep -q "run_command('nginx_test'" \
+		|| fail "ban_apply() reloads nginx without testing the configuration"
+fi
+
+# 75. The way back without the panel: whoever locked themselves out needs the
+#     command line.
+if [ -f "$root/../waf/waf-switch" ]; then
+	grep -q "case 'ban':" "$root/../waf/waf-switch" \
+		|| fail "waf-switch has no ban command; there is no way back without the panel"
+fi
+
+# 76. The texts of the page stand in both wordbooks.
+for lang in de en; do
+	book="$root/interface/lang/${lang}_malwatch_waf.lng"
+	[ -f "$book" ] || continue
+	for key in ban_state_active_txt ban_until_forever_txt ban_lift_all_confirm_txt ban_none_active_txt ban_site_never_txt; do
+		grep -q "\\\$wb\['$key'\]" "$book" \
+			|| fail "${lang}_malwatch_waf.lng is missing $key"
+	done
+done
+
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'
 fi

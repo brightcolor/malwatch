@@ -1734,6 +1734,8 @@ class malwatch_waf
 		global $app, $conf;
 
 		$settings = $this->settings();
+		// nginx knows the format mw_block only with the include of waf/install.sh.
+		$settings['waf_ban_log'] = is_file('/etc/nginx/conf.d/waf-blocked.conf') ? 'y' : '';
 		$target = isset($options['state']) ? (string) $options['state'] : '';
 		$ids = isset($options['domain_ids']) && is_array($options['domain_ids']) ? $options['domain_ids'] : array();
 		$now = $this->db_value('SELECT NOW() AS value');

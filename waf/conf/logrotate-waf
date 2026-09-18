@@ -8,3 +8,14 @@
 	notifempty
 	copytruncate
 }
+
+/var/log/waf/blocked.log {
+	daily
+	rotate 7
+	compress
+	delaycompress
+	missingok
+	notifempty
+	copytruncate
+	create 640 www-data adm
+}

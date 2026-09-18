@@ -103,6 +103,15 @@ install -d -o www-data -g adm -m 750 /var/log/waf
 if [ ! -f /var/log/waf/audit.log ]; then install -o root -g adm -m 600 /dev/null /var/log/waf/audit.log; fi
 chown root:adm /var/log/waf/audit.log
 chmod 600 /var/log/waf/audit.log
+# Das zweite Zugriffslog: nginx schreibt es als www-data, der Cron liest es als root.
+if [ ! -f /var/log/waf/blocked.log ]; then install -o www-data -g adm -m 640 /dev/null /var/log/waf/blocked.log; fi
+chown www-data:adm /var/log/waf/blocked.log
+chmod 640 /var/log/waf/blocked.log
+# Die Sperrliste selbst schreibt malwatch; hier entsteht sie nur leer.
+if [ ! -f "$WAF/blocked.conf" ]; then printf '# von malwatch erzeugt, leer
+' > "$WAF/blocked.conf"; fi
+chmod 644 "$WAF/blocked.conf"
+install -o root -g root -m 644 conf/waf-blocked.conf /etc/nginx/conf.d/waf-blocked.conf
 install -d -o www-data -g root -m 750 /var/cache/waf
 # The settings page rewrites this file; only a file from before malwatch is replaced here.
 if ! grep -q 'Managed by malwatch' /etc/logrotate.d/waf 2>/dev/null; then

@@ -45,12 +45,18 @@ function waf_state_normalize($state)
 }
 
 /** The managed block for the field "nginx directives"; '' for off. */
-function waf_block_text($state)
+function waf_block_text($state, $with_ban_log = false)
 {
 	if ($state === 'off' || !waf_state_valid($state)) {
 		return '';
 	}
 	$lines = array(WAF_MARK_BEGIN . ' (' . $state . ') - managed by waf-switch', 'modsecurity on;');
+	if ($with_ban_log) {
+		// The second log carries the answers 403 of the deny list; its format and
+		// its condition stand in /etc/nginx/conf.d/waf-blocked.conf. Without that
+		// file nginx refuses the unknown format, so the caller decides.
+		$lines[] = 'access_log /var/log/waf/blocked.log mw_block if=$mw_denied;';
+	}
 	if ($state === 'enforce') {
 		$lines[] = "modsecurity_rules 'SecRuleEngine On';";
 	}
@@ -71,10 +77,10 @@ function waf_block_remove($text)
 	return preg_replace($pattern, '', (string) $text);
 }
 
-function waf_block_set($text, $state)
+function waf_block_set($text, $state, $with_ban_log = false)
 {
 	$rest = waf_block_remove($text);
-	$block = waf_block_text($state);
+	$block = waf_block_text($state, $with_ban_log);
 	if ($block === '') {
 		return $rest;
 	}
@@ -989,6 +995,17 @@ function waf_logrotate_text($keep_days, $audit_log)
 		. "\tmissingok\n"
 		. "\tnotifempty\n"
 		. "\tcopytruncate\n"
+		. "}\n"
+		. "\n"
+		. "/var/log/waf/blocked.log {\n"
+		. "\tdaily\n"
+		. "\trotate " . max(1, (int) $keep_days) . "\n"
+		. "\tcompress\n"
+		. "\tdelaycompress\n"
+		. "\tmissingok\n"
+		. "\tnotifempty\n"
+		. "\tcopytruncate\n"
+		. "\tcreate 640 www-data adm\n"
 		. "}\n";
 }
 
@@ -1028,7 +1045,9 @@ function waf_site_plan($web, $site, $target, $mode, $server_id, $vhost_state, $n
 			return $result;
 		}
 	}
-	$new = waf_block_set($old, $result['target']);
+	// The second access log only belongs into the vhost when nginx knows its
+	// format; the caller says so through the settings it hands over.
+	$new = waf_block_set($old, $result['target'], !empty($settings['waf_ban_log']));
 	if ($new !== $old) {
 		$result['action'] = 'write';
 		$result['text'] = $new;
