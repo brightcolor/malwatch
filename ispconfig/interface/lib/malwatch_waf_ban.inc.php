@@ -147,3 +147,44 @@ function waf_ban_allowed($ip, $cidrs, $reader)
 	}
 	return $reader !== null && waf_origin_find($reader, $ip) !== '';
 }
+
+/**
+ * The content of /etc/nginx/waf/blocked.conf. Only what inet_pton accepts
+ * reaches the file, so nothing can smuggle a directive into the configuration
+ * of nginx. At most $max lines, in the order they are handed over.
+ */
+function waf_ban_file($ips, $now, $max)
+{
+	$lines = array('# von malwatch erzeugt am ' . (string) $now . '. Änderungen hier werden überschrieben.');
+	$max = (int) $max;
+	$count = 0;
+	foreach ($ips as $ip) {
+		if ($count >= $max) {
+			break;
+		}
+		$ip = trim((string) $ip);
+		if (waf_origin_bytes($ip) === '') {
+			continue;
+		}
+		$lines[] = 'deny ' . $ip . ';';
+		$count++;
+	}
+	return implode("\n", $lines) . "\n";
+}
+
+/**
+ * One line of /var/log/waf/blocked.log, written in the format mw_block: time,
+ * address, status, host, request. Only an answer 403 from a real address
+ * counts; everything else is none of our business.
+ */
+function waf_ban_log_line($line)
+{
+	$parts = explode(' ', trim((string) $line));
+	if (count($parts) < 3) {
+		return null;
+	}
+	if ((int) $parts[2] !== 403 || waf_origin_bytes($parts[1]) === '') {
+		return null;
+	}
+	return array('ip' => (string) $parts[1]);
+}

@@ -93,6 +93,34 @@ expect_same('the three layers together, without a reader',
 	array(waf_ban_allowed('10.50.0.1', array(), null), waf_ban_allowed('203.0.113.9', array('203.0.113.0/24'), null),
 		waf_ban_allowed('192.0.2.10', array('203.0.113.0/24'), null)), array(true, true, false));
 
+// --- The file for nginx -------------------------------------------------------
+
+$file = waf_ban_file(array('192.0.2.10', '2001:db8::5'), '2026-09-18 10:00:00', 5000);
+expect_same('the file says where it comes from', substr($file, 0, 22), '# von malwatch erzeugt');
+expect_same('one line per address', substr_count($file, 'deny '), 2);
+expect_same('a line ends with a semicolon', strpos($file, 'deny 192.0.2.10;') !== false, true);
+expect_same('IPv6 belongs in there too', strpos($file, 'deny 2001:db8::5;') !== false, true);
+expect_same('the file ends with a newline', substr($file, -1), "
+");
+expect_same('what is no address never reaches nginx',
+	substr_count(waf_ban_file(array('kein-ip', '"; server {', '192.0.2.10'), '2026-09-18 10:00:00', 5000), 'deny '), 1);
+expect_same('the limit holds',
+	substr_count(waf_ban_file(array('192.0.2.10', '192.0.2.11', '192.0.2.12'), '2026-09-18 10:00:00', 2), 'deny '), 2);
+expect_same('an empty list gives a file without a single deny',
+	substr_count(waf_ban_file(array(), '2026-09-18 10:00:00', 5000), 'deny '), 0);
+
+// --- The log of the turned away requests --------------------------------------
+
+expect_same('a line of a turned away request',
+	waf_ban_log_line('2026-09-18T10:00:01+02:00 192.0.2.10 403 beispiel.test "GET /wp-login.php HTTP/1.1"'),
+	array('ip' => '192.0.2.10'));
+expect_same('another answer does not count',
+	waf_ban_log_line('2026-09-18T10:00:01+02:00 192.0.2.10 200 beispiel.test "GET / HTTP/1.1"'), null);
+expect_same('a line without an address',
+	waf_ban_log_line('2026-09-18T10:00:01+02:00 kein-ip 403 x "GET / HTTP/1.1"'), null);
+expect_same('an empty line', waf_ban_log_line(''), null);
+expect_same('a fragment', waf_ban_log_line('2026-09-18T10:00:01+02:00 192.0.2.10'), null);
+
 // --- summary -----------------------------------------------------------------
 
 if ($failures > 0) {
