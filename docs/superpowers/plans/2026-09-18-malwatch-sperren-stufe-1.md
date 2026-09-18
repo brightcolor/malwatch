@@ -2697,6 +2697,8 @@ Ergebnis am 18.09.2026, 04:20:59–04:25:40 CEST (Protokolleintrag „0.23.0 ein
 
 Block 5 bleibt offen: Auf „sperren" wird erst umgeschaltet, wenn die Vorschläge ein paar Tage beobachtet sind.
 
+Nachtrag vom 18.09.2026, 04:54–05:06 CEST: Die Kette wurde am lebenden Server mit der Dokumentationsadresse 192.0.2.50 durchgespielt — sperren, Datei, `nginx -t`, Reload, Ausnahme über das Panel (die dabei die Sperre beendete), Ausnahme löschen. Dabei fiel auf, dass das Ende einer Sperre vor ihrem Beginn lag: `waf_ban_until()` rechnete mit `gmdate()`, während `now()` die Zeit der Datenbank liefert. Behoben in 0.23.1 (Commit `f507ed9`) an vier Stellen, mit einer Prüfung, die `Europe/Berlin` festsetzt — unter UTC war der Fehler unsichtbar. Die Klassenprobe prüft zusätzlich, dass das Ende hinter dem Beginn liegt.
+
 #### Block 5: Auf „sperren"
 
 - [ ] **Step 13: Freigabe einholen**
