@@ -153,8 +153,9 @@ Dateien, von `waf/install.sh` angelegt und danach unverändert:
 
 Ablauf beim Anwenden, höchstens einmal je Cron-Durchgang und nur bei Änderung:
 
-1. Gewünschten Inhalt aus den eigenen aktiven Sperren bilden (`state = 'active'`, `source` in `auto`, `manual`) (aufsteigend nach Adresse,
-   höchstens `waf_block_max` Zeilen), mit Kopfzeile „von malwatch erzeugt, <Zeit>".
+1. Gewünschten Inhalt aus den eigenen aktiven Sperren bilden — `state = 'active'`
+   und `source` in `auto`, `manual`, aufsteigend nach Adresse, höchstens
+   `waf_block_max` Zeilen —, mit Kopfzeile „von malwatch erzeugt, <Zeit>".
 2. Unterscheidet er sich von der Datei: alte Datei nach
    `/var/lib/malwatch/waf/last-good/blocked.conf` sichern, neue schreiben.
 3. `nginx -t`. Scheitert die Prüfung: alte Datei zurück, kein Reload, Fehler in den
