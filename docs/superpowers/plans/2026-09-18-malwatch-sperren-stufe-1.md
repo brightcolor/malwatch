@@ -2509,11 +2509,11 @@ for site in bright-color.de "$ZWEITE" "$DRITTE"; do curl -s -o /dev/null -w "%{h
 
 #### Block 1: Staging-Kopie, Schema und Proben
 
-- [ ] **Step 1: Freigabe einholen**
+- [x] **Step 1: Freigabe einholen**
 
 Mathias bekommt vorgelegt: „D10, Block 1: Ich kopiere den Stand nach `/root/mw-0230-src` und `/root/mw-0230-stage`, prüfe Syntax und die acht Testreihen, sichere die Struktur der betroffenen Tabellen und lade das Schema: zwei neue Tabellen, neun Spalten in `malwatch_config`, zwei in `malwatch_site`. Danach läuft die Klassenprobe gegen eine Wegwerf-Datenbank — sie fasst nginx nicht an, `nginx -t` und Reload werden nur aufgezeichnet — und ich rendere die Seiten der Kopie gegen die echte Datenbank. Zum Schluss lösche ich Kopie und Wegwerf-Datenbank. Die Automatik bleibt aus, es wird niemand gesperrt." Weiter erst nach seinem Ja.
 
-- [ ] **Step 2: Ausgangslage**
+- [x] **Step 2: Ausgangslage**
 
 Beide Messungen, dazu:
 
@@ -2523,7 +2523,7 @@ ssh ispconfig 'mysql -N dbispconfig -e "SELECT waf_origin_geo, waf_origin_tor, w
 
 Expected: die laufenden Quellen, die Zahl der Treffer und Adressen und die bestehenden Einbindungen von nginx. Diese Werte kommen ins Protokoll.
 
-- [ ] **Step 3: Kopie, Syntax, Tests**
+- [x] **Step 3: Kopie, Syntax, Tests**
 
 ```bash
 git archive --format=tar HEAD ispconfig waf | ssh ispconfig 'rm -rf /root/mw-0230-src /root/mw-0230-stage && mkdir -p /root/mw-0230-src /root/mw-0230-stage/interface/web && tar -x -C /root/mw-0230-src'
@@ -2553,7 +2553,7 @@ EOF
 
 Expected: keine Zeile aus den Syntaxprüfungen, achtmal „alle Prüfungen bestanden", Version 0.23.0.
 
-- [ ] **Step 4: Schema laden**
+- [x] **Step 4: Schema laden**
 
 ```bash
 ssh ispconfig 'bash -s' <<'EOF'
@@ -2572,7 +2572,7 @@ EOF
 
 Expected: acht Tabellen `malwatch_waf_*` (darunter `malwatch_waf_ban` und `malwatch_waf_allow`), neun Spalten `waf_ban_*`, die Zeile `off 50 10 5000` und alle Websites mit `waf_ban_trigger = 'y'`. Danach beide Messungen.
 
-- [ ] **Step 5: Klassenprobe und Seiten**
+- [x] **Step 5: Klassenprobe und Seiten**
 
 ```bash
 ssh ispconfig 'bash -s' <<'EOF'
@@ -2595,13 +2595,15 @@ EOF
 
 Expected: `waf_class_probe: alle Prüfungen bestanden`, jede Seite `ok`, `All pages render.` — darunter die neue Seite `malwatch_waf_ban_list.php`. Die Probe schreibt ihre Dateien unter `/tmp` und ruft weder nginx noch systemctl auf.
 
-- [ ] **Step 6: Aufräumen und Protokoll**
+- [x] **Step 6: Aufräumen und Protokoll**
 
 ```bash
 ssh ispconfig 'rm -rf /root/mw-0230-src /root/mw-0230-stage; mysql -N -e "SHOW DATABASES LIKE \"mw_probe_0230\""; date "+%d.%m.%Y, %H:%M:%S %Z"'
 ```
 
 Expected: keine Datenbank mehr. Danach beide Messungen und der Eintrag ins Serverprotokoll mit Ausgangslage, Ergebnis der Probe und Rückweg (die zwei Tabellen und die Spalten bleiben folgenlos liegen, solange die Automatik aus ist und keine `deny`-Datei existiert).
+
+Ergebnis am 18.09.2026, 04:09:56–04:11:52 CEST (Protokolleintrag „Schema und Proben für die Sperren"): acht Testreihen bestanden, Schema geladen (acht Tabellen, neun Spalten, Zeile `off 50 10 5000`, 61 Websites lösen aus), 26 Seiten gerendert. Die Klassenprobe scheiterte zuerst zweimal: Die Probe lud `malwatch_waf_ban.inc.php` nicht, und die Quelle `searchbots` ließ den Stundenlauf einen Auftrag anlegen, obwohl die Automatik aus war — `waf_origin_chosen()` wählt sie jetzt nur bei laufender Automatik (Commit `fdf594c`). Danach bestanden.
 
 #### Block 2: Veröffentlichen
 
