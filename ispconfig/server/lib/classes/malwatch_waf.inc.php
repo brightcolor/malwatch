@@ -1053,7 +1053,7 @@ class malwatch_waf
 		// An answer that failed comes back in line after an hour, three times in all.
 		$app->dbmaster->query("UPDATE malwatch_waf_ip SET external_state = 'pending' WHERE server_id = ? "
 			. "AND external_state = 'failed' AND external_tries < 3 AND (external_at IS NULL OR external_at < ?)",
-			$conf['server_id'], gmdate('Y-m-d H:i:s', strtotime($now) - 3600));
+			$conf['server_id'], date('Y-m-d H:i:s', strtotime($now) - 3600));
 		if ($quota['left'] <= 0) {
 			$app->dbmaster->query("UPDATE malwatch_waf_ip SET external_state = 'limit' WHERE server_id = ? "
 				. "AND external_state = 'pending'", $conf['server_id']);
@@ -1165,7 +1165,7 @@ class malwatch_waf
 		}
 		$now = $this->now();
 		$minutes = (int) $settings['waf_ban_window_minutes'];
-		$since = gmdate('Y-m-d H:i:s', strtotime($now) - $minutes * 60);
+		$since = date('Y-m-d H:i:s', strtotime($now) - $minutes * 60);
 		$groups = $this->rows($app->dbmaster->queryAllRecords(
 			'SELECT client_ip, parent_domain_id, SUM(anomaly_score) AS score, COUNT(*) AS hits '
 			. "FROM malwatch_waf_hit WHERE server_id = ? AND seen_at >= ? AND client_ip != '' "
@@ -1336,7 +1336,7 @@ class malwatch_waf
 		$app->dbmaster->query("UPDATE malwatch_waf_ban SET state = 'expired' WHERE server_id = ? "
 			. "AND state = 'active' AND until IS NOT NULL AND until <= ?", $conf['server_id'], $now);
 		$ended = (int) $app->dbmaster->affectedRows();
-		$keep = gmdate('Y-m-d H:i:s', strtotime($now) - (int) $settings['waf_ban_keep_days'] * 86400);
+		$keep = date('Y-m-d H:i:s', strtotime($now) - (int) $settings['waf_ban_keep_days'] * 86400);
 		$app->dbmaster->query("DELETE FROM malwatch_waf_ban WHERE server_id = ? "
 			. "AND state IN ('expired','lifted','dismissed') AND COALESCE(lifted_at, until, created_at) < ?",
 			$conf['server_id'], $keep);

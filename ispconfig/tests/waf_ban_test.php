@@ -17,6 +17,10 @@ function expect_same($name, $got, $want)
 	}
 }
 
+// Der Server läuft in einer Zone mit Sommerzeit, die Datenbank liefert ihre
+// eigene Uhr: Zeiten müssen die Rechnung unverändert überstehen.
+date_default_timezone_set('Europe/Berlin');
+
 $settings = array('waf_ban_score' => 50, 'waf_ban_window_minutes' => 10, 'waf_ban_hours_first' => 1,
 	'waf_ban_hours_second' => 24, 'waf_ban_hours_third' => 168, 'waf_ban_max' => 5000,
 	'waf_ban_keep_days' => 30);
@@ -64,6 +68,8 @@ expect_same('the hours of every level', array(waf_ban_hours(1, $settings), waf_b
 	waf_ban_hours(3, $settings)), array(1, 24, 168));
 expect_same('the end of a first block', waf_ban_until(1, $settings, '2026-09-18 10:00:00'), '2026-09-18 11:00:00');
 expect_same('the end of a third block', waf_ban_until(3, $settings, '2026-09-18 10:00:00'), '2026-09-25 10:00:00');
+expect_same('the end keeps the clock of the database',
+	waf_ban_until(1, $settings, '2026-09-18 23:30:00'), '2026-09-19 00:30:00');
 
 // --- Why ----------------------------------------------------------------------
 

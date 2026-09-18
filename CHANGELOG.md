@@ -2,6 +2,16 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.23.1] – 2026-09-18
+
+### Behoben
+
+**Dauer einer Sperre.** Das Ende einer Sperre wurde in UTC gerechnet, während die
+Datenbank Serverzeit führt. In Mitteleuropa lag das Ende damit zwei Stunden vor dem
+Beginn: Eine Sperre über eine Stunde war sofort abgelaufen. Ende, Zeitfenster,
+Aufbewahrung und der erneute Versuch nach einem Fehler rechnen jetzt in derselben
+Zone wie die Datenbank. Eine Prüfung mit fest eingestellter Zone hält das fest.
+
 ## [0.23.0] – 2026-09-18
 
 ### Neu

@@ -83,7 +83,9 @@ function waf_ban_hours($level, $settings)
 /** When a block of that level ends, counted from $now. */
 function waf_ban_until($level, $settings, $now)
 {
-	return gmdate('Y-m-d H:i:s', strtotime((string) $now) + waf_ban_hours($level, $settings) * 3600);
+	// $now kommt aus der Datenbank; strtotime() und date() nutzen dieselbe Zone,
+	// damit die Rechnung genau die Stunden ergibt, die sie soll.
+	return date('Y-m-d H:i:s', strtotime((string) $now) + waf_ban_hours($level, $settings) * 3600);
 }
 
 /**

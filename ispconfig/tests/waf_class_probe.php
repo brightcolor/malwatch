@@ -651,6 +651,8 @@ expect_same('the block is active at level one',
 	array('active', 1, 'auto', 60, 12));
 expect_same('the reason names points, hits, window, website and rule',
 	strpos($ban['reason'], '60 Punkte aus 12 Treffern in 10 Minuten auf beispiel.test, meist Regel 930130') === 0, true);
+expect_same('the end of a block lies behind its beginning',
+	$ban['until'] > $ban['blocked_at'], true);
 expect_same('the visitor with one false alarm stays free',
 	count_rows("SELECT ip FROM malwatch_waf_ban WHERE ip = '198.51.100.50'"), 0);
 expect_same('the proxy is never blocked', count_rows("SELECT ip FROM malwatch_waf_ban WHERE ip = '10.50.0.1'"), 0);
