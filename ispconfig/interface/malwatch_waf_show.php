@@ -55,7 +55,8 @@ $app->tpl->setVar('_csrf_id', $csrf['csrf_id']);
 $app->tpl->setVar('_csrf_key', $csrf['csrf_key']);
 
 $site = $domain_id > 0 ? $app->db->queryOneRecord(
-	'SELECT w.domain_id, w.domain, s.waf_state, s.waf_state_since, s.waf_pending_state FROM web_domain w '
+	'SELECT w.domain_id, w.domain, s.waf_state, s.waf_state_since, s.waf_pending_state, s.waf_ban_score, '
+	. 's.waf_ban_trigger FROM web_domain w '
 	. "LEFT JOIN malwatch_site s ON s.parent_domain_id = w.domain_id WHERE w.domain_id = ? AND w.type = 'vhost'", $domain_id) : null;
 $app->tpl->setVar('has_site', is_array($site) ? 1 : 0);
 if (!is_array($site)) {
@@ -78,7 +79,19 @@ $app->tpl->setVar('state_class', $state);
 $app->tpl->setVar('state_label', $app->functions->htmlentities(waf_panel_state_label($wb, $state)));
 $app->tpl->setVar('state_line', $app->functions->htmlentities(sprintf($wb['state_current_txt'], waf_panel_state_label($wb, $state))
 	. ($state !== 'off' && (string) $site['waf_state_since'] !== '' ? ', ' . sprintf($wb['since_txt'], malwatch_datetime($site['waf_state_since'])) : '')));
-$app->tpl->setVar('is_off', $state === 'off' ? 1 : 0);
+
+
+// Die Schwelle dieser Website für Sperren: 0 heißt „wie der Server".
+$ban_settings = waf_settings($app->db->queryOneRecord('SELECT * FROM malwatch_config WHERE config_id = 1'));
+$ban_score = is_array($site) && isset($site['waf_ban_score']) ? (int) $site['waf_ban_score'] : 0;
+$ban_trigger = is_array($site) && isset($site['waf_ban_trigger'])
+	&& (string) $site['waf_ban_trigger'] === 'n' ? 'n' : 'y';
+$app->tpl->setVar('ban_score_value', $ban_score > 0 ? $ban_score : '');
+$app->tpl->setVar('ban_site_line', $app->functions->htmlentities($ban_trigger === 'n'
+	? $wb['ban_site_never_txt']
+	: ($ban_score > 0 ? sprintf($wb['ban_site_own_txt'] . ': %s', number_format($ban_score, 0, ',', '.'))
+		: sprintf($wb['ban_site_server_txt'], number_format((int) $ban_settings['waf_ban_score'], 0, ',', '.')))));
+$app->tpl->setVar('ban_is_never', $ban_trigger === 'n' ? 1 : 0);$app->tpl->setVar('is_off', $state === 'off' ? 1 : 0);
 $app->tpl->setVar('is_detect', $state === 'detect' ? 1 : 0);
 $app->tpl->setVar('is_enforce', $state === 'enforce' ? 1 : 0);
 

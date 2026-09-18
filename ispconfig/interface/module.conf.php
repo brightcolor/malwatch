@@ -106,6 +106,13 @@ $items[] = array(
 );
 
 $items[] = array(
+	'title'   => 'Sperren',
+	'target'  => 'content',
+	'link'    => 'security/malwatch_waf_ban_list.php',
+	'html_id' => 'security_waf_bans'
+);
+
+$items[] = array(
 	'title'   => 'Einstellungen',
 	'target'  => 'content',
 	'link'    => 'security/malwatch_waf_config_edit.php',

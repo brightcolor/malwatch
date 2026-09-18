@@ -64,6 +64,7 @@ $pages = array(
 	// Abwehr: the website filtered by the address of its latest stored request.
 	'malwatch_waf_show.php?ip=stored',
 	// Abwehr: every exception, once filtered by a state.
+	'malwatch_waf_ban_list.php',
 	'malwatch_waf_exception_list.php',
 	'malwatch_waf_exception_list.php?state=active',
 	// Abwehr: the settings, a form page like malwatch_config_edit.php.
