@@ -26,6 +26,7 @@ Treffern stehen bei 1.137 und 1.135 Anfragen.
 | Angemeldete Nutzer | zählen mit; wer angemeldet angreift, wird gesperrt |
 | Einstieg | erst „vorschlagen", dann „sperren"; der Knopf von Hand geht sofort |
 | Mechanik in nginx | `deny`-Liste im `http`-Kontext, dazu ein Zähler aus einem zweiten Zugriffslog |
+| Schwelle | je Website einstellbar, mit dem Wert des Servers als Vorgabe |
 
 ## 3. Ausgangslage
 
@@ -77,6 +78,17 @@ Abwehr an die Kante des Netzes.
 | `waf_block_bots` | enum `off`, `on`; `on` | Suchmaschinen verschonen |
 | `waf_block_token` | varchar(64); leer | Token der veröffentlichten Liste, Stufe 3; wird beim Einschalten erzeugt |
 
+### Neue Spalten in `malwatch_site` — die Schwelle je Website
+
+| Spalte | Typ, Vorgabe | Inhalt |
+|---|---|---|
+| `waf_block_score` | int; 0 | eigene Schwelle dieser Website; `0` heißt „wie der Server" |
+| `waf_block_trigger` | enum `y`, `n`; `y` | ob Treffer dieser Website überhaupt zu einer Sperre führen |
+
+Die wirksame Schwelle einer Website ist also: `waf_block_trigger = 'n'` → keine
+Sperre; `waf_block_score = 0` → der Wert aus den Einstellungen; sonst der eigene
+Wert. Die Grenzen sind dieselben wie beim Server (5 bis 10000).
+
 ### `malwatch_waf_block` — eine Zeile je Adresse und Server
 
 | Spalte | Inhalt |
@@ -111,17 +123,22 @@ jede Adresse, die der Server selbst trägt. Diese vier lassen sich nicht lösche
 Der Schritt läuft in `cron_minute()` nach dem Einlesen und dem Nachschlagen der
 Herkunft, unter demselben Lock.
 
-1. Punkte je Adresse über das Fenster summieren:
-   `SELECT client_ip, SUM(anomaly_score), COUNT(*) FROM malwatch_waf_hit
-   WHERE server_id = ? AND seen_at >= ? GROUP BY client_ip HAVING SUM(anomaly_score) >= ?`
+1. Punkte je Adresse **und Website** über das Fenster summieren:
+   `SELECT client_ip, parent_domain_id, SUM(anomaly_score), COUNT(*) FROM malwatch_waf_hit
+   WHERE server_id = ? AND seen_at >= ? GROUP BY client_ip, parent_domain_id`.
+   Jede Zeile wird gegen die wirksame Schwelle ihrer Website gehalten (Abschnitt 5);
+   Websites mit `waf_block_trigger = 'n'` fallen vorher heraus. Es reicht **eine**
+   Website, deren Schwelle überschritten ist — gesperrt wird die Adresse danach
+   serverweit, weil die `deny`-Zeilen im `http`-Kontext stehen.
 2. Adressen aussortieren, die geschützt sind (Abschnitt 10), schon eine Zeile mit
    `state` in (`proposed`, `active`) haben oder innerhalb des Fensters verworfen
    wurden (`state = 'dismissed'`).
 3. Je übriger Adresse eine Zeile anlegen: `proposed` im Modus „vorschlagen",
    `active` im Modus „sperren". Im Modus `off` passiert nichts.
-4. Der Grund nennt Punkte, Treffer, Fenster und die häufigste Regel des Fensters in
-   Worten aus dem Regelkatalog: „62 Punkte aus 14 Treffern in 10 Minuten, meist
-   Zugriff auf geschützte Datei (930130)".
+4. Der Grund nennt Punkte, Treffer, Fenster, die Website und die häufigste Regel des
+   Fensters in Worten aus dem Regelkatalog: „62 Punkte aus 14 Treffern in 10 Minuten
+   auf beispiel.de, meist Zugriff auf geschützte Datei (930130)". Überschreiten
+   mehrere Websites ihre Schwelle, nennt der Grund die mit den meisten Punkten.
 
 Angemeldete Sitzungen zählen mit. Treffer von Websites, deren Abwehr aus ist,
 entstehen gar nicht erst.
@@ -218,6 +235,12 @@ Neuer Menüpunkt **Security > Abwehr > Sperren**.
 Dazu ein Knopf **„sperren"** an jeder Adresse in den Regel-Karten und in den
 Einzeltreffern der Website-Seite.
 
+Die **Schwelle je Website** steht auf der Website-Seite im Kasten „Zustand", wo auch
+„aus", „mitschreiben" und „scharf" stehen: eine Auswahl „wie der Server (50 Punkte)",
+„eigene Schwelle" mit Zahlenfeld und „diese Website löst nie eine Sperre aus", dazu
+ein Satz, was der Wert bedeutet. Gespeichert wird wie die übrigen Aktionen über einen
+Auftrag.
+
 Alle Knöpfe legen einen Auftrag an (`job_kind = 'waf'`), wie die übrigen Aktionen
 der Abwehr; die Seite lädt sich nach, sobald er fertig ist.
 
@@ -270,7 +293,8 @@ Ein Abschnitt auf derselben Seite, unter den eigenen Sperren:
 
 ## 16. Prüfung
 
-- **Reine Funktionen** in `ispconfig/tests`: Punktesumme und Entscheidung im Fenster,
+- **Reine Funktionen** in `ispconfig/tests`: Punktesumme und Entscheidung im Fenster
+  gegen die wirksame Schwelle einer Website (eigener Wert, Wert des Servers, nie),
   Stufe und Dauer, Grund als Satz, Ausnahmenprüfung mit CIDR für IPv4 und IPv6,
   Erzeugen der `deny`-Datei aus einer Liste, Lesen einer Zeile aus `blocked.log`,
   Leser der Suchmaschinenlisten mit Beispieldateien.
