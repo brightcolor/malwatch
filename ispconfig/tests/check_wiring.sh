@@ -1562,11 +1562,23 @@ fi
 
 # 82. Die Woerter der Herkunft stehen in beiden Woerterbuechern.
 for lang in de en; do
-	for key in ban_origin_head_txt ban_origin_intro_txt ban_origin_days_txt ban_origin_save_txt 		ban_origin_none_txt ban_err_origin_kind_txt; do
+	for key in ban_origin_head_txt ban_origin_intro_txt ban_origin_days_txt ban_origin_save_txt 		ban_origin_none_txt ban_origin_save_hint_txt; do
 		grep -q "\$wb\['$key'\]" "$root/interface/lang/${lang}_malwatch_waf.lng" 			|| fail "${lang}_malwatch_waf.lng is missing $key"
 	done
 	for key in waf_ban_origin_txt waf_ban_origin_score_txt waf_ban_origin_factor_txt waf_ban_origin_now_txt 		ban_origin_kind_on_txt ban_origin_head_txt; do
 		grep -q "\$wb\['$key'\]" "$root/interface/lang/${lang}_malwatch_waf_config.lng" 			|| fail "${lang}_malwatch_waf_config.lng is missing $key"
+	done
+done
+
+# 84. Jeder Knopf, der mit data-mw-set-<id> ein Feld fuellt, findet dieses Feld
+#     in derselben Vorlage. Sonst ueberspringt malwatch_modal.htm den Wert still,
+#     und der Auftrag bekommt ein leeres Feld - so blieben 0.23.0 bis 0.25.1 die
+#     Knoepfe "Sperren" und "loest keine Sperre aus" und die Auswahl der Herkunft
+#     wirkungslos.
+for tpl in "$root"/interface/templates/*.htm; do
+	[ -f "$tpl" ] || continue
+	for target in $(grep -o 'data-mw-set-[a-z0-9-]*=' "$tpl" | sed 's/^data-mw-set-//; s/=$//' | sort -u); do
+		grep -q "id=\"$target\"" "$tpl" 			|| fail "$(basename "$tpl"): data-mw-set-$target findet kein Feld mit id=\"$target\""
 	done
 done
 

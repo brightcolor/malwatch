@@ -2,6 +2,47 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.25.2] – 2026-09-21
+
+### Behoben
+
+**nginx wurde jede Minute neu geladen.** Die Sperrdatei trägt in ihrer ersten
+Zeile die Zeit, zu der sie geschrieben wurde. Der Vergleich nahm diese Zeile mit,
+darum galt die Datei jede Minute als geändert: `nginx -t` mit allen Regeln und ein
+Reload, rund um die Uhr, seit 0.23.0. Verglichen werden jetzt nur die Adressen;
+nginx wird nur noch neu geladen, wenn eine Adresse dazukommt oder wegfällt.
+
+**Drei Knöpfe ohne Wirkung.** Ihnen fehlte das Feld, in das sie ihren Wert
+schreiben, und der Wert ging still verloren:
+
+- „sperren" an den Regel-Karten und Einzeltreffern der Website-Seite schickte
+  keine Adresse und endete mit „Das ist keine Adresse".
+- „diese Website löst nie eine Sperre aus" setzte die Schwelle auf 0, ließ die
+  Website aber auslösen — das Gegenteil.
+- „Auswahl übernehmen" für Länder und Anbieter speicherte nie etwas.
+
+Die Auswahl speichert jetzt Länder und Anbieter mit einem Knopf zusammen, so geht
+kein Häkchen in der anderen Tabelle verloren. Eine neue Prüfung verlangt für
+jeden Knopf, dass sein Feld in derselben Vorlage steht.
+
+**Weitere Korrekturen**
+
+- Der Grund einer Sperre nennt die echten Punkte und sagt dazu, wie sie wegen
+  der Herkunft gewertet wurden, etwa „30 Punkte …, Herkunft: Land FR, Punkte mit
+  200 % gewertet".
+- Ist die Sperrliste voll, wird aus einer neuen Sperre ein Vorschlag. Bisher
+  brach der Durchgang ab, und die übrigen Adressen gingen verloren.
+- Die Adresse der Liste für die Firewall entsteht auch, wenn das Panel auf einem
+  eigenen Port läuft, etwa 8080. Lässt sich aus dem Namen keine Adresse bilden,
+  sagt die Seite das, statt einen fehlenden Schlüssel zu behaupten.
+- Die Auswahl der Herkunft zeigt den Zeitraum, für den es Treffer gibt
+  (`waf_detail_days`), statt eines längeren, den keine Zahl abdeckt.
+- Eine Auswahl, die länger als 255 Zeichen ist, wird mit Begründung abgewiesen;
+  bisher meldete der Auftrag Erfolg, obwohl nichts gespeichert wurde.
+- `waf-switch ban origin on|off` läuft als Auftrag und steht damit in der Liste
+  der Aufträge.
+- Die Serverklasse lädt je Minute nur die Herkunft der Adressen im Zeitfenster.
+
 ## [0.25.1] – 2026-09-18
 
 ### Behoben

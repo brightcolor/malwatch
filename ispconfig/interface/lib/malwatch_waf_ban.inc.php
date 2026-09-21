@@ -128,24 +128,30 @@ function waf_ban_decide($groups, $settings, $sites, $origins = array())
 		// decision of the operator comes before every criterion.
 		$label = $limit > 0
 			? waf_ban_origin_match(isset($origins[$ip]) ? $origins[$ip] : null, $settings) : '';
+		// The weighted points decide; the real ones go into the reason, so a block
+		// never claims more points than the hits brought.
+		$factor = 100;
+		$weighted = $score;
 		if ($label !== '') {
-			$factor = isset($settings['waf_ban_origin_factor']) ? (int) $settings['waf_ban_origin_factor'] : 100;
-			$score = (int) round($score * max(100, $factor) / 100);
+			$factor = max(100, isset($settings['waf_ban_origin_factor']) ? (int) $settings['waf_ban_origin_factor'] : 100);
+			$weighted = (int) round($score * $factor / 100);
 			$own = isset($settings['waf_ban_origin_score']) ? (int) $settings['waf_ban_origin_score'] : 0;
 			if ($own > 0 && $own < $limit) {
 				$limit = $own;
 			}
 		}
-		if ($limit <= 0 || $score < $limit) {
+		if ($limit <= 0 || $weighted < $limit) {
 			continue;
 		}
-		if (isset($picked[$ip]) && $picked[$ip]['score'] >= $score) {
+		if (isset($picked[$ip]) && $picked[$ip]['weighted'] >= $weighted) {
 			continue;
 		}
 		$picked[$ip] = array(
 			'ip' => $ip,
 			'domain' => is_array($site) && isset($site['domain']) ? (string) $site['domain'] : '',
 			'score' => $score,
+			'weighted' => $weighted,
+			'factor' => $factor,
 			'hits' => (int) $row['hits'],
 			'rule' => isset($row['rule']) ? (string) $row['rule'] : '',
 			'limit' => $limit,
@@ -202,6 +208,9 @@ function waf_ban_reason($pick, $minutes, $rule_label)
 	}
 	if (isset($pick['origin']) && (string) $pick['origin'] !== '') {
 		$reason .= ', Herkunft: ' . $pick['origin'];
+		if (isset($pick['factor']) && (int) $pick['factor'] !== 100) {
+			$reason .= ', Punkte mit ' . (int) $pick['factor'] . ' % gewertet';
+		}
 	}
 	return waf_origin_cut($reason . '.', 255);
 }
@@ -273,6 +282,31 @@ function waf_ban_file($ips, $now, $max)
 		$count++;
 	}
 	return implode("\n", $lines) . "\n";
+}
+
+/**
+ * true when two deny files block the same addresses. The first line carries the
+ * time of writing; it alone is no change, or nginx would be tested and reloaded
+ * every minute for nothing. A missing file ($have is empty) is never the same:
+ * nginx includes it, so it has to exist.
+ */
+function waf_ban_file_same($have, $want)
+{
+	if ((string) $have === '') {
+		return false;
+	}
+	$lines = function ($text) {
+		$kept = array();
+		foreach (explode("
+", (string) $text) as $line) {
+			$line = trim($line);
+			if ($line !== '' && $line[0] !== '#') {
+				$kept[] = $line;
+			}
+		}
+		return $kept;
+	};
+	return $lines($have) === $lines($want);
 }
 
 /**
@@ -370,11 +404,19 @@ function waf_ban_list_text($ips)
 	return implode("\n", $list) . "\n";
 }
 
-/** The address the OPNsense fetches. Without host or key there is none. */
+/**
+ * The address the OPNsense fetches. The host is the name the panel was opened
+ * under, a port included - the panel of ISPConfig often answers on 8080.
+ * Without a usable host or a key there is none.
+ */
 function waf_ban_list_url($host, $token)
 {
 	$host = trim((string) $host);
-	if ($host === '' || !preg_match('/^[A-Za-z0-9.-]+$/', $host) || !waf_ban_token_ok($token)) {
+	if (!waf_ban_token_ok($token)
+		|| !preg_match('/^(\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9.-]+)(?::(\d{1,5}))?$/', $host, $parts)) {
+		return '';
+	}
+	if (isset($parts[2]) && ((int) $parts[2] < 1 || (int) $parts[2] > 65535)) {
 		return '';
 	}
 	return 'https://' . $host . '/security/malwatch_waf_ban_url.php?list=' . (string) $token;

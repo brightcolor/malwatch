@@ -210,20 +210,23 @@ expect_same('the mode is queued', array($result[1], jobs_of($db)),
 
 $db = fresh_db();
 $result = waf_panel_handle_post($app, $wb, array('waf_action' => 'ban_origin_list',
-	'waf_kind' => 'countries', 'waf_origin_country' => array('FR', 'CN')));
-expect_same('the chosen countries are queued', array($result[1], jobs_of($db)),
-	array('', array(array(1, 'waf', array('kind' => 'countries', 'values' => array('FR', 'CN'),
+	'waf_origin_country' => array('FR', 'CN'), 'waf_origin_asn' => array('396982')));
+expect_same('both lists travel in one job', array($result[1], jobs_of($db)),
+	array('', array(array(1, 'waf', array('countries' => array('FR', 'CN'), 'asn' => array('396982'),
 		'action' => 'ban_origin_list', 'user' => 'admin')))));
 
 $db = fresh_db();
-$result = waf_panel_handle_post($app, $wb, array('waf_action' => 'ban_origin_list', 'waf_kind' => 'asn'));
-expect_same('an empty choice clears the list', array($result[1], jobs_of($db)),
-	array('', array(array(1, 'waf', array('kind' => 'asn', 'values' => array(),
+$result = waf_panel_handle_post($app, $wb, array('waf_action' => 'ban_origin_list'));
+expect_same('no tick at all clears both lists', array($result[1], jobs_of($db)),
+	array('', array(array(1, 'waf', array('countries' => array(), 'asn' => array(),
 		'action' => 'ban_origin_list', 'user' => 'admin')))));
 
 $db = fresh_db();
-$result = waf_panel_handle_post($app, $wb, array('waf_action' => 'ban_origin_list', 'waf_kind' => 'unsinn'));
-expect_same('an unknown list is refused', array($result[0], jobs_of($db)), array('', array()));
+$result = waf_panel_handle_post($app, $wb, array('waf_action' => 'ban_origin_list',
+	'waf_origin_country' => array('FR', array('verschachtelt'))));
+expect_same('a nested value is dropped', jobs_of($db),
+	array(array(1, 'waf', array('countries' => array('FR'), 'asn' => array(),
+		'action' => 'ban_origin_list', 'user' => 'admin'))));
 
 $db = fresh_db();
 $result = waf_panel_handle_post($app, $wb, array('waf_action' => 'ban_token_new'));

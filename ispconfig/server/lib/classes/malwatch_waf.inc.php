@@ -1182,10 +1182,16 @@ class malwatch_waf
 		// Die Herkunft der Adressen des Zeitfensters; sie kann die Schwelle senken.
 		$origins = array();
 		if ((string) $settings['waf_ban_origin'] === 'on') {
-			foreach ($this->rows($app->dbmaster->queryAllRecords(
-				'SELECT ip, country, asn, as_org, is_tor, is_vpn, is_hosting FROM malwatch_waf_ip '
-				. 'WHERE server_id = ?', $conf['server_id'])) as $row) {
-				$origins[(string) $row['ip']] = $row;
+			// Only the addresses of this window, not the whole table.
+			$window = array_values(array_unique(array_map(function ($row) {
+				return (string) $row['client_ip'];
+			}, $groups)));
+			foreach (array_chunk($window, 500) as $chunk) {
+				foreach ($this->rows($app->dbmaster->queryAllRecords(
+					'SELECT ip, country, asn, as_org, is_tor, is_vpn, is_hosting FROM malwatch_waf_ip '
+					. 'WHERE server_id = ? AND ip IN ?', $conf['server_id'], $chunk)) as $row) {
+					$origins[(string) $row['ip']] = $row;
+				}
 			}
 		}
 		$picked = waf_ban_decide($groups, $settings, $sites, $origins);
@@ -1205,6 +1211,7 @@ class malwatch_waf
 		$active = (int) $this->db_value('SELECT COUNT(*) AS value FROM malwatch_waf_ban WHERE server_id = '
 			. (int) $conf['server_id'] . " AND state = 'active'");
 		$written = 0;
+		$full = false;
 		foreach ($picked as $pick) {
 			$ip = $pick['ip'];
 			if (isset($known[$ip]) && $this->ban_keeps_quiet($known[$ip], $since)) {
@@ -1212,12 +1219,6 @@ class malwatch_waf
 			}
 			if (waf_ban_allowed($ip, $allow, $reader)) {
 				continue;
-			}
-			if (($mode === 'block' || (string) $settings['waf_ban_origin_now'] === 'on')
-				&& $active >= (int) $settings['waf_ban_max']) {
-				$app->log('malwatch: die Sperrliste ist voll (' . (int) $settings['waf_ban_max']
-					. ' Adressen); ' . $ip . ' wurde nicht gesperrt.', LOGLEVEL_WARN);
-				break;
 			}
 			$top = waf_ban_top_rule($this->rows($app->dbmaster->queryAllRecords(
 				'SELECT rules FROM malwatch_waf_hit WHERE server_id = ? AND client_ip = ? AND seen_at >= ? LIMIT 200',
@@ -1227,6 +1228,16 @@ class malwatch_waf
 			// wird - das ist ein eigener Schalter und steht von Haus aus aus.
 			$at_once = waf_ban_origin_at_once(isset($pick['origin']) ? $pick['origin'] : '', $settings);
 			$state = ($mode === 'block' || $at_once) ? 'active' : 'proposed';
+			// A full list takes no new block. The address becomes a proposal, so it
+			// stays visible, and the addresses after it are still looked at.
+			if ($state === 'active' && $active >= (int) $settings['waf_ban_max']) {
+				if (!$full) {
+					$app->log('malwatch: die Sperrliste ist voll (' . (int) $settings['waf_ban_max']
+						. ' Adressen); weitere Adressen werden nur vorgeschlagen, ' . $ip . ' als erste.', LOGLEVEL_WARN);
+					$full = true;
+				}
+				$state = 'proposed';
+			}
 			$app->dbmaster->query('INSERT INTO malwatch_waf_ban (server_id, ip, state, reason, rule, score, hits, '
 				. 'level, source, created_at, blocked_at, until, lifted_at, lifted_by, denied, denied_at) '
 				. "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'auto', ?, ?, ?, NULL, '', 0, NULL) "
@@ -1311,7 +1322,8 @@ class malwatch_waf
 		// firewall at the edge turns away before nginx ever sees it is the point
 		// of that list, and stale is the one thing it must never be.
 		$this->ban_list_write($ips);
-		if ($have === $want) {
+		// Only other addresses are a change; the time in the first line is none.
+		if (waf_ban_file_same($have, $want)) {
 			return array(false, '');
 		}
 		if (@file_put_contents($file, $want) === false) {
@@ -1505,26 +1517,41 @@ class malwatch_waf
 					. 'OPNsense auf die neue Adresse umstellen.';
 				break;
 
-			case 'ban_origin_list':
-				$kind = isset($options['kind']) ? (string) $options['kind'] : '';
-				$raw = isset($options['values']) && is_array($options['values'])
-					? implode(',', array_map('strval', $options['values'])) : '';
-				if ($kind === 'countries') {
-					$list = waf_ban_origin_countries($raw);
-					$column = 'waf_ban_origin_countries';
-					$note = count($list) === 0 ? 'Kein Land gilt mehr als auffällig.'
-						: count($list) . ' Länder gelten als auffällig: ' . implode(', ', $list) . '.';
-				} elseif ($kind === 'asn') {
-					$list = waf_ban_origin_asns($raw);
-					$column = 'waf_ban_origin_asn';
-					$note = count($list) === 0 ? 'Kein Anbieter gilt mehr als auffällig.'
-						: count($list) . ' Anbieter gelten als auffällig.';
+			case 'ban_origin':
+				$on = isset($options['on']) && (string) $options['on'] === 'on' ? 'on' : 'off';
+				if ($on === 'on') {
+					$app->dbmaster->query("UPDATE malwatch_config SET waf_ban_origin = 'on' WHERE config_id = 1");
+					$note = 'Die Herkunft senkt jetzt die Schwelle.';
 				} else {
-					return $this->finish($job, false, 'Unbekannte Liste. Erlaubt sind Länder und Anbieter.');
+					// Der Rückweg nimmt das sofortige Sperren mit.
+					$app->dbmaster->query("UPDATE malwatch_config SET waf_ban_origin = 'off', "
+						. "waf_ban_origin_now = 'off' WHERE config_id = 1");
+					$note = 'Die Herkunft zählt nicht mehr; sofortiges Sperren ist aus.';
 				}
-				// Der Spaltenname kommt aus den beiden Zweigen darüber, nie aus dem Auftrag.
-				$app->dbmaster->query('UPDATE malwatch_config SET ' . $column . ' = ? WHERE config_id = 1',
-					waf_ban_origin_store($list));
+				break;
+
+			case 'ban_origin_list':
+				$countries = waf_ban_origin_countries(implode(',', isset($options['countries'])
+					&& is_array($options['countries']) ? array_map('strval', $options['countries']) : array()));
+				$asns = waf_ban_origin_asns(implode(',', isset($options['asn'])
+					&& is_array($options['asn']) ? array_map('strval', $options['asn']) : array()));
+				$stored = array('waf_ban_origin_countries' => waf_ban_origin_store($countries),
+					'waf_ban_origin_asn' => waf_ban_origin_store($asns));
+				// Both columns hold 255 characters. A longer list is refused as a whole,
+				// so the database never cuts a number in half.
+				foreach ($stored as $text) {
+					if (strlen($text) > 255) {
+						return $this->finish($job, false, 'Die Auswahl ist zu lang: Eine Liste fasst 255 Zeichen, '
+							. 'etwa 80 Länder oder 35 Anbieter. Bitte weniger ankreuzen; es gilt weiter die bisherige '
+							. 'Auswahl.');
+					}
+				}
+				$app->dbmaster->query('UPDATE malwatch_config SET waf_ban_origin_countries = ?, '
+					. 'waf_ban_origin_asn = ? WHERE config_id = 1',
+					$stored['waf_ban_origin_countries'], $stored['waf_ban_origin_asn']);
+				$note = 'Als auffällig gelten jetzt ' . (count($countries) === 0 ? 'keine Länder'
+					: count($countries) . ' Länder (' . implode(', ', $countries) . ')') . ' und '
+					. (count($asns) === 0 ? 'keine Anbieter' : count($asns) . ' Anbieter') . '.';
 				break;
 
 			case 'ban_add':
@@ -1787,6 +1814,7 @@ class malwatch_waf
 				break;
 			case 'ban_mode':
 			case 'ban_token_new':
+			case 'ban_origin':
 			case 'ban_origin_list':
 			case 'ban_add':
 			case 'ban_lift':

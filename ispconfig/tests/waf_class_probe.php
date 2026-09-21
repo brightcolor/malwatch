@@ -668,6 +668,14 @@ expect_same('and in the list for the OPNsense',
 	file_get_contents($probe_dir . '/waf/blocked.txt'), "192.0.2.50
 ");
 expect_same('a second run changes nothing', $waf->ban_apply(), array(false, ''));
+// Eine Minute später steht eine andere Zeit im Kopf. Das allein ist keine
+// Änderung: Weder nginx -t noch ein Reload dürfen folgen.
+$deny = $tmp . '/waf/blocked.conf';
+file_put_contents($deny, preg_replace('/erzeugt am [0-9: -]+\./', 'erzeugt am 2000-01-01 00:00:00.',
+	(string) file_get_contents($deny)));
+$calls = array();
+expect_same('an older time in the head changes nothing', $waf->ban_apply(), array(false, ''));
+expect_same('and so nginx is left alone', $calls, array());
 
 // Eine Konfiguration, die nginx ablehnt, erreicht den laufenden Server nicht.
 $db->query('INSERT INTO malwatch_waf_ban (server_id, ip, state, reason, source, created_at, blocked_at, until) '
@@ -759,8 +767,10 @@ expect_same('30 points stay below the normal threshold', $waf->ban_scan(), 0);
 $db->query("UPDATE malwatch_config SET waf_ban_origin = 'on' WHERE config_id = 1");
 expect_same('with the origin counted the same address is picked', $waf->ban_scan(), 1);
 $found = $db->queryOneRecord("SELECT state, score, reason FROM malwatch_waf_ban WHERE ip = '198.51.100.70'");
-expect_same('the points were doubled and it is only a proposal',
-	array($found['state'], (int) $found['score']), array('proposed', 60));
+expect_same('the real points are kept and it is only a proposal',
+	array($found['state'], (int) $found['score']), array('proposed', 30));
+expect_same('the reason says how the points were weighed',
+	strpos((string) $found['reason'], 'Punkte mit 200 % gewertet') !== false, true);
 expect_same('the reason names the country',
 	strpos((string) $found['reason'], 'Herkunft: Land FR') !== false, true);
 
@@ -774,16 +784,53 @@ expect_same('now it is blocked at once, named by its provider',
 	array($found['state'], strpos((string) $found['reason'], 'Herkunft: Anbieter Bucklog SARL') !== false,
 		$found['until'] !== null), array('active', true, true));
 
-$waf->queue('ban_origin_list', array('kind' => 'countries', 'values' => array('de', 'X', 'cn')), 'probe');
+// Ist die Sperrliste voll, wird aus einer Sperre ein Vorschlag. Die übrigen
+// Adressen des Durchgangs gehen dabei nicht verloren.
+$db->query('DELETE FROM malwatch_waf_ban');
+for ($i = 1; $i <= 100; $i++) {
+	$db->query('INSERT INTO malwatch_waf_ban (server_id, ip, state, reason, source, created_at, blocked_at, until) '
+		. "VALUES (?, ?, 'active', 'voll', 'manual', NOW(), NOW(), DATE_ADD(NOW(), INTERVAL 1 HOUR))",
+		$server, '198.18.0.' . $i);
+}
+for ($i = 0; $i < 11; $i++) {
+	$db->query('INSERT INTO malwatch_waf_hit (server_id, parent_domain_id, domain, unique_id, seen_at, client_ip, '
+		. "method, uri, path, status, anomaly_score, would_block, logged_in, rules, request_headers) "
+		. "VALUES (?, 11, 'beispiel.test', ?, NOW(), '198.51.100.80', 'GET', '/x', '/x', 404, 5, 'y', 'n', "
+		. "'[\"930130\"]', '{}')", $server, 'probe-full-' . $i);
+}
+$calls = array();
+expect_same('with a full list both addresses are still written', $waf->ban_scan(), 2);
+expect_same('the suspicious origin becomes a proposal, and so does the other address', array(
+	$db->queryOneRecord("SELECT state FROM malwatch_waf_ban WHERE ip = '198.51.100.70'")['state'],
+	$db->queryOneRecord("SELECT state FROM malwatch_waf_ban WHERE ip = '198.51.100.80'")['state'],
+), array('proposed', 'proposed'));
+$db->query("DELETE FROM malwatch_waf_ban WHERE ip LIKE '198.18.0.%' OR ip = '198.51.100.80'");
+$db->query("DELETE FROM malwatch_waf_hit WHERE unique_id LIKE 'probe-full-%'");
+
+$waf->queue('ban_origin_list', array('countries' => array('de', 'X', 'cn'), 'asn' => array('AS202425')), 'probe');
 $waf->pass();
-expect_same('the chosen countries are stored in one text',
-	config_value('waf_ban_origin_countries'), 'DE,CN');
-$waf->queue('ban_origin_list', array('kind' => 'asn', 'values' => array()), 'probe');
+expect_same('both lists are stored in one go',
+	array(config_value('waf_ban_origin_countries'), config_value('waf_ban_origin_asn')), array('DE,CN', '202425'));
+$many = array();
+for ($i = 1; $i <= 60; $i++) {
+	$many[] = (string) (4200000000 + $i);
+}
+$job = $waf->queue('ban_origin_list', array('countries' => array('FR'), 'asn' => $many), 'probe');
 $waf->pass();
-expect_same('an empty choice clears the list', config_value('waf_ban_origin_asn'), '');
+expect_same('a list too long for its column is refused as a whole',
+	array(job_row($job)['job_status'], strpos((string) job_row($job)['job_log'], '255 Zeichen') !== false,
+		config_value('waf_ban_origin_countries'), config_value('waf_ban_origin_asn')),
+	array('error', true, 'DE,CN', '202425'));
+$waf->queue('ban_origin_list', array('countries' => array(), 'asn' => array()), 'probe');
+$waf->pass();
+expect_same('no tick at all clears both lists',
+	array(config_value('waf_ban_origin_countries'), config_value('waf_ban_origin_asn')), array('', ''));
 $db->query('DELETE FROM malwatch_waf_ban');
 $db->query('DELETE FROM malwatch_waf_hit');
-$db->query("UPDATE malwatch_config SET waf_ban_origin = 'off', waf_ban_origin_now = 'off' WHERE config_id = 1");
+$job = $waf->queue('ban_origin', array('on' => 'off'), 'probe');
+$waf->pass();
+expect_same('switching the origin off takes the at-once blocking with it', array(job_row($job)['job_status'],
+	config_value('waf_ban_origin'), config_value('waf_ban_origin_now')), array('done', 'off', 'off'));
 $waf->ban_apply();
 
 // Der Schlüssel der veröffentlichten Liste.

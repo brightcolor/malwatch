@@ -710,6 +710,10 @@ expect_same('the number is written out', strpos($view['count'], '3') !== false, 
 $none = waf_panel_ban_url($wb, array('waf_ban_token' => ''), 'cp.beispiel.test', 0);
 expect_same('without a key there is no address yet', array($none['url'], $none['has_url']), array('', 0));
 expect_same('and the hint says where it comes from', $none['hint'] !== '' && $none['hint'] !== $view['hint'], true);
+$odd = waf_panel_ban_url($wb, array('waf_ban_token' => $key), 'cp.beispiel.test/x', 3);
+expect_same('with a key but an unusable name the page says so, not that the key is missing',
+	array($odd['url'], $odd['has_url'], $odd['hint'] !== $none['hint'],
+		strpos($odd['hint'], 'cp.beispiel.test/x') !== false), array('', 0, true, true));
 
 // --- summary -----------------------------------------------------------------
 if ($failures > 0) {

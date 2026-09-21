@@ -127,9 +127,9 @@ $app->tpl->setLoop('ban_modes', $modes);
 $app->tpl->setVar('ban_mode_now', $app->functions->htmlentities(waf_panel_text($wb, 'ban_mode_' . $mode . '_txt', $mode)));
 $app->tpl->setVar('ban_score_now', $app->functions->htmlentities(number_format((int) $settings['waf_ban_score'], 0, ',', '.')));
 $app->tpl->setVar('ban_window_now', $app->functions->htmlentities(number_format((int) $settings['waf_ban_window_minutes'], 0, ',', '.')));
-// Herkunft: Länder und Anbieter aus den Treffern der Aufbewahrungszeit, die
-// Häufigsten zuerst. Wer die Kürzel nicht kennt, sieht hier die echten Zahlen.
-$days = (int) $settings['waf_ban_keep_days'];
+// Herkunft: Länder und Anbieter aus den gespeicherten Treffern, die Häufigsten
+// zuerst. Treffer leben waf_detail_days lang; weiter zurück reicht keine Zahl.
+$days = (int) $settings['waf_detail_days'];
 $countries = waf_panel_ban_origin_rows(waf_panel_rows($app->db->queryAllRecords(
 	'SELECT i.country AS value, i.country AS label, COUNT(*) AS hits, COUNT(DISTINCT h.client_ip) AS addresses '
 	. 'FROM malwatch_waf_hit h JOIN malwatch_waf_ip i ON i.ip = h.client_ip '
@@ -156,6 +156,7 @@ foreach (array('country' => $countries, 'asn' => $providers) as $kind => $list) 
 	$app->tpl->setLoop('origin_' . $kind, $loop);
 	$app->tpl->setVar('has_origin_' . $kind, count($loop) > 0 ? 1 : 0);
 }
+$app->tpl->setVar('has_origin_any', count($countries) + count($providers) > 0 ? 1 : 0);
 $app->tpl->setVar('origin_mode_on', (string) $settings['waf_ban_origin'] === 'on' ? 1 : 0);
 $app->tpl->setVar('origin_days', $app->functions->htmlentities(sprintf(
 	waf_panel_text($wb, 'ban_origin_days_txt', '%s'), number_format($days, 0, ',', '.'))));

@@ -154,6 +154,23 @@ expect_same('a line without an address',
 expect_same('an empty line', waf_ban_log_line(''), null);
 expect_same('a fragment', waf_ban_log_line('2026-09-18T10:00:01+02:00 192.0.2.10'), null);
 
+// --- Nur ein neuer Inhalt ist eine Änderung -------------------------------------
+
+// Die erste Zeile trägt die Zeit. Sie allein darf nginx nicht neu laden lassen.
+$old = waf_ban_file(array('192.0.2.10', '192.0.2.20'), '2026-09-21 16:14:02', 100);
+$new = waf_ban_file(array('192.0.2.10', '192.0.2.20'), '2026-09-21 16:15:02', 100);
+expect_same('the files differ in their first line', $old === $new, false);
+expect_same('only the time differs: the same file', waf_ban_file_same($old, $new), true);
+expect_same('another address: another file',
+	waf_ban_file_same($old, waf_ban_file(array('192.0.2.10'), '2026-09-21 16:15:02', 100)), false);
+expect_same('two empty lists at different times are the same',
+	waf_ban_file_same(waf_ban_file(array(), '2026-09-21 16:14:02', 100),
+		waf_ban_file(array(), '2026-09-21 16:15:02', 100)), true);
+expect_same('the fallback text of an empty file counts as empty',
+	waf_ban_file_same("# von malwatch erzeugt, leer
+", waf_ban_file(array(), '2026-09-21 16:15:02', 100)), true);
+expect_same('a missing file is never the same', waf_ban_file_same('', waf_ban_file(array(), 'x', 100)), false);
+
 // --- Herkunft senkt die Schwelle ----------------------------------------------
 
 expect_same('a stored list of countries is read in upper case',
@@ -210,10 +227,18 @@ $origins = array('192.0.2.10' => $fr);
 $picked = waf_ban_decide($groups, $settings, $sites, $origins);
 expect_same('only the address with the suspicious origin is picked',
 	array_map(function ($one) { return $one['ip']; }, $picked), array('192.0.2.10'));
-expect_same('its points were doubled and its threshold lowered',
-	array($picked[0]['score'], $picked[0]['limit'], $picked[0]['origin']), array(30, 20, 'Land FR'));
-expect_same('the reason names the origin',
-	strpos(waf_ban_reason($picked[0], 10, 'Regel 930130'), 'Herkunft: Land FR') !== false, true);
+expect_same('the real points stay, the weighted ones decide, the threshold is lowered',
+	array($picked[0]['score'], $picked[0]['weighted'], $picked[0]['limit'], $picked[0]['origin']),
+	array(15, 30, 20, 'Land FR'));
+$reason = waf_ban_reason($picked[0], 10, 'Regel 930130');
+expect_same('the reason tells the real points and how they were weighed', array(
+	strpos($reason, '15 Punkte aus 3 Treffern') === 0,
+	strpos($reason, 'Herkunft: Land FR, Punkte mit 200 % gewertet') !== false,
+), array(true, true));
+$plain = array('ip' => '192.0.2.30', 'domain' => 'beispiel.test', 'score' => 60, 'weighted' => 60, 'hits' => 12,
+	'rule' => '', 'limit' => 50, 'origin' => '');
+expect_same('without an origin the reason says nothing about weighing',
+	strpos(waf_ban_reason($plain, 10, ''), 'gewertet'), false);
 
 $off = array_merge($settings, array('waf_ban_origin' => 'off'));
 expect_same('with the mechanism off nothing changes', waf_ban_decide($groups, $off, $sites, $origins), array());
@@ -261,6 +286,18 @@ expect_same('an empty list is an empty text', waf_ban_list_text(array()), '');
 expect_same('the address names host and key',
 	waf_ban_list_url('cp.beispiel.test', $token),
 	'https://cp.beispiel.test/security/malwatch_waf_ban_url.php?list=' . $token);
+expect_same('a panel on its own port keeps the port',
+	waf_ban_list_url('cp.beispiel.test:8080', $token),
+	'https://cp.beispiel.test:8080/security/malwatch_waf_ban_url.php?list=' . $token);
+expect_same('an IPv6 literal with a port works too',
+	waf_ban_list_url('[2001:db8::1]:8080', $token),
+	'https://[2001:db8::1]:8080/security/malwatch_waf_ban_url.php?list=' . $token);
+expect_same('a name with a path or a port out of range is refused', array(
+	waf_ban_list_url('cp.beispiel.test/x', $token),
+	waf_ban_list_url('cp.beispiel.test:0', $token),
+	waf_ban_list_url('cp.beispiel.test:70000', $token),
+	waf_ban_list_url('cp.beispiel.test:', $token),
+), array('', '', '', ''));
 expect_same('without a key there is no address', waf_ban_list_url('cp.beispiel.test', ''), '');
 expect_same('without a host there is no address', waf_ban_list_url('', $token), '');
 

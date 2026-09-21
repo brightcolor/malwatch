@@ -1092,14 +1092,19 @@ function waf_panel_handle_post($app, $wb, $post)
 	}
 
 	if ($action === 'ban_origin_list') {
-		$kind = isset($post['waf_kind']) ? (string) $post['waf_kind'] : '';
-		if ($kind !== 'countries' && $kind !== 'asn') {
-			return array('', waf_panel_text($wb, 'ban_err_origin_kind_txt', ''));
+		// Both tables are saved together, so a tick in the other one is never lost.
+		// What is not ticked any more leaves its list.
+		$lists = array();
+		foreach (array('countries' => 'waf_origin_country', 'asn' => 'waf_origin_asn') as $kind => $field) {
+			$values = isset($post[$field]) && is_array($post[$field]) ? $post[$field] : array();
+			$lists[$kind] = array();
+			foreach (array_slice($values, 0, 500) as $one) {
+				if (is_scalar($one)) {
+					$lists[$kind][] = (string) $one;
+				}
+			}
 		}
-		$field = $kind === 'countries' ? 'waf_origin_country' : 'waf_origin_asn';
-		$values = isset($post[$field]) && is_array($post[$field]) ? $post[$field] : array();
-		return waf_panel_ban_queue($app, $wb, 'ban_origin_list',
-			array('kind' => $kind, 'values' => array_map('strval', array_slice($values, 0, 500))));
+		return waf_panel_ban_queue($app, $wb, 'ban_origin_list', $lists);
 	}
 
 	if ($action === 'ban_add' || $action === 'ban_lift' || $action === 'ban_extend' || $action === 'ban_dismiss') {
@@ -1362,10 +1367,6 @@ function waf_panel_ban_until($wb, $row, $now)
 }
 
 /**
- * The rows of the page „Sperren": state, reason, end, turned away requests and
- * the origin of the address, ready for the template.
- */
-/**
  * The countries or providers the hits came from, the busiest first, each with
  * the number of hits and whether it counts as suspicious today. $rows carries
  * value, label, hits and addresses; $chosen the values already on the list.
@@ -1412,17 +1413,29 @@ function waf_panel_ban_origin_rows($rows, $chosen, $max = 25)
  */
 function waf_panel_ban_url($wb, $settings, $host, $count)
 {
-	$url = waf_ban_list_url($host, isset($settings['waf_ban_token']) ? $settings['waf_ban_token'] : '');
+	$token = isset($settings['waf_ban_token']) ? (string) $settings['waf_ban_token'] : '';
+	$url = waf_ban_list_url($host, $token);
+	if ($url !== '') {
+		$hint = waf_panel_text($wb, 'ban_url_hint_txt', '');
+	} elseif (waf_ban_token_ok($token)) {
+		// The key exists; only the name of this request does not make an address.
+		$hint = sprintf(waf_panel_text($wb, 'ban_url_bad_host_txt', '%s'), (string) $host);
+	} else {
+		$hint = waf_panel_text($wb, 'ban_url_none_txt', '');
+	}
 	return array(
 		'url' => $url,
 		'has_url' => $url !== '' ? 1 : 0,
 		'count' => sprintf(waf_panel_text($wb, 'ban_url_count_txt', '%s'),
 			number_format((int) $count, 0, ',', '.')),
-		'hint' => $url === '' ? waf_panel_text($wb, 'ban_url_none_txt', '')
-			: waf_panel_text($wb, 'ban_url_hint_txt', ''),
+		'hint' => $hint,
 	);
 }
 
+/**
+ * The rows of the page „Sperren": state, reason, end, turned away requests and
+ * the origin of the address, ready for the template.
+ */
 function waf_panel_ban_rows($wb, $rows, $origins, $now, $language = 'de')
 {
 	$states = array('active' => 'ban_state_active_txt', 'proposed' => 'ban_state_proposed_txt',

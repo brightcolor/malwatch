@@ -230,9 +230,6 @@
 	</tbody>
 </table>
 </div>
-<button class="btn btn-default btn-xs" type="button"
-	data-mw-set-mw-waf-action="ban_origin_list" data-mw-set-mw-waf-kind="countries"
-	data-submit-form="pageForm" data-form-action="security/malwatch_waf_ban_list.php">{tmpl_var name='ban_origin_save_txt'}</button>
 <tmpl_else>
 <p class="mw-sub">{tmpl_var name='ban_origin_none_txt'}</p>
 </tmpl_if>
@@ -261,11 +258,15 @@
 	</tbody>
 </table>
 </div>
-<button class="btn btn-default btn-xs" type="button"
-	data-mw-set-mw-waf-action="ban_origin_list" data-mw-set-mw-waf-kind="asn"
-	data-submit-form="pageForm" data-form-action="security/malwatch_waf_ban_list.php">{tmpl_var name='ban_origin_save_txt'}</button>
 <tmpl_else>
 <p class="mw-sub">{tmpl_var name='ban_origin_none_txt'}</p>
+</tmpl_if>
+
+<tmpl_if name="has_origin_any">
+<p><button class="btn btn-default btn-xs" type="button"
+	data-mw-set-mw-waf-action="ban_origin_list"
+	data-submit-form="pageForm" data-form-action="security/malwatch_waf_ban_list.php">{tmpl_var name='ban_origin_save_txt'}</button>
+<span class="mw-caption">{tmpl_var name='ban_origin_save_hint_txt'}</span></p>
 </tmpl_if>
 
 <h2>{tmpl_var name='ban_url_head_txt'}</h2>

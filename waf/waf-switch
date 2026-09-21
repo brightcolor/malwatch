@@ -350,11 +350,9 @@ switch ($command) {
 		if ($sub === 'origin') {
 			$next = (string) array_shift($args);
 			if ($next === 'off' || $next === 'on') {
-				$app->dbmaster->query('UPDATE malwatch_config SET waf_ban_origin = ? WHERE config_id = 1',
-					$next === 'on' ? 'on' : 'off');
-				if ($next === 'off') {
-					// Der Rückweg nimmt auch das sofortige Sperren mit.
-					$app->dbmaster->query("UPDATE malwatch_config SET waf_ban_origin_now = 'off' WHERE config_id = 1");
+				// Als Auftrag, damit das Umschalten in der Liste der Aufträge steht.
+				if (waf_cli_report($waf->execute_now('ban_origin', array('on' => $next), $user)) !== 0) {
+					exit(1);
 				}
 			}
 			$settings = $waf->settings();
