@@ -665,8 +665,7 @@ expect_same('nginx was tested and reloaded', $calls, array('nginx_test', 'nginx_
 expect_same('the address stands in the file',
 	strpos((string) file_get_contents($tmp . '/waf/blocked.conf'), 'deny 192.0.2.50;') !== false, true);
 expect_same('and in the list for the OPNsense',
-	file_get_contents($probe_dir . '/waf/blocked.txt'), "192.0.2.50
-");
+	file_get_contents($probe_dir . '/waf/blocked.txt'), "192.0.2.50\n");
 expect_same('a second run changes nothing', $waf->ban_apply(), array(false, ''));
 // Eine Minute später steht eine andere Zeit im Kopf. Das allein ist keine
 // Änderung: Weder nginx -t noch ein Reload dürfen folgen.
@@ -833,6 +832,47 @@ expect_same('switching the origin off takes the at-once blocking with it', array
 	config_value('waf_ban_origin'), config_value('waf_ban_origin_now')), array('done', 'off', 'off'));
 $waf->ban_apply();
 
+// Ein Vorschlag schützt seine Adresse nicht: Er wird erneuert, und sobald
+// gesperrt werden darf, wird aus ihm eine Sperre - ohne Stufensprung.
+$db->query('DELETE FROM malwatch_waf_ban');
+$db->query('DELETE FROM malwatch_waf_hit');
+$db->query("UPDATE malwatch_config SET waf_ban_mode = 'propose', waf_ban_score = 50, waf_ban_window_minutes = 10, "
+	. "waf_ban_origin = 'off', waf_ban_origin_now = 'off', waf_ban_proposal_days = 7 WHERE config_id = 1");
+$db->query('INSERT INTO malwatch_waf_ban (server_id, ip, state, reason, source, level, created_at, blocked_at, until) '
+	. "VALUES (?, '198.51.100.90', 'proposed', 'alt', 'auto', 1, DATE_SUB(NOW(), INTERVAL 3 DAY), NULL, NULL)", $server);
+for ($i = 0; $i < 11; $i++) {
+	$db->query('INSERT INTO malwatch_waf_hit (server_id, parent_domain_id, domain, unique_id, seen_at, client_ip, '
+		. 'method, uri, path, status, anomaly_score, would_block, logged_in, rules, request_headers) '
+		. "VALUES (?, 11, 'beispiel.test', ?, NOW(), '198.51.100.90', 'GET', '/x', '/x', 404, 5, 'y', 'n', "
+		. "'[]', '{}')", $server, 'probe-renew-' . $i);
+}
+expect_same('an old proposal is renewed by a new wave', $waf->ban_scan(), 1);
+$renewed = $db->queryOneRecord("SELECT state, reason, created_at > DATE_SUB(NOW(), INTERVAL 1 MINUTE) AS fresh "
+	. "FROM malwatch_waf_ban WHERE ip = '198.51.100.90'");
+expect_same('it stays a proposal, now with the numbers of this wave',
+	array($renewed['state'], strpos((string) $renewed['reason'], '55 Punkte aus 11 Treffern') === 0,
+		(int) $renewed['fresh']), array('proposed', true, 1));
+expect_same('a proposal of this window stays quiet', $waf->ban_scan(), 0);
+$db->query("UPDATE malwatch_config SET waf_ban_mode = 'block' WHERE config_id = 1");
+expect_same('once blocking is allowed the proposal becomes a block', $waf->ban_scan(), 1);
+$upgraded = $db->queryOneRecord("SELECT state, level, TIMESTAMPDIFF(MINUTE, blocked_at, until) AS minutes "
+	. "FROM malwatch_waf_ban WHERE ip = '198.51.100.90'");
+expect_same('at level one for one hour, because it was never blocked before',
+	array($upgraded['state'], (int) $upgraded['level'], (int) $upgraded['minutes']), array('active', 1, 60));
+
+// Vorschläge, um die sich niemand kümmert, laufen ab.
+$db->query('INSERT INTO malwatch_waf_ban (server_id, ip, state, reason, source, level, created_at) VALUES '
+	. "(?, '198.51.100.91', 'proposed', 'still', 'auto', 1, DATE_SUB(NOW(), INTERVAL 8 DAY)), "
+	. "(?, '198.51.100.92', 'proposed', 'jung', 'auto', 1, DATE_SUB(NOW(), INTERVAL 2 DAY))", $server, $server);
+$waf->ban_expire();
+expect_same('a quiet proposal older than the set days is gone, a younger one stays', array(
+	count_rows("SELECT ip FROM malwatch_waf_ban WHERE ip = '198.51.100.91'"),
+	count_rows("SELECT ip FROM malwatch_waf_ban WHERE ip = '198.51.100.92'"),
+), array(0, 1));
+$db->query('DELETE FROM malwatch_waf_ban');
+$db->query('DELETE FROM malwatch_waf_hit');
+$waf->ban_apply();
+
 // Der Schlüssel der veröffentlichten Liste.
 $db->query("UPDATE malwatch_config SET waf_ban_token = '' WHERE config_id = 1");
 $waf->queue('ban_mode', array('mode' => 'propose'), 'probe');
@@ -849,8 +889,7 @@ expect_same('the list is empty while nothing is blocked',
 $db->query("UPDATE malwatch_config SET waf_ban_mode = 'block' WHERE config_id = 1");
 
 // Steht die Einbindung der Sperrliste, schreibt das Feld auch das zweite Zugriffslog.
-file_put_contents($tmp . '/conf.d/waf-blocked.conf', 'include ' . $tmp . "/waf/blocked.conf;
-");
+file_put_contents($tmp . '/conf.d/waf-blocked.conf', 'include ' . $tmp . "/waf/blocked.conf;\n");
 $db->query('UPDATE web_domain SET nginx_directives = ? WHERE domain_id = 11', $own);
 $db->query("UPDATE malwatch_site SET waf_state = '', waf_pending_state = '' WHERE parent_domain_id = 11");
 $waf->queue('set_state', array('domain_ids' => array(11), 'state' => 'detect'), 'probe');

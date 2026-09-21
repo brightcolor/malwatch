@@ -678,6 +678,13 @@ expect_same('where it came from', array($ban_view[0]['source_label'], $ban_view[
 	array('automatisch', '930130'));
 expect_same('an address without origin stays empty', $ban_view[1]['origin']['known'], false);
 
+// --- Mehr Zeilen, als die Seite zeigt ------------------------------------------
+
+expect_same('when everything is shown there is no hint', waf_panel_ban_more($wb, 7, 7), '');
+$more = waf_panel_ban_more($wb, 200, 1530);
+expect_same('otherwise the hint names both numbers',
+	array(strpos($more, '200') !== false, strpos($more, '1.530') !== false), array(true, true));
+
 // --- Die Auswahl der Herkunft -------------------------------------------------
 
 $rows = array(

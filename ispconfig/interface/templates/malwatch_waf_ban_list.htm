@@ -113,6 +113,7 @@
 <tmpl_else>
 <p class="mw-sub">{tmpl_var name='ban_none_active_txt'}</p>
 </tmpl_if>
+<tmpl_if name="more_active"><p class="mw-sub">{tmpl_var name='more_active'}</p></tmpl_if>
 
 <h2>{tmpl_var name='ban_state_proposed_txt'}</h2>
 <tmpl_if name="has_proposed">
@@ -153,6 +154,7 @@
 <tmpl_else>
 <p class="mw-sub">{tmpl_var name='ban_none_proposed_txt'}</p>
 </tmpl_if>
+<tmpl_if name="more_proposed"><p class="mw-sub">{tmpl_var name='more_proposed'}</p></tmpl_if>
 
 <h2>{tmpl_var name='ban_allow_head_txt'}</h2>
 <p class="mw-sub">{tmpl_var name='ban_allow_intro_txt'}</p>
@@ -313,6 +315,7 @@
 </table>
 </div>
 </tmpl_if>
+<tmpl_if name="more_past"><p class="mw-sub">{tmpl_var name='more_past'}</p></tmpl_if>
 
 </div>
 

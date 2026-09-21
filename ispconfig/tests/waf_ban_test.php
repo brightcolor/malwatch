@@ -129,8 +129,7 @@ expect_same('the file says where it comes from', substr($file, 0, 22), '# von ma
 expect_same('one line per address', substr_count($file, 'deny '), 2);
 expect_same('a line ends with a semicolon', strpos($file, 'deny 192.0.2.10;') !== false, true);
 expect_same('IPv6 belongs in there too', strpos($file, 'deny 2001:db8::5;') !== false, true);
-expect_same('the file ends with a newline', substr($file, -1), "
-");
+expect_same('the file ends with a newline', substr($file, -1), "\n");
 expect_same('what is no address never reaches nginx',
 	substr_count(waf_ban_file(array('kein-ip', '"; server {', '192.0.2.10'), '2026-09-18 10:00:00', 5000), 'deny '), 1);
 expect_same('the limit holds',
@@ -154,6 +153,51 @@ expect_same('a line without an address',
 expect_same('an empty line', waf_ban_log_line(''), null);
 expect_same('a fragment', waf_ban_log_line('2026-09-18T10:00:01+02:00 192.0.2.10'), null);
 
+// --- Wer schon einen Eintrag hat ------------------------------------------------
+
+$since = '2026-09-21 12:00:00';
+$fresh = array('state' => 'proposed', 'level' => 1, 'created_at' => '2026-09-21 12:05:00',
+	'blocked_at' => null, 'lifted_at' => null);
+$stale = array('state' => 'proposed', 'level' => 1, 'created_at' => '2026-09-18 22:03:02',
+	'blocked_at' => null, 'lifted_at' => null);
+expect_same('a proposal of this window stays quiet while the automatic only proposes',
+	waf_ban_keeps_quiet($fresh, $since, 'proposed'), true);
+expect_same('an older proposal is renewed with the numbers of the new wave',
+	waf_ban_keeps_quiet($stale, $since, 'proposed'), false);
+expect_same('a proposal never shields its address from a block',
+	array(waf_ban_keeps_quiet($fresh, $since, 'active'), waf_ban_keeps_quiet($stale, $since, 'active')),
+	array(false, false));
+expect_same('a running block stays as it is',
+	waf_ban_keeps_quiet(array('state' => 'active', 'level' => 1, 'created_at' => '2026-09-21 11:00:00',
+		'blocked_at' => '2026-09-21 11:00:00', 'lifted_at' => null), $since, 'active'), true);
+expect_same('a dismissed proposal stays quiet for the window, then counts again', array(
+	waf_ban_keeps_quiet(array('state' => 'dismissed', 'level' => 1, 'created_at' => '2026-09-21 12:01:00',
+		'blocked_at' => null, 'lifted_at' => null), $since, 'active'),
+	waf_ban_keeps_quiet(array('state' => 'dismissed', 'level' => 1, 'created_at' => '2026-09-21 11:00:00',
+		'blocked_at' => null, 'lifted_at' => null), $since, 'active'),
+), array(true, false));
+expect_same('a block lifted by hand inside the window stays quiet',
+	waf_ban_keeps_quiet(array('state' => 'lifted', 'level' => 1, 'created_at' => '2026-09-21 11:00:00',
+		'blocked_at' => '2026-09-21 11:00:00', 'lifted_at' => '2026-09-21 12:02:00'), $since, 'active'), true);
+expect_same('an ended block does not', waf_ban_keeps_quiet(array('state' => 'expired', 'level' => 1,
+	'created_at' => '2026-09-21 10:00:00', 'blocked_at' => '2026-09-21 10:00:00', 'lifted_at' => null),
+	$since, 'active'), false);
+expect_same('without an entry nothing keeps quiet', waf_ban_keeps_quiet(null, $since, 'active'), false);
+
+// Die Stufe zählt Sperren, keine Vorschläge.
+expect_same('the first time is level one', waf_ban_next_level(null), 1);
+expect_same('a proposal that becomes a block keeps its level', array(
+	waf_ban_next_level($stale),
+	waf_ban_next_level(array('state' => 'proposed', 'level' => 2, 'blocked_at' => null)),
+), array(1, 2));
+expect_same('a dismissed proposal does not climb either',
+	waf_ban_next_level(array('state' => 'dismissed', 'level' => 1, 'blocked_at' => null)), 1);
+expect_same('an address that was blocked before climbs a level', array(
+	waf_ban_next_level(array('state' => 'expired', 'level' => 1, 'blocked_at' => '2026-09-20 10:00:00')),
+	waf_ban_next_level(array('state' => 'lifted', 'level' => 2, 'blocked_at' => '2026-09-20 10:00:00')),
+	waf_ban_next_level(array('state' => 'expired', 'level' => 3, 'blocked_at' => '2026-09-20 10:00:00')),
+), array(2, 3, 3));
+
 // --- Nur ein neuer Inhalt ist eine Änderung -------------------------------------
 
 // Die erste Zeile trägt die Zeit. Sie allein darf nginx nicht neu laden lassen.
@@ -167,8 +211,7 @@ expect_same('two empty lists at different times are the same',
 	waf_ban_file_same(waf_ban_file(array(), '2026-09-21 16:14:02', 100),
 		waf_ban_file(array(), '2026-09-21 16:15:02', 100)), true);
 expect_same('the fallback text of an empty file counts as empty',
-	waf_ban_file_same("# von malwatch erzeugt, leer
-", waf_ban_file(array(), '2026-09-21 16:15:02', 100)), true);
+	waf_ban_file_same("# von malwatch erzeugt, leer\n", waf_ban_file(array(), '2026-09-21 16:15:02', 100)), true);
 expect_same('a missing file is never the same', waf_ban_file_same('', waf_ban_file(array(), 'x', 100)), false);
 
 // --- Herkunft senkt die Schwelle ----------------------------------------------
@@ -271,16 +314,11 @@ expect_same('the shape of a key is checked', array(
 ), array(true, false, false, false, false, false));
 
 expect_same('the list holds one address per line and ends with a line break',
-	waf_ban_list_text(array('192.0.2.10', '2001:db8::1')), "192.0.2.10
-2001:db8::1
-");
+	waf_ban_list_text(array('192.0.2.10', '2001:db8::1')), "192.0.2.10\n2001:db8::1\n");
 expect_same('doubles go, the rest is sorted',
-	waf_ban_list_text(array('192.0.2.20', '192.0.2.10', '192.0.2.20')), "192.0.2.10
-192.0.2.20
-");
+	waf_ban_list_text(array('192.0.2.20', '192.0.2.10', '192.0.2.20')), "192.0.2.10\n192.0.2.20\n");
 expect_same('what is no address stays out',
-	waf_ban_list_text(array('192.0.2.10', 'kein-ip', '', '192.0.2.300')), "192.0.2.10
-");
+	waf_ban_list_text(array('192.0.2.10', 'kein-ip', '', '192.0.2.300')), "192.0.2.10\n");
 expect_same('an empty list is an empty text', waf_ban_list_text(array()), '');
 
 expect_same('the address names host and key',

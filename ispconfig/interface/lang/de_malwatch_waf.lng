@@ -336,6 +336,7 @@ $wb['ban_origin_col_addresses_txt'] = 'Adressen';
 $wb['ban_origin_save_txt'] = 'Auswahl übernehmen';
 $wb['ban_origin_save_hint_txt'] = 'Speichert Länder und Anbieter zusammen. Was kein Häkchen mehr trägt, fällt aus der Liste.';
 $wb['ban_origin_none_txt'] = 'In diesem Zeitraum gab es keine Treffer mit bekannter Herkunft.';
+$wb['ban_more_txt'] = 'Gezeigt werden %1$s von %2$s. Wie viele es sind, stellst du unter Abwehr > Einstellungen ein.';
 $wb['ban_url_head_txt'] = 'Liste für die Firewall';
 $wb['ban_url_intro_txt'] = 'Die gesperrten Adressen stehen unter einer eigenen Adresse bereit, eine Adresse je Zeile. Die OPNsense holt sie als Alias „URL Table (IPs)" und sperrt damit an der Kante, bevor die Anfragen den Webserver erreichen.';
 $wb['ban_url_label_txt'] = 'Adresse der Liste';

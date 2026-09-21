@@ -227,6 +227,22 @@
 </div>
 
 <div class="form-group">
+	<label for="waf_ban_proposal_days" class="col-sm-3 control-label">{tmpl_var name='waf_ban_proposal_days_txt'}</label>
+	<div class="col-sm-9">
+		<input type="number" min="1" max="365" step="1" name="waf_ban_proposal_days" id="waf_ban_proposal_days" value="{tmpl_var name='waf_ban_proposal_days'}" class="form-control mw-wafcfg-num" />
+		<span class="help-block">{tmpl_var name='waf_ban_proposal_days_hint_txt'}</span>
+	</div>
+</div>
+
+<div class="form-group">
+	<label for="waf_ban_page_rows" class="col-sm-3 control-label">{tmpl_var name='waf_ban_page_rows_txt'}</label>
+	<div class="col-sm-9">
+		<input type="number" min="20" max="5000" step="1" name="waf_ban_page_rows" id="waf_ban_page_rows" value="{tmpl_var name='waf_ban_page_rows'}" class="form-control mw-wafcfg-num" />
+		<span class="help-block">{tmpl_var name='waf_ban_page_rows_hint_txt'}</span>
+	</div>
+</div>
+
+<div class="form-group">
 	<label for="waf_ban_bots" class="col-sm-3 control-label">{tmpl_var name='waf_ban_bots_txt'}</label>
 	<div class="col-sm-9">
 		<select name="waf_ban_bots" id="waf_ban_bots" class="form-control">{tmpl_var name='waf_ban_bots'}</select>

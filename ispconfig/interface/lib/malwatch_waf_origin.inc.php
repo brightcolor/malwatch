@@ -687,8 +687,7 @@ function waf_origin_read_bots($in, $out)
 				$bad++;
 				continue;
 			}
-			fwrite($handle, $cidr . "
-");
+			fwrite($handle, $cidr . "\n");
 			$found++;
 		}
 	}

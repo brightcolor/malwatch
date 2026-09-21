@@ -59,9 +59,25 @@ $app->tpl->setLoop('jobs', $job_rows);
 $app->tpl->setVar('has_jobs', count($job_rows) > 0 ? 1 : 0);
 $app->tpl->setVar('first_job', $first_job);
 
-$all = waf_panel_rows($app->db->queryAllRecords(
-	"SELECT * FROM malwatch_waf_ban ORDER BY FIELD(state, 'active', 'proposed', 'expired', 'lifted', 'dismissed'), "
-	. 'until IS NULL DESC, until, ip'));
+// Jeder Abschnitt zeigt höchstens waf_ban_page_rows Zeilen: die Sperren nach
+// ihrem Ende, die Vorschläge mit den meisten Punkten zuerst, das Beendete mit dem
+// jüngsten zuerst. Gezählt wird alles.
+$rows_per = (int) $settings['waf_ban_page_rows'];
+$all = array();
+foreach (array(
+	"SELECT * FROM malwatch_waf_ban WHERE state = 'active' ORDER BY until IS NULL DESC, until, ip LIMIT ?",
+	"SELECT * FROM malwatch_waf_ban WHERE state = 'proposed' ORDER BY score DESC, created_at DESC LIMIT ?",
+	"SELECT * FROM malwatch_waf_ban WHERE state IN ('expired','lifted','dismissed') "
+		. 'ORDER BY COALESCE(lifted_at, until, created_at) DESC LIMIT ?',
+) as $sql) {
+	$all = array_merge($all, waf_panel_rows($app->db->queryAllRecords($sql, $rows_per)));
+}
+$totals = array('active' => 0, 'proposed' => 0, 'past' => 0);
+foreach (waf_panel_rows($app->db->queryAllRecords('SELECT state, COUNT(*) AS n FROM malwatch_waf_ban GROUP BY state'))
+	as $row) {
+	$section = in_array((string) $row['state'], array('active', 'proposed'), true) ? (string) $row['state'] : 'past';
+	$totals[$section] += (int) $row['n'];
+}
 $origins = waf_panel_origin_lookup($app, array_column($all, 'ip'));
 $view = waf_panel_ban_rows($wb, $all, $origins, $clock['now'], $language);
 
@@ -99,7 +115,10 @@ $app->tpl->setVar('has_active', count($active) > 0 ? 1 : 0);
 $app->tpl->setVar('has_proposed', count($proposed) > 0 ? 1 : 0);
 $app->tpl->setVar('has_past', count($past) > 0 ? 1 : 0);
 $app->tpl->setVar('ban_count', $app->functions->htmlentities(sprintf($wb['ban_count_txt'],
-	number_format(count($active), 0, ',', '.'))));
+	number_format($totals['active'], 0, ',', '.'))));
+foreach (array('active' => count($active), 'proposed' => count($proposed), 'past' => count($past)) as $section => $shown) {
+	$app->tpl->setVar('more_' . $section, $app->functions->htmlentities(waf_panel_ban_more($wb, $shown, $totals[$section])));
+}
 
 $allow_rows = array();
 foreach (waf_panel_rows($app->db->queryAllRecords('SELECT * FROM malwatch_waf_allow ORDER BY cidr')) as $row) {
@@ -167,7 +186,7 @@ $app->tpl->setVar('origin_days', $app->functions->htmlentities(sprintf(
 // des Rechners.
 $host = isset($_SERVER['HTTP_HOST']) && (string) $_SERVER['HTTP_HOST'] !== ''
 	? (string) $_SERVER['HTTP_HOST'] : (string) php_uname('n');
-$url = waf_panel_ban_url($wb, $settings, $host, count($active));
+$url = waf_panel_ban_url($wb, $settings, $host, $totals['active']);
 $app->tpl->setVar('ban_url', $app->functions->htmlentities($url['url']));
 $app->tpl->setVar('has_ban_url', $url['has_url']);
 $app->tpl->setVar('ban_url_count', $app->functions->htmlentities($url['count']));

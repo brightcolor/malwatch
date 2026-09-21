@@ -2,6 +2,36 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.25.3] – 2026-09-21
+
+### Behoben
+
+**Ein Vorschlag schützte seine Adresse vor jeder Sperre.** Hatte eine Adresse
+einmal einen Vorschlag, bewertete die Automatik sie nie wieder, und Vorschläge
+liefen nie ab. Auf web.herkules kamen 39 von 137 vorgeschlagenen Adressen mit
+zusammen 15.266 Treffern zurück, ohne dass sich etwas tat; nach dem Umstellen auf
+„sperren" oder mit „sofort sperren" wäre keine davon gesperrt worden.
+
+Jetzt gilt:
+
+- Darf gesperrt werden, wird aus einem Vorschlag eine Sperre. Die Stufe zählt
+  Sperren: Eine Adresse, die nie gesperrt war, beginnt bei der ersten Stufe.
+- Kommt eine Adresse im Vorschlagsmodus mit einer neuen Welle zurück, wird ihr
+  Vorschlag mit den neuen Zahlen erneuert.
+- Ein Vorschlag, um den sich niemand kümmert, fällt weg, wenn seine Adresse
+  ruhig bleibt: neue Einstellung „Vorschläge aufbewahren (Tage)", Vorgabe 7.
+
+**Die Seite „Sperren" lädt nicht mehr alles.** Jeder Abschnitt zeigt höchstens so
+viele Zeilen, wie eingestellt ist (neue Einstellung, Vorgabe 200), die
+Vorschläge mit den meisten Punkten zuerst; darunter steht, wie viele es insgesamt
+sind.
+
+**Zeilenumbrüche in Zeichenketten.** An 22 Stellen stand ein echter Zeilenumbruch
+in einer Zeichenkette statt der Escape-Folge, darunter im Vergleich der
+Sperrdatei aus 0.25.2. Mit Windows-Zeilenenden wäre dort der minütliche Reload
+zurückgekommen. Alle Stellen sind umgestellt, und eine neue Prüfung in CI
+verhindert, dass das wiederkommt.
+
 ## [0.25.2] – 2026-09-21
 
 ### Behoben

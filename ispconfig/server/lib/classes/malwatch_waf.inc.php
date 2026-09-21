@@ -1200,7 +1200,7 @@ class malwatch_waf
 		}
 		$known = array();
 		foreach ($this->rows($app->dbmaster->queryAllRecords(
-			'SELECT ip, state, level, created_at, lifted_at FROM malwatch_waf_ban WHERE server_id = ?',
+			'SELECT ip, state, level, created_at, blocked_at, lifted_at FROM malwatch_waf_ban WHERE server_id = ?',
 			$conf['server_id'])) as $row) {
 			$known[(string) $row['ip']] = $row;
 		}
@@ -1214,30 +1214,35 @@ class malwatch_waf
 		$full = false;
 		foreach ($picked as $pick) {
 			$ip = $pick['ip'];
-			if (isset($known[$ip]) && $this->ban_keeps_quiet($known[$ip], $since)) {
-				continue;
-			}
-			if (waf_ban_allowed($ip, $allow, $reader)) {
-				continue;
-			}
-			$top = waf_ban_top_rule($this->rows($app->dbmaster->queryAllRecords(
-				'SELECT rules FROM malwatch_waf_hit WHERE server_id = ? AND client_ip = ? AND seen_at >= ? LIMIT 200',
-				$conf['server_id'], $ip, $since)));
-			$level = waf_ban_level(isset($known[$ip]) ? (int) $known[$ip]['level'] : 0);
+			$earlier = isset($known[$ip]) ? $known[$ip] : null;
 			// Eine auffällige Herkunft darf sperren, während sonst nur vorgeschlagen
 			// wird - das ist ein eigener Schalter und steht von Haus aus aus.
 			$at_once = waf_ban_origin_at_once(isset($pick['origin']) ? $pick['origin'] : '', $settings);
 			$state = ($mode === 'block' || $at_once) ? 'active' : 'proposed';
 			// A full list takes no new block. The address becomes a proposal, so it
 			// stays visible, and the addresses after it are still looked at.
-			if ($state === 'active' && $active >= (int) $settings['waf_ban_max']) {
-				if (!$full) {
-					$app->log('malwatch: die Sperrliste ist voll (' . (int) $settings['waf_ban_max']
-						. ' Adressen); weitere Adressen werden nur vorgeschlagen, ' . $ip . ' als erste.', LOGLEVEL_WARN);
-					$full = true;
-				}
+			$downgraded = $state === 'active' && $active >= (int) $settings['waf_ban_max'];
+			if ($downgraded) {
 				$state = 'proposed';
 			}
+			// What the address would become decides: an older proposal never shields
+			// it from a block, and a new wave renews it with fresh numbers.
+			if (waf_ban_keeps_quiet($earlier, $since, $state)) {
+				continue;
+			}
+			if (waf_ban_allowed($ip, $allow, $reader)) {
+				continue;
+			}
+			if ($downgraded && !$full) {
+				$app->log('malwatch: die Sperrliste ist voll (' . (int) $settings['waf_ban_max']
+					. ' Adressen); weitere Adressen werden nur vorgeschlagen, ' . $ip . ' als erste.', LOGLEVEL_WARN);
+				$full = true;
+			}
+			$top = waf_ban_top_rule($this->rows($app->dbmaster->queryAllRecords(
+				'SELECT rules FROM malwatch_waf_hit WHERE server_id = ? AND client_ip = ? AND seen_at >= ? LIMIT 200',
+				$conf['server_id'], $ip, $since)));
+			// The level counts blocks; a proposal that becomes one keeps its level.
+			$level = waf_ban_next_level($earlier);
 			$app->dbmaster->query('INSERT INTO malwatch_waf_ban (server_id, ip, state, reason, rule, score, hits, '
 				. 'level, source, created_at, blocked_at, until, lifted_at, lifted_by, denied, denied_at) '
 				. "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'auto', ?, ?, ?, NULL, '', 0, NULL) "
@@ -1257,23 +1262,6 @@ class malwatch_waf
 		}
 		waf_origin_readers_close($readers);
 		return $written;
-	}
-
-	/**
-	 * true when an address is left alone: it carries a running block or a waiting
-	 * proposal, or its proposal was dismissed or its block lifted inside the
-	 * window — then the decision of the operator counts, not the counter.
-	 */
-	private function ban_keeps_quiet($row, $since)
-	{
-		$state = (string) $row['state'];
-		if ($state === 'proposed' || $state === 'active') {
-			return true;
-		}
-		if ($state === 'dismissed') {
-			return (string) $row['created_at'] >= (string) $since;
-		}
-		return $state === 'lifted' && (string) $row['lifted_at'] >= (string) $since;
 	}
 
 	/**
@@ -1403,6 +1391,11 @@ class malwatch_waf
 		$app->dbmaster->query("UPDATE malwatch_waf_ban SET state = 'expired' WHERE server_id = ? "
 			. "AND state = 'active' AND until IS NOT NULL AND until <= ?", $conf['server_id'], $now);
 		$ended = (int) $app->dbmaster->affectedRows();
+		// A proposal nobody acted on ends once its address stays quiet for the set
+		// days; a scanner that keeps coming renews it and so keeps it.
+		$app->dbmaster->query("DELETE FROM malwatch_waf_ban WHERE server_id = ? AND state = 'proposed' "
+			. 'AND created_at < ?', $conf['server_id'],
+			date('Y-m-d H:i:s', strtotime($now) - (int) $settings['waf_ban_proposal_days'] * 86400));
 		$keep = date('Y-m-d H:i:s', strtotime($now) - (int) $settings['waf_ban_keep_days'] * 86400);
 		$app->dbmaster->query("DELETE FROM malwatch_waf_ban WHERE server_id = ? "
 			. "AND state IN ('expired','lifted','dismissed') AND COALESCE(lifted_at, until, created_at) < ?",

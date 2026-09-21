@@ -321,6 +321,28 @@ $form['tabs']['waf'] = array(
 			'width' => '10',
 			'maxlength' => '3'
 		),
+		'waf_ban_proposal_days' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '7',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '1:365', 'errmsg' => 'waf_ban_proposal_days_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '3'
+		),
+		'waf_ban_page_rows' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '200',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '20:5000', 'errmsg' => 'waf_ban_page_rows_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '4'
+		),
 		'waf_ban_bots' => array(
 			'datatype' => 'VARCHAR',
 			'formtype' => 'SELECT',

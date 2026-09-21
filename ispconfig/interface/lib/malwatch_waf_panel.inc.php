@@ -1433,6 +1433,19 @@ function waf_panel_ban_url($wb, $settings, $host, $count)
 }
 
 /**
+ * The line under a section of the page „Sperren" that shows fewer rows than
+ * there are, or '' when every row is shown.
+ */
+function waf_panel_ban_more($wb, $shown, $total)
+{
+	if ((int) $total <= (int) $shown) {
+		return '';
+	}
+	return sprintf(waf_panel_text($wb, 'ban_more_txt', '%1$s / %2$s'),
+		number_format((int) $shown, 0, ',', '.'), number_format((int) $total, 0, ',', '.'));
+}
+
+/**
  * The rows of the page „Sperren": state, reason, end, turned away requests and
  * the origin of the address, ready for the template.
  */

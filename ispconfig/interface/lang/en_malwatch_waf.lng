@@ -336,6 +336,7 @@ $wb['ban_origin_col_addresses_txt'] = 'Addresses';
 $wb['ban_origin_save_txt'] = 'Take over the choice';
 $wb['ban_origin_save_hint_txt'] = 'Saves countries and providers together. What carries no tick any more leaves the list.';
 $wb['ban_origin_none_txt'] = 'In this period there were no hits with a known origin.';
+$wb['ban_more_txt'] = 'Showing %1$s of %2$s. The number is set under Abwehr > Einstellungen.';
 $wb['ban_url_head_txt'] = 'List for the firewall';
 $wb['ban_url_intro_txt'] = 'The blocked addresses stand ready under an address of their own, one address per line. The OPNsense fetches them as an alias of the type "URL Table (IPs)" and blocks at the edge, before the requests reach the web server.';
 $wb['ban_url_label_txt'] = 'Address of the list';

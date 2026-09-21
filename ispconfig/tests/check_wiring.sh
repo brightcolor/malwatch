@@ -1582,6 +1582,23 @@ for tpl in "$root"/interface/templates/*.htm; do
 	done
 done
 
+# 85. Vorschlaege laufen ab, und die Seite zeigt je Abschnitt begrenzt viele
+#     Zeilen. Beides sind Einstellungen mit Spalte, Vorgabe und Feld; und ein
+#     Vorschlag darf eine Adresse nie vor einer Sperre schuetzen.
+for col in waf_ban_proposal_days waf_ban_page_rows; do
+	grep -q "ADD COLUMN \`$col\`" "$root/install/schema.sql" 		|| fail "malwatch_config bekommt keine Spalte $col"
+	grep -q "'$col' =>" "$root/interface/lib/malwatch_waf_lib.inc.php" 		|| fail "waf_settings_defaults() kennt $col nicht"
+	grep -q "name=\"$col\"" "$root/interface/templates/malwatch_waf_config_edit.htm" 		|| fail "die Einstellungsseite hat kein Feld $col"
+done
+class="$root/server/lib/classes/malwatch_waf.inc.php"
+if [ -f "$class" ]; then
+	grep -q "waf_ban_keeps_quiet(\$earlier, \$since, \$state)" "$class" 		|| fail "ban_scan() fragt nicht, was die Adresse werden wuerde, bevor es sie ruhen laesst"
+	grep -q "state = 'proposed' \"" "$class" 		|| fail "ban_expire() laesst Vorschlaege nie ablaufen"
+fi
+if grep -q "LIMIT ?" "$root/interface/malwatch_waf_ban_list.php"; then :; else
+	fail "die Seite Sperren laedt ihre Abschnitte ohne Grenze"
+fi
+
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'
 fi

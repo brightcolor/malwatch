@@ -61,6 +61,8 @@ jobs:
         run: php ispconfig/tests/waf_proxycheck_test.php
       - name: WAF ban
         run: php ispconfig/tests/waf_ban_test.php
+      - name: No raw line breaks in strings
+        run: php ispconfig/tests/string_breaks_test.php
       - name: WAF tools
         run: |
           php -l waf/waf-switch

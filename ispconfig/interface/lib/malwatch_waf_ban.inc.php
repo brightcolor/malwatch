@@ -175,6 +175,50 @@ function waf_ban_level($earlier)
 	return $earlier === 1 ? 2 : 3;
 }
 
+/**
+ * true when an address with an entry is left alone this pass. $state is what the
+ * new pick would become. A running block stays as it is. A proposal never
+ * shields its address from a block, and in propose mode it is renewed with the
+ * numbers of a new wave once it is older than the window - otherwise a scanner
+ * that returns would keep the reason of its first visit forever. A dismissed
+ * proposal and a block lifted by hand stay quiet for the window: then the
+ * decision of the operator counts, not the counter.
+ */
+function waf_ban_keeps_quiet($row, $since, $state)
+{
+	if (!is_array($row)) {
+		return false;
+	}
+	$was = isset($row['state']) ? (string) $row['state'] : '';
+	if ($was === 'active') {
+		return true;
+	}
+	if ($was === 'proposed') {
+		return (string) $state === 'proposed' && (string) $row['created_at'] >= (string) $since;
+	}
+	if ($was === 'dismissed') {
+		return (string) $row['created_at'] >= (string) $since;
+	}
+	return $was === 'lifted' && (string) $row['lifted_at'] >= (string) $since;
+}
+
+/**
+ * The level of the next block of an address. It counts blocks: an address that
+ * was never blocked (a proposal, a dismissed one) keeps its level, one that was
+ * blocked before climbs.
+ */
+function waf_ban_next_level($row)
+{
+	if (!is_array($row)) {
+		return 1;
+	}
+	$level = isset($row['level']) ? (int) $row['level'] : 0;
+	if (!isset($row['blocked_at']) || $row['blocked_at'] === null || (string) $row['blocked_at'] === '') {
+		return max(1, $level);
+	}
+	return waf_ban_level($level);
+}
+
 /** The hours a block of that level lasts. */
 function waf_ban_hours($level, $settings)
 {
@@ -297,8 +341,7 @@ function waf_ban_file_same($have, $want)
 	}
 	$lines = function ($text) {
 		$kept = array();
-		foreach (explode("
-", (string) $text) as $line) {
+		foreach (explode("\n", (string) $text) as $line) {
 			$line = trim($line);
 			if ($line !== '' && $line[0] !== '#') {
 				$kept[] = $line;

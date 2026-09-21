@@ -327,11 +327,9 @@ switch ($command) {
 			foreach (is_array($rows) ? $rows : array() as $row) {
 				$counts[(string) $row['state']] = (int) $row['n'];
 			}
-			printf("Automatik: %s, Schwelle: %d Punkte in %d Minuten
-", $settings['waf_ban_mode'],
+			printf("Automatik: %s, Schwelle: %d Punkte in %d Minuten\n", $settings['waf_ban_mode'],
 				$settings['waf_ban_score'], $settings['waf_ban_window_minutes']);
-			printf("gesperrt: %d, Vorschläge: %d, beendet: %d
-", isset($counts['active']) ? $counts['active'] : 0,
+			printf("gesperrt: %d, Vorschläge: %d, beendet: %d\n", isset($counts['active']) ? $counts['active'] : 0,
 				isset($counts['proposed']) ? $counts['proposed'] : 0,
 				(isset($counts['expired']) ? $counts['expired'] : 0) + (isset($counts['lifted']) ? $counts['lifted'] : 0));
 			exit(0);
@@ -340,8 +338,7 @@ switch ($command) {
 			$rows = $app->dbmaster->queryAllRecords('SELECT ip, state, until, denied, reason FROM malwatch_waf_ban '
 				. "WHERE server_id = ? AND state IN ('active','proposed') ORDER BY state, ip", $conf['server_id']);
 			foreach (is_array($rows) ? $rows : array() as $row) {
-				printf("%-40s %-9s %-19s %6d  %s
-", $row['ip'], $row['state'],
+				printf("%-40s %-9s %-19s %6d  %s\n", $row['ip'], $row['state'],
 					$row['until'] === null ? 'dauerhaft' : (string) $row['until'], (int) $row['denied'],
 					waf_cut((string) $row['reason'], 80));
 			}
@@ -356,23 +353,17 @@ switch ($command) {
 				}
 			}
 			$settings = $waf->settings();
-			printf("Herkunft schärfer bewerten: %s, sofort sperren: %s
-",
+			printf("Herkunft schärfer bewerten: %s, sofort sperren: %s\n",
 				$settings['waf_ban_origin'], $settings['waf_ban_origin_now']);
-			printf("Eigene Schwelle: %d Punkte, Faktor: %d Prozent
-",
+			printf("Eigene Schwelle: %d Punkte, Faktor: %d Prozent\n",
 				$settings['waf_ban_origin_score'], $settings['waf_ban_origin_factor']);
 			$countries = waf_ban_origin_countries($settings['waf_ban_origin_countries']);
 			$asns = waf_ban_origin_asns($settings['waf_ban_origin_asn']);
-			printf("Länder: %s
-", count($countries) > 0 ? implode(', ', $countries) : 'keine');
-			printf("Anbieter: %s
-", count($asns) > 0 ? 'AS' . implode(', AS', $asns) : 'keine');
-			printf("Rechenzentrum: %s, VPN: %s, Tor: %s
-", $settings['waf_ban_origin_hosting'],
+			printf("Länder: %s\n", count($countries) > 0 ? implode(', ', $countries) : 'keine');
+			printf("Anbieter: %s\n", count($asns) > 0 ? 'AS' . implode(', AS', $asns) : 'keine');
+			printf("Rechenzentrum: %s, VPN: %s, Tor: %s\n", $settings['waf_ban_origin_hosting'],
 				$settings['waf_ban_origin_vpn'], $settings['waf_ban_origin_tor']);
-			echo "Die Listen werden im Panel gepflegt: Security > Abwehr > Sperren.
-";
+			echo "Die Listen werden im Panel gepflegt: Security > Abwehr > Sperren.\n";
 			exit(0);
 		}
 		if ($sub === 'url') {
@@ -391,18 +382,14 @@ switch ($command) {
 			$url = waf_ban_list_url($host, $token);
 			if ($url === '') {
 				fwrite(STDERR, "Für diesen Namen lässt sich keine Adresse bilden. Bitte den Namen angeben, unter "
-					. "dem das Panel erreichbar ist: waf-switch ban url <name>
-");
+					. "dem das Panel erreichbar ist: waf-switch ban url <name>\n");
 				exit(1);
 			}
 			$rows = $app->dbmaster->queryAllRecords("SELECT ip FROM malwatch_waf_ban WHERE server_id = ? "
 				. "AND state = 'active' AND source IN ('auto','manual')", $conf['server_id']);
-			printf("Adresse: %s
-", $url);
-			printf("Adressen in der Liste: %d
-", count(is_array($rows) ? $rows : array()));
-			echo "Anderer Name des Panels: waf-switch ban url <name>
-";
+			printf("Adresse: %s\n", $url);
+			printf("Adressen in der Liste: %d\n", count(is_array($rows) ? $rows : array()));
+			echo "Anderer Name des Panels: waf-switch ban url <name>\n";
 			exit(0);
 		}
 		if ($sub === 'off' || $sub === 'propose' || $sub === 'on') {
@@ -436,8 +423,7 @@ switch ($command) {
 			exit(waf_cli_report($waf->execute_now('ban_allow_add',
 				array('cidr' => $cidr, 'note' => $note), $user)));
 		}
-		fwrite(STDERR, "ban status|off|propose|on|list|add <ip>|lift <ip|--all>|allow <cidr>|url [new]|origin [on|off]
-");
+		fwrite(STDERR, "ban status|off|propose|on|list|add <ip>|lift <ip|--all>|allow <cidr>|url [new]|origin [on|off]\n");
 		exit(2);
 
 	case 'ingest':
