@@ -873,6 +873,41 @@ $db->query('DELETE FROM malwatch_waf_ban');
 $db->query('DELETE FROM malwatch_waf_hit');
 $waf->ban_apply();
 
+// Von Hand sperren zählt Sperren, keine Vorschläge; und eine Sperre endet im
+// Minutentakt, nicht erst zur nächsten Minute 07.
+$db->query('DELETE FROM malwatch_waf_ban');
+$db->query('DELETE FROM malwatch_waf_hit');
+$db->query("UPDATE malwatch_config SET waf_ban_mode = 'propose', waf_ban_hours_first = 1, waf_ban_hours_second = 24 "
+	. 'WHERE config_id = 1');
+$db->query('INSERT INTO malwatch_waf_ban (server_id, ip, state, reason, source, level, created_at, blocked_at, until) '
+	. "VALUES (?, '198.51.100.93', 'proposed', 'neu', 'auto', 1, NOW(), NULL, NULL), "
+	. "(?, '198.51.100.94', 'expired', 'früher', 'auto', 1, DATE_SUB(NOW(), INTERVAL 3 HOUR), "
+	. 'DATE_SUB(NOW(), INTERVAL 3 HOUR), DATE_SUB(NOW(), INTERVAL 2 HOUR))', $server, $server);
+$waf->queue('ban_add', array('ip' => '198.51.100.93'), 'probe');
+$waf->queue('ban_add', array('ip' => '198.51.100.94'), 'probe');
+$waf->pass();
+$by_hand = function ($ip) use ($db) {
+	$row = $db->queryOneRecord('SELECT state, level, TIMESTAMPDIFF(MINUTE, blocked_at, until) AS minutes '
+		. 'FROM malwatch_waf_ban WHERE ip = ?', $ip);
+	return array($row['state'], (int) $row['level'], (int) $row['minutes']);
+};
+expect_same('a proposal blocked by hand starts at level one, for one hour',
+	$by_hand('198.51.100.93'), array('active', 1, 60));
+expect_same('an address blocked before climbs to level two, for a day',
+	$by_hand('198.51.100.94'), array('active', 2, 1440));
+$db->query("UPDATE malwatch_waf_ban SET until = DATE_SUB(NOW(), INTERVAL 1 MINUTE) WHERE ip = '198.51.100.93'");
+$calls = array();
+$waf->cron_minute();
+expect_same('the pass of the minute ends the block that is due',
+	$db->queryOneRecord("SELECT state FROM malwatch_waf_ban WHERE ip = '198.51.100.93'")['state'], 'expired');
+expect_same('and takes it out of the file for nginx at once', array(
+	strpos((string) file_get_contents($tmp . '/waf/blocked.conf'), 'deny 198.51.100.93;'),
+	strpos((string) file_get_contents($tmp . '/waf/blocked.conf'), 'deny 198.51.100.94;') !== false,
+	in_array('nginx_reload', $calls, true),
+), array(false, true, true));
+$db->query('DELETE FROM malwatch_waf_ban');
+$waf->ban_apply();
+
 // Der Schlüssel der veröffentlichten Liste.
 $db->query("UPDATE malwatch_config SET waf_ban_token = '' WHERE config_id = 1");
 $waf->queue('ban_mode', array('mode' => 'propose'), 'probe');

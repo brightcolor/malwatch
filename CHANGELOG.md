@@ -2,6 +2,25 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.25.4] – 2026-09-22
+
+### Behoben
+
+**Von Hand sperren sprang eine Stufe zu weit.** „jetzt sperren" an einem
+Vorschlag und `waf-switch ban add` rechneten die Stufe noch auf die alte Art: Eine
+Adresse, die nie gesperrt war, bekam 24 Stunden statt einer, eine zweite Sperre
+sieben Tage statt 24 Stunden. Jetzt gilt dieselbe Regel wie für die Automatik —
+die Stufe zählt Sperren, keine Vorschläge.
+
+**Sperren endeten bis zu 59 Minuten zu spät.** Abgelaufene Sperren wurden nur zur
+Minute 07 jeder Stunde beendet; eine Stundensperre konnte fast zwei Stunden
+dauern, in nginx wie in der Liste für die Firewall. Das Beenden läuft jetzt jede
+Minute, direkt vor dem Schreiben der Sperrdatei.
+
+**`waf-switch ban list` zeigte Vorschläge als „dauerhaft".** Ein Vorschlag hat
+kein Ende; die Spalte zeigt dort jetzt „-", und „dauerhaft" steht nur noch bei
+Sperren ohne Ende.
+
 ## [0.25.3] – 2026-09-21
 
 ### Behoben

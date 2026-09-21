@@ -219,6 +219,18 @@ function waf_ban_next_level($row)
 	return waf_ban_level($level);
 }
 
+/**
+ * The end of an entry as waf-switch ban list prints it. A proposal has no end;
+ * only a block without one is permanent.
+ */
+function waf_ban_cli_until($row)
+{
+	if (isset($row['state']) && (string) $row['state'] === 'proposed') {
+		return '-';
+	}
+	return isset($row['until']) && $row['until'] !== null ? (string) $row['until'] : 'dauerhaft';
+}
+
 /** The hours a block of that level lasts. */
 function waf_ban_hours($level, $settings)
 {

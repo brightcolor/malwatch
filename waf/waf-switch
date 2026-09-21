@@ -339,7 +339,7 @@ switch ($command) {
 				. "WHERE server_id = ? AND state IN ('active','proposed') ORDER BY state, ip", $conf['server_id']);
 			foreach (is_array($rows) ? $rows : array() as $row) {
 				printf("%-40s %-9s %-19s %6d  %s\n", $row['ip'], $row['state'],
-					$row['until'] === null ? 'dauerhaft' : (string) $row['until'], (int) $row['denied'],
+					waf_ban_cli_until($row), (int) $row['denied'],
 					waf_cut((string) $row['reason'], 80));
 			}
 			exit(0);

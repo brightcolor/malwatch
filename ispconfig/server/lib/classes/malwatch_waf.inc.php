@@ -635,6 +635,8 @@ class malwatch_waf
 			$this->origin_external();
 			$this->ban_scan();
 			$this->ban_count();
+			// Every minute: a block ends when it is due, not at the next hourly pass.
+			$this->ban_expire();
 			$this->ban_apply();
 			$this->run_jobs();
 		} catch (Throwable $e) {
@@ -653,7 +655,6 @@ class malwatch_waf
 		}
 		try {
 			$this->cleanup();
-			$this->ban_expire();
 			$this->queue_origin_update();
 		} catch (Throwable $e) {
 			$app->log('malwatch: the WAF cleanup failed: ' . $e->getMessage(), LOGLEVEL_WARN);
@@ -1556,9 +1557,11 @@ class malwatch_waf
 					return $this->finish($job, false, 'Diese Adresse steht unter „Nie sperren" oder gehört zum '
 						. 'Server selbst. Erst den Eintrag dort entfernen, dann sperren.');
 				}
-				$row = $app->dbmaster->queryOneRecord(
-					'SELECT level FROM malwatch_waf_ban WHERE server_id = ? AND ip = ?', $conf['server_id'], $ip);
-				$level = waf_ban_level(is_array($row) ? (int) $row['level'] : 0);
+				$row = $app->dbmaster->queryOneRecord('SELECT state, level, blocked_at FROM malwatch_waf_ban '
+					. 'WHERE server_id = ? AND ip = ?', $conf['server_id'], $ip);
+				// Same rule as the automatic: the level counts blocks, so a proposal
+				// blocked by hand starts where its block would have started.
+				$level = waf_ban_next_level(is_array($row) ? $row : null);
 				$permanent = isset($options['permanent']) && (string) $options['permanent'] === 'y';
 				$until = $permanent ? null : waf_ban_until($level, $settings, $now);
 				$app->dbmaster->query('INSERT INTO malwatch_waf_ban (server_id, ip, state, reason, rule, score, '

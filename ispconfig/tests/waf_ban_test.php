@@ -198,6 +198,15 @@ expect_same('an address that was blocked before climbs a level', array(
 	waf_ban_next_level(array('state' => 'expired', 'level' => 3, 'blocked_at' => '2026-09-20 10:00:00')),
 ), array(2, 3, 3));
 
+// --- Das Ende in der Liste der Kommandozeile ----------------------------------
+
+expect_same('a proposal has no end to show',
+	waf_ban_cli_until(array('state' => 'proposed', 'until' => null)), '-');
+expect_same('a block without end is permanent',
+	waf_ban_cli_until(array('state' => 'active', 'until' => null)), 'dauerhaft');
+expect_same('a block with an end shows it',
+	waf_ban_cli_until(array('state' => 'active', 'until' => '2026-09-25 15:25:02')), '2026-09-25 15:25:02');
+
 // --- Nur ein neuer Inhalt ist eine Änderung -------------------------------------
 
 // Die erste Zeile trägt die Zeit. Sie allein darf nginx nicht neu laden lassen.

@@ -1599,6 +1599,18 @@ if grep -q "LIMIT ?" "$root/interface/malwatch_waf_ban_list.php"; then :; else
 	fail "die Seite Sperren laedt ihre Abschnitte ohne Grenze"
 fi
 
+# 86. Eine Sperre endet im Minutentakt, und wer von Hand sperrt, bekommt dieselbe
+#     Stufe wie die Automatik: Beides lief bis 0.25.3 anders.
+class="$root/server/lib/classes/malwatch_waf.inc.php"
+if [ -f "$class" ]; then
+	minute=$(sed -n '/public function cron_minute/,/^	}/p' "$class")
+	printf '%s
+' "$minute" | grep -q 'ban_expire()' 		|| fail "cron_minute() beendet faellige Sperren nicht; sie blieben bis zum Stundenlauf stehen"
+	printf '%s
+' "$minute" | awk '/ban_expire\(\)/ {e = NR} /ban_apply\(\)/ {a = NR} END {exit !(e > 0 && e < a)}' 		|| fail "cron_minute() ruft ban_expire() nicht vor ban_apply() auf"
+	sed -n "/case 'ban_add':/,/break;/p" "$class" | grep -q 'waf_ban_next_level(' 		|| fail "ban_add rechnet die Stufe anders als die Automatik"
+fi
+
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'
 fi
