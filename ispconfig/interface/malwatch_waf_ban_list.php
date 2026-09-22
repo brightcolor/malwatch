@@ -198,17 +198,20 @@ $app->tpl->setVar('ban_window_now', $app->functions->htmlentities(number_format(
 // Herkunft: Länder und Anbieter aus den gespeicherten Treffern, die Häufigsten
 // zuerst. Treffer leben waf_detail_days lang; weiter zurück reicht keine Zahl.
 $days = (int) $settings['waf_detail_days'];
+// The hits are counted per address first, and only those few thousand rows meet
+// malwatch_waf_ip. Joined hit by hit, MariaDB read the whole index of the hits
+// once per address: 8 seconds per list with 66,000 hits, 50 ms this way.
+$per_address = '(SELECT client_ip, COUNT(*) AS hits FROM malwatch_waf_hit '
+	. 'WHERE seen_at > DATE_SUB(NOW(), INTERVAL ? DAY) GROUP BY client_ip) x';
 $countries = waf_panel_ban_origin_rows(waf_panel_rows($app->db->queryAllRecords(
-	'SELECT i.country AS value, i.country AS label, COUNT(*) AS hits, COUNT(DISTINCT h.client_ip) AS addresses '
-	. 'FROM malwatch_waf_hit h JOIN malwatch_waf_ip i ON i.ip = h.client_ip '
-	. "WHERE h.seen_at > DATE_SUB(NOW(), INTERVAL ? DAY) AND i.country != '' "
-	. 'GROUP BY i.country ORDER BY hits DESC', $days)),
+	'SELECT i.country AS value, i.country AS label, SUM(x.hits) AS hits, COUNT(*) AS addresses '
+	. 'FROM ' . $per_address . ' JOIN malwatch_waf_ip i ON i.ip = x.client_ip '
+	. "WHERE i.country != '' GROUP BY i.country ORDER BY hits DESC", $days)),
 	waf_ban_origin_countries($settings['waf_ban_origin_countries']));
 $providers = waf_panel_ban_origin_rows(waf_panel_rows($app->db->queryAllRecords(
-	'SELECT i.asn AS value, i.as_org AS label, COUNT(*) AS hits, COUNT(DISTINCT h.client_ip) AS addresses '
-	. 'FROM malwatch_waf_hit h JOIN malwatch_waf_ip i ON i.ip = h.client_ip '
-	. 'WHERE h.seen_at > DATE_SUB(NOW(), INTERVAL ? DAY) AND i.asn > 0 '
-	. 'GROUP BY i.asn, i.as_org ORDER BY hits DESC', $days)),
+	'SELECT i.asn AS value, i.as_org AS label, SUM(x.hits) AS hits, COUNT(*) AS addresses '
+	. 'FROM ' . $per_address . ' JOIN malwatch_waf_ip i ON i.ip = x.client_ip '
+	. 'WHERE i.asn > 0 GROUP BY i.asn, i.as_org ORDER BY hits DESC', $days)),
 	waf_ban_origin_asns($settings['waf_ban_origin_asn']));
 foreach (array('country' => $countries, 'asn' => $providers) as $kind => $list) {
 	$loop = array();

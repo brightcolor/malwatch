@@ -856,7 +856,8 @@ CREATE TABLE IF NOT EXISTS `malwatch_waf_hit` (
   UNIQUE KEY `server_unique` (`server_id`,`unique_id`),
   KEY `site_seen` (`parent_domain_id`,`seen_at`),
   KEY `site_ip` (`parent_domain_id`,`client_ip`,`seen_at`),
-  KEY `server_seen` (`server_id`,`seen_at`)
+  KEY `server_seen` (`server_id`,`seen_at`),
+  KEY `server_client` (`server_id`,`client_ip`)
 ) DEFAULT CHARSET=utf8mb4 AUTO_INCREMENT=1 ;
 
 --
@@ -1098,6 +1099,16 @@ CREATE TABLE IF NOT EXISTS `malwatch_waf_ban` (
 -- Addresses and ranges that are never blocked. The fixed networks of the server
 -- are in the code, not here.
 --
+-- Die Treffer einer Adresse, ab 0.27.1. Das Aufräumen der Herkunft fragt je Adresse
+-- nach ihren Treffern; ohne diesen Schlüssel las es dafür jedes Mal den ganzen
+-- Index der Treffer, knapp 5 Sekunden bei 66.000 Treffern.
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_waf_hit` ADD KEY `server_client` (`server_id`,`client_ip`)',
+  'DO 0')
+  FROM information_schema.STATISTICS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_waf_hit' AND INDEX_NAME = 'server_client');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
 --
 -- fail2ban im Panel, ab 0.26.0. Der Cron spiegelt die Sperren der Jails hierher;
 -- eine Adresse kann in mehreren Jails und zugleich bei malwatch gesperrt sein,

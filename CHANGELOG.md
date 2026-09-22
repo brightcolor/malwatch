@@ -2,6 +2,20 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.27.1] – 2026-09-22
+
+### Behoben
+
+**Die Seite „Sperren" lud 17 Sekunden.** Die Auswahl der Länder und Anbieter
+verknüpfte jeden Treffer einzeln mit der Herkunft seiner Adresse; weil kein Index der
+Treffer mit der Adresse beginnt, las MariaDB dafür den ganzen Index einmal je
+Adresse, knapp 8 Sekunden je Liste bei 66.000 Treffern. Jetzt werden die Treffer erst
+je Adresse gezählt und danach verknüpft: 50 ms je Liste, mit demselben Ergebnis.
+
+**Aufräumen der Herkunft.** Das stündliche Aufräumen fragte je Adresse nach ihren
+Treffern und brauchte dafür knapp 5 Sekunden. Die Treffertabelle bekommt einen
+Schlüssel über Server und Adresse (`server_client`).
+
 ## [0.27.0] – 2026-09-22
 
 ### Neu

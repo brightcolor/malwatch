@@ -1697,6 +1697,21 @@ if [ -f "$job" ]; then
 		|| fail "560-malwatch.inc.php laesst den Minuten- oder den Stundenlauf nicht dem eigenen Takt"
 fi
 
+# 89. Die Auswahl der Herkunft zaehlt die Treffer erst je Adresse und verknuepft
+#     danach. Treffer fuer Treffer verknuepft brauchte jede Liste 8 Sekunden, weil
+#     kein Index der Treffer mit der Adresse beginnt.
+page="$root/interface/malwatch_waf_ban_list.php"
+if [ -f "$page" ]; then
+	grep -q 'GROUP BY client_ip) x' "$page" \
+		|| fail "malwatch_waf_ban_list.php verknuepft die Treffer einzeln mit malwatch_waf_ip; die Seite braucht dann Sekunden"
+	if grep -q 'FROM malwatch_waf_hit h JOIN malwatch_waf_ip' "$page"; then
+		fail "malwatch_waf_ban_list.php verknuepft die Treffer einzeln mit malwatch_waf_ip"
+	fi
+fi
+test "$(grep -c 'KEY `server_client` (`server_id`,`client_ip`)' "$root/install/schema.sql")" -ge 2 \
+	|| fail "malwatch_waf_hit hat keinen Schluessel ueber Server und Adresse; das Aufraeumen liest dann alle Treffer"
+
+
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'
 fi
