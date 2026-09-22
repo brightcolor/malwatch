@@ -2,6 +2,20 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.27.0] – 2026-09-22
+
+### Neu
+
+**Eigener Minutentakt für die Abwehr.** ISPConfig führt alle seine Cron-Jobs
+nacheinander unter einer Sperre aus. Solange einer lange läuft, startet kein anderer
+— nachts baut AWStats die Statistik jeder Website und hielt die Abwehr damit eine
+halbe Stunde an: kein Einlesen, keine Sperren, kein Ablauf, kein Blick auf fail2ban.
+Jetzt startet `/etc/cron.d/malwatch-waf` jede Minute `waf-switch tick`, unabhängig von
+ISPConfig; zur Minute 07 folgt der Stundenteil. Solange der Takt läuft, überlässt der
+Cron-Job von malwatch ihm den Lauf; bleibt er drei Minuten aus, übernimmt der
+Cron-Job wieder. `waf/install.sh` richtet die Datei ein, und `hc-run waf-tick` meldet
+jeden Lauf an healthchecks.
+
 ## [0.26.0] – 2026-09-22
 
 ### Neu

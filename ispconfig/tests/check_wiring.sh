@@ -1676,6 +1676,27 @@ for lang in de en; do
 	done
 done
 
+# 88. Der eigene Takt der Abwehr: waf-switch tick, die Cron-Datei, ihre
+#     Einrichtung durch install.sh, und der Cron-Job von ISPConfig, der beide
+#     Laeufe dem Takt ueberlaesst, solange dieser laeuft - und sie sonst selbst
+#     uebernimmt.
+waf_dir="$root/../waf"
+if [ -d "$waf_dir" ]; then
+	grep -q "case 'tick':" "$waf_dir/waf-switch" \
+		|| fail "waf-switch kennt den Befehl tick nicht"
+	grep -q 'waf-switch tick' "$waf_dir/conf/cron-malwatch-waf" \
+		|| fail "conf/cron-malwatch-waf ruft waf-switch tick nicht auf"
+	grep -q 'hc-run waf-tick' "$waf_dir/conf/cron-malwatch-waf" \
+		|| fail "conf/cron-malwatch-waf meldet den Takt nicht an healthchecks"
+	grep -q '/etc/cron.d/malwatch-waf' "$waf_dir/install.sh" \
+		|| fail "install.sh richtet den Takt der Abwehr nicht ein"
+fi
+job="$root/server/lib/classes/cron.d/560-malwatch.inc.php"
+if [ -f "$job" ]; then
+	test "$(grep -c 'tick_is_fresh()' "$job")" -ge 2 \
+		|| fail "560-malwatch.inc.php laesst den Minuten- oder den Stundenlauf nicht dem eigenen Takt"
+fi
+
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'
 fi

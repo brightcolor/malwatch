@@ -36,6 +36,7 @@ done
 # Under its own name: "waf" in the backup is the copy of $WAF.
 if [ -f /etc/logrotate.d/waf ]; then cp -a /etc/logrotate.d/waf "$BACKUP/logrotate-waf"; fi
 crontab -l > "$BACKUP/crontab" 2>/dev/null || true
+if [ -f /etc/cron.d/malwatch-waf ]; then cp -a /etc/cron.d/malwatch-waf "$BACKUP/cron-malwatch-waf"; fi
 say "Sicherung in $BACKUP"
 
 install -d -o root -g root -m 755 "$WAF"
@@ -124,6 +125,12 @@ install -o root -g root -m 755 waf-guard /usr/local/sbin/waf-guard
 install -o root -g root -m 755 waf-report /usr/local/sbin/waf-report
 rm -f /usr/local/sbin/waf-schalter /usr/local/sbin/waf-wache /usr/local/sbin/waf-bericht
 rm -rf /usr/local/lib/waf
+
+# 5a. The own clock of the Abwehr, independent of the cron of ISPConfig.
+if ! cmp -s conf/cron-malwatch-waf /etc/cron.d/malwatch-waf 2>/dev/null; then
+	install -o root -g root -m 644 conf/cron-malwatch-waf /etc/cron.d/malwatch-waf
+	say "Minutentakt der Abwehr eingerichtet: /etc/cron.d/malwatch-waf"
+fi
 
 # 5. The hourly guard in root's crontab; every other line stays as it is.
 current=$(crontab -l 2>/dev/null || true)

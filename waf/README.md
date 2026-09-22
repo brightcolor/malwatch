@@ -16,7 +16,7 @@ Stand, und nginx wird nicht neu geladen.
 | `waf-switch` | Zustand je Website, Notaus, Seitenantwort, Aufträge, Einlesen, Wächter |
 | `waf-guard` | stündlicher Wächter über `nginx -t`, ruft `waf-switch guard` |
 | `waf-report` | Treffer je Website und Regel aus dem Audit-Log |
-| `conf/` | Dateien für `/etc/nginx/waf/`, die Einbindung und logrotate |
+| `conf/` | Dateien für `/etc/nginx/waf/`, die Einbindung, logrotate und den Minutentakt (`cron-malwatch-waf`) |
 | `install.sh` | spielt alles ein und stellt von den ersten Namen um |
 
 Die Funktionen liegen in malwatch (`ispconfig/interface/lib/malwatch_waf_lib.inc.php`,
@@ -74,6 +74,19 @@ waf-switch emergency on --hard
 scharfe Websites auf „mitschreiben". `--hard` ist für ein nginx ohne Modul: die Einbindung
 wandert nach `waf.conf.off`, die vhosts verlieren ihre `modsecurity`-Zeilen, die Felder
 ihren Block. Wieder eingeschaltet wird dann mit `install.sh`.
+
+## Minutentakt
+
+`waf-switch tick` führt jede Minute den Lauf der Abwehr aus: Audit-Log einlesen,
+Herkunft nachschlagen, Sperren erkennen, beenden und in die Datei für nginx schreiben,
+Aufträge abarbeiten, fail2ban lesen; zur Minute 07 folgt der Stundenteil. Gestartet
+wird er aus `/etc/cron.d/malwatch-waf` über `hc-run waf-tick`, unabhängig vom Cron von
+ISPConfig. Der führt alle seine Jobs nacheinander unter einer Sperre aus; ein langer
+Lauf dort, nachts AWStats, hielt die Abwehr sonst eine halbe Stunde an.
+
+Solange der Takt läuft, überlässt der Cron-Job von malwatch in ISPConfig ihm den Lauf.
+Bleibt der Takt drei Minuten aus, übernimmt der Cron-Job wieder. Den Takt überwacht
+healthchecks, sobald `/etc/hc-run.d/waf-tick.url` die Ping-Adresse enthält.
 
 ## Wächter
 

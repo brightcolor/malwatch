@@ -1088,6 +1088,16 @@ $waf->runner = $runner_before;
 $answers = array();
 $waf->ban_apply();
 
+// Der eigene Takt: Ein Lauf meldet, ob er durchlief; die Marke altert.
+@unlink($probe_dir . '/waf/tick');
+expect_same('without the clock the cron of ISPConfig keeps the pass', $waf->tick_is_fresh(), false);
+expect_same('a pass reports that it ran', $waf->cron_minute(), true);
+$waf->mark_tick();
+expect_same('a marked pass is fresh', $waf->tick_is_fresh(), true);
+touch($probe_dir . '/waf/tick', time() - 600);
+expect_same('after ten minutes without a pass the cron of ISPConfig takes over', $waf->tick_is_fresh(), false);
+@unlink($probe_dir . '/waf/tick');
+
 // Der Schlüssel der veröffentlichten Liste.
 $db->query("UPDATE malwatch_config SET waf_ban_token = '' WHERE config_id = 1");
 $waf->queue('ban_mode', array('mode' => 'propose'), 'probe');

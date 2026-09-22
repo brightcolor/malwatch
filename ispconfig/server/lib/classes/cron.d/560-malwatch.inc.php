@@ -42,7 +42,12 @@ class cronjob_malwatch extends cronjob
 		// The WAF part reads its log and works on its own jobs, under its own
 		// lock; see malwatch_waf. The runner never starts one of them.
 		try {
-			$app->malwatch_waf->cron_minute();
+			// The Abwehr has its own clock (waf-switch tick, /etc/cron.d/malwatch-waf).
+			// While it runs, this job leaves the pass to it; without it, the pass
+			// runs here as before.
+			if (!$app->malwatch_waf->tick_is_fresh()) {
+				$app->malwatch_waf->cron_minute();
+			}
 		} catch (Exception $e) {
 			$app->log('malwatch: the WAF pass failed: ' . $e->getMessage(), LOGLEVEL_WARN);
 		}
@@ -448,7 +453,9 @@ class cronjob_malwatch extends cronjob
 		$this->clean_dumps($config);
 		$this->collect_databases($config);
 		// Hits and day figures of the WAF past their time; see malwatch_waf::cleanup().
-		$app->malwatch_waf->cron_hourly();
+		if (!$app->malwatch_waf->tick_is_fresh()) {
+			$app->malwatch_waf->cron_hourly();
+		}
 
 		$keep = max(1, intval($config['keep_scans']));
 		$domains = $app->dbmaster->queryAllRecords(

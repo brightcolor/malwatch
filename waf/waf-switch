@@ -23,6 +23,7 @@
  *   waf-switch ban origin [on|off]
  *   waf-switch ban everywhere <ip>
  *   waf-switch ban f2b
+ *   waf-switch tick
  *   waf-switch ingest [--dry-run] [--file=<audit log>]
  *   waf-switch migrate
  *   waf-switch snapshot
@@ -150,6 +151,23 @@ $args = array_slice($argv, 1);
 $command = (string) array_shift($args);
 
 switch ($command) {
+	case 'tick':
+		// The minute pass of the Abwehr on its own clock, see conf/cron-malwatch-waf.
+		// Exit 1 only when the pass itself failed; a pass that runs elsewhere right
+		// now is no failure. The hourly part follows at minute 07, as in ISPConfig.
+		$ran = $waf->cron_minute();
+		if ($ran === true) {
+			$waf->mark_tick();
+		}
+		if ((int) date('i') === 7) {
+			$waf->cron_hourly();
+		}
+		if ($ran === false) {
+			fwrite(STDERR, "Der Minutenlauf der Abwehr ist fehlgeschlagen; die Ursache steht im Systemprotokoll von ISPConfig.\n");
+			exit(1);
+		}
+		exit(0);
+
 	case 'status':
 		$settings = $waf->settings();
 		printf("%-34s %-10s %-10s %-11s %-10s %s\n", 'Website', 'Feld', 'vhost', 'bestätigt', 'wartet', 'WordPress');
@@ -478,7 +496,7 @@ switch ($command) {
 		exit($waf->guard());
 }
 
-fwrite(STDERR, "Befehle: status | set <off|detect|enforce> <domain…|--wordpress|--all> [--wait] | probe … | "
+fwrite(STDERR, "Befehle: tick | status | set <off|detect|enforce> <domain…|--wordpress|--all> [--wait] | probe … | "
 	. "emergency on|off [--hard] | response-body [full|lean|status] | restore <ordner> | jobs | "
 	. "exception list|add|remove | ban status|off|propose|on|list|add|lift|allow|url|origin|everywhere|f2b | "
 	. "ingest [--dry-run] [--file=<log>] | migrate | snapshot | guard\n");

@@ -645,7 +645,8 @@ class malwatch_waf
 	{
 		global $app;
 		if (!$this->ready() || !$this->lock(false)) {
-			return;
+			// Not installed, or another caller runs the pass right now.
+			return null;
 		}
 		try {
 			$this->ingest(array());
@@ -658,11 +659,37 @@ class malwatch_waf
 			$this->ban_apply();
 			$this->run_jobs();
 			$this->f2b_read();
+			return true;
 		} catch (Throwable $e) {
 			$app->log('malwatch: the WAF pass failed: ' . $e->getMessage(), LOGLEVEL_WARN);
+			return false;
 		} finally {
 			$this->unlock();
 		}
+	}
+
+	/**
+	 * The own clock of the Abwehr: `waf-switch tick`, started every minute from
+	 * /etc/cron.d/malwatch-waf, marks each pass that ran through. ISPConfig runs
+	 * all its cron jobs one after another under one lock, so a long job there -
+	 * AWStats at night - held up the Abwehr for half an hour.
+	 */
+	public function mark_tick()
+	{
+		@touch($this->ensure_dirs() . '/tick');
+	}
+
+	/**
+	 * true while the own clock ran through within the last three minutes. Then
+	 * the cron job of ISPConfig leaves the pass to it; once the clock stops, the
+	 * cron job takes the pass over again.
+	 */
+	public function tick_is_fresh()
+	{
+		$file = $this->ensure_dirs() . '/tick';
+		clearstatcache(true, $file);
+		$time = is_file($file) ? @filemtime($file) : false;
+		return $time !== false && time() - (int) $time < 180;
 	}
 
 	/** The hourly part of the cron. */

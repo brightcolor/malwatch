@@ -1,0 +1,7 @@
+# Managed by malwatch (waf/install.sh). Der Minutentakt der Abwehr, unabhängig vom
+# Cron von ISPConfig: Der führt alle seine Jobs nacheinander unter einer Sperre aus,
+# und ein langer Lauf - nachts AWStats - hielt die Abwehr eine halbe Stunde an.
+# hc-run meldet jeden Lauf an healthchecks, sobald /etc/hc-run.d/waf-tick.url steht.
+SHELL=/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+* * * * * root if [ -x /usr/local/sbin/hc-run ]; then /usr/local/sbin/hc-run waf-tick -- /usr/local/sbin/waf-switch tick; else /usr/local/sbin/waf-switch tick; fi > /dev/null 2>&1
