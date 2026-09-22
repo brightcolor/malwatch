@@ -343,6 +343,7 @@ $wb['ban_more_error_txt'] = 'Weitere Einträge ließen sich nicht laden: %s. Lad
 $wb['ban_more_http_txt'] = 'Das Panel antwortete mit dem Status %s';
 $wb['ban_more_nolist_txt'] = 'Die Antwort des Panels enthielt die Liste nicht, womöglich ist die Anmeldung abgelaufen';
 $wb['ban_more_offline_txt'] = 'Das Panel war nicht erreichbar';
+$wb['ban_more_slow_txt'] = 'Das Panel hat innerhalb von %s Sekunden nicht geantwortet';
 $wb['ban_active_head_txt'] = 'Gesperrt';
 $wb['ban_proposed_head_txt'] = 'Vorschläge';
 $wb['ban_origin_count_txt'] = '%s gewählt';

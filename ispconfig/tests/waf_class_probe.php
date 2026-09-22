@@ -1098,8 +1098,8 @@ touch($probe_dir . '/waf/tick', time() - 600);
 expect_same('after ten minutes without a pass the cron of ISPConfig takes over', $waf->tick_is_fresh(), false);
 @unlink($probe_dir . '/waf/tick');
 
-// Hält ein anderer die Sperre (stündlich waf-guard), wartet der Takt bis zu
-// seiner Frist und läuft danach; ohne Frist weicht er aus wie bisher.
+// While another worker holds the lock (waf-guard, every hour at minute 05), the
+// clock waits up to its limit and runs afterwards; without a wait it steps aside.
 function hold_waf_lock($probe_dir, $seconds)
 {
 	$held = $probe_dir . '/waf/held';
@@ -1123,7 +1123,16 @@ $start = microtime(true);
 expect_same('a wait shorter than the hold ends without a pass', $waf->cron_minute(1), null);
 expect_same('and it gives up after its wait', microtime(true) - $start < 2.5, true);
 proc_close($holder);
-expect_same('the hourly part waits the same way', $waf->cron_hourly(1), true);
+$holder = hold_waf_lock($probe_dir, 1.5);
+$start = microtime(true);
+expect_same('the hourly part waits for the lock the same way', $waf->cron_hourly(5), true);
+expect_same('and it really waited for it', microtime(true) - $start >= 0.8, true);
+proc_close($holder);
+$holder = hold_waf_lock($probe_dir, 3);
+$start = microtime(true);
+expect_same('the hourly part gives up after its wait', $waf->cron_hourly(1), null);
+expect_same('and it did not wait for the whole hold', microtime(true) - $start < 2.5, true);
+proc_close($holder);
 
 // Der Schlüssel der veröffentlichten Liste.
 $db->query("UPDATE malwatch_config SET waf_ban_token = '' WHERE config_id = 1");

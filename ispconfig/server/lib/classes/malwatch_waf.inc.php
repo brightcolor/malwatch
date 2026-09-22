@@ -583,8 +583,11 @@ class malwatch_waf
 			return false;
 		}
 		$until = microtime(true) + max(0, (int) $within);
-		while (!flock($handle, $wait ? LOCK_EX : LOCK_EX | LOCK_NB)) {
-			if ($wait || microtime(true) >= $until) {
+		$busy = 0;
+		while (!flock($handle, $wait ? LOCK_EX : LOCK_EX | LOCK_NB, $busy)) {
+			// Only a lock another worker holds is worth another try; any other
+			// failure ends at once.
+			if ($wait || !$busy || microtime(true) >= $until) {
 				fclose($handle);
 				return false;
 			}
@@ -705,7 +708,10 @@ class malwatch_waf
 		return $time !== false && time() - (int) $time < 180;
 	}
 
-	/** The hourly part of the cron; true when it ran, null while the lock stayed busy for $within seconds. */
+	/**
+	 * The hourly part of the cron: true when it ran, false when it failed, null
+	 * while the lock stayed busy for $within seconds.
+	 */
 	public function cron_hourly($within = 0)
 	{
 		global $app;
@@ -715,12 +721,13 @@ class malwatch_waf
 		try {
 			$this->cleanup();
 			$this->queue_origin_update();
+			return true;
 		} catch (Throwable $e) {
 			$app->log('malwatch: the WAF cleanup failed: ' . $e->getMessage(), LOGLEVEL_WARN);
+			return false;
 		} finally {
 			$this->unlock();
 		}
-		return true;
 	}
 
 	/**

@@ -1595,7 +1595,7 @@ function waf_panel_ban_rows_wanted($request, $section, $step, $limit)
 		|| !preg_match('/^[0-9]+$/', $request[$key])) {
 		return $step;
 	}
-	// Mehr als sieben Stellen liegen immer über der Grenze; so läuft keine Zahl über.
+	// More than seven digits always lie above the limit; this way no number overflows.
 	$asked = strlen($request[$key]) > 7 ? $limit : (int) $request[$key];
 	return min(max($asked, $step), $limit);
 }

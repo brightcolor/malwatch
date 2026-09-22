@@ -156,14 +156,17 @@ switch ($command) {
 		// Exit 1 only when the pass itself failed; a pass that runs elsewhere right
 		// now is no failure. While another worker holds the lock - every hour at
 		// minute 05 waf-guard for its nginx -t - the pass waits up to
-		// waf_tick_wait_seconds. The hourly part follows at minute 07, as in ISPConfig.
+		// waf_tick_wait_seconds. The hourly part follows at minute 07, as in ISPConfig;
+		// the minute counts from the start, because waiting and the pass can reach
+		// into the next minute.
 		$settings = $waf->settings();
 		$within = (int) $settings['waf_tick_wait_seconds'];
+		$minute = (int) date('i');
 		$ran = $waf->cron_minute($within);
 		if ($ran === true) {
 			$waf->mark_tick();
 		}
-		if ((int) date('i') === 7) {
+		if ($minute === 7) {
 			$waf->cron_hourly($within);
 		}
 		if ($ran === false) {

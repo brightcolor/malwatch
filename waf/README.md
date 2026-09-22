@@ -88,9 +88,19 @@ Solange der Takt läuft, überlässt der Cron-Job von malwatch in ISPConfig ihm 
 Bleibt der Takt drei Minuten aus, übernimmt der Cron-Job wieder. Den Takt überwacht
 healthchecks, sobald `/etc/hc-run.d/waf-tick.url` die Ping-Adresse enthält.
 
+Hält gerade ein anderer Teil der Abwehr die Sperre, etwa `waf-guard` zur Minute 05,
+wartet der Takt darauf, höchstens so viele Sekunden, wie „Wartezeit des Minutentakts“
+unter Abwehr > Einstellungen sagt (Vorgabe 30). Ist die Abwehr danach noch belegt,
+fällt der Lauf dieser Minute aus. Der Cron-Job von ISPConfig wartet nie, weil er
+sonst alle Jobs von ISPConfig aufhält. Das Warten braucht `waf-switch` ab malwatch
+0.28.1: Nach einem Update von malwatch `waf-switch` aus diesem Ordner nach
+`/usr/local/sbin/waf-switch` kopieren; `install.sh` spielt dagegen alles ein, auch die
+Dateien für nginx.
+
 ## Wächter
 
-`waf-guard` läuft stündlich über `hc-run waf-guard`. Besteht `nginx -t`, arbeitet er
+`waf-guard` läuft stündlich über `hc-run waf-guard`; healthchecks meldet ihn, sobald
+`/etc/hc-run.d/waf-guard.url` die Ping-Adresse enthält. Besteht `nginx -t`, arbeitet er
 hängende Aufträge ab. Fehlt das Modul, folgt der harte Notaus; nennt der Fehler eine
 Datei der WAF, legt er den letzten geprüften Stand zurück. Protokoll:
 `/var/log/waf/guard.log`.

@@ -42,7 +42,8 @@ $app->tpl->setVar($wb);
 $app->tpl->setVar(malwatch_attr_texts($wb, array('ban_lift_all_txt', 'ban_lift_all_confirm_txt', 'ban_lift_txt',
 	'ban_add_txt', 'ban_allow_remove_txt', 'ban_url_new_txt', 'ban_url_new_confirm_txt',
 	'ban_origin_save_txt', 'f2b_everywhere_txt', 'f2b_everywhere_confirm_txt',
-	'ban_more_error_txt', 'ban_more_http_txt', 'ban_more_nolist_txt', 'ban_more_offline_txt')));
+	'ban_more_error_txt', 'ban_more_http_txt', 'ban_more_nolist_txt', 'ban_more_offline_txt',
+	'ban_more_slow_txt')));
 $app->tpl->setVar('message', $app->functions->htmlentities($message));
 $app->tpl->setVar('error', $app->functions->htmlentities($error));
 
@@ -60,11 +61,13 @@ $app->tpl->setLoop('jobs', $job_rows);
 $app->tpl->setVar('has_jobs', count($job_rows) > 0 ? 1 : 0);
 $app->tpl->setVar('first_job', $first_job);
 
-// Jede Liste zeigt zuerst einen Schritt Zeilen (waf_ban_page_step). „Weitere
-// laden" fragt die Seite mit rows_<Liste> nach mehr, bis zur Grenze
-// waf_ban_page_rows; ein Knopf der Seite schickt die Zahlen mit, damit die Listen
-// danach so lang bleiben. Die Sperren nach ihrem Ende, die Vorschläge mit den
-// meisten Punkten zuerst, das Beendete mit dem jüngsten zuerst. Gezählt wird alles.
+// Each list shows one step of rows first (waf_ban_page_step). "Weitere laden"
+// asks the page for more with rows_<list>, up to the limit waf_ban_page_rows;
+// every button of the page sends the numbers along, so the lists keep their
+// length afterwards. Blocks by their end, proposals with the most points first,
+// ended ones newest first. The address comes last in every order: with ties the
+// database may order differently for each LIMIT, and a longer list would then
+// shuffle the rows already shown. Everything is counted.
 $step = (int) $settings['waf_ban_page_step'];
 $limit = (int) $settings['waf_ban_page_rows'];
 $request = array_merge($_GET, $_POST);
@@ -76,9 +79,9 @@ foreach (array('active', 'proposed', 'f2b', 'past') as $section) {
 $all = array();
 foreach (array(
 	'active' => "SELECT * FROM malwatch_waf_ban WHERE state = 'active' ORDER BY until IS NULL DESC, until, ip LIMIT ?",
-	'proposed' => "SELECT * FROM malwatch_waf_ban WHERE state = 'proposed' ORDER BY score DESC, created_at DESC LIMIT ?",
+	'proposed' => "SELECT * FROM malwatch_waf_ban WHERE state = 'proposed' ORDER BY score DESC, created_at DESC, ip LIMIT ?",
 	'past' => "SELECT * FROM malwatch_waf_ban WHERE state IN ('expired','lifted','dismissed') "
-		. 'ORDER BY COALESCE(lifted_at, until, created_at) DESC LIMIT ?',
+		. 'ORDER BY COALESCE(lifted_at, until, created_at) DESC, ip LIMIT ?',
 ) as $section => $sql) {
 	$all = array_merge($all, waf_panel_rows($app->db->queryAllRecords($sql, $wanted[$section])));
 }
@@ -132,10 +135,12 @@ foreach (array('active' => count($active), 'proposed' => count($proposed), 'past
 	$app->tpl->setVar('count_' . $section, number_format($totals[$section], 0, ',', '.'));
 }
 
-// fail2ban: die Sperren, die der Cron gespiegelt hat, der Zustand des letzten
-// Blicks und die Einstellung je Jail.
+// fail2ban: the bans the cron mirrored, the state of its last look and the
+// setting per jail. An address can be banned in two jails, so the jail comes
+// after the address in the order.
 $f2b_view = waf_panel_f2b_rows($wb, waf_panel_rows($app->db->queryAllRecords(
-	'SELECT * FROM malwatch_f2b_ban ORDER BY until IS NULL DESC, until DESC, ip LIMIT ?', $wanted['f2b'])), $clock['now']);
+	'SELECT * FROM malwatch_f2b_ban ORDER BY until IS NULL DESC, until DESC, ip, jail LIMIT ?', $wanted['f2b'])),
+	$clock['now']);
 $f2b_total = 0;
 foreach (waf_panel_rows($app->db->queryAllRecords('SELECT COUNT(*) AS n FROM malwatch_f2b_ban')) as $row) {
 	$f2b_total = (int) $row['n'];
@@ -154,7 +159,7 @@ $app->tpl->setLoop('f2b_rows', $f2b_loop);
 $app->tpl->setVar('has_f2b', count($f2b_loop) > 0 ? 1 : 0);
 $more['f2b'] = waf_panel_ban_more($wb, count($f2b_loop), $f2b_total, $step, $limit);
 $app->tpl->setVar('count_f2b', number_format($f2b_total, 0, ',', '.'));
-// Unter jeder Liste der Knopf für den nächsten Schritt oder, an der Grenze, ein Satz.
+// Below each list the button for the next step or, at the limit, a sentence.
 foreach ($more as $section => $one) {
 	$app->tpl->setVar('has_more_' . $section, is_array($one) && $one['next'] > 0 ? 1 : 0);
 	$app->tpl->setVar('more_' . $section . '_next', is_array($one) ? (int) $one['next'] : 0);
@@ -270,6 +275,7 @@ $app->tpl->setVar('has_ban_url', $url['has_url']);
 $app->tpl->setVar('ban_url_count', $app->functions->htmlentities($url['count']));
 $app->tpl->setVar('ban_url_hint', $app->functions->htmlentities($url['hint']));
 $app->tpl->setVar('self_href', 'security/malwatch_waf_ban_list.php');
+$app->tpl->setVar('more_timeout', (int) $settings['waf_ban_page_timeout']);
 
 $csrf = $app->auth->csrf_token_get('malwatch_waf_ban_list');
 $app->tpl->setVar('_csrf_id', $csrf['csrf_id']);

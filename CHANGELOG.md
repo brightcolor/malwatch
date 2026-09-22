@@ -2,6 +2,47 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.28.2] – 2026-09-22
+
+### Behoben
+
+**„Weitere laden" hielt die Reihenfolge nicht immer.** Vorschläge mit gleichen Punkten
+aus einem Cron-Lauf, Sperren, die „Alle Sperren aufheben" gemeinsam beendet hat, und
+dieselbe Adresse in zwei Jails von fail2ban lagen in der Sortierung gleichauf. Bei
+Gleichstand darf die Datenbank die Reihenfolge je nach Zeilenzahl anders wählen; nach
+„Weitere laden" konnten oben andere Zeilen stehen als vorher. Jede Liste sortiert jetzt
+zuletzt nach der Adresse, fail2ban danach nach der Jail.
+
+**Der Minutentakt las die Minute zu spät.** Ob der Stundenteil fällig ist, prüfte
+`waf-switch tick` erst nach Warten und Lauf. Reichte beides über die volle Minute, lief
+der Stundenteil doppelt oder fiel für eine Stunde aus. Die Minute gilt jetzt ab dem
+Start des Takts.
+
+**Weitere Korrekturen**
+
+- „Weitere laden" hat eine Zeitgrenze: „Zeitgrenze für „Weitere laden“ (Sekunden)"
+  unter Abwehr > Einstellungen, Vorgabe 30, erlaubt 5 bis 300. Kommt die Antwort
+  später, steht unter dem Knopf, woran es lag.
+- Nach „Weitere laden" zeigt der Titel des Abschnitts die aktuelle Zahl.
+- Der Browser merkt sich nur noch, wo ein Abschnitt von der Vorgabe abweicht. Eine
+  spätere Änderung der Vorgabe erreicht damit alle, die den Abschnitt nie umgestellt
+  haben.
+- Unterüberschriften bleiben in jedem Theme kleiner und leichter als der Titel ihres
+  Abschnitts.
+- Der Hinweis zur „Wartezeit des Minutentakts" sagt, dass der Lauf ausfällt, wenn die
+  Abwehr nach der Wartezeit noch belegt ist.
+- `cron_hourly()` meldet einen abgefangenen Fehler als Fehler. Die Sperre der Abwehr
+  versucht es nur so lange erneut, wie ein anderer sie hält, und endet bei jedem
+  anderen Fehler sofort.
+- Die Seite gibt beim Wechsel ihren Beobachter frei und hält so keine alten Inhalte im
+  Speicher.
+- Die Spalte `waf_ban_page_rows` hat auch nach einem Update den Standard 1000; der
+  gespeicherte Wert bleibt.
+- Die Kommentare im Code der letzten Änderungen sind englisch. `waf/README.md`
+  beschreibt das Warten des Minutentakts und den Monitor des Wächters. Die Wartezeit
+  wirkt mit dem `waf-switch` ab 0.28.1; nach einem Update deshalb auch `waf-switch`
+  aus `waf/` nach `/usr/local/sbin/` kopieren.
+
 ## [0.28.1] – 2026-09-22
 
 ### Behoben

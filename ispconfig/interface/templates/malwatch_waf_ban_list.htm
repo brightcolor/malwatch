@@ -34,19 +34,19 @@
 #mw-wafban td.mw-ipcell{min-width:16ch}
 #mw-wafban td.mw-reasoncell{min-width:28ch}
 #mw-wafban h2{font-size:16px;margin:22px 0 6px}
-/* Überschriften innerhalb eines Abschnitts bleiben kleiner als sein Titel;
-   Bootstrap setzt h3 sonst auf 24px. */
-#mw-wafban h3{font-size:15px;font-weight:700;margin:18px 0 6px}
+/* Headings inside a section stay smaller and lighter than its title in every
+   theme; Bootstrap would set h3 to 24px. */
+#mw-wafban h3{font-size:14px;font-weight:600;margin:18px 0 6px}
 #mw-wafban .mw-form{display:flex;flex-wrap:wrap;gap:6px;align-items:flex-end;margin:10px 0 0}
 #mw-wafban .mw-form label{font-size:12px;opacity:.72;display:block;margin:0 0 2px}
 #mw-wafban .mw-form input[type=text]{min-width:18ch}
-/* Aufklappbare Abschnitte: der Titel trägt die Zahl der Einträge. */
+/* Collapsible sections: the title carries the number of entries. */
 #mw-wafban details.mw-sec{margin:14px 0 0;padding-top:6px;border-top:1px solid var(--cic-line-soft,rgba(128,128,128,.35))}
 #mw-wafban details.mw-sec > summary{display:flex;align-items:baseline;gap:8px;cursor:pointer;list-style:none;padding:4px 0}
 #mw-wafban details.mw-sec > summary::-webkit-details-marker{display:none}
 #mw-wafban details.mw-sec > summary::before{content:"\25B8";font-size:16px;line-height:1;opacity:.8;transition:transform .15s}
 #mw-wafban details.mw-sec[open] > summary::before{transform:rotate(90deg)}
-#mw-wafban details.mw-sec > summary h2{display:inline;margin:0}
+#mw-wafban details.mw-sec > summary h2{display:inline;margin:0;font-weight:600}
 #mw-wafban details.mw-sec > summary:focus-visible{outline:2px solid var(--cic-accent,#dd630d);outline-offset:2px}
 #mw-wafban details.mw-sec[open] > summary{margin-bottom:6px}
 #mw-wafban .mw-count{font-size:13px;font-weight:400;opacity:.72;font-variant-numeric:tabular-nums}
@@ -59,19 +59,20 @@
 <div id="mw-wafban" data-mw-jobs="security/malwatch_waf_jobs.php?since={tmpl_var name='first_job'}"
 	data-mw-self="{tmpl_var name='self_href'}" data-mw-more-error="{tmpl_var name='ban_more_error_txt'}"
 	data-mw-more-http="{tmpl_var name='ban_more_http_txt'}" data-mw-more-nolist="{tmpl_var name='ban_more_nolist_txt'}"
-	data-mw-more-offline="{tmpl_var name='ban_more_offline_txt'}">
+	data-mw-more-offline="{tmpl_var name='ban_more_offline_txt'}" data-mw-more-slow="{tmpl_var name='ban_more_slow_txt'}"
+	data-mw-more-timeout="{tmpl_var name='more_timeout'}">
 
 <p class="mw-back"><a href="#" data-load-content="security/malwatch_waf_list.php">{tmpl_var name='show_back_txt'}</a></p>
 <p class="mw-sub">{tmpl_var name='ban_intro_txt'}</p>
 
-<!-- Das Panel fasst den Inhalt in pageForm; die Knöpfe nennen ihre Aktion in waf_action. -->
+<!-- The panel wraps the content in pageForm; the buttons name their action in waf_action. -->
 <input type="hidden" name="waf_action" id="mw-waf-action" value="" />
 <input type="hidden" name="waf_ip" id="mw-waf-ip" value="" />
 <input type="hidden" name="waf_mode" id="mw-waf-mode" value="" />
 <input type="hidden" name="waf_permanent" id="mw-waf-permanent" value="" />
 <input type="hidden" name="waf_allow_id" id="mw-waf-allow-id" value="" />
 <input type="hidden" name="waf_jail" id="mw-waf-jail" value="" />
-<!-- Wie viele Zeilen jede Liste gerade zeigt; „Weitere laden" zählt hoch. -->
+<!-- How many rows each list shows right now; "Weitere laden" counts up. -->
 <input type="hidden" name="rows_active" id="mw-rows-active" data-mw-rows="active" value="{tmpl_var name='rows_active'}" />
 <input type="hidden" name="rows_proposed" id="mw-rows-proposed" data-mw-rows="proposed" value="{tmpl_var name='rows_proposed'}" />
 <input type="hidden" name="rows_f2b" id="mw-rows-f2b" data-mw-rows="f2b" value="{tmpl_var name='rows_f2b'}" />
@@ -471,18 +472,23 @@
 
 <script>
 (function () {
-	// Folgt laufenden Aufträgen wie die Übersicht und holt die Seite einmal neu,
-	// sobald keiner mehr offen ist.
+	// Follows running jobs like the overview and reloads the page once when none
+	// is open any more. The watcher lets go of the page when it is replaced.
 	var root = document.getElementById('mw-wafban');
 	var box = document.getElementById('mw-waf-jobs');
 	if (!root || !box) { return; }
 	var timer = null;
-	function stop() { if (timer) { clearInterval(timer); timer = null; } }
+	var watcher = null;
+	function stop() {
+		if (timer) { clearInterval(timer); timer = null; }
+		if (watcher) { watcher.disconnect(); watcher = null; }
+	}
 	var host = document.getElementById('pageContent');
 	if (host && window.MutationObserver) {
-		new MutationObserver(function () {
+		watcher = new MutationObserver(function () {
 			if (!document.contains(root)) { stop(); }
-		}).observe(host, { childList: true, subtree: true });
+		});
+		watcher.observe(host, { childList: true, subtree: true });
 	}
 	function refresh() {
 		stop();
@@ -512,9 +518,10 @@
 })();
 
 (function () {
-	// Jeder Abschnitt merkt sich, ob er offen war. „Weitere laden“ holt die Seite
-	// mit mehr Zeilen für diese eine Liste und tauscht nur die Liste aus; die
-	// Knöpfe darin arbeiten weiter, weil ihre Lauscher am Dokument hängen.
+	// Each section remembers where it deviates from how the page starts it.
+	// "Weitere laden" fetches the page with more rows for this one list and swaps
+	// only that list; the buttons inside keep working, because their listeners
+	// sit on the document.
 	var root = document.getElementById('mw-wafban');
 	if (!root) { return; }
 	var store = null;
@@ -523,12 +530,22 @@
 	for (var i = 0; i < boxes.length; i++) {
 		(function (box) {
 			var key = 'malwatch.wafban.' + box.getAttribute('data-mw-sec');
+			// Only a deviation from the markup is kept, so a later change of the
+			// default reaches everybody who never changed the section.
+			var start = box.open;
 			var kept = null;
 			try { kept = store ? store.getItem(key) : null; } catch (e) { kept = null; }
 			if (kept === 'open') { box.open = true; }
 			if (kept === 'closed') { box.open = false; }
 			box.addEventListener('toggle', function () {
-				try { if (store) { store.setItem(key, box.open ? 'open' : 'closed'); } } catch (e) { }
+				try {
+					if (!store) { return; }
+					if (box.open === start) {
+						store.removeItem(key);
+					} else {
+						store.setItem(key, box.open ? 'open' : 'closed');
+					}
+				} catch (e) { }
 			});
 		})(boxes[i]);
 	}
@@ -553,19 +570,27 @@
 		if (!list) { return; }
 		var before = list.querySelectorAll('tbody > tr').length;
 		button.disabled = true;
+		// The time limit comes from the settings (waf_ban_page_timeout).
+		var seconds = parseInt(root.getAttribute('data-mw-more-timeout'), 10) || 30;
 		var xhr = new XMLHttpRequest();
 		xhr.open('GET', root.getAttribute('data-mw-self') + '?rows_' + encodeURIComponent(section) + '='
 			+ encodeURIComponent(next), true);
+		xhr.timeout = seconds * 1000;
 		xhr.onload = function () {
 			if (!document.contains(list)) { return; }
 			if (xhr.status !== 200) { failed(button, word('more-http', String(xhr.status))); return; }
-			var fresh = new DOMParser().parseFromString(xhr.responseText, 'text/html').getElementById('mw-list-' + section);
+			var doc = new DOMParser().parseFromString(xhr.responseText, 'text/html');
+			var fresh = doc.getElementById('mw-list-' + section);
 			if (!fresh) { failed(button, word('more-nolist', '')); return; }
 			var placed = document.importNode(fresh, true);
 			list.parentNode.replaceChild(placed, list);
 			var rows = document.getElementById('mw-rows-' + section);
 			if (rows) { rows.value = next; }
-			// Der Fokus geht zur ersten neuen Zeile, sonst zum nächsten Knopf.
+			// The title counts again, in case entries came or went meanwhile.
+			var counted = doc.querySelector('#mw-sec-' + section + ' > summary .mw-count');
+			var shown = document.querySelector('#mw-sec-' + section + ' > summary .mw-count');
+			if (counted && shown) { shown.textContent = counted.textContent; }
+			// Focus moves to the first new row, else to the next button.
 			var added = placed.querySelectorAll('tbody > tr');
 			var target = added.length > before ? added[before].querySelector('button, a, input, select') : null;
 			target = target || placed.querySelector('[data-mw-more]') || placed;
@@ -573,6 +598,9 @@
 		};
 		xhr.onerror = function () {
 			if (document.contains(list)) { failed(button, word('more-offline', '')); }
+		};
+		xhr.ontimeout = function () {
+			if (document.contains(list)) { failed(button, word('more-slow', String(seconds))); }
 		};
 		xhr.send();
 	});

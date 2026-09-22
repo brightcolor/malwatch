@@ -343,6 +343,7 @@ $wb['ban_more_error_txt'] = 'More entries could not be loaded: %s. Reload the pa
 $wb['ban_more_http_txt'] = 'the panel answered with status %s';
 $wb['ban_more_nolist_txt'] = 'the answer of the panel held no list, perhaps the login has expired';
 $wb['ban_more_offline_txt'] = 'the panel could not be reached';
+$wb['ban_more_slow_txt'] = 'the panel did not answer within %s seconds';
 $wb['ban_active_head_txt'] = 'Blocked';
 $wb['ban_proposed_head_txt'] = 'Proposals';
 $wb['ban_origin_count_txt'] = '%s chosen';

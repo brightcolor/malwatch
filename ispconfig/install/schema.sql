@@ -1044,8 +1044,8 @@ SET @mw := (SELECT IF(COUNT(*) = 0,
   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_config' AND COLUMN_NAME = 'waf_ban_proposal_days');
 PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
--- Ab 0.28.1 wartet der eigene Takt der Abwehr auf die Sperre, solange ein anderer
--- Teil sie hält, etwa waf-guard zur Minute 05; bisher fiel der Lauf dieser Minute aus.
+-- From 0.28.1 the own clock of the Abwehr waits for the lock while another part
+-- holds it, such as waf-guard at minute 05; before, the pass of that minute was lost.
 SET @mw := (SELECT IF(COUNT(*) = 0,
   'ALTER TABLE `malwatch_config` ADD COLUMN `waf_tick_wait_seconds` int(11) unsigned NOT NULL DEFAULT ''30''',
   'DO 0')
@@ -1053,10 +1053,10 @@ SET @mw := (SELECT IF(COUNT(*) = 0,
   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_config' AND COLUMN_NAME = 'waf_tick_wait_seconds');
 PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
--- Ab 0.28.0 zeigt jede Liste der Seite zuerst einen Schritt Zeilen und lädt auf
--- Knopfdruck nach; waf_ban_page_rows ist seitdem die Grenze einer Liste. Die alte
--- Vorgabe 200 wird dabei einmal zu 1000, solange es waf_ban_page_step noch nicht
--- gibt; danach bleibt jeder Wert, wie er eingestellt ist.
+-- From 0.28.0 every list of the page Sperren shows one step of rows first and
+-- loads more on request; waf_ban_page_rows has been the limit of a list since.
+-- The old default 200 becomes 1000 once, while waf_ban_page_step is missing;
+-- after that every value stays as it is set.
 SET @mw := (SELECT IF(COUNT(*) = 0,
   'UPDATE `malwatch_config` SET `waf_ban_page_rows` = 1000 WHERE `waf_ban_page_rows` = 200',
   'DO 0')
@@ -1068,6 +1068,22 @@ SET @mw := (SELECT IF(COUNT(*) = 0,
   'DO 0')
   FROM information_schema.COLUMNS
   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_config' AND COLUMN_NAME = 'waf_ban_page_step');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- From 0.28.2 "load more" has a time limit. The column default of waf_ban_page_rows
+-- follows the default 1000 on upgraded installs too; the stored value stays.
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_config` ADD COLUMN `waf_ban_page_timeout` int(11) unsigned NOT NULL DEFAULT ''30''',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_config' AND COLUMN_NAME = 'waf_ban_page_timeout');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @mw := (SELECT IF(COUNT(*) = 1,
+  'ALTER TABLE `malwatch_config` ALTER COLUMN `waf_ban_page_rows` SET DEFAULT 1000',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_config' AND COLUMN_NAME = 'waf_ban_page_rows'
+    AND COLUMN_DEFAULT IN ('200', '''200'''));
 PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 -- Die Herkunft senkt die Schwelle, ab 0.25.0. Alles beginnt ausgeschaltet.

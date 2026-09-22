@@ -1612,7 +1612,7 @@ done
 #     Zeilen und laedt bis zu einer Grenze nach. Alle drei sind Einstellungen mit
 #     Spalte, Vorgabe und Feld; und ein Vorschlag darf eine Adresse nie vor einer
 #     Sperre schuetzen.
-for col in waf_ban_proposal_days waf_ban_page_rows waf_ban_page_step; do
+for col in waf_ban_proposal_days waf_ban_page_rows waf_ban_page_step waf_ban_page_timeout; do
 	grep -q "ADD COLUMN \`$col\`" "$root/install/schema.sql" \
 		|| fail "malwatch_config bekommt keine Spalte $col"
 	grep -q "'$col' =>" "$root/interface/lib/malwatch_waf_lib.inc.php" \
@@ -1713,6 +1713,16 @@ if [ -d "$waf_dir" ]; then
 	grep -q "\$within = (int) \$settings\['waf_tick_wait_seconds'\];" "$waf_dir/waf-switch" \
 		&& grep -q 'cron_minute($within)' "$waf_dir/waf-switch" \
 		|| fail "waf-switch tick wartet nicht auf die Sperre der Abwehr"
+	# Die Minute fuer den Stundenteil gilt ab dem Start: nach bis zu 50 Sekunden
+	# Warten und dem Lauf steht die Uhr sonst schon in der naechsten Minute.
+	minute_line=$(grep -n "\$minute = (int) date('i');" "$waf_dir/waf-switch" | head -1 | cut -d: -f1)
+	pass_line=$(grep -n 'cron_minute($within)' "$waf_dir/waf-switch" | head -1 | cut -d: -f1)
+	if [ -z "$minute_line" ] || [ -z "$pass_line" ] || [ "$minute_line" -gt "$pass_line" ]; then
+		fail "waf-switch tick liest die Minute fuer den Stundenteil erst nach dem Lauf"
+	fi
+	if grep -q "if ((int) date('i') === 7)" "$waf_dir/waf-switch"; then
+		fail "waf-switch tick fragt die Minute nach dem Lauf noch einmal ab"
+	fi
 fi
 
 # 89. Die Auswahl der Herkunft zaehlt die Treffer erst je Adresse und verknuepft
@@ -1755,6 +1765,14 @@ if [ -f "$tpl" ] && [ -f "$page" ]; then
 		|| fail "malwatch_waf_ban_list.php fragt eine Liste mit fester Zeilenzahl ab"
 	test "$(grep -c '<details class="mw-sec"' "$tpl")" -eq "$(grep -c '</details>' "$tpl")" \
 		|| fail "malwatch_waf_ban_list.htm: nicht jeder Abschnitt wird geschlossen"
+	# Jede Liste sortiert zuletzt nach einem eindeutigen Merkmal. Bei Gleichstand
+	# darf die Datenbank je LIMIT anders ordnen, und "Weitere laden" vertauscht Zeilen.
+	if grep 'LIMIT ?' "$page" | grep -v ', ip LIMIT ?' | grep -v 'ip, jail LIMIT ?' | grep -q .; then
+		fail "malwatch_waf_ban_list.php sortiert eine Liste ohne eindeutiges letztes Merkmal"
+	fi
+	grep -q 'xhr.ontimeout' "$tpl" && grep -q 'data-mw-more-timeout=' "$tpl" \
+		&& grep -q "'more_timeout'" "$page" \
+		|| fail "malwatch_waf_ban_list: \"Weitere laden\" hat keine Zeitgrenze aus den Einstellungen"
 fi
 
 

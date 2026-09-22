@@ -365,6 +365,17 @@ $form['tabs']['waf'] = array(
 			'width' => '10',
 			'maxlength' => '4'
 		),
+		'waf_ban_page_timeout' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '30',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '5:300', 'errmsg' => 'waf_ban_page_timeout_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '3'
+		),
 		'waf_ban_bots' => array(
 			'datatype' => 'VARCHAR',
 			'formtype' => 'SELECT',
