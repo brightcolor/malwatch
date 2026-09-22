@@ -93,6 +93,8 @@ $wb['waf_ingest_max_lines_txt'] = 'Zeilen je Durchgang';
 $wb['waf_ingest_max_lines_hint_txt'] = 'So viele Zeilen des Audit-Logs liest ein Durchgang höchstens; den Rest liest der nächste.';
 $wb['waf_job_deadline_minutes_txt'] = 'Frist für den vhost (Minuten)';
 $wb['waf_job_deadline_minutes_hint_txt'] = 'So lange wartet ein Zustandswechsel darauf, dass ISPConfig den vhost neu schreibt. Danach nimmt der Auftrag die Änderung zurück.';
+$wb['waf_tick_wait_seconds_txt'] = 'Wartezeit des Minutentakts (Sekunden)';
+$wb['waf_tick_wait_seconds_hint_txt'] = 'Arbeitet gerade ein anderer Teil der Abwehr, etwa der stündliche Wächter mit nginx -t, wartet der Minutentakt so lange und läuft danach. Bei 0 fällt der Lauf dieser Minute aus.';
 
 $wb['facts_head_txt'] = 'Stand auf dem Server';
 $wb['audit_log_txt'] = 'Audit-Log';
@@ -117,6 +119,7 @@ $wb['waf_preview_days_error_range'] = 'Vorschau (Tage): Erlaubt sind ganze Zahle
 $wb['waf_min_detect_days_error_range'] = 'Mitschreiben vor „scharf“ (Tage): Erlaubt sind ganze Zahlen von 0 bis 365. Bitte den Wert anpassen und erneut speichern.';
 $wb['waf_ingest_max_lines_error_range'] = 'Zeilen je Durchgang: Erlaubt sind ganze Zahlen von 100 bis 100000. Bitte den Wert anpassen und erneut speichern.';
 $wb['waf_job_deadline_minutes_error_range'] = 'Frist für den vhost (Minuten): Erlaubt sind ganze Zahlen von 2 bis 120. Bitte den Wert anpassen und erneut speichern.';
+$wb['waf_tick_wait_seconds_error_range'] = 'Wartezeit des Minutentakts (Sekunden): Erlaubt sind ganze Zahlen von 0 bis 50. Bitte den Wert anpassen und erneut speichern.';
 $wb['waf_card_hits_error_range'] = 'Einzeltreffer für die Regel-Karten: Erlaubt sind ganze Zahlen von 100 bis 100000. Bitte den Wert anpassen und erneut speichern.';
 $wb['waf_origin_maxmind_account_error'] = 'MaxMind: Konto-ID: Erlaubt sind bis zu 32 Ziffern. Bitte die Konto-ID aus dem MaxMind-Konto eintragen und erneut speichern.';
 $wb['waf_origin_maxmind_key_error'] = 'MaxMind: Lizenzschlüssel: Erlaubt sind Buchstaben, Ziffern und Unterstrich, bis zu 128 Zeichen. Bitte den Schlüssel aus dem MaxMind-Konto eintragen und erneut speichern.';

@@ -93,6 +93,8 @@ $wb['waf_ingest_max_lines_txt'] = 'Lines per pass';
 $wb['waf_ingest_max_lines_hint_txt'] = 'A pass reads at most this many lines of the audit log; the next pass reads the rest.';
 $wb['waf_job_deadline_minutes_txt'] = 'Deadline for the vhost (minutes)';
 $wb['waf_job_deadline_minutes_hint_txt'] = 'A change of state waits this long for ISPConfig to rewrite the vhost. After that the job takes the change back.';
+$wb['waf_tick_wait_seconds_txt'] = 'Wait of the minute clock (seconds)';
+$wb['waf_tick_wait_seconds_hint_txt'] = 'While another part of the Abwehr works, such as the hourly guard with nginx -t, the minute clock waits this long and runs afterwards. With 0 the pass of that minute is skipped.';
 
 $wb['facts_head_txt'] = 'State on the server';
 $wb['audit_log_txt'] = 'Audit log';
@@ -117,6 +119,7 @@ $wb['waf_preview_days_error_range'] = 'Preview (days): whole numbers from 1 to 3
 $wb['waf_min_detect_days_error_range'] = 'Detect before "enforce" (days): whole numbers from 0 to 365 are allowed. Please adjust the value and save again.';
 $wb['waf_ingest_max_lines_error_range'] = 'Lines per pass: whole numbers from 100 to 100000 are allowed. Please adjust the value and save again.';
 $wb['waf_job_deadline_minutes_error_range'] = 'Deadline for the vhost (minutes): whole numbers from 2 to 120 are allowed. Please adjust the value and save again.';
+$wb['waf_tick_wait_seconds_error_range'] = 'Wait of the minute clock (seconds): whole numbers from 0 to 50 are allowed. Please adjust the value and save again.';
 $wb['waf_card_hits_error_range'] = 'Single hits for the rule cards: whole numbers from 100 to 100000 are allowed. Please adjust the value and save again.';
 $wb['waf_origin_maxmind_account_error'] = 'MaxMind: account ID: up to 32 digits are allowed. Please enter the account ID from your MaxMind account and save again.';
 $wb['waf_origin_maxmind_key_error'] = 'MaxMind: licence key: letters, digits and underscore are allowed, up to 128 characters. Please enter the key from your MaxMind account and save again.';

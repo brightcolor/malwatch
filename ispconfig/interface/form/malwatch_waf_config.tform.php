@@ -130,6 +130,17 @@ $form['tabs']['waf'] = array(
 			'width' => '10',
 			'maxlength' => '3'
 		),
+		'waf_tick_wait_seconds' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '30',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '0:50', 'errmsg' => 'waf_tick_wait_seconds_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '2'
+		),
 		'waf_card_hits' => array(
 			'datatype' => 'INTEGER',
 			'formtype' => 'TEXT',

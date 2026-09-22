@@ -154,13 +154,17 @@ switch ($command) {
 	case 'tick':
 		// The minute pass of the Abwehr on its own clock, see conf/cron-malwatch-waf.
 		// Exit 1 only when the pass itself failed; a pass that runs elsewhere right
-		// now is no failure. The hourly part follows at minute 07, as in ISPConfig.
-		$ran = $waf->cron_minute();
+		// now is no failure. While another worker holds the lock - every hour at
+		// minute 05 waf-guard for its nginx -t - the pass waits up to
+		// waf_tick_wait_seconds. The hourly part follows at minute 07, as in ISPConfig.
+		$settings = $waf->settings();
+		$within = (int) $settings['waf_tick_wait_seconds'];
+		$ran = $waf->cron_minute($within);
 		if ($ran === true) {
 			$waf->mark_tick();
 		}
 		if ((int) date('i') === 7) {
-			$waf->cron_hourly();
+			$waf->cron_hourly($within);
 		}
 		if ($ran === false) {
 			fwrite(STDERR, "Der Minutenlauf der Abwehr ist fehlgeschlagen; die Ursache steht im Systemprotokoll von ISPConfig.\n");

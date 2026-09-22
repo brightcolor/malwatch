@@ -1044,6 +1044,15 @@ SET @mw := (SELECT IF(COUNT(*) = 0,
   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_config' AND COLUMN_NAME = 'waf_ban_proposal_days');
 PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
+-- Ab 0.28.1 wartet der eigene Takt der Abwehr auf die Sperre, solange ein anderer
+-- Teil sie hält, etwa waf-guard zur Minute 05; bisher fiel der Lauf dieser Minute aus.
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_config` ADD COLUMN `waf_tick_wait_seconds` int(11) unsigned NOT NULL DEFAULT ''30''',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_config' AND COLUMN_NAME = 'waf_tick_wait_seconds');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
 -- Ab 0.28.0 zeigt jede Liste der Seite zuerst einen Schritt Zeilen und lädt auf
 -- Knopfdruck nach; waf_ban_page_rows ist seitdem die Grenze einer Liste. Die alte
 -- Vorgabe 200 wird dabei einmal zu 1000, solange es waf_ban_page_step noch nicht

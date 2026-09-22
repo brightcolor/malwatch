@@ -358,6 +358,13 @@
 		<span class="help-block">{tmpl_var name='waf_job_deadline_minutes_hint_txt'}</span>
 	</div>
 </div>
+<div class="form-group">
+	<label for="waf_tick_wait_seconds" class="col-sm-3 control-label">{tmpl_var name='waf_tick_wait_seconds_txt'}</label>
+	<div class="col-sm-9">
+		<input type="number" min="0" max="50" step="1" name="waf_tick_wait_seconds" id="waf_tick_wait_seconds" value="{tmpl_var name='waf_tick_wait_seconds'}" class="form-control mw-wafcfg-num" />
+		<span class="help-block">{tmpl_var name='waf_tick_wait_seconds_hint_txt'}</span>
+	</div>
+</div>
 
 <p class="mw-wafcfg-head">{tmpl_var name='facts_head_txt'}</p>
 

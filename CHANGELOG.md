@@ -2,6 +2,19 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.28.1] – 2026-09-22
+
+### Behoben
+
+**Der Minutentakt der Abwehr fiel jede Stunde einmal aus.** Zur Minute 05 startet
+der stündliche Wächter `waf-guard` in derselben Sekunde wie der Takt und hält für
+sein `nginx -t` die Sperre der Abwehr. Der Takt wich bisher sofort aus, und der Lauf
+dieser Minute fiel weg. Jetzt wartet er, bis die Sperre frei ist, höchstens so lange,
+wie „Wartezeit des Minutentakts" unter Abwehr > Einstellungen sagt (Vorgabe 30
+Sekunden, erlaubt 0 bis 50). Der stündliche Teil zur Minute 07 wartet ebenso. Der
+Cron-Job von ISPConfig wartet weiterhin nie, weil er währenddessen alle anderen Jobs
+von ISPConfig aufhält.
+
 ## [0.28.0] – 2026-09-22
 
 ### Neu

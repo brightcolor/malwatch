@@ -1696,6 +1696,23 @@ job="$root/server/lib/classes/cron.d/560-malwatch.inc.php"
 if [ -f "$job" ]; then
 	test "$(grep -c 'tick_is_fresh()' "$job")" -ge 2 \
 		|| fail "560-malwatch.inc.php laesst den Minuten- oder den Stundenlauf nicht dem eigenen Takt"
+	# Der Cron von ISPConfig haelt waehrenddessen alle seine Jobs auf: nie warten.
+	if grep -q 'cron_minute([^)]' "$job" || grep -q 'cron_hourly([^)]' "$job"; then
+		fail "560-malwatch.inc.php laesst die Abwehr auf ihre Sperre warten und haelt damit ISPConfig auf"
+	fi
+fi
+# Der Takt wartet auf die Sperre, so lange es waf_tick_wait_seconds sagt: Spalte,
+# Vorgabe, Feld und der Aufruf in waf-switch.
+grep -q 'ADD COLUMN `waf_tick_wait_seconds`' "$root/install/schema.sql" \
+	|| fail "malwatch_config bekommt keine Spalte waf_tick_wait_seconds"
+grep -q "'waf_tick_wait_seconds' =>" "$root/interface/lib/malwatch_waf_lib.inc.php" \
+	|| fail "waf_settings_defaults() kennt waf_tick_wait_seconds nicht"
+grep -q 'name="waf_tick_wait_seconds"' "$root/interface/templates/malwatch_waf_config_edit.htm" \
+	|| fail "die Einstellungsseite hat kein Feld waf_tick_wait_seconds"
+if [ -d "$waf_dir" ]; then
+	grep -q "\$within = (int) \$settings\['waf_tick_wait_seconds'\];" "$waf_dir/waf-switch" \
+		&& grep -q 'cron_minute($within)' "$waf_dir/waf-switch" \
+		|| fail "waf-switch tick wartet nicht auf die Sperre der Abwehr"
 fi
 
 # 89. Die Auswahl der Herkunft zaehlt die Treffer erst je Adresse und verknuepft

@@ -568,8 +568,12 @@ class malwatch_waf
 		return $base;
 	}
 
-	/** One WAF worker at a time: the cron, waf-switch and waf-guard share this lock. */
-	private function lock($wait)
+	/**
+	 * One WAF worker at a time: the cron, waf-switch and waf-guard share this
+	 * lock. $wait true waits as long as it takes, false gives up at once, or
+	 * after $within seconds of trying again.
+	 */
+	private function lock($wait, $within = 0)
 	{
 		if ($this->lock !== null) {
 			return true;
@@ -578,9 +582,13 @@ class malwatch_waf
 		if ($handle === false) {
 			return false;
 		}
-		if (!flock($handle, $wait ? LOCK_EX : LOCK_EX | LOCK_NB)) {
-			fclose($handle);
-			return false;
+		$until = microtime(true) + max(0, (int) $within);
+		while (!flock($handle, $wait ? LOCK_EX : LOCK_EX | LOCK_NB)) {
+			if ($wait || microtime(true) >= $until) {
+				fclose($handle);
+				return false;
+			}
+			usleep(250000);
 		}
 		$this->lock = $handle;
 		return true;
@@ -640,11 +648,16 @@ class malwatch_waf
 
 	// --- Entry points --------------------------------------------------------
 
-	/** One cron pass: read the log, then the jobs. Skipped while another worker holds the lock. */
-	public function cron_minute()
+	/**
+	 * One cron pass: read the log, then the jobs. Skipped while another worker
+	 * holds the lock; $within seconds of waiting first. The own clock waits
+	 * (waf_tick_wait_seconds), the cron job of ISPConfig never does, because
+	 * it holds up every other job of ISPConfig meanwhile.
+	 */
+	public function cron_minute($within = 0)
 	{
 		global $app;
-		if (!$this->ready() || !$this->lock(false)) {
+		if (!$this->ready() || !$this->lock(false, $within)) {
 			// Not installed, or another caller runs the pass right now.
 			return null;
 		}
@@ -692,12 +705,12 @@ class malwatch_waf
 		return $time !== false && time() - (int) $time < 180;
 	}
 
-	/** The hourly part of the cron. */
-	public function cron_hourly()
+	/** The hourly part of the cron; true when it ran, null while the lock stayed busy for $within seconds. */
+	public function cron_hourly($within = 0)
 	{
 		global $app;
-		if (!$this->ready() || !$this->lock(false)) {
-			return;
+		if (!$this->ready() || !$this->lock(false, $within)) {
+			return null;
 		}
 		try {
 			$this->cleanup();
@@ -707,6 +720,7 @@ class malwatch_waf
 		} finally {
 			$this->unlock();
 		}
+		return true;
 	}
 
 	/**
