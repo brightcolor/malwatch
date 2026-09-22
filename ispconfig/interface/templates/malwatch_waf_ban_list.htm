@@ -34,6 +34,9 @@
 #mw-wafban td.mw-ipcell{min-width:16ch}
 #mw-wafban td.mw-reasoncell{min-width:28ch}
 #mw-wafban h2{font-size:16px;margin:22px 0 6px}
+/* Überschriften innerhalb eines Abschnitts bleiben kleiner als sein Titel;
+   Bootstrap setzt h3 sonst auf 24px. */
+#mw-wafban h3{font-size:15px;font-weight:700;margin:18px 0 6px}
 #mw-wafban .mw-form{display:flex;flex-wrap:wrap;gap:6px;align-items:flex-end;margin:10px 0 0}
 #mw-wafban .mw-form label{font-size:12px;opacity:.72;display:block;margin:0 0 2px}
 #mw-wafban .mw-form input[type=text]{min-width:18ch}
@@ -41,7 +44,7 @@
 #mw-wafban details.mw-sec{margin:14px 0 0;padding-top:6px;border-top:1px solid var(--cic-line-soft,rgba(128,128,128,.35))}
 #mw-wafban details.mw-sec > summary{display:flex;align-items:baseline;gap:8px;cursor:pointer;list-style:none;padding:4px 0}
 #mw-wafban details.mw-sec > summary::-webkit-details-marker{display:none}
-#mw-wafban details.mw-sec > summary::before{content:"\25B8";font-size:12px;opacity:.72;transition:transform .15s}
+#mw-wafban details.mw-sec > summary::before{content:"\25B8";font-size:16px;line-height:1;opacity:.8;transition:transform .15s}
 #mw-wafban details.mw-sec[open] > summary::before{transform:rotate(90deg)}
 #mw-wafban details.mw-sec > summary h2{display:inline;margin:0}
 #mw-wafban details.mw-sec > summary:focus-visible{outline:2px solid var(--cic-accent,#dd630d);outline-offset:2px}
