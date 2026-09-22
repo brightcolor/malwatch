@@ -78,7 +78,7 @@ sperrt immer im Web).
 - `waf_f2b_mode($jail, $jail_modes, $settings)`: Modus für den Knopf
 - `waf_f2b_plan($mode)`: `array('web' => bool, 'forever' => bool, 'jail' => bool)`
 
-- [ ] **Schritt 1: Prüfungen** mit den echten Ausgaben vom 22.09.2026:
+- [x] **Schritt 1: Prüfungen** mit den echten Ausgaben vom 22.09.2026:
   - `fail2ban-client status` → `"Status\n|- Number of jail:\t5\n`- Jail list:\tdovecot, postfix-sasl, pure-ftpd, recidive, sshd\n"` ergibt fünf Namen.
   - `get recidive banip --with-time` → `"91.92.243.20 \t2026-09-15 21:20:27 + 686484 = 2026-09-23 20:01:51\n"` ergibt Adresse, Beginn, Ende.
   - leerer Jail `"\n"` → leere Liste; Zeilen mit kaputter Adresse oder Zeit fallen weg.
@@ -89,9 +89,9 @@ sperrt immer im Web).
   - Modus: Jail-Modus vor global; unbekannter Modus fällt auf global; kaputter globaler
     Modus auf `web_jail`.
   - Plan: `web_jail` → web, jail; `web_forever_jail` → web, forever, jail; `jail_only` → jail.
-- [ ] **Schritt 2:** laufen lassen, erwartet: Fehler, Funktionen fehlen.
-- [ ] **Schritt 3:** Bibliothek schreiben (reine Funktionen, keine Datenbank).
-- [ ] **Schritt 4:** laufen lassen, erwartet: bestanden; Eintrag in `file.list`
+- [x] **Schritt 2:** laufen lassen, erwartet: Fehler, Funktionen fehlen.
+- [x] **Schritt 3:** Bibliothek schreiben (reine Funktionen, keine Datenbank).
+- [x] **Schritt 4:** laufen lassen, erwartet: bestanden; Eintrag in `file.list`
   (`c:interface/lib/malwatch_waf_f2b.inc.php:interface/web/security/lib/malwatch_waf_f2b.inc.php`)
   und in `ci.yml`.
 
@@ -101,35 +101,35 @@ sperrt immer im Web).
 `ispconfig/interface/form/malwatch_waf_config.tform.php`,
 `ispconfig/interface/templates/malwatch_waf_config_edit.htm`, beide `*_malwatch_waf_config.lng`
 
-- [ ] **Schritt 1:** Tabellen
+- [x] **Schritt 1:** Tabellen
   - `malwatch_f2b_ban` (`server_id`, `jail` varchar(64), `ip` varchar(45), `banned_at`, `until`, `seen_at`; Schlüssel `server_id, jail, ip`; Index `ip`)
   - `malwatch_f2b_state` (`server_id` Schlüssel, `state` varchar(16), `error` varchar(255), `read_at`)
   - `malwatch_f2b_jail` (`server_id`, `jail`, `everywhere_mode` varchar(20); Schlüssel `server_id, jail`)
   - `malwatch_waf_ban_rule` (`rule_id` varchar(16) Schlüssel, `everywhere_mode` varchar(20), `changed_at`, `changed_by`)
-- [ ] **Schritt 2:** Spalten in `malwatch_config`: `waf_f2b` enum('off','on') Vorgabe 'on',
+- [x] **Schritt 2:** Spalten in `malwatch_config`: `waf_f2b` enum('off','on') Vorgabe 'on',
   `waf_everywhere_mode` varchar(20) Vorgabe 'web_jail', `waf_everywhere_jail` varchar(64)
   Vorgabe 'recidive'. `waf_settings()` prüft Modus und Jail und fällt auf die Vorgabe zurück.
-- [ ] **Schritt 3:** Formularfelder (zwei SELECT, ein TEXT mit REGEX-Prüfung), Wörter, Vorlage.
-- [ ] **Schritt 4:** `waf_lib_test.php`, `waf_panel_test.php` laufen lassen.
+- [x] **Schritt 3:** Formularfelder (zwei SELECT, ein TEXT mit REGEX-Prüfung), Wörter, Vorlage.
+- [x] **Schritt 4:** `waf_lib_test.php`, `waf_panel_test.php` laufen lassen.
 
 ### Aufgabe G3: Serverklasse — lesen
 
 **Dateien:** `ispconfig/server/lib/classes/malwatch_waf.inc.php`, `ispconfig/tests/waf_class_probe.php`
 
-- [ ] **Schritt 1:** `run_command()` kennt `f2b_status`, `f2b_banned` (Argument: Jail),
+- [x] **Schritt 1:** `run_command()` kennt `f2b_status`, `f2b_banned` (Argument: Jail),
   `f2b_unban` und `f2b_ban` (Argument: `array(jail, ip)`), jedes Argument durch
   `escapeshellarg()`. Fehlt `fail2ban-client`, antwortet der Befehl mit 127 und einer Meldung.
-- [ ] **Schritt 2:** `f2b_read()` im Minutenlauf nach `ban_apply()`: aus → Zustand `off`, Zeilen
+- [x] **Schritt 2:** `f2b_read()` im Minutenlauf nach `ban_apply()`: aus → Zustand `off`, Zeilen
   des Servers weg; sonst Jails lesen, je Jail die Sperren, Tabelle abgleichen (neue Zeilen
   anlegen, fortgefallene löschen), Zustand `ok` oder `error` mit Meldung.
-- [ ] **Schritt 3:** Klassenprobe mit `$answers` für die vier Befehle: Abgleich legt an, hält
+- [x] **Schritt 3:** Klassenprobe mit `$answers` für die vier Befehle: Abgleich legt an, hält
   und löscht; ein Fehler von fail2ban lässt die Tabelle stehen und schreibt den Zustand.
 
 ### Aufgabe G4: Serverklasse — Aufträge und Automatik
 
-- [ ] **Schritt 1:** Der Web-Teil von `ban_add` wird eine eigene Methode `ban_web_by_hand($ip,
+- [x] **Schritt 1:** Der Web-Teil von `ban_add` wird eine eigene Methode `ban_web_by_hand($ip,
   $permanent, $user, $now, $settings)`, die `ban_add` und `ban_everywhere` teilen.
-- [ ] **Schritt 2:** Aufträge
+- [x] **Schritt 2:** Aufträge
   - `f2b_unban` (`jail`, `ip`): Form prüfen, `fail2ban-client set <jail> unbanip <ip>`,
     Meldung „freigegeben" oder „war dort nicht mehr gesperrt", danach `f2b_read()`.
   - `ban_everywhere` (`ip`, optional `jail`): Form prüfen, „Nie sperren", eigene Netze und
@@ -137,11 +137,11 @@ sperrt immer im Web).
     für beides, danach `ban_apply()` und `f2b_read()`.
   - `f2b_jail_modes` (`modes`: Jail → Modus): je Jail speichern, `''` löscht.
   - `ban_rule_mode` (`rule`, `mode`): Regel `^[0-9]{3,9}$`, Modus aus `waf_f2b_rule_modes()`.
-- [ ] **Schritt 3:** Automatik: Wird in `ban_scan()` eine Sperre aktiv und ist ihre häufigste
+- [x] **Schritt 3:** Automatik: Wird in `ban_scan()` eine Sperre aktiv und ist ihre häufigste
   Regel markiert, folgt der Plan des Regel-Modus (ohne Ende bei `web_forever_jail`,
   fail2ban-Sperre im Jail). Scheitert fail2ban, bleibt die Web-Sperre und das Protokoll
   sagt es.
-- [ ] **Schritt 4:** Klassenprobe: jeder Auftrag, jeder Modus, die Abweisung von 10.50.0.1,
+- [x] **Schritt 4:** Klassenprobe: jeder Auftrag, jeder Modus, die Abweisung von 10.50.0.1,
   die Automatik mit markierter Regel.
 
 ### Aufgabe G5: Panel
@@ -150,32 +150,49 @@ sperrt immer im Web).
 `malwatch_waf_show.php`, `templates/malwatch_waf_show.htm`, `lib/malwatch_waf_panel.inc.php`,
 beide `*_malwatch_waf.lng`
 
-- [ ] **Schritt 1:** Seite „Sperren", Abschnitt „fail2ban" nach den Vorschlägen: Zustand
+- [x] **Schritt 1:** Seite „Sperren", Abschnitt „fail2ban" nach den Vorschlägen: Zustand
   (gelesen um …, aus, Fehler), Tabelle (Adresse, Grund, seit, bis), Knöpfe „freigeben" und
   „überall sperren", Eingabefeld „Adresse überall sperren" mit dem geltenden Modus, Tabelle
   der Jails mit Modus-Auswahl und einem Speicherknopf. Neue versteckte Felder `mw-waf-jail`.
-- [ ] **Schritt 2:** Website-Seite: je Regel-Karte eine Auswahl „Sperren wegen dieser Regel"
+- [x] **Schritt 2:** Website-Seite: je Regel-Karte eine Auswahl „Sperren wegen dieser Regel"
   (nur Web, Web + fail2ban, Web dauerhaft + fail2ban) mit Knopf; versteckte Felder `mw-waf-rule`.
-- [ ] **Schritt 3:** Handler in `waf_panel_handle_post()` für die vier Aufträge; reine
+- [x] **Schritt 3:** Handler in `waf_panel_handle_post()` für die vier Aufträge; reine
   Hilfsfunktion `waf_panel_f2b_rows()` für die Tabelle.
-- [ ] **Schritt 4:** `waf_panel_test.php`, `waf_panel_post_test.php`, `check_wiring.sh`
+- [x] **Schritt 4:** `waf_panel_test.php`, `waf_panel_post_test.php`, `check_wiring.sh`
   (Prüfung 84 verlangt die neuen Felder).
 
 ### Aufgabe G6: waf-switch
 
-- [ ] `waf-switch ban everywhere <ip>` (Auftrag `ban_everywhere`), `waf-switch ban f2b`
+- [x] `waf-switch ban everywhere <ip>` (Auftrag `ban_everywhere`), `waf-switch ban f2b`
   (Liste aus `malwatch_f2b_ban`). Hilfetexte.
 
 ### Aufgabe G7: Verdrahtung, Nachbau
 
-- [ ] Prüfungen in `check_wiring.sh`: Befehle nur mit `escapeshellarg`, `ban_everywhere`
+- [x] Prüfungen in `check_wiring.sh`: Befehle nur mit `escapeshellarg`, `ban_everywhere`
   fragt `waf_ban_allowed()`, Bibliothek in `file.list`, Wörter in beiden Sprachen.
-- [ ] Nachbau: `fake_db.php` kennt die neuen Tabellen; Seite rendert; Klickprobe der Knöpfe.
+- [x] Nachbau: `fake_db.php` kennt die neuen Tabellen; Seite rendert; Klickprobe der Knöpfe.
 
 ### Aufgabe G8: Veröffentlichen, einspielen, prüfen
 
-- [ ] Version 0.26.0, Changelog, alle Prüfungen, Klassenprobe am Server.
-- [ ] Commit, `main`, CI grün, erst dann Marke und Release.
-- [ ] Einspielen; Probe mit 192.0.2.62: „überall sperren" → Web-Sperre und `recidive`,
+- [x] Version 0.26.0, Changelog, alle Prüfungen, Klassenprobe am Server.
+- [x] Commit, `main`, CI grün, erst dann Marke und Release.
+- [x] Einspielen; Probe mit 192.0.2.62: „überall sperren" → Web-Sperre und `recidive`,
   „freigeben" → aus `recidive`; die echten Sperren von fail2ban erscheinen.
-- [ ] Protokolleintrag, Memory, Spec Abschnitt 12 nachziehen.
+- [x] Protokolleintrag, Memory, Spec Abschnitt 12 nachziehen.
+
+## Erledigt am 22.09.2026
+
+Alle Aufgaben G1 bis G8 umgesetzt, veröffentlicht als 0.26.0, eingespielt um
+02:06:29 (`Kopien geprüft: 97, abweichend: 0`). Probe am lebenden Server: erste
+Lesung mit vier gespiegelten Sperren, „überall sperren" für 192.0.2.62 (Web Stufe 1
+und `recidive`), Abweisung von 10.50.0.1, Freigabe über den Auftrag `f2b_unban`.
+
+Beim Umsetzen fiel auf:
+
+- `malwatch_waf_lib.inc.php` bindet die neue Bibliothek über `__DIR__` ein. Tests,
+  die die Bibliotheken selbst laden, brauchen deshalb `require_once`; die
+  Klassenprobe scheiterte zuerst an „Cannot redeclare waf_origin_bytes()".
+- Die Escape-Falle beim Schreiben über Skripte traf auch `check_wiring.sh`:
+  37 Zeilenfortsetzungen und 4 `printf`-Formate waren betroffen, alle repariert.
+- ISPConfig hält malwatch an, solange ein anderer Cron-Job läuft; nachts ist das
+  AWStats für etwa 30 Minuten.
