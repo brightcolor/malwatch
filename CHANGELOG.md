@@ -2,6 +2,36 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.28.0] – 2026-09-22
+
+### Neu
+
+**„Sperren" klappt auf und zu.** Jeder Abschnitt der Seite ist ein aufklappbarer Block
+mit der Zahl seiner Einträge im Titel, etwa „Vorschläge (156)". Offen beginnen
+„Gesperrt" und „Sperren von fail2ban", die übrigen sind zu. Die Seite merkt sich im
+Browser, was du auf- oder zugeklappt hast.
+
+**Weitere laden.** Jede Liste zeigt zuerst 25 Zeilen. Der Knopf „Weitere 25 laden
+(131 übrig)" holt die nächsten auf derselben Seite dazu und ersetzt dabei nur diese
+eine Liste. Jeder Knopf der Seite schickt mit, wie lang die Listen gerade sind; nach
+Sperren, Verwerfen oder Freigeben bleiben sie deshalb so lang. Scheitert das
+Nachladen, steht unter dem Knopf, woran es lag und was zu tun ist.
+
+**Länder ausgeschrieben.** Auf „Sperren" und auf der Seite einer Website steht der
+Name des Landes, sein Code erscheint beim Überfahren. Die Auswahl der Herkunft zeigt
+Name und Code nebeneinander, bei Anbietern Name und AS-Nummer. Der Grund einer Sperre
+nennt das Land als „Land Frankreich (FR)", `waf-switch ban origin` ebenso. Die Namen
+kommen aus der PHP-Erweiterung intl; fehlt sie, bleibt der Code.
+
+### Geändert
+
+**Zwei Einstellungen für die Länge der Listen.** „Zeilen je Schritt der Seite Sperren"
+(neu, Vorgabe 25, erlaubt 5 bis 500) legt fest, wie viele Zeilen eine Liste zuerst
+zeigt und wie viele jeder Klick dazuholt. „Höchstens Zeilen je Liste der Seite
+Sperren" hieß bisher „Zeilen je Abschnitt" und ist jetzt die Grenze fürs Nachladen,
+Vorgabe 1000. Wer noch die alte Vorgabe 200 eingestellt hatte, bekommt beim Update
+einmal 1000.
+
 ## [0.27.1] – 2026-09-22
 
 ### Behoben

@@ -37,10 +37,26 @@
 #mw-wafban .mw-form{display:flex;flex-wrap:wrap;gap:6px;align-items:flex-end;margin:10px 0 0}
 #mw-wafban .mw-form label{font-size:12px;opacity:.72;display:block;margin:0 0 2px}
 #mw-wafban .mw-form input[type=text]{min-width:18ch}
+/* Aufklappbare Abschnitte: der Titel trägt die Zahl der Einträge. */
+#mw-wafban details.mw-sec{margin:14px 0 0;padding-top:6px;border-top:1px solid var(--cic-line-soft,rgba(128,128,128,.35))}
+#mw-wafban details.mw-sec > summary{display:flex;align-items:baseline;gap:8px;cursor:pointer;list-style:none;padding:4px 0}
+#mw-wafban details.mw-sec > summary::-webkit-details-marker{display:none}
+#mw-wafban details.mw-sec > summary::before{content:"\25B8";font-size:12px;opacity:.72;transition:transform .15s}
+#mw-wafban details.mw-sec[open] > summary::before{transform:rotate(90deg)}
+#mw-wafban details.mw-sec > summary h2{display:inline;margin:0}
+#mw-wafban details.mw-sec > summary:focus-visible{outline:2px solid var(--cic-accent,#dd630d);outline-offset:2px}
+#mw-wafban details.mw-sec[open] > summary{margin-bottom:6px}
+#mw-wafban .mw-count{font-size:13px;font-weight:400;opacity:.72;font-variant-numeric:tabular-nums}
+#mw-wafban .mw-list:focus{outline:none}
+#mw-wafban .mw-more{margin:8px 0 0}
+#mw-wafban .mw-more-error{font-size:12.5px;color:var(--cic-danger,#b3261e);margin-left:6px}
+@media (prefers-reduced-motion: reduce){#mw-wafban details.mw-sec > summary::before{transition:none}}
 </style>
 
 <div id="mw-wafban" data-mw-jobs="security/malwatch_waf_jobs.php?since={tmpl_var name='first_job'}"
-	data-mw-self="{tmpl_var name='self_href'}">
+	data-mw-self="{tmpl_var name='self_href'}" data-mw-more-error="{tmpl_var name='ban_more_error_txt'}"
+	data-mw-more-http="{tmpl_var name='ban_more_http_txt'}" data-mw-more-nolist="{tmpl_var name='ban_more_nolist_txt'}"
+	data-mw-more-offline="{tmpl_var name='ban_more_offline_txt'}">
 
 <p class="mw-back"><a href="#" data-load-content="security/malwatch_waf_list.php">{tmpl_var name='show_back_txt'}</a></p>
 <p class="mw-sub">{tmpl_var name='ban_intro_txt'}</p>
@@ -52,6 +68,11 @@
 <input type="hidden" name="waf_permanent" id="mw-waf-permanent" value="" />
 <input type="hidden" name="waf_allow_id" id="mw-waf-allow-id" value="" />
 <input type="hidden" name="waf_jail" id="mw-waf-jail" value="" />
+<!-- Wie viele Zeilen jede Liste gerade zeigt; „Weitere laden" zählt hoch. -->
+<input type="hidden" name="rows_active" id="mw-rows-active" data-mw-rows="active" value="{tmpl_var name='rows_active'}" />
+<input type="hidden" name="rows_proposed" id="mw-rows-proposed" data-mw-rows="proposed" value="{tmpl_var name='rows_proposed'}" />
+<input type="hidden" name="rows_f2b" id="mw-rows-f2b" data-mw-rows="f2b" value="{tmpl_var name='rows_f2b'}" />
+<input type="hidden" name="rows_past" id="mw-rows-past" data-mw-rows="past" value="{tmpl_var name='rows_past'}" />
 
 <tmpl_if name="has_jobs">
 <div class="mw-jobs" id="mw-waf-jobs" aria-live="polite">
@@ -75,6 +96,9 @@
 		data-submit-form="pageForm" data-form-action="security/malwatch_waf_ban_list.php">{tmpl_var name='ban_lift_all_txt'}</button>
 </div>
 
+<details class="mw-sec" id="mw-sec-active" data-mw-sec="active" open>
+<summary><h2>{tmpl_var name='ban_active_head_txt'} <span class="mw-count">({tmpl_var name='count_active'})</span></h2></summary>
+<div class="mw-list" id="mw-list-active" tabindex="-1">
 <tmpl_if name="has_active">
 <div class="table-wrapper">
 <table class="table">
@@ -92,7 +116,7 @@
 		<tmpl_loop name="ban_active">
 		<tr>
 			<td class="mw-ipcell"><span class="mw-mono">{tmpl_var name='ban_ip'}</span>
-				<div class="mw-dim"><span title="{tmpl_var name='ban_country_title'}">{tmpl_var name='ban_country'}</span>
+				<div class="mw-dim"><span title="{tmpl_var name='ban_country_code'}">{tmpl_var name='ban_country'}</span>
 				<span title="{tmpl_var name='ban_provider_title'}">{tmpl_var name='ban_provider'}</span><tmpl_if name="ban_has_chips"><span class="mw-chip">{tmpl_var name='ban_chips'}</span></tmpl_if></div></td>
 			<td class="mw-reasoncell">{tmpl_var name='ban_reason'}<div class="mw-dim">{tmpl_var name='ban_source'}</div></td>
 			<td class="mw-dim">{tmpl_var name='ban_since'}</td>
@@ -114,9 +138,16 @@
 <tmpl_else>
 <p class="mw-sub">{tmpl_var name='ban_none_active_txt'}</p>
 </tmpl_if>
-<tmpl_if name="more_active"><p class="mw-sub">{tmpl_var name='more_active'}</p></tmpl_if>
+<tmpl_if name="has_more_active"><p class="mw-more"><button class="btn btn-default btn-xs" type="button"
+	data-mw-more="active" data-mw-next="{tmpl_var name='more_active_next'}">{tmpl_var name='more_active_label'}</button>
+	<span class="mw-more-error" role="alert" hidden></span></p></tmpl_if>
+<tmpl_if name="more_active_note"><p class="mw-sub">{tmpl_var name='more_active_note'}</p></tmpl_if>
+</div>
+</details>
 
-<h2>{tmpl_var name='ban_state_proposed_txt'}</h2>
+<details class="mw-sec" id="mw-sec-proposed" data-mw-sec="proposed">
+<summary><h2>{tmpl_var name='ban_proposed_head_txt'} <span class="mw-count">({tmpl_var name='count_proposed'})</span></h2></summary>
+<div class="mw-list" id="mw-list-proposed" tabindex="-1">
 <tmpl_if name="has_proposed">
 <div class="table-wrapper">
 <table class="table">
@@ -132,7 +163,7 @@
 		<tmpl_loop name="ban_proposed">
 		<tr>
 			<td class="mw-ipcell"><span class="mw-mono">{tmpl_var name='ban_ip'}</span>
-				<div class="mw-dim"><span title="{tmpl_var name='ban_country_title'}">{tmpl_var name='ban_country'}</span>
+				<div class="mw-dim"><span title="{tmpl_var name='ban_country_code'}">{tmpl_var name='ban_country'}</span>
 				<span title="{tmpl_var name='ban_provider_title'}">{tmpl_var name='ban_provider'}</span><tmpl_if name="ban_has_chips"><span class="mw-chip">{tmpl_var name='ban_chips'}</span></tmpl_if></div></td>
 			<td class="mw-reasoncell">{tmpl_var name='ban_reason'}</td>
 			<td class="mw-dim">{tmpl_var name='ban_since'}</td>
@@ -155,9 +186,15 @@
 <tmpl_else>
 <p class="mw-sub">{tmpl_var name='ban_none_proposed_txt'}</p>
 </tmpl_if>
-<tmpl_if name="more_proposed"><p class="mw-sub">{tmpl_var name='more_proposed'}</p></tmpl_if>
+<tmpl_if name="has_more_proposed"><p class="mw-more"><button class="btn btn-default btn-xs" type="button"
+	data-mw-more="proposed" data-mw-next="{tmpl_var name='more_proposed_next'}">{tmpl_var name='more_proposed_label'}</button>
+	<span class="mw-more-error" role="alert" hidden></span></p></tmpl_if>
+<tmpl_if name="more_proposed_note"><p class="mw-sub">{tmpl_var name='more_proposed_note'}</p></tmpl_if>
+</div>
+</details>
 
-<h2>{tmpl_var name='ban_f2b_head_txt'}</h2>
+<details class="mw-sec" id="mw-sec-f2b" data-mw-sec="f2b" open>
+<summary><h2>{tmpl_var name='ban_f2b_head_txt'} <span class="mw-count">({tmpl_var name='count_f2b'})</span></h2></summary>
 <p class="mw-sub">{tmpl_var name='ban_f2b_intro_txt'} {tmpl_var name='f2b_state'}</p>
 <div class="mw-form">
 	<div>
@@ -172,6 +209,7 @@
 		data-submit-form="pageForm" data-form-action="security/malwatch_waf_ban_list.php">{tmpl_var name='f2b_everywhere_txt'}</button>
 	<span class="mw-caption">{tmpl_var name='f2b_mode_now'}</span>
 </div>
+<div class="mw-list" id="mw-list-f2b" tabindex="-1">
 <tmpl_if name="has_f2b">
 <div class="table-wrapper">
 <table class="table">
@@ -211,7 +249,11 @@
 <tmpl_else>
 <p class="mw-sub">{tmpl_var name='f2b_none_txt'}</p>
 </tmpl_if>
-<tmpl_if name="more_f2b"><p class="mw-sub">{tmpl_var name='more_f2b'}</p></tmpl_if>
+<tmpl_if name="has_more_f2b"><p class="mw-more"><button class="btn btn-default btn-xs" type="button"
+	data-mw-more="f2b" data-mw-next="{tmpl_var name='more_f2b_next'}">{tmpl_var name='more_f2b_label'}</button>
+	<span class="mw-more-error" role="alert" hidden></span></p></tmpl_if>
+<tmpl_if name="more_f2b_note"><p class="mw-sub">{tmpl_var name='more_f2b_note'}</p></tmpl_if>
+</div>
 <tmpl_if name="has_f2b_jails">
 <h3>{tmpl_var name='f2b_jails_head_txt'}</h3>
 <p class="mw-sub">{tmpl_var name='f2b_jails_intro_txt'}</p>
@@ -241,8 +283,10 @@
 	data-mw-set-mw-waf-action="f2b_jail_modes"
 	data-submit-form="pageForm" data-form-action="security/malwatch_waf_ban_list.php">{tmpl_var name='f2b_jails_save_txt'}</button></p>
 </tmpl_if>
+</details>
 
-<h2>{tmpl_var name='ban_allow_head_txt'}</h2>
+<details class="mw-sec" id="mw-sec-allow" data-mw-sec="allow">
+<summary><h2>{tmpl_var name='ban_allow_head_txt'} <span class="mw-count">({tmpl_var name='count_allow'})</span></h2></summary>
 <p class="mw-sub">{tmpl_var name='ban_allow_intro_txt'}</p>
 <tmpl_if name="has_allow">
 <div class="table-wrapper">
@@ -286,8 +330,10 @@
 		data-mw-set-mw-waf-action="ban_allow_add"
 		data-submit-form="pageForm" data-form-action="security/malwatch_waf_ban_list.php">{tmpl_var name='ban_allow_add_txt'}</button>
 </div>
+</details>
 
-<h2>{tmpl_var name='ban_origin_head_txt'}</h2>
+<details class="mw-sec" id="mw-sec-origin" data-mw-sec="origin">
+<summary><h2>{tmpl_var name='ban_origin_head_txt'} <span class="mw-count">({tmpl_var name='count_origin'})</span></h2></summary>
 <p class="mw-sub">{tmpl_var name='ban_origin_intro_txt'} {tmpl_var name='origin_days'}</p>
 <tmpl_if name="origin_mode_on">
 <tmpl_else>
@@ -310,7 +356,7 @@
 		<tmpl_loop name="origin_country">
 		<tr>
 			<td><input type="checkbox" name="waf_origin_country[]" value="{tmpl_var name='origin_value'}"<tmpl_if name="origin_chosen"> checked="checked"</tmpl_if> /></td>
-			<td>{tmpl_var name='origin_label'}</td>
+			<td>{tmpl_var name='origin_label'}<tmpl_if name="origin_code"> <span class="mw-dim">{tmpl_var name='origin_code'}</span></tmpl_if></td>
 			<td class="mw-num">{tmpl_var name='origin_hits'}</td>
 			<td class="mw-num">{tmpl_var name='origin_addresses'}</td>
 		</tr>
@@ -338,7 +384,7 @@
 		<tmpl_loop name="origin_asn">
 		<tr>
 			<td><input type="checkbox" name="waf_origin_asn[]" value="{tmpl_var name='origin_value'}"<tmpl_if name="origin_chosen"> checked="checked"</tmpl_if> /></td>
-			<td>{tmpl_var name='origin_label'}</td>
+			<td>{tmpl_var name='origin_label'}<tmpl_if name="origin_code"> <span class="mw-dim">{tmpl_var name='origin_code'}</span></tmpl_if></td>
 			<td class="mw-num">{tmpl_var name='origin_hits'}</td>
 			<td class="mw-num">{tmpl_var name='origin_addresses'}</td>
 		</tr>
@@ -356,8 +402,10 @@
 	data-submit-form="pageForm" data-form-action="security/malwatch_waf_ban_list.php">{tmpl_var name='ban_origin_save_txt'}</button>
 <span class="mw-caption">{tmpl_var name='ban_origin_save_hint_txt'}</span></p>
 </tmpl_if>
+</details>
 
-<h2>{tmpl_var name='ban_url_head_txt'}</h2>
+<details class="mw-sec" id="mw-sec-url" data-mw-sec="url">
+<summary><h2>{tmpl_var name='ban_url_head_txt'}</h2></summary>
 <p class="mw-sub">{tmpl_var name='ban_url_intro_txt'}</p>
 <tmpl_if name="has_ban_url">
 <div class="mw-form">
@@ -375,9 +423,12 @@
 </div>
 </tmpl_if>
 <p class="mw-sub">{tmpl_var name='ban_url_hint'}</p>
+</details>
 
+<details class="mw-sec" id="mw-sec-past" data-mw-sec="past">
+<summary><h2>{tmpl_var name='ban_past_head_txt'} <span class="mw-count">({tmpl_var name='count_past'})</span></h2></summary>
+<div class="mw-list" id="mw-list-past" tabindex="-1">
 <tmpl_if name="has_past">
-<h2>{tmpl_var name='ban_past_head_txt'}</h2>
 <div class="table-wrapper">
 <table class="table">
 	<thead class="dark">
@@ -400,8 +451,16 @@
 	</tbody>
 </table>
 </div>
+<tmpl_else>
+<p class="mw-sub">{tmpl_var name='ban_none_past_txt'}</p>
 </tmpl_if>
-<tmpl_if name="more_past"><p class="mw-sub">{tmpl_var name='more_past'}</p></tmpl_if>
+<tmpl_if name="has_more_past"><p class="mw-more"><button class="btn btn-default btn-xs" type="button"
+	data-mw-more="past" data-mw-next="{tmpl_var name='more_past_next'}">{tmpl_var name='more_past_label'}</button>
+	<span class="mw-more-error" role="alert" hidden></span></p></tmpl_if>
+<tmpl_if name="more_past_note"><p class="mw-sub">{tmpl_var name='more_past_note'}</p></tmpl_if>
+</div>
+</details>
+
 
 </div>
 
@@ -425,7 +484,12 @@
 	function refresh() {
 		stop();
 		if (window.ISPConfig && document.contains(root)) {
-			ISPConfig.loadContent(root.getAttribute('data-mw-self'));
+			var parts = [];
+			var kept = root.querySelectorAll('input[data-mw-rows]');
+			for (var i = 0; i < kept.length; i++) {
+				parts.push(encodeURIComponent(kept[i].name) + '=' + encodeURIComponent(kept[i].value));
+			}
+			ISPConfig.loadContent(root.getAttribute('data-mw-self') + (parts.length ? '?' + parts.join('&') : ''));
 		}
 	}
 	function poll() {
@@ -442,5 +506,72 @@
 		xhr.send();
 	}
 	timer = setInterval(poll, 5000);
+})();
+
+(function () {
+	// Jeder Abschnitt merkt sich, ob er offen war. „Weitere laden“ holt die Seite
+	// mit mehr Zeilen für diese eine Liste und tauscht nur die Liste aus; die
+	// Knöpfe darin arbeiten weiter, weil ihre Lauscher am Dokument hängen.
+	var root = document.getElementById('mw-wafban');
+	if (!root) { return; }
+	var store = null;
+	try { store = window.localStorage; } catch (e) { store = null; }
+	var boxes = root.querySelectorAll('details[data-mw-sec]');
+	for (var i = 0; i < boxes.length; i++) {
+		(function (box) {
+			var key = 'malwatch.wafban.' + box.getAttribute('data-mw-sec');
+			var kept = null;
+			try { kept = store ? store.getItem(key) : null; } catch (e) { kept = null; }
+			if (kept === 'open') { box.open = true; }
+			if (kept === 'closed') { box.open = false; }
+			box.addEventListener('toggle', function () {
+				try { if (store) { store.setItem(key, box.open ? 'open' : 'closed'); } } catch (e) { }
+			});
+		})(boxes[i]);
+	}
+	function word(name, value) {
+		return (root.getAttribute('data-mw-' + name) || '').replace('%s', value);
+	}
+	function failed(button, cause) {
+		button.disabled = false;
+		var note = button.parentNode.querySelector('.mw-more-error');
+		if (note) {
+			note.textContent = word('more-error', cause);
+			note.hidden = false;
+		}
+	}
+	root.addEventListener('click', function (event) {
+		var button = event.target && event.target.closest ? event.target.closest('[data-mw-more]') : null;
+		if (!button || !root.contains(button) || button.disabled) { return; }
+		event.preventDefault();
+		var section = button.getAttribute('data-mw-more');
+		var next = button.getAttribute('data-mw-next');
+		var list = document.getElementById('mw-list-' + section);
+		if (!list) { return; }
+		var before = list.querySelectorAll('tbody > tr').length;
+		button.disabled = true;
+		var xhr = new XMLHttpRequest();
+		xhr.open('GET', root.getAttribute('data-mw-self') + '?rows_' + encodeURIComponent(section) + '='
+			+ encodeURIComponent(next), true);
+		xhr.onload = function () {
+			if (!document.contains(list)) { return; }
+			if (xhr.status !== 200) { failed(button, word('more-http', String(xhr.status))); return; }
+			var fresh = new DOMParser().parseFromString(xhr.responseText, 'text/html').getElementById('mw-list-' + section);
+			if (!fresh) { failed(button, word('more-nolist', '')); return; }
+			var placed = document.importNode(fresh, true);
+			list.parentNode.replaceChild(placed, list);
+			var rows = document.getElementById('mw-rows-' + section);
+			if (rows) { rows.value = next; }
+			// Der Fokus geht zur ersten neuen Zeile, sonst zum nächsten Knopf.
+			var added = placed.querySelectorAll('tbody > tr');
+			var target = added.length > before ? added[before].querySelector('button, a, input, select') : null;
+			target = target || placed.querySelector('[data-mw-more]') || placed;
+			try { target.focus({ preventScroll: true }); } catch (e) { target.focus(); }
+		};
+		xhr.onerror = function () {
+			if (document.contains(list)) { failed(button, word('more-offline', '')); }
+		};
+		xhr.send();
+	});
 })();
 </script>

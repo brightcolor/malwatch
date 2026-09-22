@@ -28,6 +28,32 @@ define('WAF_ORIGIN_ROW', 36);
 /** The first bytes of every range file. */
 define('WAF_ORIGIN_MAGIC', "MWORIG1\0");
 
+/**
+ * The name of a country in $language, as far as the intl extension knows it;
+ * its code without intl or for a code it does not know, '' for no code.
+ */
+function waf_origin_country_name($code, $language)
+{
+	$code = strtoupper(trim((string) $code));
+	if (!preg_match('/^[A-Z]{2}$/', $code)) {
+		return '';
+	}
+	if (!class_exists('Locale')) {
+		return $code;
+	}
+	$language = preg_match('/^[a-z]{2}$/', (string) $language) ? (string) $language : 'en';
+	$name = trim((string) Locale::getDisplayRegion('-' . $code, $language));
+	return $name === '' ? $code : $name;
+}
+
+/** A country for a German reason: "Frankreich (FR)", or its code when no name is known. */
+function waf_origin_country_word($code)
+{
+	$code = strtoupper(trim((string) $code));
+	$name = waf_origin_country_name($code, 'de');
+	return $name === '' || $name === $code ? $name : $name . ' (' . $code . ')';
+}
+
 /** The 16 bytes of an address, IPv4 mapped to ::ffff:a.b.c.d; '' when it is none. */
 function waf_origin_bytes($ip)
 {

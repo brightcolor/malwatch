@@ -396,7 +396,8 @@ switch ($command) {
 				$settings['waf_ban_origin_score'], $settings['waf_ban_origin_factor']);
 			$countries = waf_ban_origin_countries($settings['waf_ban_origin_countries']);
 			$asns = waf_ban_origin_asns($settings['waf_ban_origin_asn']);
-			printf("Länder: %s\n", count($countries) > 0 ? implode(', ', $countries) : 'keine');
+			printf("Länder: %s\n", count($countries) > 0
+				? implode(', ', array_map('waf_origin_country_word', $countries)) : 'keine');
 			printf("Anbieter: %s\n", count($asns) > 0 ? 'AS' . implode(', AS', $asns) : 'keine');
 			printf("Rechenzentrum: %s, VPN: %s, Tor: %s\n", $settings['waf_ban_origin_hosting'],
 				$settings['waf_ban_origin_vpn'], $settings['waf_ban_origin_tor']);

@@ -772,7 +772,7 @@ expect_same('the real points are kept and it is only a proposal',
 expect_same('the reason says how the points were weighed',
 	strpos((string) $found['reason'], 'Punkte mit 200 % gewertet') !== false, true);
 expect_same('the reason names the country',
-	strpos((string) $found['reason'], 'Herkunft: Land FR') !== false, true);
+	strpos((string) $found['reason'], 'Herkunft: Land ' . waf_origin_country_word('FR')) !== false, true);
 
 // Der Anbieter zählt vor dem Land, und mit dem Schalter wird sofort gesperrt.
 $db->query('DELETE FROM malwatch_waf_ban');

@@ -244,7 +244,7 @@ $google = array('country' => 'BE', 'asn' => 15169, 'as_org' => 'Google LLC', 'is
 $plain = array('country' => 'DE', 'asn' => 3320, 'as_org' => 'Telekom', 'is_tor' => 'n', 'is_vpn' => 'n',
 	'is_hosting' => 'n');
 
-expect_same('a country on the list is named', waf_ban_origin_match($fr, $on), 'Land FR');
+expect_same('a country on the list is named', waf_ban_origin_match($fr, $on), 'Land ' . waf_origin_country_word('FR'));
 expect_same('the provider comes before the country',
 	waf_ban_origin_match($google, $on), 'Anbieter Google LLC');
 expect_same('a provider without a name is named by its number',
@@ -281,11 +281,11 @@ expect_same('only the address with the suspicious origin is picked',
 	array_map(function ($one) { return $one['ip']; }, $picked), array('192.0.2.10'));
 expect_same('the real points stay, the weighted ones decide, the threshold is lowered',
 	array($picked[0]['score'], $picked[0]['weighted'], $picked[0]['limit'], $picked[0]['origin']),
-	array(15, 30, 20, 'Land FR'));
+	array(15, 30, 20, 'Land ' . waf_origin_country_word('FR')));
 $reason = waf_ban_reason($picked[0], 10, 'Regel 930130');
 expect_same('the reason tells the real points and how they were weighed', array(
 	strpos($reason, '15 Punkte aus 3 Treffern') === 0,
-	strpos($reason, 'Herkunft: Land FR, Punkte mit 200 % gewertet') !== false,
+	strpos($reason, 'Herkunft: Land ' . waf_origin_country_word('FR') . ', Punkte mit 200 % gewertet') !== false,
 ), array(true, true));
 $plain = array('ip' => '192.0.2.30', 'domain' => 'beispiel.test', 'score' => 60, 'weighted' => 60, 'hits' => 12,
 	'rule' => '', 'limit' => 50, 'origin' => '');

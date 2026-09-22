@@ -713,28 +713,13 @@ function waf_panel_origin($wb, $row, $language = 'de')
 	}
 	return array(
 		'country' => $country,
-		'country_name' => waf_panel_country_name($country, $language),
+		'country_name' => waf_origin_country_name($country, $language),
 		'provider' => waf_cut($provider, 40),
 		'provider_full' => $provider,
 		'chips' => $chips,
 		'state' => $state,
 		'known' => $country !== '' || $provider !== '' || count($chips) > 0,
 	);
-}
-
-/** The name of a country, as far as the intl extension knows it; else its code. */
-function waf_panel_country_name($code, $language)
-{
-	$code = strtoupper((string) $code);
-	if (!preg_match('/^[A-Z]{2}$/', $code)) {
-		return '';
-	}
-	if (!class_exists('Locale')) {
-		return $code;
-	}
-	$language = preg_match('/^[a-z]{2}$/', (string) $language) ? (string) $language : 'en';
-	$name = (string) Locale::getDisplayRegion('-' . $code, $language);
-	return $name === '' ? $code : $name;
 }
 
 /**
@@ -1416,7 +1401,7 @@ function waf_panel_ban_until($wb, $row, $now)
  * the number of hits and whether it counts as suspicious today. $rows carries
  * value, label, hits and addresses; $chosen the values already on the list.
  */
-function waf_panel_ban_origin_rows($rows, $chosen, $max = 25)
+function waf_panel_ban_origin_rows($rows, $chosen, $max = 25, $kind = '', $language = 'de')
 {
 	$chosen = array_map('strval', $chosen);
 	$view = array();
@@ -1425,13 +1410,13 @@ function waf_panel_ban_origin_rows($rows, $chosen, $max = 25)
 		if ($value === '') {
 			continue;
 		}
-		$view[] = array(
+		$view[] = waf_panel_ban_origin_name(array(
 			'value' => $value,
 			'label' => isset($row['label']) && (string) $row['label'] !== '' ? (string) $row['label'] : $value,
 			'hits' => number_format((int) (isset($row['hits']) ? $row['hits'] : 0), 0, ',', '.'),
 			'addresses' => number_format((int) (isset($row['addresses']) ? $row['addresses'] : 0), 0, ',', '.'),
 			'chosen' => in_array($value, $chosen, true) ? 1 : 0,
-		);
+		), $kind, $language);
 		if (count($view) >= (int) $max) {
 			break;
 		}
@@ -1446,9 +1431,29 @@ function waf_panel_ban_origin_rows($rows, $chosen, $max = 25)
 		if ($value === '' || in_array($value, $seen, true)) {
 			continue;
 		}
-		$view[] = array('value' => $value, 'label' => $value, 'hits' => '0', 'addresses' => '0', 'chosen' => 1);
+		$view[] = waf_panel_ban_origin_name(array('value' => $value, 'label' => $value, 'hits' => '0', 'addresses' => '0',
+			'chosen' => 1), $kind, $language);
 	}
 	return $view;
+}
+
+/**
+ * The name and the code of one row of the origin picker: a country in words
+ * with its code beside it, a provider with its number beside its name. The
+ * code stays empty where it would repeat the name.
+ */
+function waf_panel_ban_origin_name($one, $kind, $language)
+{
+	$code = '';
+	if ($kind === 'country') {
+		$code = strtoupper($one['value']);
+		$one['label'] = waf_origin_country_name($code, $language);
+	} elseif ($kind === 'asn') {
+		$code = 'AS' . $one['value'];
+		$one['label'] = $one['label'] === $one['value'] ? $code : $one['label'];
+	}
+	$one['code'] = $one['label'] === $code ? '' : $code;
+	return $one;
 }
 
 /**
@@ -1577,16 +1582,61 @@ function waf_panel_f2b_jails($wb, $states, $modes)
 }
 
 /**
- * The line under a section of the page „Sperren" that shows fewer rows than
- * there are, or '' when every row is shown.
+ * How many rows one list of the page „Sperren" shows: rows_<section> of the
+ * request, at least one step and at most the limit. „Weitere laden" asks for
+ * one step more than the list shows.
  */
-function waf_panel_ban_more($wb, $shown, $total)
+function waf_panel_ban_rows_wanted($request, $section, $step, $limit)
 {
-	if ((int) $total <= (int) $shown) {
-		return '';
+	$limit = max(1, (int) $limit);
+	$step = min(max(1, (int) $step), $limit);
+	$key = 'rows_' . $section;
+	if (!is_array($request) || !isset($request[$key]) || !is_string($request[$key])
+		|| !preg_match('/^[0-9]+$/', $request[$key])) {
+		return $step;
 	}
-	return sprintf(waf_panel_text($wb, 'ban_more_txt', '%1$s / %2$s'),
-		number_format((int) $shown, 0, ',', '.'), number_format((int) $total, 0, ',', '.'));
+	// Mehr als sieben Stellen liegen immer über der Grenze; so läuft keine Zahl über.
+	$asked = strlen($request[$key]) > 7 ? $limit : (int) $request[$key];
+	return min(max($asked, $step), $limit);
+}
+
+/**
+ * The button under one list of the page „Sperren": next is the number of rows
+ * after the click, label the text of the button. At the limit there is no
+ * button, a note says why. null when the list shows every row.
+ */
+function waf_panel_ban_more($wb, $shown, $total, $step, $limit)
+{
+	$shown = max(0, (int) $shown);
+	$total = max(0, (int) $total);
+	$limit = max(1, (int) $limit);
+	if ($shown >= $total) {
+		return null;
+	}
+	$rest = $total - $shown;
+	if ($shown >= $limit) {
+		return array('next' => 0, 'label' => '', 'note' => sprintf(waf_panel_text($wb, 'ban_more_limit_txt', '%1$s / %2$s'),
+			number_format($shown, 0, ',', '.'), number_format($total, 0, ',', '.')));
+	}
+	$count = min(max(1, (int) $step), $limit - $shown, $rest);
+	$label = $count === $rest
+		? sprintf(waf_panel_text($wb, 'ban_more_rest_txt', '%s'), number_format($count, 0, ',', '.'))
+		: sprintf(waf_panel_text($wb, 'ban_more_txt', '%1$s (%2$s)'), number_format($count, 0, ',', '.'),
+			number_format($rest, 0, ',', '.'));
+	return array('next' => $shown + $count, 'label' => $label, 'note' => '');
+}
+
+/** What the title of the section „Herkunft" says: switched off, and how much is chosen. */
+function waf_panel_ban_origin_count($wb, $on, $chosen)
+{
+	$chosen = (int) $chosen;
+	$count = $chosen > 0 ? sprintf(waf_panel_text($wb, 'ban_origin_count_txt', '%s'), number_format($chosen, 0, ',', '.'))
+		: waf_panel_text($wb, 'ban_origin_count_none_txt', '0');
+	if ($on) {
+		return $count;
+	}
+	$off = waf_panel_text($wb, 'ban_origin_count_off_txt', 'off');
+	return $chosen > 0 ? $off . ', ' . $count : $off;
 }
 
 /**

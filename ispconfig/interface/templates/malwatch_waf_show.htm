@@ -246,7 +246,7 @@
 				<div class="mw-dim">{tmpl_var name='rule_addresses_head'}</div>
 				<tmpl_if name="has_addresses">
 				<ul class="mw-addresses">
-					<tmpl_loop name="rule_addresses"><li><a class="mw-mono" href="#" data-load-content="{tmpl_var name='address_href'}">{tmpl_var name='address'}</a> <span class="mw-dim">{tmpl_var name='address_hits'}</span><tmpl_if name="address_country"> <span class="mw-origin" title="{tmpl_var name='address_country_name'}">{tmpl_var name='address_country'}</span></tmpl_if><tmpl_if name="address_has_chips"><tmpl_loop name="address_chips"> <span class="mw-chip mw-origin-chip">{tmpl_var name='chip'}</span></tmpl_loop></tmpl_if><tmpl_if name="address_provider"> <span class="mw-dim mw-origin" title="{tmpl_var name='address_provider_full'}">{tmpl_var name='address_provider'}</span></tmpl_if> <button class="btn btn-default btn-xs" type="button" data-mw-set-mw-waf-action="ban_add" data-mw-set-mw-waf-ip="{tmpl_var name='address'}" data-submit-form="pageForm" data-form-action="security/malwatch_waf_show.php">{tmpl_var name='ban_add_txt'}</button></li></tmpl_loop>
+					<tmpl_loop name="rule_addresses"><li><a class="mw-mono" href="#" data-load-content="{tmpl_var name='address_href'}">{tmpl_var name='address'}</a> <span class="mw-dim">{tmpl_var name='address_hits'}</span><tmpl_if name="address_country"> <span class="mw-origin" title="{tmpl_var name='address_country'}">{tmpl_var name='address_country_name'}</span></tmpl_if><tmpl_if name="address_has_chips"><tmpl_loop name="address_chips"> <span class="mw-chip mw-origin-chip">{tmpl_var name='chip'}</span></tmpl_loop></tmpl_if><tmpl_if name="address_provider"> <span class="mw-dim mw-origin" title="{tmpl_var name='address_provider_full'}">{tmpl_var name='address_provider'}</span></tmpl_if> <button class="btn btn-default btn-xs" type="button" data-mw-set-mw-waf-action="ban_add" data-mw-set-mw-waf-ip="{tmpl_var name='address'}" data-submit-form="pageForm" data-form-action="security/malwatch_waf_show.php">{tmpl_var name='ban_add_txt'}</button></li></tmpl_loop>
 				</ul>
 				<tmpl_if name="more_addresses"><div class="mw-dim">{tmpl_var name='more_addresses'}</div></tmpl_if>
 				<tmpl_else>
@@ -310,7 +310,7 @@
 		<span class="mw-dim">{tmpl_var name='hit_time'}</span>
 		<span class="mw-mono mw-hitip">{tmpl_var name='hit_ip'}</span>
 		<tmpl_if name="hit_has_ip"><button class="btn btn-default btn-xs" type="button" data-mw-set-mw-waf-action="ban_add" data-mw-set-mw-waf-ip="{tmpl_var name='hit_ip'}" data-submit-form="pageForm" data-form-action="security/malwatch_waf_show.php">{tmpl_var name='ban_add_txt'}</button></tmpl_if>
-		<tmpl_if name="hit_country"><span class="mw-origin" title="{tmpl_var name='hit_country_name'}">{tmpl_var name='hit_country'}</span></tmpl_if>
+		<tmpl_if name="hit_country"><span class="mw-origin" title="{tmpl_var name='hit_country'}">{tmpl_var name='hit_country_name'}</span></tmpl_if>
 		<tmpl_if name="hit_has_chips"><tmpl_loop name="hit_chips"><span class="mw-chip mw-origin-chip">{tmpl_var name='chip'}</span></tmpl_loop></tmpl_if>
 		<tmpl_if name="hit_provider"><span class="mw-dim mw-origin" title="{tmpl_var name='hit_provider_full'}">{tmpl_var name='hit_provider'}</span></tmpl_if>
 		<tmpl_if name="hit_origin_state"><span class="mw-dim">{tmpl_var name='hit_origin_state'}</span></tmpl_if>

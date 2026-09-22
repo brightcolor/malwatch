@@ -84,7 +84,7 @@ function waf_ban_origin_match($origin, $settings)
 	$country = isset($origin['country']) ? strtoupper(trim((string) $origin['country'])) : '';
 	if ($country !== '' && in_array($country, waf_ban_origin_countries(isset($settings['waf_ban_origin_countries'])
 		? $settings['waf_ban_origin_countries'] : ''), true)) {
-		return 'Land ' . $country;
+		return 'Land ' . waf_origin_country_word($country);
 	}
 	foreach (array('is_tor' => array('waf_ban_origin_tor', 'Tor'),
 		'is_vpn' => array('waf_ban_origin_vpn', 'VPN'),

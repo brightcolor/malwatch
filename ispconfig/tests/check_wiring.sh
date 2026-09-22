@@ -1608,10 +1608,11 @@ for tpl in "$root"/interface/templates/*.htm; do
 	done
 done
 
-# 85. Vorschlaege laufen ab, und die Seite zeigt je Abschnitt begrenzt viele
-#     Zeilen. Beides sind Einstellungen mit Spalte, Vorgabe und Feld; und ein
-#     Vorschlag darf eine Adresse nie vor einer Sperre schuetzen.
-for col in waf_ban_proposal_days waf_ban_page_rows; do
+# 85. Vorschlaege laufen ab, und jede Liste der Seite zeigt erst einen Schritt
+#     Zeilen und laedt bis zu einer Grenze nach. Alle drei sind Einstellungen mit
+#     Spalte, Vorgabe und Feld; und ein Vorschlag darf eine Adresse nie vor einer
+#     Sperre schuetzen.
+for col in waf_ban_proposal_days waf_ban_page_rows waf_ban_page_step; do
 	grep -q "ADD COLUMN \`$col\`" "$root/install/schema.sql" \
 		|| fail "malwatch_config bekommt keine Spalte $col"
 	grep -q "'$col' =>" "$root/interface/lib/malwatch_waf_lib.inc.php" \
@@ -1710,6 +1711,34 @@ if [ -f "$page" ]; then
 fi
 test "$(grep -c 'KEY `server_client` (`server_id`,`client_ip`)' "$root/install/schema.sql")" -ge 2 \
 	|| fail "malwatch_waf_hit hat keinen Schluessel ueber Server und Adresse; das Aufraeumen liest dann alle Treffer"
+
+# 90. Die Seite Sperren als Akkordeon mit "Weitere laden": jede Liste mit Knopf
+#     hat ihren Rahmen mit id="mw-list-<Liste>" (nur er wird ersetzt) und ein
+#     verstecktes Feld rows_<Liste>, das jeder Knopf der Seite mitschickt; der
+#     Knopf selbst schickt kein Formular ab, und die Seite fragt jede Liste mit
+#     ihrer eigenen Zeilenzahl ab.
+tpl="$root/interface/templates/malwatch_waf_ban_list.htm"
+if [ -f "$tpl" ] && [ -f "$page" ]; then
+	sections=$(grep -o 'data-mw-more="[a-z0-9]*"' "$tpl" | sed 's/^data-mw-more="//; s/"$//' | sort -u)
+	test -n "$sections" || fail "malwatch_waf_ban_list.htm hat keinen Knopf fuer weitere Zeilen"
+	for section in $sections; do
+		grep -q "id=\"mw-list-$section\"" "$tpl" \
+			|| fail "malwatch_waf_ban_list.htm: data-mw-more=\"$section\" findet keinen Rahmen id=\"mw-list-$section\""
+		grep -q "name=\"rows_$section\"" "$tpl" \
+			|| fail "malwatch_waf_ban_list.htm: Liste $section hat kein verstecktes Feld rows_$section"
+		grep -q "'$section'" "$page" \
+			|| fail "malwatch_waf_ban_list.php kennt die Liste $section nicht"
+	done
+	if grep -B2 -A2 'data-mw-more="' "$tpl" | grep -q 'data-submit-form'; then
+		fail "malwatch_waf_ban_list.htm: ein Knopf fuer weitere Zeilen schickt das Formular ab"
+	fi
+	grep -q 'waf_panel_ban_rows_wanted($request, $section, $step, $limit)' "$page" \
+		|| fail "malwatch_waf_ban_list.php liest die Zeilen je Liste nicht aus der Anfrage"
+	grep -q 'queryAllRecords($sql, $wanted\[$section\])' "$page" && grep -q "LIMIT ?', \$wanted\['f2b'\]" "$page" \
+		|| fail "malwatch_waf_ban_list.php fragt eine Liste mit fester Zeilenzahl ab"
+	test "$(grep -c '<details class="mw-sec"' "$tpl")" -eq "$(grep -c '</details>' "$tpl")" \
+		|| fail "malwatch_waf_ban_list.htm: nicht jeder Abschnitt wird geschlossen"
+fi
 
 
 if [ "$status" -eq 0 ]; then

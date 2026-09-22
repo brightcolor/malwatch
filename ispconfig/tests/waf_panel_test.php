@@ -9,6 +9,7 @@ require __DIR__ . '/../interface/lib/malwatch_waf_panel.inc.php';
 $wb = array();
 include __DIR__ . '/../interface/lang/en_malwatch_waf.lng';
 $en = $wb;
+$en_words = $wb;
 $wb = array();
 include __DIR__ . '/../interface/lang/de_malwatch_waf.lng';
 
@@ -629,8 +630,13 @@ expect_same('an address the limit stopped', waf_panel_origin($wb, array('country
 	'external_state' => 'limit'), 'de')['state'], 'nicht geprüft, Tageslimit');
 expect_same('an address without a row', array(waf_panel_origin($wb, null, 'de')['known'],
 	waf_panel_origin($wb, null, 'de')['chips']), array(false, array()));
-expect_same('the country in words', waf_panel_country_name('FR', 'de') !== 'FR', class_exists('Locale'));
-expect_same('a country code that is none', waf_panel_country_name('kein-land', 'de'), '');
+expect_same('the country in words', waf_origin_country_name('FR', 'de') !== 'FR', class_exists('Locale'));
+expect_same('a country code that is none', waf_origin_country_name('kein-land', 'de'), '');
+expect_same('a code the library does not know stays a code', waf_origin_country_name('QQ', 'de'), 'QQ');
+expect_same('the word for a reason names the country and its code', waf_origin_country_word('fr'),
+	class_exists('Locale') ? waf_origin_country_name('FR', 'de') . ' (FR)' : 'FR');
+expect_same('an unknown code stays a code in a reason', waf_origin_country_word('QQ'), 'QQ');
+expect_same('no code, no word', waf_origin_country_word(''), '');
 expect_same('the attribution of DB-IP', waf_panel_origin_credit($wb, array('waf_origin_geo' => 'dbip')),
 	array('text' => 'IP-Daten: DB-IP', 'url' => 'https://db-ip.com'));
 expect_same('the attribution of MaxMind',
@@ -680,10 +686,42 @@ expect_same('an address without origin stays empty', $ban_view[1]['origin']['kno
 
 // --- Mehr Zeilen, als die Seite zeigt ------------------------------------------
 
-expect_same('when everything is shown there is no hint', waf_panel_ban_more($wb, 7, 7), '');
-$more = waf_panel_ban_more($wb, 200, 1530);
-expect_same('otherwise the hint names both numbers',
-	array(strpos($more, '200') !== false, strpos($more, '1.530') !== false), array(true, true));
+expect_same('a list starts with one step', waf_panel_ban_rows_wanted(array(), 'proposed', 25, 1000), 25);
+expect_same('a list shows what the page asks for',
+	waf_panel_ban_rows_wanted(array('rows_proposed' => '50'), 'proposed', 25, 1000), 50);
+expect_same('each list has its own number',
+	waf_panel_ban_rows_wanted(array('rows_proposed' => '50'), 'active', 25, 1000), 25);
+expect_same('never fewer than one step',
+	waf_panel_ban_rows_wanted(array('rows_past' => '3'), 'past', 25, 1000), 25);
+expect_same('never more than the limit',
+	waf_panel_ban_rows_wanted(array('rows_past' => '99999999999'), 'past', 25, 1000), 1000);
+expect_same('what is no number counts as nothing', array(
+	waf_panel_ban_rows_wanted(array('rows_f2b' => '-5'), 'f2b', 25, 1000),
+	waf_panel_ban_rows_wanted(array('rows_f2b' => '5e3'), 'f2b', 25, 1000),
+	waf_panel_ban_rows_wanted(array('rows_f2b' => array('50')), 'f2b', 25, 1000),
+), array(25, 25, 25));
+expect_same('a step above the limit shrinks to it', waf_panel_ban_rows_wanted(array(), 'past', 300, 200), 200);
+
+expect_same('when everything is shown there is no button', waf_panel_ban_more($wb, 7, 7, 25, 1000), null);
+expect_same('the button loads one step and names the rest', waf_panel_ban_more($wb, 25, 156, 25, 1000),
+	array('next' => 50, 'label' => 'Weitere 25 laden (131 übrig)', 'note' => ''));
+expect_same('the last rows are loaded by name', waf_panel_ban_more($wb, 150, 156, 25, 1000),
+	array('next' => 156, 'label' => 'Die übrigen 6 laden', 'note' => ''));
+expect_same('the limit shortens the last step', waf_panel_ban_more($wb, 190, 1530, 25, 200),
+	array('next' => 200, 'label' => 'Weitere 10 laden (1.340 übrig)', 'note' => ''));
+$more = waf_panel_ban_more($wb, 200, 1530, 25, 200);
+expect_same('at the limit a note names both numbers and the setting', array($more['next'], $more['label'],
+	strpos($more['note'], '200 von 1.530') !== false, strpos($more['note'], 'Abwehr > Einstellungen') !== false),
+	array(0, '', true, true));
+expect_same('the English button reads the same way', waf_panel_ban_more($en_words, 25, 156, 25, 1000)['label'],
+	'Load 25 more (131 left)');
+
+expect_same('the origin count names what is chosen', array(
+	waf_panel_ban_origin_count($wb, true, 3),
+	waf_panel_ban_origin_count($wb, true, 0),
+	waf_panel_ban_origin_count($wb, false, 2),
+	waf_panel_ban_origin_count($wb, false, 0),
+), array('3 gewählt', 'nichts gewählt', 'aus, 2 gewählt', 'aus'));
 
 // --- Die Auswahl der Herkunft -------------------------------------------------
 
@@ -700,6 +738,20 @@ expect_same('what is on the list is ticked',
 expect_same('the numbers are written out', array($view[0]['hits'], $view[0]['addresses']), array('2.272', '2'));
 expect_same('a chosen value without hits stays visible',
 	array($view[2]['value'], $view[2]['hits']), array('CN', '0'));
+expect_same('without a kind the label stays as it came', array($view[0]['label'], $view[0]['code']), array('FR', ''));
+$named = waf_panel_ban_origin_rows($rows, array('FR', 'CN'), 25, 'country', 'de');
+expect_same('countries are written out, with their code beside', array(
+	$named[0]['label'], $named[0]['code'], $named[2]['label'], $named[2]['code'],
+), class_exists('Locale')
+	? array(waf_origin_country_name('FR', 'de'), 'FR', waf_origin_country_name('CN', 'de'), 'CN')
+	: array('FR', '', 'CN', ''));
+$named = waf_panel_ban_origin_rows(array(
+	array('value' => '15169', 'label' => 'Google LLC', 'hits' => 5, 'addresses' => 1),
+	array('value' => '64500', 'label' => '', 'hits' => 2, 'addresses' => 1),
+), array('64501'), 25, 'asn');
+expect_same('a provider shows its number beside its name', array(
+	$named[0]['label'], $named[0]['code'], $named[1]['label'], $named[1]['code'], $named[2]['label'], $named[2]['code'],
+), array('Google LLC', 'AS15169', 'AS64500', '', 'AS64501', ''));
 $long = array();
 for ($i = 0; $i < 40; $i++) {
 	$long[] = array('value' => 'L' . $i, 'label' => 'L' . $i, 'hits' => 40 - $i, 'addresses' => 1);

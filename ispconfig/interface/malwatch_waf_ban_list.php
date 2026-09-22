@@ -41,7 +41,8 @@ $app->tpl->setInclude('content_tpl', 'templates/malwatch_waf_ban_list.htm');
 $app->tpl->setVar($wb);
 $app->tpl->setVar(malwatch_attr_texts($wb, array('ban_lift_all_txt', 'ban_lift_all_confirm_txt', 'ban_lift_txt',
 	'ban_add_txt', 'ban_allow_remove_txt', 'ban_url_new_txt', 'ban_url_new_confirm_txt',
-	'ban_origin_save_txt', 'f2b_everywhere_txt', 'f2b_everywhere_confirm_txt')));
+	'ban_origin_save_txt', 'f2b_everywhere_txt', 'f2b_everywhere_confirm_txt',
+	'ban_more_error_txt', 'ban_more_http_txt', 'ban_more_nolist_txt', 'ban_more_offline_txt')));
 $app->tpl->setVar('message', $app->functions->htmlentities($message));
 $app->tpl->setVar('error', $app->functions->htmlentities($error));
 
@@ -59,18 +60,27 @@ $app->tpl->setLoop('jobs', $job_rows);
 $app->tpl->setVar('has_jobs', count($job_rows) > 0 ? 1 : 0);
 $app->tpl->setVar('first_job', $first_job);
 
-// Jeder Abschnitt zeigt höchstens waf_ban_page_rows Zeilen: die Sperren nach
-// ihrem Ende, die Vorschläge mit den meisten Punkten zuerst, das Beendete mit dem
-// jüngsten zuerst. Gezählt wird alles.
-$rows_per = (int) $settings['waf_ban_page_rows'];
+// Jede Liste zeigt zuerst einen Schritt Zeilen (waf_ban_page_step). „Weitere
+// laden" fragt die Seite mit rows_<Liste> nach mehr, bis zur Grenze
+// waf_ban_page_rows; ein Knopf der Seite schickt die Zahlen mit, damit die Listen
+// danach so lang bleiben. Die Sperren nach ihrem Ende, die Vorschläge mit den
+// meisten Punkten zuerst, das Beendete mit dem jüngsten zuerst. Gezählt wird alles.
+$step = (int) $settings['waf_ban_page_step'];
+$limit = (int) $settings['waf_ban_page_rows'];
+$request = array_merge($_GET, $_POST);
+$wanted = array();
+foreach (array('active', 'proposed', 'f2b', 'past') as $section) {
+	$wanted[$section] = waf_panel_ban_rows_wanted($request, $section, $step, $limit);
+	$app->tpl->setVar('rows_' . $section, $wanted[$section]);
+}
 $all = array();
 foreach (array(
-	"SELECT * FROM malwatch_waf_ban WHERE state = 'active' ORDER BY until IS NULL DESC, until, ip LIMIT ?",
-	"SELECT * FROM malwatch_waf_ban WHERE state = 'proposed' ORDER BY score DESC, created_at DESC LIMIT ?",
-	"SELECT * FROM malwatch_waf_ban WHERE state IN ('expired','lifted','dismissed') "
+	'active' => "SELECT * FROM malwatch_waf_ban WHERE state = 'active' ORDER BY until IS NULL DESC, until, ip LIMIT ?",
+	'proposed' => "SELECT * FROM malwatch_waf_ban WHERE state = 'proposed' ORDER BY score DESC, created_at DESC LIMIT ?",
+	'past' => "SELECT * FROM malwatch_waf_ban WHERE state IN ('expired','lifted','dismissed') "
 		. 'ORDER BY COALESCE(lifted_at, until, created_at) DESC LIMIT ?',
-) as $sql) {
-	$all = array_merge($all, waf_panel_rows($app->db->queryAllRecords($sql, $rows_per)));
+) as $section => $sql) {
+	$all = array_merge($all, waf_panel_rows($app->db->queryAllRecords($sql, $wanted[$section])));
 }
 $totals = array('active' => 0, 'proposed' => 0, 'past' => 0);
 foreach (waf_panel_rows($app->db->queryAllRecords('SELECT state, COUNT(*) AS n FROM malwatch_waf_ban GROUP BY state'))
@@ -93,8 +103,8 @@ foreach ($view as $row) {
 		'ban_until' => $app->functions->htmlentities($row['until_label']),
 		'ban_denied' => $app->functions->htmlentities(number_format((int) $row['denied'], 0, ',', '.')),
 		'ban_source' => $app->functions->htmlentities($row['source_label']),
-		'ban_country' => $app->functions->htmlentities($row['origin']['country']),
-		'ban_country_title' => $app->functions->htmlentities($row['origin']['country_name']),
+		'ban_country' => $app->functions->htmlentities($row['origin']['country_name']),
+		'ban_country_code' => $app->functions->htmlentities($row['origin']['country']),
 		'ban_provider' => $app->functions->htmlentities($row['origin']['provider']),
 		'ban_provider_title' => $app->functions->htmlentities($row['origin']['provider_full']),
 		'ban_chips' => $app->functions->htmlentities(implode(', ', $row['origin']['chips'])),
@@ -116,14 +126,16 @@ $app->tpl->setVar('has_proposed', count($proposed) > 0 ? 1 : 0);
 $app->tpl->setVar('has_past', count($past) > 0 ? 1 : 0);
 $app->tpl->setVar('ban_count', $app->functions->htmlentities(sprintf($wb['ban_count_txt'],
 	number_format($totals['active'], 0, ',', '.'))));
+$more = array();
 foreach (array('active' => count($active), 'proposed' => count($proposed), 'past' => count($past)) as $section => $shown) {
-	$app->tpl->setVar('more_' . $section, $app->functions->htmlentities(waf_panel_ban_more($wb, $shown, $totals[$section])));
+	$more[$section] = waf_panel_ban_more($wb, $shown, $totals[$section], $step, $limit);
+	$app->tpl->setVar('count_' . $section, number_format($totals[$section], 0, ',', '.'));
 }
 
 // fail2ban: die Sperren, die der Cron gespiegelt hat, der Zustand des letzten
 // Blicks und die Einstellung je Jail.
 $f2b_view = waf_panel_f2b_rows($wb, waf_panel_rows($app->db->queryAllRecords(
-	'SELECT * FROM malwatch_f2b_ban ORDER BY until IS NULL DESC, until DESC, ip LIMIT ?', $rows_per)), $clock['now']);
+	'SELECT * FROM malwatch_f2b_ban ORDER BY until IS NULL DESC, until DESC, ip LIMIT ?', $wanted['f2b'])), $clock['now']);
 $f2b_total = 0;
 foreach (waf_panel_rows($app->db->queryAllRecords('SELECT COUNT(*) AS n FROM malwatch_f2b_ban')) as $row) {
 	$f2b_total = (int) $row['n'];
@@ -140,7 +152,15 @@ foreach ($f2b_view as $one) {
 }
 $app->tpl->setLoop('f2b_rows', $f2b_loop);
 $app->tpl->setVar('has_f2b', count($f2b_loop) > 0 ? 1 : 0);
-$app->tpl->setVar('more_f2b', $app->functions->htmlentities(waf_panel_ban_more($wb, count($f2b_loop), $f2b_total)));
+$more['f2b'] = waf_panel_ban_more($wb, count($f2b_loop), $f2b_total, $step, $limit);
+$app->tpl->setVar('count_f2b', number_format($f2b_total, 0, ',', '.'));
+// Unter jeder Liste der Knopf für den nächsten Schritt oder, an der Grenze, ein Satz.
+foreach ($more as $section => $one) {
+	$app->tpl->setVar('has_more_' . $section, is_array($one) && $one['next'] > 0 ? 1 : 0);
+	$app->tpl->setVar('more_' . $section . '_next', is_array($one) ? (int) $one['next'] : 0);
+	$app->tpl->setVar('more_' . $section . '_label', $app->functions->htmlentities(is_array($one) ? $one['label'] : ''));
+	$app->tpl->setVar('more_' . $section . '_note', $app->functions->htmlentities(is_array($one) ? $one['note'] : ''));
+}
 $f2b_states = waf_panel_rows($app->db->queryAllRecords('SELECT state, error, jails, read_at FROM malwatch_f2b_state'));
 $app->tpl->setVar('f2b_state', $app->functions->htmlentities(waf_panel_f2b_state($wb, $f2b_states)));
 $f2b_modes = array();
@@ -181,6 +201,7 @@ foreach (waf_panel_rows($app->db->queryAllRecords('SELECT * FROM malwatch_waf_al
 }
 $app->tpl->setLoop('ban_allow', $allow_rows);
 $app->tpl->setVar('has_allow', count($allow_rows) > 0 ? 1 : 0);
+$app->tpl->setVar('count_allow', number_format(count($allow_rows), 0, ',', '.'));
 
 $mode = (string) $settings['waf_ban_mode'];
 $modes = array();
@@ -203,22 +224,25 @@ $days = (int) $settings['waf_detail_days'];
 // once per address: 8 seconds per list with 66,000 hits, 50 ms this way.
 $per_address = '(SELECT client_ip, COUNT(*) AS hits FROM malwatch_waf_hit '
 	. 'WHERE seen_at > DATE_SUB(NOW(), INTERVAL ? DAY) GROUP BY client_ip) x';
+$chosen_countries = waf_ban_origin_countries($settings['waf_ban_origin_countries']);
+$chosen_asns = waf_ban_origin_asns($settings['waf_ban_origin_asn']);
 $countries = waf_panel_ban_origin_rows(waf_panel_rows($app->db->queryAllRecords(
 	'SELECT i.country AS value, i.country AS label, SUM(x.hits) AS hits, COUNT(*) AS addresses '
 	. 'FROM ' . $per_address . ' JOIN malwatch_waf_ip i ON i.ip = x.client_ip '
 	. "WHERE i.country != '' GROUP BY i.country ORDER BY hits DESC", $days)),
-	waf_ban_origin_countries($settings['waf_ban_origin_countries']));
+	$chosen_countries, 25, 'country', $language);
 $providers = waf_panel_ban_origin_rows(waf_panel_rows($app->db->queryAllRecords(
 	'SELECT i.asn AS value, i.as_org AS label, SUM(x.hits) AS hits, COUNT(*) AS addresses '
 	. 'FROM ' . $per_address . ' JOIN malwatch_waf_ip i ON i.ip = x.client_ip '
 	. 'WHERE i.asn > 0 GROUP BY i.asn, i.as_org ORDER BY hits DESC', $days)),
-	waf_ban_origin_asns($settings['waf_ban_origin_asn']));
+	$chosen_asns, 25, 'asn', $language);
 foreach (array('country' => $countries, 'asn' => $providers) as $kind => $list) {
 	$loop = array();
 	foreach ($list as $one) {
 		$loop[] = array(
 			'origin_value' => $app->functions->htmlentities($one['value']),
 			'origin_label' => $app->functions->htmlentities($one['label']),
+			'origin_code' => $app->functions->htmlentities($one['code']),
 			'origin_hits' => $app->functions->htmlentities($one['hits']),
 			'origin_addresses' => $app->functions->htmlentities($one['addresses']),
 			'origin_chosen' => $one['chosen'],
@@ -229,6 +253,8 @@ foreach (array('country' => $countries, 'asn' => $providers) as $kind => $list) 
 }
 $app->tpl->setVar('has_origin_any', count($countries) + count($providers) > 0 ? 1 : 0);
 $app->tpl->setVar('origin_mode_on', (string) $settings['waf_ban_origin'] === 'on' ? 1 : 0);
+$app->tpl->setVar('count_origin', $app->functions->htmlentities(waf_panel_ban_origin_count($wb,
+	(string) $settings['waf_ban_origin'] === 'on', count($chosen_countries) + count($chosen_asns))));
 $app->tpl->setVar('origin_days', $app->functions->htmlentities(sprintf(
 	waf_panel_text($wb, 'ban_origin_days_txt', '%s'), number_format($days, 0, ',', '.'))));
 

@@ -332,10 +332,21 @@ $form['tabs']['waf'] = array(
 			'width' => '10',
 			'maxlength' => '3'
 		),
+		'waf_ban_page_step' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '25',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '5:500', 'errmsg' => 'waf_ban_page_step_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '3'
+		),
 		'waf_ban_page_rows' => array(
 			'datatype' => 'INTEGER',
 			'formtype' => 'TEXT',
-			'default' => '200',
+			'default' => '1000',
 			'validators' => array(
 				array('type' => 'RANGE', 'range' => '20:5000', 'errmsg' => 'waf_ban_page_rows_error_range')
 			),

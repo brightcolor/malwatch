@@ -235,6 +235,14 @@
 </div>
 
 <div class="form-group">
+	<label for="waf_ban_page_step" class="col-sm-3 control-label">{tmpl_var name='waf_ban_page_step_txt'}</label>
+	<div class="col-sm-9">
+		<input type="number" min="5" max="500" step="1" name="waf_ban_page_step" id="waf_ban_page_step" value="{tmpl_var name='waf_ban_page_step'}" class="form-control mw-wafcfg-num" />
+		<span class="help-block">{tmpl_var name='waf_ban_page_step_hint_txt'}</span>
+	</div>
+</div>
+
+<div class="form-group">
 	<label for="waf_ban_page_rows" class="col-sm-3 control-label">{tmpl_var name='waf_ban_page_rows_txt'}</label>
 	<div class="col-sm-9">
 		<input type="number" min="20" max="5000" step="1" name="waf_ban_page_rows" id="waf_ban_page_rows" value="{tmpl_var name='waf_ban_page_rows'}" class="form-control mw-wafcfg-num" />

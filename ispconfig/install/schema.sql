@@ -1038,10 +1038,27 @@ PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 -- Ab 0.25.3: Vorschläge laufen ab, und die Seite zeigt je Abschnitt eine
 -- begrenzte Zahl Zeilen.
 SET @mw := (SELECT IF(COUNT(*) = 0,
-  'ALTER TABLE `malwatch_config` ADD COLUMN `waf_ban_proposal_days` int(11) unsigned NOT NULL DEFAULT ''7'', ADD COLUMN `waf_ban_page_rows` int(11) unsigned NOT NULL DEFAULT ''200''',
+  'ALTER TABLE `malwatch_config` ADD COLUMN `waf_ban_proposal_days` int(11) unsigned NOT NULL DEFAULT ''7'', ADD COLUMN `waf_ban_page_rows` int(11) unsigned NOT NULL DEFAULT ''1000''',
   'DO 0')
   FROM information_schema.COLUMNS
   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_config' AND COLUMN_NAME = 'waf_ban_proposal_days');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- Ab 0.28.0 zeigt jede Liste der Seite zuerst einen Schritt Zeilen und lädt auf
+-- Knopfdruck nach; waf_ban_page_rows ist seitdem die Grenze einer Liste. Die alte
+-- Vorgabe 200 wird dabei einmal zu 1000, solange es waf_ban_page_step noch nicht
+-- gibt; danach bleibt jeder Wert, wie er eingestellt ist.
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'UPDATE `malwatch_config` SET `waf_ban_page_rows` = 1000 WHERE `waf_ban_page_rows` = 200',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_config' AND COLUMN_NAME = 'waf_ban_page_step');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_config` ADD COLUMN `waf_ban_page_step` int(11) unsigned NOT NULL DEFAULT ''25''',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_config' AND COLUMN_NAME = 'waf_ban_page_step');
 PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 -- Die Herkunft senkt die Schwelle, ab 0.25.0. Alles beginnt ausgeschaltet.
