@@ -163,7 +163,8 @@ fi
 if [ ! -f "$root/install/schema.sql" ]; then
 	fail "install/schema.sql is missing"
 fi
-grep -q 'install/schema.sql' "$root/install/manual_install.php" 	|| fail "manual_install.php does not load install/schema.sql"
+grep -q 'install/schema.sql' "$root/install/manual_install.php" \
+	|| fail "manual_install.php does not load install/schema.sql"
 
 # 13. The same for the uninstall schema, and the loader both sides share. The
 #     framework's run_uninstall_sql() has the identical defect and runs while
@@ -185,27 +186,32 @@ fi
 #     keine Einstellungszeile hat. Genau das verwarf das Ergebnis von 66
 #     Prüfungen und zeigte 60 Websites als "ungeprüft" an.
 if grep -q 'function update_site_state' "$root/server/lib/classes/malwatch_actions.inc.php"; then
-	sed -n '/function update_site_state/,/^	}/p' "$root/server/lib/classes/malwatch_actions.inc.php" 		| grep -q 'create_site_row' 		|| fail "update_site_state verwirft das Ergebnis, wenn die Website keine Einstellungszeile hat"
+	sed -n '/function update_site_state/,/^	}/p' "$root/server/lib/classes/malwatch_actions.inc.php" 		| grep -q 'create_site_row' \
+		|| fail "update_site_state verwirft das Ergebnis, wenn die Website keine Einstellungszeile hat"
 fi
 
 # 15. Eine neue Spalte in einer bestehenden Tabelle erreicht keine vorhandene
 #     Installation: CREATE TABLE IF NOT EXISTS lässt sie unberührt. Jede
 #     Erweiterung braucht deshalb einen Zusatz, der sich selbst prüft.
 if grep -q 'job_kind' "$root/install/schema.sql"; then
-	grep -q 'information_schema' "$root/install/schema.sql" 		|| fail "schema.sql fügt Spalten hinzu, ohne sie über information_schema zu prüfen"
+	grep -q 'information_schema' "$root/install/schema.sql" \
+		|| fail "schema.sql fügt Spalten hinzu, ohne sie über information_schema zu prüfen"
 fi
 
 # 16. Ohne --progress schreibt kein Lauf aus dem Panel eine Fortschrittsdatei,
 #     und die Ansicht bliebe für immer leer.
-grep -q -- '--progress=' "$root/server/lib/classes/malwatch_runner.inc.php" 	|| fail "der Runner übergibt --progress nicht; die Fortschrittsansicht bekäme nie Daten"
+grep -q -- '--progress=' "$root/server/lib/classes/malwatch_runner.inc.php" \
+	|| fail "der Runner übergibt --progress nicht; die Fortschrittsansicht bekäme nie Daten"
 for kind in repair quarantine upgrade; do
-	grep -q "'$kind'" "$root/server/lib/classes/malwatch_runner.inc.php" 		|| fail "der Runner kennt die Auftragsart $kind nicht"
+	grep -q "'$kind'" "$root/server/lib/classes/malwatch_runner.inc.php" \
+		|| fail "der Runner kennt die Auftragsart $kind nicht"
 done
 
 # 17. Ein Pfad aus einem Formularfeld darf nie ungeprüft in einen Auftrag
 #     wandern. Die Prüfung gegen malwatch_finding ist die erste von zwei.
 if grep -q 'function malwatch_queue_quarantine' "$root/interface/lib/malwatch_lib.inc.php"; then
-	sed -n '/function malwatch_queue_quarantine/,/^}/p' "$root/interface/lib/malwatch_lib.inc.php" 		| grep -q 'malwatch_finding' 		|| fail "malwatch_queue_quarantine prüft die Pfade nicht gegen malwatch_finding"
+	sed -n '/function malwatch_queue_quarantine/,/^}/p' "$root/interface/lib/malwatch_lib.inc.php" 		| grep -q 'malwatch_finding' \
+		|| fail "malwatch_queue_quarantine prüft die Pfade nicht gegen malwatch_finding"
 fi
 
 # 18. Eine Seite, die JSON liefert, darf keine Vorlage laden - sonst kommt
@@ -214,14 +220,16 @@ if [ -f "$root/interface/malwatch_progress.php" ]; then
 	if grep -q 'newTemplate\|tpl_defaults' "$root/interface/malwatch_progress.php"; then
 		fail "malwatch_progress.php lädt eine Vorlage, liefert also kein reines JSON"
 	fi
-	grep -q 'is_admin' "$root/interface/malwatch_progress.php" 		|| fail "malwatch_progress.php prüft die Administratorrechte nicht"
+	grep -q 'is_admin' "$root/interface/malwatch_progress.php" \
+		|| fail "malwatch_progress.php prüft die Administratorrechte nicht"
 fi
 
 # 19. Jede Aktion, die löscht oder ersetzt, braucht eine Rückfrage. Ein
 #     Fehlklick auf "Alle Funde löschen" wäre sonst endgültig.
 for action in delete_one delete_all repair; do
 	if grep -q "=== '$action'" "$root/interface/malwatch_site_show.php"; then
-		grep -q "confirm_${action}_txt" "$root/interface/templates/malwatch_site_show.htm" 			|| fail "die Aktion $action hat keine Rückfrage in der Vorlage"
+		grep -q "confirm_${action}_txt" "$root/interface/templates/malwatch_site_show.htm" \
+			|| fail "die Aktion $action hat keine Rückfrage in der Vorlage"
 	fi
 done
 
@@ -233,7 +241,8 @@ fi
 # 21. Eine halb getauschte Installation darf nicht zurück ans Netz. Der
 #     Rückweg hängt am Rückgabecode, nicht am blossen Ende des Laufs.
 if grep -q 'function finish_repair' "$root/server/lib/classes/cron.d/560-malwatch.inc.php"; then
-	sed -n '/function finish_repair/,/^	}/p' "$root/server/lib/classes/cron.d/560-malwatch.inc.php" 		| grep -q 'exit_code' 		|| fail "das Zurückschalten sieht den Rückgabecode nicht an"
+	sed -n '/function finish_repair/,/^	}/p' "$root/server/lib/classes/cron.d/560-malwatch.inc.php" 		| grep -q 'exit_code' \
+		|| fail "das Zurückschalten sieht den Rückgabecode nicht an"
 fi
 
 # 22. Der Fortschrittsbalken braucht einen Nenner. Ohne --expect meldet der
@@ -1493,21 +1502,27 @@ done
 #     Form, vergleicht mit hash_equals und verlangt weder Anmeldung noch Modul.
 page="$root/interface/malwatch_waf_ban_url.php"
 if [ -f "$page" ]; then
-	grep -q 'waf_ban_token_ok' "$page" 		|| fail "malwatch_waf_ban_url.php does not check the shape of the key"
-	grep -q 'hash_equals' "$page" 		|| fail "malwatch_waf_ban_url.php compares the key without hash_equals"
-	grep -q '404 Not Found' "$page" 		|| fail "malwatch_waf_ban_url.php answers a wrong key with something other than 404"
+	grep -q 'waf_ban_token_ok' "$page" \
+		|| fail "malwatch_waf_ban_url.php does not check the shape of the key"
+	grep -q 'hash_equals' "$page" \
+		|| fail "malwatch_waf_ban_url.php compares the key without hash_equals"
+	grep -q '404 Not Found' "$page" \
+		|| fail "malwatch_waf_ban_url.php answers a wrong key with something other than 404"
 	if grep -q 'check_module_permissions' "$page"; then
 		fail "malwatch_waf_ban_url.php asks for a module permission; the firewall has no session"
 	fi
-	grep -q '^c:interface/malwatch_waf_ban_url.php:' "$root/install/file.list" 		|| fail "the installer does not copy malwatch_waf_ban_url.php"
+	grep -q '^c:interface/malwatch_waf_ban_url.php:' "$root/install/file.list" \
+		|| fail "the installer does not copy malwatch_waf_ban_url.php"
 fi
 
 # 78. Der Cron schreibt die Liste, und die Stelle liest sie; der Schluessel selbst
 #     steht in keinem Auftragsprotokoll.
 class="$root/server/lib/classes/malwatch_waf.inc.php"
 if [ -f "$class" ]; then
-	grep -q 'blocked.txt' "$class" 		|| fail "the class never writes blocked.txt for the firewall"
-	grep -q 'function ban_token' "$class" 		|| fail "the class has no ban_token()"
+	grep -q 'blocked.txt' "$class" \
+		|| fail "the class never writes blocked.txt for the firewall"
+	grep -q 'function ban_token' "$class" \
+		|| fail "the class has no ban_token()"
 	if ! sed -n "/case 'ban_token_new':/,/break;/p" "$class" | grep -q 'Neuer Schl'; then
 		fail "the job ban_token_new has no message of its own"
 	fi
@@ -1521,30 +1536,38 @@ for lang in de en; do
 	book="$root/interface/lang/${lang}_malwatch_waf.lng"
 	[ -f "$book" ] || continue
 	for key in ban_url_head_txt ban_url_intro_txt ban_url_count_txt ban_url_hint_txt ban_url_none_txt 		ban_url_new_txt ban_url_new_confirm_txt; do
-		grep -q "\$wb\['$key'\]" "$book" 			|| fail "${lang}_malwatch_waf.lng is missing $key"
+		grep -q "\$wb\['$key'\]" "$book" \
+			|| fail "${lang}_malwatch_waf.lng is missing $key"
 	done
 done
 
 # 80. Die schaerfere Bewertung der Herkunft beginnt aus, in jedem einzelnen Wert.
 lib="$root/interface/lib/malwatch_waf_lib.inc.php"
 for key in waf_ban_origin waf_ban_origin_now waf_ban_origin_hosting waf_ban_origin_vpn waf_ban_origin_tor; do
-	sed -n '/function waf_settings_defaults/,/^}/p' "$lib" | grep -qF "'$key' => 'off'," 		|| fail "waf_settings_defaults() does not start $key as off"
-	grep -q "ADD COLUMN \`$key\`" "$root/install/schema.sql" 		|| fail "malwatch_config bekommt keine Spalte $key"
+	sed -n '/function waf_settings_defaults/,/^}/p' "$lib" | grep -qF "'$key' => 'off'," \
+		|| fail "waf_settings_defaults() does not start $key as off"
+	grep -q "ADD COLUMN \`$key\`" "$root/install/schema.sql" \
+		|| fail "malwatch_config bekommt keine Spalte $key"
 done
 for key in waf_ban_origin_countries waf_ban_origin_asn; do
-	sed -n '/function waf_settings_defaults/,/^}/p' "$lib" | grep -qF "'$key' => ''," 		|| fail "waf_settings_defaults() does not start $key empty"
+	sed -n '/function waf_settings_defaults/,/^}/p' "$lib" | grep -qF "'$key' => ''," \
+		|| fail "waf_settings_defaults() does not start $key empty"
 done
 
 # 81. Der Wille des Betreibers geht vor jedem Merkmal: Eine Website, die keine
 #     Sperre ausloest, bleibt frei, und die Herkunft wird erst danach gefragt.
 ban_lib="$root/interface/lib/malwatch_waf_ban.inc.php"
 if [ -f "$ban_lib" ]; then
-	sed -n '/function waf_ban_decide/,/^}/p' "$ban_lib" | grep -q '\$limit > 0' 		|| fail "waf_ban_decide() asks the origin before it looks at the will of the website"
-	sed -n '/function waf_ban_origin_at_once/,/^}/p' "$ban_lib" | grep -q "waf_ban_origin_now" 		|| fail "waf_ban_origin_at_once() does not ask its own switch"
-	grep -q "function waf_ban_origin_match" "$ban_lib" 		|| fail "the library has no waf_ban_origin_match()"
+	sed -n '/function waf_ban_decide/,/^}/p' "$ban_lib" | grep -q '\$limit > 0' \
+		|| fail "waf_ban_decide() asks the origin before it looks at the will of the website"
+	sed -n '/function waf_ban_origin_at_once/,/^}/p' "$ban_lib" | grep -q "waf_ban_origin_now" \
+		|| fail "waf_ban_origin_at_once() does not ask its own switch"
+	grep -q "function waf_ban_origin_match" "$ban_lib" \
+		|| fail "the library has no waf_ban_origin_match()"
 fi
 if [ -f "$root/../waf/waf-switch" ]; then
-	grep -q "sub === 'origin'" "$root/../waf/waf-switch" 		|| fail "waf-switch cannot switch the origin criterion off"
+	grep -q "sub === 'origin'" "$root/../waf/waf-switch" \
+		|| fail "waf-switch cannot switch the origin criterion off"
 fi
 
 # 83. waf-switch sagt, was der Auftrag gemeldet hat. Ein fester Satz wuerde
@@ -1553,20 +1576,22 @@ tool="$root/../waf/waf-switch"
 if [ -f "$tool" ]; then
 	block=$(sed -n "/case 'ban':/,/^	default:/p" "$tool")
 	for call in ban_mode ban_add ban_lift ban_allow_add ban_token_new; do
-		printf '%s
-' "$block" | grep -q "execute_now('$call'" 			|| fail "waf-switch does not run $call any more; the check needs an update"
+		printf '%s\n' "$block" | grep -q "execute_now('$call'" \
+			|| fail "waf-switch does not run $call any more; the check needs an update"
 	done
-	printf '%s
-' "$block" | grep -c 'waf_cli_report(' | grep -qE '^[5-9]|^[0-9]{2}' 		|| fail "a ban command of waf-switch answers with a fixed sentence instead of the job log"
+	printf '%s\n' "$block" | grep -c 'waf_cli_report(' | grep -qE '^[5-9]|^[0-9]{2}' \
+		|| fail "a ban command of waf-switch answers with a fixed sentence instead of the job log"
 fi
 
 # 82. Die Woerter der Herkunft stehen in beiden Woerterbuechern.
 for lang in de en; do
 	for key in ban_origin_head_txt ban_origin_intro_txt ban_origin_days_txt ban_origin_save_txt 		ban_origin_none_txt ban_origin_save_hint_txt; do
-		grep -q "\$wb\['$key'\]" "$root/interface/lang/${lang}_malwatch_waf.lng" 			|| fail "${lang}_malwatch_waf.lng is missing $key"
+		grep -q "\$wb\['$key'\]" "$root/interface/lang/${lang}_malwatch_waf.lng" \
+			|| fail "${lang}_malwatch_waf.lng is missing $key"
 	done
 	for key in waf_ban_origin_txt waf_ban_origin_score_txt waf_ban_origin_factor_txt waf_ban_origin_now_txt 		ban_origin_kind_on_txt ban_origin_head_txt; do
-		grep -q "\$wb\['$key'\]" "$root/interface/lang/${lang}_malwatch_waf_config.lng" 			|| fail "${lang}_malwatch_waf_config.lng is missing $key"
+		grep -q "\$wb\['$key'\]" "$root/interface/lang/${lang}_malwatch_waf_config.lng" \
+			|| fail "${lang}_malwatch_waf_config.lng is missing $key"
 	done
 done
 
@@ -1578,7 +1603,8 @@ done
 for tpl in "$root"/interface/templates/*.htm; do
 	[ -f "$tpl" ] || continue
 	for target in $(grep -o 'data-mw-set-[a-z0-9-]*=' "$tpl" | sed 's/^data-mw-set-//; s/=$//' | sort -u); do
-		grep -q "id=\"$target\"" "$tpl" 			|| fail "$(basename "$tpl"): data-mw-set-$target findet kein Feld mit id=\"$target\""
+		grep -q "id=\"$target\"" "$tpl" \
+			|| fail "$(basename "$tpl"): data-mw-set-$target findet kein Feld mit id=\"$target\""
 	done
 done
 
@@ -1586,14 +1612,19 @@ done
 #     Zeilen. Beides sind Einstellungen mit Spalte, Vorgabe und Feld; und ein
 #     Vorschlag darf eine Adresse nie vor einer Sperre schuetzen.
 for col in waf_ban_proposal_days waf_ban_page_rows; do
-	grep -q "ADD COLUMN \`$col\`" "$root/install/schema.sql" 		|| fail "malwatch_config bekommt keine Spalte $col"
-	grep -q "'$col' =>" "$root/interface/lib/malwatch_waf_lib.inc.php" 		|| fail "waf_settings_defaults() kennt $col nicht"
-	grep -q "name=\"$col\"" "$root/interface/templates/malwatch_waf_config_edit.htm" 		|| fail "die Einstellungsseite hat kein Feld $col"
+	grep -q "ADD COLUMN \`$col\`" "$root/install/schema.sql" \
+		|| fail "malwatch_config bekommt keine Spalte $col"
+	grep -q "'$col' =>" "$root/interface/lib/malwatch_waf_lib.inc.php" \
+		|| fail "waf_settings_defaults() kennt $col nicht"
+	grep -q "name=\"$col\"" "$root/interface/templates/malwatch_waf_config_edit.htm" \
+		|| fail "die Einstellungsseite hat kein Feld $col"
 done
 class="$root/server/lib/classes/malwatch_waf.inc.php"
 if [ -f "$class" ]; then
-	grep -q "waf_ban_keeps_quiet(\$earlier, \$since, \$state)" "$class" 		|| fail "ban_scan() fragt nicht, was die Adresse werden wuerde, bevor es sie ruhen laesst"
-	grep -q "state = 'proposed' \"" "$class" 		|| fail "ban_expire() laesst Vorschlaege nie ablaufen"
+	grep -q "waf_ban_keeps_quiet(\$earlier, \$since, \$state)" "$class" \
+		|| fail "ban_scan() fragt nicht, was die Adresse werden wuerde, bevor es sie ruhen laesst"
+	grep -q "state = 'proposed' \"" "$class" \
+		|| fail "ban_expire() laesst Vorschlaege nie ablaufen"
 fi
 if grep -q "LIMIT ?" "$root/interface/malwatch_waf_ban_list.php"; then :; else
 	fail "die Seite Sperren laedt ihre Abschnitte ohne Grenze"
@@ -1604,12 +1635,46 @@ fi
 class="$root/server/lib/classes/malwatch_waf.inc.php"
 if [ -f "$class" ]; then
 	minute=$(sed -n '/public function cron_minute/,/^	}/p' "$class")
-	printf '%s
-' "$minute" | grep -q 'ban_expire()' 		|| fail "cron_minute() beendet faellige Sperren nicht; sie blieben bis zum Stundenlauf stehen"
-	printf '%s
-' "$minute" | awk '/ban_expire\(\)/ {e = NR} /ban_apply\(\)/ {a = NR} END {exit !(e > 0 && e < a)}' 		|| fail "cron_minute() ruft ban_expire() nicht vor ban_apply() auf"
-	sed -n "/case 'ban_add':/,/break;/p" "$class" | grep -q 'waf_ban_next_level(' 		|| fail "ban_add rechnet die Stufe anders als die Automatik"
+	printf '%s\n' "$minute" | grep -q 'ban_expire()' \
+		|| fail "cron_minute() beendet faellige Sperren nicht; sie blieben bis zum Stundenlauf stehen"
+	printf '%s\n' "$minute" | awk '/ban_expire\(\)/ {e = NR} /ban_apply\(\)/ {a = NR} END {exit !(e > 0 && e < a)}' \
+		|| fail "cron_minute() ruft ban_expire() nicht vor ban_apply() auf"
+	sed -n "/case 'ban_add':/,/break;/p" "$class" | grep -q 'ban_web_by_hand(' \
+		|| fail "ban_add sperrt nicht ueber ban_web_by_hand()"
+	sed -n '/private function ban_web_by_hand/,/^	}/p' "$class" | grep -q 'waf_ban_next_level(' \
+		|| fail "ban_web_by_hand() rechnet die Stufe anders als die Automatik"
 fi
+
+# 87. fail2ban im Panel: jeder Befehl an fail2ban-client geht durch
+#     escapeshellarg, "ueberall sperren" fragt vorher die Ausnahmen - fail2ban
+#     selbst kennt auf web.herkules keine, und eine Sperre des Proxys auf allen
+#     Ports schaltete jede Website ab -, und die Woerter stehen in beiden Sprachen.
+class="$root/server/lib/classes/malwatch_waf.inc.php"
+if [ -f "$class" ]; then
+	f2b_cmds=$(sed -n "/case 'f2b_status':/,/break;/p" "$class")
+	for part in "escapeshellarg((string) \$argument)" "escapeshellarg((string) \$pair[0])" "escapeshellarg((string) \$pair[1])"; do
+		printf '%s\n' "$f2b_cmds" | grep -qF "$part" \
+			|| fail "run_command() reicht ein Argument an fail2ban-client ohne escapeshellarg weiter"
+	done
+	sed -n "/case 'ban_everywhere':/,/break;/p" "$class" | grep -q 'waf_ban_allowed(' \
+		|| fail "ban_everywhere sperrt, ohne die Ausnahmen und die eigenen Netze zu fragen"
+	sed -n '/public function cron_minute/,/^	}/p' "$class" | grep -q 'f2b_read()' \
+		|| fail "cron_minute() liest fail2ban nicht"
+fi
+grep -q '^c:interface/lib/malwatch_waf_f2b.inc.php:' "$root/install/file.list" \
+	|| fail "der Installer kopiert malwatch_waf_f2b.inc.php nicht"
+for lang in de en; do
+	for key in ban_f2b_head_txt f2b_state_ok_txt f2b_state_error_txt f2b_everywhere_txt f2b_everywhere_confirm_txt \
+		f2b_unban_txt f2b_jails_head_txt ban_mode_global_txt ban_mode_web_only_txt rule_everywhere_label_txt \
+		everywhere_web_jail_txt everywhere_jail_only_txt; do
+		grep -q "\$wb\['$key'\]" "$root/interface/lang/${lang}_malwatch_waf.lng" \
+			|| fail "${lang}_malwatch_waf.lng is missing $key"
+	done
+	for key in waf_f2b_txt waf_everywhere_mode_txt waf_everywhere_jail_txt waf_everywhere_jail_error; do
+		grep -q "\$wb\['$key'\]" "$root/interface/lang/${lang}_malwatch_waf_config.lng" \
+			|| fail "${lang}_malwatch_waf_config.lng is missing $key"
+	done
+done
 
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'

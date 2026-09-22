@@ -21,6 +21,8 @@
  *   waf-switch ban allow <cidr> [--note=text]
  *   waf-switch ban url [new] [<name des panels>]
  *   waf-switch ban origin [on|off]
+ *   waf-switch ban everywhere <ip>
+ *   waf-switch ban f2b
  *   waf-switch ingest [--dry-run] [--file=<audit log>]
  *   waf-switch migrate
  *   waf-switch snapshot
@@ -344,6 +346,23 @@ switch ($command) {
 			}
 			exit(0);
 		}
+		if ($sub === 'everywhere') {
+			$ip = (string) array_shift($args);
+			exit(waf_cli_report($waf->execute_now('ban_everywhere', array('ip' => $ip, 'jail' => ''), $user)));
+		}
+		if ($sub === 'f2b') {
+			$rows = $app->dbmaster->queryAllRecords('SELECT jail, ip, banned_at, until FROM malwatch_f2b_ban '
+				. 'WHERE server_id = ? ORDER BY jail, ip', $conf['server_id']);
+			foreach (is_array($rows) ? $rows : array() as $row) {
+				printf("%-14s %-40s %-19s %s\n", $row['jail'], $row['ip'], (string) $row['banned_at'],
+					$row['until'] === null ? 'dauerhaft' : (string) $row['until']);
+			}
+			$state = $app->dbmaster->queryOneRecord('SELECT state, error, read_at FROM malwatch_f2b_state WHERE server_id = ?',
+				$conf['server_id']);
+			printf("Stand: %s, gelesen %s %s\n", is_array($state) ? $state['state'] : 'noch nicht gelesen',
+				is_array($state) ? (string) $state['read_at'] : '-', is_array($state) ? (string) $state['error'] : '');
+			exit(0);
+		}
 		if ($sub === 'origin') {
 			$next = (string) array_shift($args);
 			if ($next === 'off' || $next === 'on') {
@@ -423,7 +442,7 @@ switch ($command) {
 			exit(waf_cli_report($waf->execute_now('ban_allow_add',
 				array('cidr' => $cidr, 'note' => $note), $user)));
 		}
-		fwrite(STDERR, "ban status|off|propose|on|list|add <ip>|lift <ip|--all>|allow <cidr>|url [new]|origin [on|off]\n");
+		fwrite(STDERR, "ban status|off|propose|on|list|add <ip>|lift <ip|--all>|allow <cidr>|url [new]|origin [on|off]|everywhere <ip>|f2b\n");
 		exit(2);
 
 	case 'ingest':
@@ -461,6 +480,6 @@ switch ($command) {
 
 fwrite(STDERR, "Befehle: status | set <off|detect|enforce> <domain…|--wordpress|--all> [--wait] | probe … | "
 	. "emergency on|off [--hard] | response-body [full|lean|status] | restore <ordner> | jobs | "
-	. "exception list|add|remove | ban status|off|propose|on|list|add|lift|allow|url|origin | "
+	. "exception list|add|remove | ban status|off|propose|on|list|add|lift|allow|url|origin|everywhere|f2b | "
 	. "ingest [--dry-run] [--file=<log>] | migrate | snapshot | guard\n");
 exit(2);

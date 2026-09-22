@@ -419,6 +419,40 @@ $form['tabs']['waf'] = array(
 				'on' => 'ban_origin_kind_on_txt'
 			)
 		),
+		'waf_f2b' => array(
+			'datatype' => 'VARCHAR',
+			'formtype' => 'SELECT',
+			'default' => 'on',
+			'value' => array(
+				'on' => 'f2b_on_txt',
+				'off' => 'f2b_off_txt'
+			)
+		),
+		'waf_everywhere_mode' => array(
+			'datatype' => 'VARCHAR',
+			'formtype' => 'SELECT',
+			'default' => 'web_jail',
+			'value' => array(
+				'web_jail' => 'everywhere_web_jail_txt',
+				'web_forever_jail' => 'everywhere_web_forever_jail_txt',
+				'jail_only' => 'everywhere_jail_only_txt'
+			)
+		),
+		'waf_everywhere_jail' => array(
+			'datatype' => 'VARCHAR',
+			'formtype' => 'TEXT',
+			'default' => 'recidive',
+			'validators' => array(
+				array(
+					'type' => 'REGEX',
+					'regex' => '/^[A-Za-z0-9_.-]{1,64}$/',
+					'errmsg' => 'waf_everywhere_jail_error'
+				)
+			),
+			'value' => '',
+			'width' => '20',
+			'maxlength' => '64'
+		),
 		'waf_origin_tor_hours' => array(
 			'datatype' => 'INTEGER',
 			'formtype' => 'TEXT',

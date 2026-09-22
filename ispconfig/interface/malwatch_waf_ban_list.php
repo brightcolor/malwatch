@@ -41,7 +41,7 @@ $app->tpl->setInclude('content_tpl', 'templates/malwatch_waf_ban_list.htm');
 $app->tpl->setVar($wb);
 $app->tpl->setVar(malwatch_attr_texts($wb, array('ban_lift_all_txt', 'ban_lift_all_confirm_txt', 'ban_lift_txt',
 	'ban_add_txt', 'ban_allow_remove_txt', 'ban_url_new_txt', 'ban_url_new_confirm_txt',
-	'ban_origin_save_txt')));
+	'ban_origin_save_txt', 'f2b_everywhere_txt', 'f2b_everywhere_confirm_txt')));
 $app->tpl->setVar('message', $app->functions->htmlentities($message));
 $app->tpl->setVar('error', $app->functions->htmlentities($error));
 
@@ -119,6 +119,55 @@ $app->tpl->setVar('ban_count', $app->functions->htmlentities(sprintf($wb['ban_co
 foreach (array('active' => count($active), 'proposed' => count($proposed), 'past' => count($past)) as $section => $shown) {
 	$app->tpl->setVar('more_' . $section, $app->functions->htmlentities(waf_panel_ban_more($wb, $shown, $totals[$section])));
 }
+
+// fail2ban: die Sperren, die der Cron gespiegelt hat, der Zustand des letzten
+// Blicks und die Einstellung je Jail.
+$f2b_view = waf_panel_f2b_rows($wb, waf_panel_rows($app->db->queryAllRecords(
+	'SELECT * FROM malwatch_f2b_ban ORDER BY until IS NULL DESC, until DESC, ip LIMIT ?', $rows_per)), $clock['now']);
+$f2b_total = 0;
+foreach (waf_panel_rows($app->db->queryAllRecords('SELECT COUNT(*) AS n FROM malwatch_f2b_ban')) as $row) {
+	$f2b_total = (int) $row['n'];
+}
+$f2b_loop = array();
+foreach ($f2b_view as $one) {
+	$f2b_loop[] = array(
+		'f2b_ip' => $app->functions->htmlentities($one['ip']),
+		'f2b_jail' => $app->functions->htmlentities($one['jail']),
+		'f2b_reason' => $app->functions->htmlentities($one['reason']),
+		'f2b_since' => $app->functions->htmlentities($one['since']),
+		'f2b_until' => $app->functions->htmlentities($one['until_label']),
+	);
+}
+$app->tpl->setLoop('f2b_rows', $f2b_loop);
+$app->tpl->setVar('has_f2b', count($f2b_loop) > 0 ? 1 : 0);
+$app->tpl->setVar('more_f2b', $app->functions->htmlentities(waf_panel_ban_more($wb, count($f2b_loop), $f2b_total)));
+$f2b_states = waf_panel_rows($app->db->queryAllRecords('SELECT state, error, jails, read_at FROM malwatch_f2b_state'));
+$app->tpl->setVar('f2b_state', $app->functions->htmlentities(waf_panel_f2b_state($wb, $f2b_states)));
+$f2b_modes = array();
+foreach (waf_panel_rows($app->db->queryAllRecords('SELECT jail, everywhere_mode FROM malwatch_f2b_jail')) as $row) {
+	$f2b_modes[(string) $row['jail']] = (string) $row['everywhere_mode'];
+}
+$jail_loop = array();
+foreach (waf_panel_f2b_jails($wb, $f2b_states, $f2b_modes) as $one) {
+	$options = array();
+	foreach ($one['options'] as $option) {
+		$options[] = array(
+			'mode_value' => $app->functions->htmlentities($option['mode_value']),
+			'mode_label' => $app->functions->htmlentities($option['mode_label']),
+			'mode_selected' => $option['mode_selected'],
+		);
+	}
+	$jail_loop[] = array(
+		'jail_name' => $app->functions->htmlentities($one['jail']),
+		'jail_reason' => $app->functions->htmlentities($one['reason']),
+		'jail_options' => $options,
+	);
+}
+$app->tpl->setLoop('f2b_jails', $jail_loop);
+$app->tpl->setVar('has_f2b_jails', count($jail_loop) > 0 ? 1 : 0);
+$app->tpl->setVar('f2b_mode_now', $app->functions->htmlentities(sprintf(waf_panel_text($wb, 'f2b_mode_now_txt', '%s'),
+	waf_panel_text($wb, 'everywhere_' . $settings['waf_everywhere_mode'] . '_txt', $settings['waf_everywhere_mode']),
+	$settings['waf_everywhere_jail'])));
 
 $allow_rows = array();
 foreach (waf_panel_rows($app->db->queryAllRecords('SELECT * FROM malwatch_waf_allow ORDER BY cidr')) as $row) {

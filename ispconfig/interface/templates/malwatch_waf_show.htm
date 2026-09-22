@@ -123,6 +123,7 @@
 <input type="hidden" name="waf_exception" id="mw-waf-exception" value="" />
 <input type="hidden" name="waf_ip" id="mw-waf-ip" value="" />
 <input type="hidden" name="waf_trigger" id="mw-waf-trigger" value="" />
+<input type="hidden" name="waf_rule" id="mw-waf-rule" value="" />
 <input type="hidden" name="id" value="{tmpl_var name='domain_id'}" />
 <input type="hidden" name="days" value="{tmpl_var name='days'}" />
 <input type="hidden" name="ip" value="{tmpl_var name='ip_value'}" />
@@ -222,6 +223,16 @@
 			<tmpl_else>
 			<span class="mw-dim mw-rulebtn">{tmpl_var name='rule_own_txt'}</span>
 			</tmpl_if>
+		</div>
+		<div class="mw-ruleban">
+			<label class="mw-dim" for="mw-rule-mode-{tmpl_var name='rule_id'}">{tmpl_var name='rule_everywhere_label_txt'}</label>
+			<select name="waf_rule_mode[{tmpl_var name='rule_id'}]" id="mw-rule-mode-{tmpl_var name='rule_id'}" class="form-control"
+				style="max-width:28ch;display:inline-block">
+				<tmpl_loop name="rule_modes"><option value="{tmpl_var name='mode_value'}"<tmpl_if name="mode_selected"> selected="selected"</tmpl_if>>{tmpl_var name='mode_label'}</option></tmpl_loop>
+			</select>
+			<button class="btn btn-default btn-xs" type="button"
+				data-mw-set-mw-waf-action="ban_rule_mode" data-mw-set-mw-waf-rule="{tmpl_var name='rule_id'}"
+				data-submit-form="pageForm" data-form-action="security/malwatch_waf_show.php">{tmpl_var name='rule_everywhere_save_txt'}</button>
 		</div>
 		<div class="mw-rulecols">
 			<div>

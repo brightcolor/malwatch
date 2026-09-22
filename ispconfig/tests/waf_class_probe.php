@@ -42,10 +42,11 @@ if (!is_array($current) || $current['name'] !== $probe_db) {
 $app->db = $db;
 $app->dbmaster = $db;
 
-require $stage . '/interface/lib/malwatch_waf_lib.inc.php';
-require $stage . '/interface/lib/malwatch_waf_origin.inc.php';
-require $stage . '/interface/lib/malwatch_waf_ban.inc.php';
-require $stage . '/server/lib/classes/malwatch_waf.inc.php';
+// require_once: the shared library brings the others along since 0.26.0.
+require_once $stage . '/interface/lib/malwatch_waf_lib.inc.php';
+require_once $stage . '/interface/lib/malwatch_waf_origin.inc.php';
+require_once $stage . '/interface/lib/malwatch_waf_ban.inc.php';
+require_once $stage . '/server/lib/classes/malwatch_waf.inc.php';
 $app->uses('malwatch_helper');
 
 $failures = 0;
@@ -906,6 +907,185 @@ expect_same('and takes it out of the file for nginx at once', array(
 	in_array('nginx_reload', $calls, true),
 ), array(false, true, true));
 $db->query('DELETE FROM malwatch_waf_ban');
+$waf->ban_apply();
+
+// --- G: fail2ban ---------------------------------------------------------------
+
+// Ein eigener Stellvertreter, der auch die Argumente festhält.
+$runner_before = $waf->runner;
+$f2b_calls = array();
+$waf->runner = function ($name, $argument) use (&$calls, &$answers, &$f2b_calls) {
+	$calls[] = $name;
+	if (strpos($name, 'f2b_') === 0) {
+		$f2b_calls[] = array($name, $argument);
+	}
+	if (isset($answers[$name]) && count($answers[$name]) > 0) {
+		return array_shift($answers[$name]);
+	}
+	return array(0, '');
+};
+$status_two = "Status\n|- Number of jail:\t2\n`- Jail list:\tsshd, recidive\n";
+$f2b_rows = function () use ($db) {
+	$rows = array();
+	foreach ($db->queryAllRecords('SELECT jail, ip, banned_at, until FROM malwatch_f2b_ban ORDER BY jail, ip') as $row) {
+		$rows[] = $row['jail'] . ' ' . $row['ip'] . ' ' . $row['until'];
+	}
+	return $rows;
+};
+$f2b_state = function () use ($db) {
+	$row = $db->queryOneRecord('SELECT state, error FROM malwatch_f2b_state');
+	return is_array($row) ? array($row['state'], $row['error']) : array('', '');
+};
+$db->query('DELETE FROM malwatch_f2b_ban');
+$db->query('DELETE FROM malwatch_f2b_jail');
+$db->query('DELETE FROM malwatch_waf_ban_rule');
+$db->query('DELETE FROM malwatch_waf_ban');
+$db->query('DELETE FROM malwatch_waf_hit');
+$db->query("UPDATE malwatch_config SET waf_f2b = 'on', waf_everywhere_mode = 'web_jail', waf_everywhere_jail = 'recidive', "
+	. "waf_ban_mode = 'propose', waf_ban_hours_first = 1 WHERE config_id = 1");
+
+// Lesen: neue Sperren kommen, was fail2ban nicht mehr hält, geht.
+$answers = array('f2b_status' => array(array(0, $status_two)), 'f2b_banned' => array(
+	array(0, "198.51.100.101 \t2026-09-22 01:00:00 + 600 = 2026-09-22 01:10:00\n"),
+	array(0, "198.51.100.102 \t2026-09-21 01:00:00 + 604800 = 2026-09-28 01:00:00\n"
+		. "198.51.100.101 \t2026-09-21 02:00:00 + 604800 = 2026-09-28 02:00:00\n"),
+));
+expect_same('three bans read from two jails', $waf->f2b_read(), 3);
+expect_same('each ban with its jail and end', $f2b_rows(), array(
+	'recidive 198.51.100.101 2026-09-28 02:00:00',
+	'recidive 198.51.100.102 2026-09-28 01:00:00',
+	'sshd 198.51.100.101 2026-09-22 01:10:00',
+));
+expect_same('and the state says so', $f2b_state(), array('ok', ''));
+$answers = array('f2b_status' => array(array(0, $status_two)), 'f2b_banned' => array(
+	array(0, "\n"),
+	array(0, "198.51.100.102 \t2026-09-21 01:00:00 + 604800 = 2026-09-28 01:00:00\n"
+		. "198.51.100.101 \t2026-09-21 02:00:00 + 604800 = 2026-09-28 02:00:00\n"),
+));
+$waf->f2b_read();
+expect_same('what fail2ban released leaves the table', $f2b_rows(), array(
+	'recidive 198.51.100.101 2026-09-28 02:00:00',
+	'recidive 198.51.100.102 2026-09-28 01:00:00',
+));
+$answers = array('f2b_status' => array(array(255, 'Failed to access socket path: /var/run/fail2ban/fail2ban.sock')));
+$waf->f2b_read();
+expect_same('without an answer the table stays and the state names the cause', array(count($f2b_rows()),
+	$f2b_state()[0], strpos($f2b_state()[1], 'socket') !== false), array(2, 'error', true));
+$answers = array('f2b_status' => array(array(127, 'fail2ban-client fehlt auf diesem Server.')));
+$waf->f2b_read();
+expect_same('a server without fail2ban', $f2b_state()[0], 'missing');
+$db->query("UPDATE malwatch_config SET waf_f2b = 'off' WHERE config_id = 1");
+$f2b_calls = array();
+$waf->f2b_read();
+expect_same('switched off nothing is read and nothing is shown', array($f2b_rows(), $f2b_state()[0], $f2b_calls),
+	array(array(), 'off', array()));
+$db->query("UPDATE malwatch_config SET waf_f2b = 'on' WHERE config_id = 1");
+
+// Freigeben.
+$answers = array('f2b_status' => array(array(0, $status_two), array(0, $status_two)), 'f2b_banned' => array(
+	array(0, "\n"),
+	array(0, "198.51.100.102 \t2026-09-21 01:00:00 + 604800 = 2026-09-28 01:00:00\n"),
+	array(0, "\n"),
+	array(0, "\n"),
+), 'f2b_unban' => array(array(0, "1\n")));
+$waf->f2b_read();
+$f2b_calls = array();
+$job = $waf->queue('f2b_unban', array('jail' => 'recidive', 'ip' => '198.51.100.102'), 'probe');
+$waf->pass();
+expect_same('a ban is released in its jail', array(job_row($job)['job_status'],
+	strpos((string) job_row($job)['job_log'], 'Freigegeben: 198.51.100.102 im Jail recidive') === 0,
+	$f2b_calls[0], $f2b_rows()), array('done', true, array('f2b_unban', array('recidive', '198.51.100.102')), array()));
+$job = $waf->queue('f2b_unban', array('jail' => '../x', 'ip' => '198.51.100.102'), 'probe');
+$waf->pass();
+expect_same('an odd jail is refused', job_row($job)['job_status'], 'error');
+
+// Überall sperren, global: Web mit Staffel und fail2ban.
+$answers = array();
+$f2b_calls = array();
+$job = $waf->queue('ban_everywhere', array('ip' => '198.51.100.110'), 'probe');
+$waf->pass();
+$web = $db->queryOneRecord("SELECT state, source, level, TIMESTAMPDIFF(MINUTE, blocked_at, until) AS minutes "
+	. "FROM malwatch_waf_ban WHERE ip = '198.51.100.110'");
+expect_same('everywhere: a block on the web for one hour', array(job_row($job)['job_status'], $web['state'],
+	$web['source'], (int) $web['level'], (int) $web['minutes']), array('done', 'active', 'manual', 1, 60));
+expect_same('and a ban in recidive', $f2b_calls[0], array('f2b_ban', array('recidive', '198.51.100.110')));
+expect_same('the message names both', strpos((string) job_row($job)['job_log'],
+	'Überall gesperrt: im Web bis ') === 0 && strpos((string) job_row($job)['job_log'], 'bei fail2ban im Jail recidive') !== false,
+	true);
+
+// Pro Jail: recidive nur fail2ban.
+$waf->queue('f2b_jail_modes', array('modes' => array('recidive' => 'jail_only', 'sshd' => '', '../x' => 'web_jail')), 'probe');
+$waf->pass();
+expect_same('the mode of a jail is stored, an odd jail is skipped',
+	count_rows("SELECT jail FROM malwatch_f2b_jail WHERE jail = 'recidive' AND everywhere_mode = 'jail_only'"), 1);
+$f2b_calls = array();
+$waf->queue('ban_everywhere', array('ip' => '198.51.100.111', 'jail' => 'recidive'), 'probe');
+$waf->pass();
+expect_same('from a row of recidive only fail2ban bans', array(
+	count_rows("SELECT ip FROM malwatch_waf_ban WHERE ip = '198.51.100.111'"), $f2b_calls[0]),
+	array(0, array('f2b_ban', array('recidive', '198.51.100.111'))));
+
+// Global ohne Ende im Web.
+$db->query("UPDATE malwatch_config SET waf_everywhere_mode = 'web_forever_jail' WHERE config_id = 1");
+$waf->queue('ban_everywhere', array('ip' => '198.51.100.112'), 'probe');
+$waf->pass();
+expect_same('everywhere without end on the web',
+	$db->queryOneRecord("SELECT state, until FROM malwatch_waf_ban WHERE ip = '198.51.100.112'"),
+	array('state' => 'active', 'until' => null));
+$db->query("UPDATE malwatch_config SET waf_everywhere_mode = 'web_jail' WHERE config_id = 1");
+
+// Die eigenen Netze werden nirgends gesperrt.
+$f2b_calls = array();
+$job = $waf->queue('ban_everywhere', array('ip' => '10.50.0.1'), 'probe');
+$waf->pass();
+expect_same('the proxy is refused, fail2ban is never asked', array(job_row($job)['job_status'], $f2b_calls,
+	count_rows("SELECT ip FROM malwatch_waf_ban WHERE ip = '10.50.0.1'")), array('error', array(), 0));
+
+// fail2ban lehnt ab: die Web-Sperre gilt, die Meldung sagt es.
+$answers = array('f2b_ban' => array(array(255, "Sorry but the jail 'recidive' does not exist")));
+$job = $waf->queue('ban_everywhere', array('ip' => '198.51.100.113'), 'probe');
+$waf->pass();
+expect_same('a refusal of fail2ban keeps the web block and says why', array(job_row($job)['job_status'],
+	strpos((string) job_row($job)['job_log'], 'abgelehnt') !== false,
+	$db->queryOneRecord("SELECT state FROM malwatch_waf_ban WHERE ip = '198.51.100.113'")['state']),
+	array('error', true, 'active'));
+$answers = array();
+
+// Pro Regel: automatische Sperren wegen 930130 landen auch in recidive.
+$job = $waf->queue('ban_rule_mode', array('rule' => '930130', 'mode' => 'web_jail'), 'probe');
+$waf->pass();
+expect_same('a rule is marked', array(job_row($job)['job_status'],
+	count_rows("SELECT rule_id FROM malwatch_waf_ban_rule WHERE rule_id = '930130' AND everywhere_mode = 'web_jail'")),
+	array('done', 1));
+$job = $waf->queue('ban_rule_mode', array('rule' => 'x930', 'mode' => 'web_jail'), 'probe');
+$waf->pass();
+expect_same('an odd rule is refused', job_row($job)['job_status'], 'error');
+$db->query("UPDATE malwatch_config SET waf_ban_mode = 'block', waf_ban_score = 50, waf_ban_window_minutes = 10, "
+	. "waf_ban_origin = 'off' WHERE config_id = 1");
+$db->query("UPDATE malwatch_site SET waf_ban_score = 0, waf_ban_trigger = 'y'");
+for ($i = 0; $i < 12; $i++) {
+	$db->query('INSERT INTO malwatch_waf_hit (server_id, parent_domain_id, domain, unique_id, seen_at, client_ip, '
+		. 'method, uri, path, status, anomaly_score, would_block, logged_in, rules, request_headers) '
+		. "VALUES (?, 11, 'beispiel.test', ?, NOW(), '198.51.100.120', 'GET', '/.env', '/.env', 404, 5, 'y', 'n', "
+		. "'[\"930130\"]', '{}')", $server, 'probe-rule-' . $i);
+}
+$f2b_calls = array();
+expect_same('the scanner is blocked', $waf->ban_scan(), 1);
+$auto = $db->queryOneRecord("SELECT state, reason, until FROM malwatch_waf_ban WHERE ip = '198.51.100.120'");
+expect_same('because of the marked rule also at fail2ban', array($auto['state'],
+	strpos((string) $auto['reason'], 'auch bei fail2ban') !== false, $auto['until'] !== null, $f2b_calls),
+	array('active', true, true, array(array('f2b_ban', array('recidive', '198.51.100.120')))));
+$waf->queue('ban_rule_mode', array('rule' => '930130', 'mode' => ''), 'probe');
+$waf->pass();
+expect_same('unmarked the rule is gone', count_rows('SELECT rule_id FROM malwatch_waf_ban_rule'), 0);
+
+$db->query('DELETE FROM malwatch_waf_ban');
+$db->query('DELETE FROM malwatch_waf_hit');
+$db->query('DELETE FROM malwatch_f2b_ban');
+$db->query('DELETE FROM malwatch_f2b_jail');
+$db->query("UPDATE malwatch_config SET waf_ban_mode = 'propose' WHERE config_id = 1");
+$waf->runner = $runner_before;
+$answers = array();
 $waf->ban_apply();
 
 // Der Schlüssel der veröffentlichten Liste.

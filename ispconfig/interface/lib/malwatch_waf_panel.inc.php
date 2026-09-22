@@ -1107,6 +1107,51 @@ function waf_panel_handle_post($app, $wb, $post)
 		return waf_panel_ban_queue($app, $wb, 'ban_origin_list', $lists);
 	}
 
+	if ($action === 'ban_everywhere') {
+		// The button of a row carries the address in waf_ip, the input field its own.
+		$ip = isset($post['waf_ip']) ? trim((string) $post['waf_ip']) : '';
+		if ($ip === '' && isset($post['waf_everywhere_ip'])) {
+			$ip = trim((string) $post['waf_everywhere_ip']);
+		}
+		if (waf_origin_bytes($ip) === '') {
+			return array('', waf_panel_text($wb, 'ban_err_ip_txt', ''));
+		}
+		$jail = isset($post['waf_jail']) ? (string) $post['waf_jail'] : '';
+		return waf_panel_ban_queue($app, $wb, 'ban_everywhere',
+			array('ip' => $ip, 'jail' => waf_f2b_jail_ok($jail) ? $jail : ''));
+	}
+
+	if ($action === 'f2b_unban') {
+		$ip = isset($post['waf_ip']) ? trim((string) $post['waf_ip']) : '';
+		$jail = isset($post['waf_jail']) ? (string) $post['waf_jail'] : '';
+		if (waf_origin_bytes($ip) === '' || !waf_f2b_jail_ok($jail)) {
+			return array('', waf_panel_text($wb, 'f2b_err_row_txt', ''));
+		}
+		return waf_panel_ban_queue($app, $wb, 'f2b_unban', array('ip' => $ip, 'jail' => $jail));
+	}
+
+	if ($action === 'f2b_jail_modes') {
+		$modes = array();
+		$given = isset($post['waf_jail_mode']) && is_array($post['waf_jail_mode']) ? $post['waf_jail_mode'] : array();
+		foreach ($given as $jail => $mode) {
+			if (waf_f2b_jail_ok($jail) && is_scalar($mode)
+				&& ((string) $mode === '' || in_array((string) $mode, waf_f2b_modes(), true))) {
+				$modes[(string) $jail] = (string) $mode;
+			}
+		}
+		return waf_panel_ban_queue($app, $wb, 'f2b_jail_modes', array('modes' => $modes));
+	}
+
+	if ($action === 'ban_rule_mode') {
+		$rule = isset($post['waf_rule']) ? (string) $post['waf_rule'] : '';
+		$given = isset($post['waf_rule_mode']) && is_array($post['waf_rule_mode']) ? $post['waf_rule_mode'] : array();
+		$mode = isset($given[$rule]) && is_scalar($given[$rule]) ? (string) $given[$rule] : '';
+		if (!preg_match('/^[0-9]{3,9}$/', $rule) || !in_array($mode, waf_f2b_rule_modes(), true)) {
+			return array('', waf_panel_text($wb, 'ban_err_rule_txt', ''));
+		}
+		return waf_panel_ban_queue($app, $wb, 'ban_rule_mode', array('rule' => $rule, 'mode' => $mode));
+	}
+
 	if ($action === 'ban_add' || $action === 'ban_lift' || $action === 'ban_extend' || $action === 'ban_dismiss') {
 		$ip = isset($post['waf_ip']) ? trim((string) $post['waf_ip']) : '';
 		if ($action === 'ban_lift' && $ip === '') {
@@ -1430,6 +1475,105 @@ function waf_panel_ban_url($wb, $settings, $host, $count)
 			number_format((int) $count, 0, ',', '.')),
 		'hint' => $hint,
 	);
+}
+
+/**
+ * The bans of fail2ban as the page shows them: address, jail, the reason in
+ * plain words, beginning and the time that is left.
+ */
+function waf_panel_f2b_rows($wb, $rows, $now)
+{
+	$view = array();
+	foreach ($rows as $row) {
+		$jail = isset($row['jail']) ? (string) $row['jail'] : '';
+		$view[] = array(
+			'ip' => isset($row['ip']) ? (string) $row['ip'] : '',
+			'jail' => $jail,
+			'reason' => waf_f2b_reason($jail),
+			'since' => waf_panel_time_label(isset($row['banned_at']) ? $row['banned_at'] : ''),
+			'until_label' => waf_panel_ban_until($wb, array('state' => 'active',
+				'until' => isset($row['until']) ? $row['until'] : null), $now),
+		);
+	}
+	return $view;
+}
+
+/**
+ * One line about the last look at fail2ban: when it worked, or why it did not
+ * and what to do. $states are the rows of malwatch_f2b_state, one per server.
+ */
+function waf_panel_f2b_state($wb, $states)
+{
+	if (count($states) === 0) {
+		return waf_panel_text($wb, 'f2b_state_none_txt', '');
+	}
+	$lines = array();
+	foreach ($states as $state) {
+		$which = isset($state['state']) ? (string) $state['state'] : '';
+		$when = waf_panel_time_label(isset($state['read_at']) ? $state['read_at'] : '');
+		if ($which === 'ok') {
+			$lines[] = sprintf(waf_panel_text($wb, 'f2b_state_ok_txt', '%s'), $when);
+		} elseif ($which === 'off') {
+			$lines[] = waf_panel_text($wb, 'f2b_state_off_txt', '');
+		} elseif ($which === 'missing') {
+			$lines[] = waf_panel_text($wb, 'f2b_state_missing_txt', '');
+		} else {
+			$lines[] = sprintf(waf_panel_text($wb, 'f2b_state_error_txt', '%1$s %2$s'), $when,
+				isset($state['error']) ? (string) $state['error'] : '');
+		}
+	}
+	return implode(' ', $lines);
+}
+
+/**
+ * The choices of "überall sperren" for a select: first the neutral one named
+ * by $first_key (the global mode for a jail, the web alone for a rule), then
+ * the modes, the current one marked.
+ */
+function waf_panel_mode_options($wb, $current, $first_key, $modes = null)
+{
+	$modes = is_array($modes) ? $modes : array_merge(array(''), waf_f2b_modes());
+	$options = array();
+	foreach ($modes as $mode) {
+		$options[] = array(
+			'mode_value' => $mode,
+			'mode_label' => $mode === '' ? waf_panel_text($wb, $first_key, '')
+				: waf_panel_text($wb, 'everywhere_' . $mode . '_txt', $mode),
+			'mode_selected' => (string) $current === $mode ? 1 : 0,
+		);
+	}
+	return $options;
+}
+
+/**
+ * Every jail the page knows - from the last good read and from the settings -
+ * with its reason and the choice of "überall sperren", in alphabetical order.
+ */
+function waf_panel_f2b_jails($wb, $states, $modes)
+{
+	$jails = array();
+	foreach ($states as $state) {
+		foreach (explode(',', isset($state['jails']) ? (string) $state['jails'] : '') as $jail) {
+			if (waf_f2b_jail_ok($jail)) {
+				$jails[$jail] = true;
+			}
+		}
+	}
+	foreach ($modes as $jail => $mode) {
+		if (waf_f2b_jail_ok($jail)) {
+			$jails[(string) $jail] = true;
+		}
+	}
+	ksort($jails);
+	$rows = array();
+	foreach (array_keys($jails) as $jail) {
+		$rows[] = array(
+			'jail' => (string) $jail,
+			'reason' => waf_f2b_reason($jail),
+			'options' => waf_panel_mode_options($wb, isset($modes[$jail]) ? $modes[$jail] : '', 'ban_mode_global_txt'),
+		);
+	}
+	return $rows;
 }
 
 /**

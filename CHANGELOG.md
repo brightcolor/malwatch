@@ -2,6 +2,27 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.26.0] – 2026-09-22
+
+### Neu
+
+**fail2ban im Panel.** Die Sperren von fail2ban stehen auf der Seite Security >
+Abwehr > Sperren, mit Grund in Klartext („SSH: zu viele fehlgeschlagene
+Anmeldungen (sshd)"), Beginn und der Zeit, die bleibt. Der Cron liest jede Minute
+alle Jails; antwortet fail2ban nicht, sagt der Abschnitt das und zeigt den letzten
+Stand. Jede Sperre lässt sich freigeben.
+
+**Überall sperren.** Eine Adresse lässt sich an einer Zeile von fail2ban oder über
+ein Eingabefeld überall sperren: im Web über malwatch und am Server über einen Jail
+von fail2ban (Vorgabe `recidive`, auf web.herkules alle Ports für sieben Tage). Was
+„überall" heißt, ist einstellbar — Web mit der üblichen Staffel und fail2ban, Web
+ohne Ende und fail2ban, oder nur fail2ban —, und zwar global, je Jail für den Knopf
+und je Regel der Abwehr für die Automatik: Eine markierte Regel schickt jede
+automatische Sperre, die sie auslöst, auch zu fail2ban. Eigene Netze, die Adressen
+des Servers und „Nie sperren" werden dabei abgewiesen.
+
+Auf der Kommandozeile: `waf-switch ban everywhere <ip>` und `waf-switch ban f2b`.
+
 ## [0.25.4] – 2026-09-22
 
 ### Behoben

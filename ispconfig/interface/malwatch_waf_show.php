@@ -202,6 +202,11 @@ $app->tpl->setVar('rule_addresses_head', $app->functions->htmlentities(count($ca
 	? sprintf($wb['addresses_capped_txt'], number_format($settings['waf_card_hits'], 0, ',', '.'))
 	: sprintf($wb['addresses_head_txt'], $settings['waf_detail_days'])));
 $no_card = array('hits' => 0, 'logged_in' => 0, 'addresses' => array(), 'triggers' => array());
+// Rules whose automatic blocks also go to fail2ban; the cards show the choice.
+$rule_modes = array();
+foreach (waf_panel_rows($app->db->queryAllRecords('SELECT rule_id, everywhere_mode FROM malwatch_waf_ban_rule')) as $row) {
+	$rule_modes[(string) $row['rule_id']] = (string) $row['everywhere_mode'];
+}
 $rule_rows = array();
 foreach (waf_panel_rules($wb, $day_rows, $catalog) as $rule) {
 	$info = waf_panel_rule_info($wb, $catalog, $rule['rule_id'], $rule['msg']);
@@ -236,7 +241,17 @@ foreach (waf_panel_rules($wb, $day_rows, $catalog) as $rule) {
 			'trigger_hits' => $app->functions->htmlentities(sprintf($wb['count_times_txt'], number_format($trigger['count'], 0, ',', '.'))),
 		);
 	}
+	$modes = array();
+	foreach (waf_panel_mode_options($wb, isset($rule_modes[$rule['rule_id']]) ? $rule_modes[$rule['rule_id']] : '',
+		'ban_mode_web_only_txt', waf_f2b_rule_modes()) as $option) {
+		$modes[] = array(
+			'mode_value' => $app->functions->htmlentities($option['mode_value']),
+			'mode_label' => $app->functions->htmlentities($option['mode_label']),
+			'mode_selected' => $option['mode_selected'],
+		);
+	}
 	$rule_rows[] = array(
+		'rule_modes' => $modes,
 		'rule_id' => $app->functions->htmlentities($rule['rule_id']),
 		'rule_title' => $app->functions->htmlentities($info['title']),
 		'rule_line' => $app->functions->htmlentities(sprintf($wb['rule_hits_txt'], number_format($rule['hits'], 0, ',', '.'),

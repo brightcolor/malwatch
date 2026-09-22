@@ -722,6 +722,54 @@ expect_same('with a key but an unusable name the page says so, not that the key 
 	array($odd['url'], $odd['has_url'], $odd['hint'] !== $none['hint'],
 		strpos($odd['hint'], 'cp.beispiel.test/x') !== false), array('', 0, true, true));
 
+// --- fail2ban auf der Seite „Sperren" ------------------------------------------
+
+$now = '2026-09-22 02:00:00';
+$f2b = waf_panel_f2b_rows($wb, array(
+	array('server_id' => '1', 'jail' => 'recidive', 'ip' => '91.92.243.20', 'banned_at' => '2026-09-15 21:20:27',
+		'until' => '2026-09-23 20:01:51'),
+	array('server_id' => '1', 'jail' => 'sshd', 'ip' => '198.51.100.9', 'banned_at' => '2026-09-22 01:55:00',
+		'until' => '2026-09-22 02:05:00'),
+	array('server_id' => '1', 'jail' => 'recidive', 'ip' => '198.51.100.10', 'banned_at' => '2026-09-20 00:00:00',
+		'until' => null),
+), $now);
+expect_same('each ban with jail, reason, beginning and end', array(
+	array($f2b[0]['ip'], $f2b[0]['jail'], $f2b[0]['reason'], $f2b[0]['since']),
+	strpos($f2b[1]['until_label'], '5') !== false,
+	$f2b[2]['until_label'] !== '' && $f2b[2]['until_label'] !== $f2b[0]['until_label'],
+), array(
+	array('91.92.243.20', 'recidive', 'Wiederholungstäter, alle Dienste gesperrt (recidive)', '15.09.2026 21:20'),
+	true,
+	true,
+));
+
+expect_same('the state line for every case', array(
+	waf_panel_f2b_state($wb, array()) !== '',
+	strpos(waf_panel_f2b_state($wb, array(array('state' => 'ok', 'error' => '', 'read_at' => '2026-09-22 01:59:01'))),
+		'01:59') !== false,
+	strpos(waf_panel_f2b_state($wb, array(array('state' => 'error', 'error' => 'Failed to access socket path',
+		'read_at' => '2026-09-22 01:59:01'))), 'Failed to access socket path') !== false,
+	waf_panel_f2b_state($wb, array(array('state' => 'off', 'error' => '', 'read_at' => null)))
+		!== waf_panel_f2b_state($wb, array(array('state' => 'missing', 'error' => '', 'read_at' => null))),
+), array(true, true, true, true));
+
+$options = waf_panel_mode_options($wb, 'jail_only', 'ban_mode_global_txt');
+expect_same('the choice of a jail offers the global mode first and marks the current one', array(
+	array_map(function ($one) { return $one['mode_value']; }, $options),
+	array_map(function ($one) { return $one['mode_selected']; }, $options),
+), array(array('', 'web_jail', 'web_forever_jail', 'jail_only'), array(0, 0, 0, 1)));
+$rule_options = waf_panel_mode_options($wb, '', 'ban_mode_web_only_txt', waf_f2b_rule_modes());
+expect_same('a rule offers only what the automatic can do', array(
+	array_map(function ($one) { return $one['mode_value']; }, $rule_options),
+	$rule_options[0]['mode_selected'],
+), array(array('', 'web_jail', 'web_forever_jail'), 1));
+
+$jail_rows = waf_panel_f2b_jails($wb, array(array('jails' => 'sshd,recidive')), array('recidive' => 'jail_only'));
+expect_same('every known jail with its setting', array(
+	array_map(function ($one) { return $one['jail']; }, $jail_rows),
+	$jail_rows[0]['options'][3]['mode_selected'],
+), array(array('recidive', 'sshd'), 1));
+
 // --- summary -----------------------------------------------------------------
 if ($failures > 0) {
 	fwrite(STDERR, $failures . " Fehler\n");

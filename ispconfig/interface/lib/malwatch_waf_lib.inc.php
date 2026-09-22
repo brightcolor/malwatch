@@ -11,6 +11,8 @@
  * Runs on PHP 7.0: no ??, no typed properties, no arrow functions.
  */
 
+require_once __DIR__ . '/malwatch_waf_f2b.inc.php';
+
 if (!defined('WAF_MARK_BEGIN')) {
 	define('WAF_MARK_BEGIN', '# WAF-BEGIN');
 	define('WAF_MARK_END', '# WAF-END');
@@ -835,6 +837,9 @@ function waf_settings_defaults()
 		'waf_ban_keep_days' => 30,
 		'waf_ban_proposal_days' => 7,
 		'waf_ban_page_rows' => 200,
+		'waf_f2b' => 'on',
+		'waf_everywhere_mode' => 'web_jail',
+		'waf_everywhere_jail' => 'recidive',
 		'waf_ban_bots' => 'on',
 		'waf_ban_token' => '',
 		'waf_ban_origin' => 'off',
@@ -935,6 +940,13 @@ function waf_settings($row)
 		$settings['waf_ban_mode'] = $defaults['waf_ban_mode'];
 	}
 	$settings['waf_ban_bots'] = $settings['waf_ban_bots'] === 'off' ? 'off' : 'on';
+	$settings['waf_f2b'] = $settings['waf_f2b'] === 'off' ? 'off' : 'on';
+	if (!in_array((string) $settings['waf_everywhere_mode'], waf_f2b_modes(), true)) {
+		$settings['waf_everywhere_mode'] = $defaults['waf_everywhere_mode'];
+	}
+	if (!waf_f2b_jail_ok($settings['waf_everywhere_jail'])) {
+		$settings['waf_everywhere_jail'] = $defaults['waf_everywhere_jail'];
+	}
 	return $settings;
 }
 

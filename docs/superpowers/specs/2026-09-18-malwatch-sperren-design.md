@@ -55,7 +55,7 @@ Treffern stehen bei 1.137 und 1.135 Anfragen.
 |---|---|---|
 | 1 | 0.23.0 | Sperrliste, Erkennung im Vorschlagsmodus, Seite „Sperren", Ausnahmeliste, Sperren von Hand, `deny`-Datei, Not-Aus, Zähler — Plan `docs/superpowers/plans/2026-09-18-malwatch-sperren-stufe-1.md`, umgesetzt als 0.23.0 |
 | 3 | 0.24.0 | URL-Tabelle für die OPNsense — Plan `docs/superpowers/plans/2026-09-18-malwatch-sperren-stufe-3.md`, umgesetzt als 0.24.0 |
-| 2 | 0.25.0 | fail2ban im Panel: Sperren mit Grund und Ende, Knopf zum Aufheben |
+| 2 | 0.26.0 | fail2ban im Panel: Sperren mit Grund und Ende, Knopf zum Aufheben, „überall sperren" — Plan `docs/superpowers/plans/2026-09-22-malwatch-sperren-stufe-2.md`, umgesetzt als 0.26.0 |
 
 Mathias hat am 18.09.2026 Stufe 3 vorgezogen; die Stufen hängen nicht voneinander ab.
 
@@ -262,6 +262,20 @@ Ein Abschnitt auf derselben Seite, unter den eigenen Sperren:
   (postfix-sasl)".
 - Der Knopf „aufheben" ruft `fail2ban-client set <jail> unbanip <ip>`.
 - Sperren, die fail2ban selbst entfernt hat, verschwinden beim nächsten Durchgang.
+
+**Umgesetzt in 0.26.0, mit zwei Änderungen gegenüber dem Entwurf oben:**
+
+- Die Sperren von fail2ban liegen in einer eigenen Tabelle `malwatch_f2b_ban` mit dem
+  Schlüssel (Server, Jail, Adresse). `malwatch_waf_ban` hat einen Schlüssel je
+  Adresse; eine Adresse, die malwatch und fail2ban zugleich sperren, hätte dort nur
+  eine Zeile. Gelesen wird mit `fail2ban-client get <jail> banip --with-time`, das
+  Beginn und Ende liefert.
+- Dazu kommt „überall sperren" (Entscheidung von Mathias am 22.09.2026): Web-Sperre
+  mit Staffel und Sperre im Jail `waf_everywhere_jail` (Vorgabe `recidive`), Web ohne
+  Ende und Jail, oder nur Jail. Einstellbar global, je Jail für den Knopf an einer
+  Zeile und je Regel der Abwehr für die Automatik. Eigene Netze, die Adressen des
+  Servers und „Nie sperren" werden dabei abgewiesen, denn fail2ban hat auf
+  web.herkules keine eigenen Ausnahmen.
 
 ## 13. URL-Tabelle für die OPNsense (Stufe 3)
 

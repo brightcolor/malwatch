@@ -301,6 +301,24 @@ class malwatch_waf
 			case 'nginx_start':
 				$command = escapeshellarg($systemctl) . ' start nginx';
 				break;
+			case 'f2b_status':
+			case 'f2b_banned':
+			case 'f2b_unban':
+			case 'f2b_ban':
+				$f2b = $this->binary(array('/usr/bin/fail2ban-client', '/usr/local/bin/fail2ban-client'));
+				if ($f2b === '') {
+					return array(127, 'fail2ban-client fehlt auf diesem Server.');
+				}
+				if ($name === 'f2b_status') {
+					$command = escapeshellarg($f2b) . ' status';
+				} elseif ($name === 'f2b_banned') {
+					$command = escapeshellarg($f2b) . ' get ' . escapeshellarg((string) $argument) . ' banip --with-time';
+				} else {
+					$pair = is_array($argument) ? array_values($argument) : array('', '');
+					$command = escapeshellarg($f2b) . ' set ' . escapeshellarg((string) $pair[0])
+						. ($name === 'f2b_ban' ? ' banip ' : ' unbanip ') . escapeshellarg((string) $pair[1]);
+				}
+				break;
 			case 'logrotate_check':
 				$command = escapeshellarg($this->binary(array('/usr/sbin/logrotate', '/usr/bin/logrotate')))
 					. ' -d ' . escapeshellarg($argument);
@@ -639,6 +657,7 @@ class malwatch_waf
 			$this->ban_expire();
 			$this->ban_apply();
 			$this->run_jobs();
+			$this->f2b_read();
 		} catch (Throwable $e) {
 			$app->log('malwatch: the WAF pass failed: ' . $e->getMessage(), LOGLEVEL_WARN);
 		} finally {
@@ -1211,6 +1230,12 @@ class malwatch_waf
 		$reader = isset($readers['searchbots']) ? $readers['searchbots'] : null;
 		$active = (int) $this->db_value('SELECT COUNT(*) AS value FROM malwatch_waf_ban WHERE server_id = '
 			. (int) $conf['server_id'] . " AND state = 'active'");
+		// Rules whose automatic blocks also go to fail2ban.
+		$rule_modes = array();
+		foreach ($this->rows($app->dbmaster->queryAllRecords('SELECT rule_id, everywhere_mode FROM malwatch_waf_ban_rule'))
+			as $row) {
+			$rule_modes[(string) $row['rule_id']] = (string) $row['everywhere_mode'];
+		}
 		$written = 0;
 		$full = false;
 		foreach ($picked as $pick) {
@@ -1244,6 +1269,13 @@ class malwatch_waf
 				$conf['server_id'], $ip, $since)));
 			// The level counts blocks; a proposal that becomes one keeps its level.
 			$level = waf_ban_next_level($earlier);
+			// A block because of a marked rule follows its plan: without end on the
+			// web when so chosen, and a ban in the fail2ban jail after the row.
+			$plan = waf_f2b_plan($state === 'active' && $top !== '' && isset($rule_modes[$top]) ? $rule_modes[$top] : '');
+			$reason = waf_ban_reason($pick, $minutes, $top === '' ? '' : 'Regel ' . $top);
+			if ($plan['jail']) {
+				$reason = waf_origin_cut(rtrim($reason, '.') . ', auch bei fail2ban.', 255);
+			}
 			$app->dbmaster->query('INSERT INTO malwatch_waf_ban (server_id, ip, state, reason, rule, score, hits, '
 				. 'level, source, created_at, blocked_at, until, lifted_at, lifted_by, denied, denied_at) '
 				. "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'auto', ?, ?, ?, NULL, '', 0, NULL) "
@@ -1251,13 +1283,20 @@ class malwatch_waf
 				. 'score = VALUES(score), hits = VALUES(hits), level = VALUES(level), source = VALUES(source), '
 				. 'created_at = VALUES(created_at), blocked_at = VALUES(blocked_at), until = VALUES(until), '
 				. "lifted_at = NULL, lifted_by = '', denied = 0, denied_at = NULL",
-				$conf['server_id'], $ip, $state,
-				waf_ban_reason($pick, $minutes, $top === '' ? '' : 'Regel ' . $top), $top,
+				$conf['server_id'], $ip, $state, $reason, $top,
 				$pick['score'], $pick['hits'], $level, $now,
 				$state === 'active' ? $now : null,
-				$state === 'active' ? waf_ban_until($level, $settings, $now) : null);
+				$state === 'active' && !$plan['forever'] ? waf_ban_until($level, $settings, $now) : null);
 			if ($state === 'active') {
 				$active++;
+			}
+			if ($plan['jail']) {
+				$jail = (string) $settings['waf_everywhere_jail'];
+				$result = $this->run_command('f2b_ban', array($jail, $ip));
+				if ((int) $result[0] !== 0) {
+					$app->log('malwatch: fail2ban hat ' . $ip . ' im Jail ' . $jail . ' nicht gesperrt: '
+						. waf_cut(trim((string) $result[1]), 160) . ' Die Sperre im Web gilt.', LOGLEVEL_WARN);
+				}
 			}
 			$written++;
 		}
@@ -1377,6 +1416,105 @@ class malwatch_waf
 		$token = waf_ban_token_new();
 		$app->dbmaster->query('UPDATE malwatch_config SET waf_ban_token = ? WHERE config_id = 1', $token);
 		return $token;
+	}
+
+	/**
+	 * Mirrors the bans of fail2ban into malwatch_f2b_ban: every jail each minute,
+	 * new bans come in, what fail2ban dropped goes. The panel reads the table and
+	 * never talks to fail2ban itself. When fail2ban does not answer, the table
+	 * stays as it was and the state says why.
+	 */
+	public function f2b_read()
+	{
+		global $app, $conf;
+
+		$settings = $this->settings();
+		$server = (int) $conf['server_id'];
+		$now = $this->now();
+		if ((string) $settings['waf_f2b'] !== 'on') {
+			$app->dbmaster->query('DELETE FROM malwatch_f2b_ban WHERE server_id = ?', $server);
+			$this->f2b_state('off', '', $now);
+			return 0;
+		}
+		$status = $this->run_command('f2b_status', '');
+		if ((int) $status[0] !== 0) {
+			$this->f2b_state((int) $status[0] === 127 ? 'missing' : 'error', waf_cut(trim((string) $status[1]), 250), $now);
+			return 0;
+		}
+		$seen = array();
+		$jails = waf_f2b_jails((string) $status[1]);
+		foreach ($jails as $jail) {
+			$answer = $this->run_command('f2b_banned', $jail);
+			if ((int) $answer[0] !== 0) {
+				$this->f2b_state('error', waf_cut('Der Jail ' . $jail . ' antwortete nicht: '
+					. trim((string) $answer[1]), 250), $now);
+				return 0;
+			}
+			foreach (waf_f2b_bans((string) $answer[1]) as $ban) {
+				$app->dbmaster->query('INSERT INTO malwatch_f2b_ban (server_id, jail, ip, banned_at, until, seen_at) '
+					. 'VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE banned_at = VALUES(banned_at), '
+					. 'until = VALUES(until), seen_at = VALUES(seen_at)',
+					$server, $jail, $ban['ip'], $ban['banned_at'], $ban['until'], $now);
+				$seen[] = $jail . '|' . $ban['ip'];
+			}
+		}
+		// Whatever fail2ban no longer holds leaves the table. The keys decide, not
+		// the time: two passes in the same second must not keep a released ban.
+		$app->dbmaster->query("DELETE FROM malwatch_f2b_ban WHERE server_id = ? AND CONCAT(jail, '|', ip) NOT IN ?",
+			$server, count($seen) > 0 ? $seen : array(''));
+		$this->f2b_state('ok', '', $now, $jails);
+		return count($seen);
+	}
+
+	/**
+	 * Whether the last look at fail2ban worked, for the page. The jails of the
+	 * last good read stay, so the page can offer a setting for each of them even
+	 * while fail2ban does not answer.
+	 */
+	private function f2b_state($state, $error, $now, $jails = array())
+	{
+		global $app, $conf;
+
+		$app->dbmaster->query('INSERT INTO malwatch_f2b_state (server_id, state, error, jails, read_at) '
+			. 'VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE state = VALUES(state), error = VALUES(error), '
+			. "jails = IF(VALUES(state) = 'ok', VALUES(jails), jails), read_at = VALUES(read_at)",
+			(int) $conf['server_id'], (string) $state, (string) $error, waf_cut(implode(',', $jails), 255), $now);
+	}
+
+	/** What "überall sperren" means for each jail that has a setting of its own. */
+	private function f2b_jail_modes()
+	{
+		global $app, $conf;
+
+		$modes = array();
+		foreach ($this->rows($app->dbmaster->queryAllRecords(
+			'SELECT jail, everywhere_mode FROM malwatch_f2b_jail WHERE server_id = ?', $conf['server_id'])) as $row) {
+			$modes[(string) $row['jail']] = (string) $row['everywhere_mode'];
+		}
+		return $modes;
+	}
+
+	/**
+	 * A block on the web by hand, the part that ban_add and ban_everywhere share:
+	 * the level counts blocks, a permanent block has no end. Returns the end,
+	 * null for a block without one.
+	 */
+	private function ban_web_by_hand($ip, $permanent, $user, $now, $settings)
+	{
+		global $app, $conf;
+
+		$row = $app->dbmaster->queryOneRecord('SELECT state, level, blocked_at FROM malwatch_waf_ban '
+			. 'WHERE server_id = ? AND ip = ?', $conf['server_id'], $ip);
+		$level = waf_ban_next_level(is_array($row) ? $row : null);
+		$until = $permanent ? null : waf_ban_until($level, $settings, $now);
+		$app->dbmaster->query('INSERT INTO malwatch_waf_ban (server_id, ip, state, reason, rule, score, '
+			. 'hits, level, source, created_at, blocked_at, until, lifted_at, lifted_by, denied, denied_at) '
+			. "VALUES (?, ?, 'active', ?, '', 0, 0, ?, 'manual', ?, ?, ?, NULL, '', 0, NULL) "
+			. 'ON DUPLICATE KEY UPDATE state = VALUES(state), reason = VALUES(reason), level = VALUES(level), '
+			. 'source = VALUES(source), blocked_at = VALUES(blocked_at), until = VALUES(until), '
+			. "lifted_at = NULL, lifted_by = '', denied = 0, denied_at = NULL",
+			$conf['server_id'], $ip, 'Von Hand gesperrt von ' . $user . '.', $level, $now, $now, $until);
+		return $until;
 	}
 
 	/**
@@ -1548,6 +1686,103 @@ class malwatch_waf
 					. (count($asns) === 0 ? 'keine Anbieter' : count($asns) . ' Anbieter') . '.';
 				break;
 
+			case 'ban_everywhere':
+				if (waf_origin_bytes($ip) === '') {
+					return $this->finish($job, false, 'Das ist keine Adresse. Bitte eine IPv4- oder IPv6-Adresse '
+						. 'angeben, etwa 192.0.2.10.');
+				}
+				// fail2ban knows no exceptions here; this is the only guard for the
+				// own networks, the addresses of the server and the allow list.
+				if (waf_ban_allowed($ip, $this->ban_allow_list(), null)) {
+					return $this->finish($job, false, 'Diese Adresse steht unter „Nie sperren" oder gehört zum '
+						. 'Server selbst. Sie wird nirgends gesperrt, auch nicht bei fail2ban.');
+				}
+				$from = isset($options['jail']) && waf_f2b_jail_ok($options['jail']) ? (string) $options['jail'] : '';
+				$plan = waf_f2b_plan(waf_f2b_mode($from, $this->f2b_jail_modes(), $settings));
+				$done = array();
+				if ($plan['web']) {
+					$until = $this->ban_web_by_hand($ip, $plan['forever'], $user, $now, $settings);
+					$done[] = 'im Web ' . ($until === null ? 'dauerhaft' : 'bis ' . $until);
+				}
+				if ($plan['jail']) {
+					$jail = (string) $settings['waf_everywhere_jail'];
+					$result = $this->run_command('f2b_ban', array($jail, $ip));
+					if ((int) $result[0] !== 0) {
+						$this->ban_apply();
+						return $this->finish($job, false, (count($done) > 0 ? 'Gesperrt ' . implode(', ', $done)
+							. '. ' : '') . 'fail2ban hat die Sperre im Jail ' . $jail . ' abgelehnt: '
+							. waf_cut(trim((string) $result[1]), 160) . ' Bitte den Jail unter Abwehr > '
+							. 'Einstellungen prüfen.');
+					}
+					$done[] = 'bei fail2ban im Jail ' . $jail;
+				}
+				$this->f2b_read();
+				$note = 'Überall gesperrt: ' . implode(', ', $done) . '.';
+				break;
+
+			case 'f2b_unban':
+				$jail = isset($options['jail']) ? (string) $options['jail'] : '';
+				if (!waf_f2b_jail_ok($jail) || waf_origin_bytes($ip) === '') {
+					return $this->finish($job, false, 'Jail oder Adresse fehlen. Bitte die Freigabe an der Zeile '
+						. 'der Sperre starten.');
+				}
+				$result = $this->run_command('f2b_unban', array($jail, $ip));
+				if ((int) $result[0] !== 0) {
+					return $this->finish($job, false, 'fail2ban hat die Freigabe abgelehnt: '
+						. waf_cut(trim((string) $result[1]), 160) . ' Bitte später erneut versuchen.');
+				}
+				$this->f2b_read();
+				$note = trim((string) $result[1]) === '0'
+					? 'Die Adresse war im Jail ' . $jail . ' schon nicht mehr gesperrt.'
+					: 'Freigegeben: ' . $ip . ' im Jail ' . $jail . '.';
+				$web = $app->dbmaster->queryOneRecord("SELECT ip FROM malwatch_waf_ban WHERE server_id = ? AND ip = ? "
+					. "AND state = 'active'", $conf['server_id'], $ip);
+				if (is_array($web)) {
+					$note .= ' Im Web ist sie weiter gesperrt; das hebt der Knopf „aufheben" unter „gesperrt" auf.';
+				}
+				break;
+
+			case 'f2b_jail_modes':
+				$modes = isset($options['modes']) && is_array($options['modes']) ? $options['modes'] : array();
+				$saved = 0;
+				foreach ($modes as $jail => $mode) {
+					$mode = (string) $mode;
+					if (!waf_f2b_jail_ok($jail) || ($mode !== '' && !in_array($mode, waf_f2b_modes(), true))) {
+						continue;
+					}
+					if ($mode === '') {
+						$app->dbmaster->query('DELETE FROM malwatch_f2b_jail WHERE server_id = ? AND jail = ?',
+							$conf['server_id'], (string) $jail);
+					} else {
+						$app->dbmaster->query('INSERT INTO malwatch_f2b_jail (server_id, jail, everywhere_mode) '
+							. 'VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE everywhere_mode = VALUES(everywhere_mode)',
+							$conf['server_id'], (string) $jail, $mode);
+					}
+					$saved++;
+				}
+				$note = $saved === 0 ? 'Nichts geändert.' : 'Gespeichert für ' . $saved . ' Jails.';
+				break;
+
+			case 'ban_rule_mode':
+				$rule = isset($options['rule']) ? (string) $options['rule'] : '';
+				$mode = isset($options['mode']) ? (string) $options['mode'] : '';
+				if (!preg_match('/^[0-9]{3,9}$/', $rule) || !in_array($mode, waf_f2b_rule_modes(), true)) {
+					return $this->finish($job, false, 'Unbekannte Regel oder unbekannte Wahl. Bitte die Auswahl an '
+						. 'der Regel-Karte erneut treffen.');
+				}
+				if ($mode === '') {
+					$app->dbmaster->query('DELETE FROM malwatch_waf_ban_rule WHERE rule_id = ?', $rule);
+					$note = 'Sperren wegen Regel ' . $rule . ' gelten wieder nur im Web.';
+				} else {
+					$app->dbmaster->query('INSERT INTO malwatch_waf_ban_rule (rule_id, everywhere_mode, changed_at, '
+						. 'changed_by) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE everywhere_mode = '
+						. 'VALUES(everywhere_mode), changed_at = VALUES(changed_at), changed_by = VALUES(changed_by)',
+						$rule, $mode, $now, $user);
+					$note = 'Automatische Sperren wegen Regel ' . $rule . ' gelten jetzt auch bei fail2ban'
+						. ($mode === 'web_forever_jail' ? ', im Web ohne Ende' : '') . '.';
+				}
+				break;
+
 			case 'ban_add':
 				if (waf_origin_bytes($ip) === '') {
 					return $this->finish($job, false, 'Das ist keine Adresse. Bitte eine IPv4- oder IPv6-Adresse '
@@ -1557,21 +1792,11 @@ class malwatch_waf
 					return $this->finish($job, false, 'Diese Adresse steht unter „Nie sperren" oder gehört zum '
 						. 'Server selbst. Erst den Eintrag dort entfernen, dann sperren.');
 				}
-				$row = $app->dbmaster->queryOneRecord('SELECT state, level, blocked_at FROM malwatch_waf_ban '
-					. 'WHERE server_id = ? AND ip = ?', $conf['server_id'], $ip);
 				// Same rule as the automatic: the level counts blocks, so a proposal
 				// blocked by hand starts where its block would have started.
-				$level = waf_ban_next_level(is_array($row) ? $row : null);
 				$permanent = isset($options['permanent']) && (string) $options['permanent'] === 'y';
-				$until = $permanent ? null : waf_ban_until($level, $settings, $now);
-				$app->dbmaster->query('INSERT INTO malwatch_waf_ban (server_id, ip, state, reason, rule, score, '
-					. 'hits, level, source, created_at, blocked_at, until, lifted_at, lifted_by, denied, denied_at) '
-					. "VALUES (?, ?, 'active', ?, '', 0, 0, ?, 'manual', ?, ?, ?, NULL, '', 0, NULL) "
-					. 'ON DUPLICATE KEY UPDATE state = VALUES(state), reason = VALUES(reason), level = VALUES(level), '
-					. 'source = VALUES(source), blocked_at = VALUES(blocked_at), until = VALUES(until), '
-					. "lifted_at = NULL, lifted_by = '', denied = 0, denied_at = NULL",
-					$conf['server_id'], $ip, 'Von Hand gesperrt von ' . $user . '.', $level, $now, $now, $until);
-				$note = 'Adresse gesperrt, ' . ($permanent ? 'dauerhaft' : 'bis ' . $until) . '.';
+				$until = $this->ban_web_by_hand($ip, $permanent, $user, $now, $settings);
+				$note = 'Adresse gesperrt, ' . ($until === null ? 'dauerhaft' : 'bis ' . $until) . '.';
 				break;
 
 			case 'ban_lift':
@@ -1812,6 +2037,10 @@ class malwatch_waf
 			case 'ban_token_new':
 			case 'ban_origin':
 			case 'ban_origin_list':
+			case 'ban_everywhere':
+			case 'f2b_unban':
+			case 'f2b_jail_modes':
+			case 'ban_rule_mode':
 			case 'ban_add':
 			case 'ban_lift':
 			case 'ban_extend':

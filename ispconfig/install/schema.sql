@@ -1098,6 +1098,56 @@ CREATE TABLE IF NOT EXISTS `malwatch_waf_ban` (
 -- Addresses and ranges that are never blocked. The fixed networks of the server
 -- are in the code, not here.
 --
+--
+-- fail2ban im Panel, ab 0.26.0. Der Cron spiegelt die Sperren der Jails hierher;
+-- eine Adresse kann in mehreren Jails und zugleich bei malwatch gesperrt sein,
+-- deshalb eine eigene Tabelle mit Jail im Schlüssel.
+--
+CREATE TABLE IF NOT EXISTS `malwatch_f2b_ban` (
+  `server_id` int(11) unsigned NOT NULL DEFAULT '0',
+  `jail` varchar(64) NOT NULL DEFAULT '',
+  `ip` varchar(45) NOT NULL DEFAULT '',
+  `banned_at` datetime DEFAULT NULL,
+  `until` datetime DEFAULT NULL,
+  `seen_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`server_id`,`jail`,`ip`),
+  KEY `ip` (`ip`)
+) DEFAULT CHARSET=utf8mb4 ;
+
+-- Ob der letzte Blick auf fail2ban gelang, je Server.
+CREATE TABLE IF NOT EXISTS `malwatch_f2b_state` (
+  `server_id` int(11) unsigned NOT NULL DEFAULT '0',
+  `state` varchar(16) NOT NULL DEFAULT '',
+  `error` varchar(255) NOT NULL DEFAULT '',
+  `jails` varchar(255) NOT NULL DEFAULT '',
+  `read_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`server_id`)
+) DEFAULT CHARSET=utf8mb4 ;
+
+-- Was „überall sperren" an einer Zeile dieses Jails tut; leer heißt: wie global.
+CREATE TABLE IF NOT EXISTS `malwatch_f2b_jail` (
+  `server_id` int(11) unsigned NOT NULL DEFAULT '0',
+  `jail` varchar(64) NOT NULL DEFAULT '',
+  `everywhere_mode` varchar(20) NOT NULL DEFAULT '',
+  PRIMARY KEY (`server_id`,`jail`)
+) DEFAULT CHARSET=utf8mb4 ;
+
+-- Regeln der Abwehr, deren automatische Sperren auch in fail2ban landen.
+CREATE TABLE IF NOT EXISTS `malwatch_waf_ban_rule` (
+  `rule_id` varchar(16) NOT NULL DEFAULT '',
+  `everywhere_mode` varchar(20) NOT NULL DEFAULT '',
+  `changed_at` datetime DEFAULT NULL,
+  `changed_by` varchar(64) NOT NULL DEFAULT '',
+  PRIMARY KEY (`rule_id`)
+) DEFAULT CHARSET=utf8mb4 ;
+
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_config` ADD COLUMN `waf_f2b` enum(''off'',''on'') NOT NULL DEFAULT ''on'', ADD COLUMN `waf_everywhere_mode` varchar(20) NOT NULL DEFAULT ''web_jail'', ADD COLUMN `waf_everywhere_jail` varchar(64) NOT NULL DEFAULT ''recidive''',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_config' AND COLUMN_NAME = 'waf_f2b');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
 CREATE TABLE IF NOT EXISTS `malwatch_waf_allow` (
   `allow_id` int(11) unsigned NOT NULL AUTO_INCREMENT,
   `server_id` int(11) unsigned NOT NULL DEFAULT '0',

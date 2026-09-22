@@ -272,6 +272,56 @@ expect_same('the threshold of a website is queued', jobs_of($db),
 	array(array(1, 'waf', array('domain_id' => 11, 'score' => 80, 'trigger' => 'y', 'action' => 'ban_site',
 		'user' => 'admin'))));
 
+// --- fail2ban und „überall sperren" ---------------------------------------------
+
+$db = fresh_db();
+$result = waf_panel_handle_post($app, $wb, array('waf_action' => 'ban_everywhere', 'waf_ip' => '198.51.100.7',
+	'waf_jail' => 'recidive', 'waf_everywhere_ip' => ''));
+expect_same('a row blocks everywhere with its jail', array($result[1], jobs_of($db)),
+	array('', array(array(1, 'waf', array('ip' => '198.51.100.7', 'jail' => 'recidive', 'action' => 'ban_everywhere',
+		'user' => 'admin')))));
+
+$db = fresh_db();
+$result = waf_panel_handle_post($app, $wb, array('waf_action' => 'ban_everywhere', 'waf_ip' => '',
+	'waf_jail' => '', 'waf_everywhere_ip' => ' 203.0.113.44 '));
+expect_same('the input field blocks everywhere with the global mode', jobs_of($db),
+	array(array(1, 'waf', array('ip' => '203.0.113.44', 'jail' => '', 'action' => 'ban_everywhere', 'user' => 'admin'))));
+
+$db = fresh_db();
+$result = waf_panel_handle_post($app, $wb, array('waf_action' => 'ban_everywhere', 'waf_ip' => '',
+	'waf_everywhere_ip' => 'kein-ip'));
+expect_same('what is no address is refused before a job', array($result[0], jobs_of($db)), array('', array()));
+
+$db = fresh_db();
+$result = waf_panel_handle_post($app, $wb, array('waf_action' => 'f2b_unban', 'waf_ip' => '198.51.100.7',
+	'waf_jail' => 'sshd'));
+expect_same('a ban is released in its jail', jobs_of($db),
+	array(array(1, 'waf', array('ip' => '198.51.100.7', 'jail' => 'sshd', 'action' => 'f2b_unban', 'user' => 'admin'))));
+
+$db = fresh_db();
+$result = waf_panel_handle_post($app, $wb, array('waf_action' => 'f2b_unban', 'waf_ip' => '198.51.100.7',
+	'waf_jail' => 'ssh d'));
+expect_same('an odd jail is refused before a job', array($result[0], jobs_of($db)), array('', array()));
+
+$db = fresh_db();
+$result = waf_panel_handle_post($app, $wb, array('waf_action' => 'f2b_jail_modes', 'waf_jail_mode' => array(
+	'sshd' => 'jail_only', 'recidive' => '', 'dovecot' => 'erfunden', '../x' => 'web_jail')));
+expect_same('only valid jails with valid modes travel', jobs_of($db),
+	array(array(1, 'waf', array('modes' => array('sshd' => 'jail_only', 'recidive' => ''), 'action' => 'f2b_jail_modes',
+		'user' => 'admin'))));
+
+$db = fresh_db();
+$result = waf_panel_handle_post($app, $wb, array('waf_action' => 'ban_rule_mode', 'waf_rule' => '930130',
+	'waf_rule_mode' => array('930130' => 'web_forever_jail', '941100' => 'web_jail')));
+expect_same('the mode of the chosen rule travels', jobs_of($db),
+	array(array(1, 'waf', array('rule' => '930130', 'mode' => 'web_forever_jail', 'action' => 'ban_rule_mode',
+		'user' => 'admin'))));
+
+$db = fresh_db();
+$result = waf_panel_handle_post($app, $wb, array('waf_action' => 'ban_rule_mode', 'waf_rule' => '930130',
+	'waf_rule_mode' => array('930130' => 'jail_only')));
+expect_same('a rule cannot drop the web block', array($result[0], jobs_of($db)), array('', array()));
+
 if ($failures > 0) {
 	fwrite(STDERR, $failures . " Fehler\n");
 	exit(1);
