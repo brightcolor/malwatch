@@ -2,6 +2,21 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.29.1] – 2026-09-23
+
+### Behoben
+
+**GoAccess-Statistikberichte werden als Berichte erkannt und übersprungen.** Ein
+GoAccess-Bericht listet die angefragten Adressen einer Website auf, darunter die
+Pfade, die Angreifer abklopfen — mitsamt ihren base64-kodierten Nutzlasten. Der
+Scanner überspringt Statistikseiten von AWStats, Webalizer und GoAccess, doch der
+GoAccess-Kennsatz steht erst tief in der Datei, weit hinter dem Prüffenster von
+acht Kilobyte; solche Berichte wurden dadurch geprüft und schlugen mit Regeln wie
+„kodierter Aufruf einer Ausführungsfunktion" an. GoAccess bettet im Kopf jeder
+Seite ein festes Favicon ein; dessen Palette steht weit vorn und dient jetzt als
+früher Marker. Das Prüffenster bleibt klein, sodass nur ein Marker im Kopf zählt
+— ein spät in eine Schaddatei geschriebenes Marker-Wort bleibt wirkungslos.
+
 ## [0.29.0] – 2026-09-23
 
 ### Hinzugefügt
