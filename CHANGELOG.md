@@ -2,6 +2,31 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.28.3] – 2026-09-23
+
+### Behoben
+
+**Treffer aus angemeldeten Sitzungen zählen zu einem Zehntel.** Am 23.09.2026
+sperrte die Automatik den Redakteur einer Kundenwebsite aus: Der Seitenbaukasten
+löste beim Speichern Regeln des CRS aus, 60 Punkte aus 13 Treffern bei einer
+Schwelle von 50, alle aus seiner angemeldeten Sitzung. Die Automatik zählt die
+Punkte aus angemeldeten WordPress-Sitzungen jetzt getrennt und wertet sie mit
+„Angemeldete Zugriffe zählen mit (Prozent)" unter Abwehr > Einstellungen, Vorgabe
+10, erlaubt 0 bis 100. Anmeldung und XML-RPC zählen immer voll, dort laufen die
+Rateangriffe. Der Grund einer Sperre nennt den rohen Punktestand, sobald abgewertet
+wurde, etwa „angemeldete Zugriffe abgewertet (roh 1.235)".
+
+Die Anmeldung erkennt malwatch am Cookie `wordpress_logged_in_*`, und das lässt sich
+fälschen. Eine Adresse, die es bei jeder Anfrage mitschickt, braucht bei 10 Prozent
+die zehnfache Punktzahl; bei 0 wird sie nur noch bei Angriffen auf Anmeldung oder
+XML-RPC gesperrt.
+
+Auf web.herkules lief die Abwertung seit dem 23.09.2026, 11:04 als direkter Eingriff;
+mit 0.28.3 steht sie im Paket, und der Anteil ist einstellbar. Die Klassenprobe
+prüft sie an der Datenbank: Redakteur frei, dieselben Punkte auf der Anmeldung als
+Vorschlag, ein gefälschtes Cookie auf wenigen Anfragen abgewertet und trotzdem
+vorgeschlagen.
+
 ## [0.28.2] – 2026-09-22
 
 ### Behoben

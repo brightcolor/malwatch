@@ -746,6 +746,42 @@ expect_same('and the file is empty',
 	substr_count((string) file_get_contents($tmp . '/waf/blocked.conf'), 'deny '), 0);
 $db->query('DELETE FROM malwatch_waf_hit');
 
+// Hits from logged-in sessions count at waf_ban_logged_in_percent, logins and
+// XML-RPC in full. The editor of 2026-09-23 stays free; the same points on the
+// login are proposed, and so is an address with a forged cookie on a few requests.
+$db->query('DELETE FROM malwatch_waf_ban');
+$db->query("UPDATE malwatch_config SET waf_ban_mode = 'propose', waf_ban_score = 50, waf_ban_window_minutes = 10, "
+	. "waf_ban_origin = 'off', waf_ban_logged_in_percent = 10 WHERE config_id = 1");
+$db->query("UPDATE malwatch_site SET waf_ban_score = 0, waf_ban_trigger = 'y'");
+$logged_hit = 0;
+foreach (array(
+	array('198.51.100.91', '/wp-json/td-composer/do_job', 'y', 13),
+	array('198.51.100.92', '/wp-login.php', 'y', 13),
+	array('198.51.100.93', '/wp-json/td-composer/do_job', 'y', 2),
+	array('198.51.100.93', '/.env', 'n', 12),
+) as $one) {
+	for ($i = 0; $i < $one[3]; $i++) {
+		$db->query('INSERT INTO malwatch_waf_hit (server_id, parent_domain_id, domain, unique_id, seen_at, client_ip, '
+			. "method, uri, path, status, anomaly_score, would_block, logged_in, rules, request_headers) "
+			. "VALUES (?, 11, 'beispiel.test', ?, NOW(), ?, 'POST', ?, ?, 403, 5, 'y', ?, '[\"941310\"]', '{}')",
+			$server, 'probe-logged-in-' . ($logged_hit++), $one[0], $one[1], $one[1], $one[2]);
+	}
+}
+expect_same('the login and the forged cookie are proposed', $waf->ban_scan(), 2);
+expect_same('the editor stays free', count_rows("SELECT ip FROM malwatch_waf_ban WHERE ip = '198.51.100.91'"), 0);
+$login = $db->queryOneRecord("SELECT score, reason FROM malwatch_waf_ban WHERE ip = '198.51.100.92'");
+expect_same('the login keeps its full points',
+	array((int) $login['score'], strpos((string) $login['reason'], 'abgewertet')), array(65, false));
+$forged = $db->queryOneRecord("SELECT score, reason FROM malwatch_waf_ban WHERE ip = '198.51.100.93'");
+expect_same('the forged cookie is discounted and the reason names the raw points',
+	array((int) $forged['score'], strpos((string) $forged['reason'], 'angemeldete Zugriffe abgewertet (roh 70)') !== false),
+	array(61, true));
+$db->query('UPDATE malwatch_config SET waf_ban_logged_in_percent = 100 WHERE config_id = 1');
+expect_same('at 100 percent the editor is proposed as well', $waf->ban_scan(), 1);
+$db->query('UPDATE malwatch_config SET waf_ban_logged_in_percent = 10 WHERE config_id = 1');
+$db->query('DELETE FROM malwatch_waf_ban');
+$db->query('DELETE FROM malwatch_waf_hit');
+
 // Herkunft senkt die Schwelle: derselbe Scanner, einmal ohne und einmal mit.
 $db->query('DELETE FROM malwatch_waf_ban');
 $db->query('DELETE FROM malwatch_waf_hit');

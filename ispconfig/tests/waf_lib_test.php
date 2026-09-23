@@ -583,6 +583,12 @@ expect_same('numbers inside their limits', array($ban['waf_ban_score'], $ban['wa
 	$ban['waf_ban_max'], $ban['waf_ban_keep_days']), array(80, 5, 100, 365));
 expect_same('search engines can be switched off', $ban['waf_ban_bots'], 'off');
 expect_same('an unknown mode falls back', waf_settings(array('waf_ban_mode' => 'vielleicht'))['waf_ban_mode'], 'off');
+expect_same('logged-in requests count at a tenth by default',
+	waf_settings(array())['waf_ban_logged_in_percent'], 10);
+expect_same('the share of logged-in requests stays between 0 and 100', array(
+	waf_settings(array('waf_ban_logged_in_percent' => '250'))['waf_ban_logged_in_percent'],
+	waf_settings(array('waf_ban_logged_in_percent' => '0'))['waf_ban_logged_in_percent'],
+), array(100, 0));
 
 // --- summary -----------------------------------------------------------------
 if ($failures > 0) {

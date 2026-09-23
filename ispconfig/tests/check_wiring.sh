@@ -1612,7 +1612,7 @@ done
 #     Zeilen und laedt bis zu einer Grenze nach. Alle drei sind Einstellungen mit
 #     Spalte, Vorgabe und Feld; und ein Vorschlag darf eine Adresse nie vor einer
 #     Sperre schuetzen.
-for col in waf_ban_proposal_days waf_ban_page_rows waf_ban_page_step waf_ban_page_timeout; do
+for col in waf_ban_proposal_days waf_ban_page_rows waf_ban_page_step waf_ban_page_timeout waf_ban_logged_in_percent; do
 	grep -q "ADD COLUMN \`$col\`" "$root/install/schema.sql" \
 		|| fail "malwatch_config bekommt keine Spalte $col"
 	grep -q "'$col' =>" "$root/interface/lib/malwatch_waf_lib.inc.php" \
@@ -1773,6 +1773,20 @@ if [ -f "$tpl" ] && [ -f "$page" ]; then
 	grep -q 'xhr.ontimeout' "$tpl" && grep -q 'data-mw-more-timeout=' "$tpl" \
 		&& grep -q "'more_timeout'" "$page" \
 		|| fail "malwatch_waf_ban_list: \"Weitere laden\" hat keine Zeitgrenze aus den Einstellungen"
+fi
+
+# 91. Treffer aus angemeldeten Sitzungen zaehlen zu waf_ban_logged_in_percent:
+#     ban_scan() liefert ihre Punkte getrennt, Anmeldung und XML-RPC zaehlen
+#     dabei voll, und waf_ban_decide() rechnet mit den abgewerteten Punkten.
+class="$root/server/lib/classes/malwatch_waf.inc.php"
+lib="$root/interface/lib/malwatch_waf_ban.inc.php"
+if [ -f "$class" ] && [ -f "$lib" ]; then
+	grep -q 'AS score_logged_in' "$class" \
+		|| fail "ban_scan() liefert die Punkte angemeldeter Sitzungen nicht getrennt"
+	grep -qF "path NOT LIKE '%wp-login.php%'" "$class" && grep -qF "path NOT LIKE '%xmlrpc.php%'" "$class" \
+		|| fail "ban_scan() wertet auch Anmeldung oder XML-RPC ab; dort laufen die Rateangriffe"
+	grep -q '\$score = waf_ban_score_logged_in(\$row, \$settings);' "$lib" \
+		|| fail "waf_ban_decide() rechnet mit den Punkten angemeldeter Sitzungen in voller Hoehe"
 fi
 
 

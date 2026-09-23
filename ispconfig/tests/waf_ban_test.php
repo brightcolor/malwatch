@@ -59,37 +59,51 @@ expect_same('nothing crossed, nothing picked', waf_ban_decide(array(
 	array('client_ip' => '198.51.100.7', 'parent_domain_id' => '11', 'score' => '5', 'hits' => '1', 'rule' => '')),
 	$settings, $sites), array());
 
-// --- Angemeldete Sitzungen ----------------------------------------------------
+// --- Logged-in sessions -------------------------------------------------------
 
-// Der Fall vom 23.09.2026: Der Seitenbaukasten einer Kundenwebsite löste beim
-// Speichern Regeln des CRS aus, sämtliche Treffer kamen aus der angemeldeten
-// Sitzung des Redakteurs. Abgewertet bleibt die Adresse unter der Schwelle.
-$redaktion = array('client_ip' => '203.0.113.77', 'parent_domain_id' => '11', 'score' => '60',
-	'score_angemeldet' => '60', 'hits' => '13', 'rule' => '941310');
-expect_same('angemeldete Punkte zählen zu einem Zehntel',
-	waf_ban_score_angemeldet($redaktion, $settings), 6);
-expect_same('der Redakteur wird nicht gesperrt',
-	waf_ban_decide(array($redaktion), $settings, $sites), array());
+// The case of 2026-09-23: the page builder of a customer website triggered CRS
+// rules while saving, and every hit came from the editor's logged-in session.
+// Discounted, the address stays below the threshold.
+$logged = array_merge($settings, array('waf_ban_logged_in_percent' => 10));
+$editor = array('client_ip' => '203.0.113.77', 'parent_domain_id' => '11', 'score' => '60',
+	'score_logged_in' => '60', 'hits' => '13', 'rule' => '941310');
+expect_same('logged-in points count at a tenth', waf_ban_score_logged_in($editor, $logged), 6);
+expect_same('the editor is not blocked', waf_ban_decide(array($editor), $logged, $sites), array());
 
-// Wer ein Anmelde-Cookie vortäuscht, kommt damit nicht durch: Seine Punkte
-// stammen fast alle aus Anfragen ohne Anmeldung.
-$angreifer = array('client_ip' => '203.0.113.9', 'parent_domain_id' => '11', 'score' => '1235',
-	'score_angemeldet' => '20', 'hits' => '140', 'rule' => '930130');
-$getroffen = waf_ban_decide(array($angreifer), $settings, $sites);
-expect_same('der Angreifer bleibt gesperrt',
-	array(count($getroffen), $getroffen[0]['score'], $getroffen[0]['score_roh']), array(1, 1217, 1235));
-expect_same('der Grund nennt den rohen Stand',
-	strpos(waf_ban_reason($getroffen[0], 10, 'Regel 930130'), 'angemeldete Zugriffe abgewertet (roh 1.235)') !== false,
+// An address with a forged login cookie on a few requests: nearly all of its
+// points come from requests without a login.
+$attacker = array('client_ip' => '203.0.113.9', 'parent_domain_id' => '11', 'score' => '1235',
+	'score_logged_in' => '20', 'hits' => '140', 'rule' => '930130');
+$caught = waf_ban_decide(array($attacker), $logged, $sites);
+expect_same('the attacker stays blocked',
+	array(count($caught), $caught[0]['score'], $caught[0]['score_raw']), array(1, 1217, 1235));
+expect_same('the reason names the raw points',
+	strpos(waf_ban_reason($caught[0], 10, 'Regel 930130'), 'angemeldete Zugriffe abgewertet (roh 1.235)') !== false,
 	true);
+// With a forged cookie on every request an address needs ten times the points.
+expect_same('a forged cookie on every request needs ten times the points', array(
+	count(waf_ban_decide(array(array_merge($attacker, array('score' => '490', 'score_logged_in' => '490'))),
+		$logged, $sites)),
+	count(waf_ban_decide(array(array_merge($attacker, array('score' => '500', 'score_logged_in' => '500'))),
+		$logged, $sites)),
+), array(0, 1));
 
-expect_same('der Anteil kommt aus den Einstellungen',
-	waf_ban_score_angemeldet($redaktion, array_merge($settings, array('waf_ban_logged_in_percent' => 50))), 30);
-expect_same('mehr angemeldete Punkte als Punkte insgesamt gibt es nicht',
-	waf_ban_score_angemeldet(array('score' => '40', 'score_angemeldet' => '999'), $settings), 4);
-expect_same('ohne angemeldete Punkte bleibt die Rechnung unverändert',
-	waf_ban_score_angemeldet(array('score' => '80'), $settings), 80);
-expect_same('ein unsinniger Anteil wird auf 100 Prozent begrenzt',
-	waf_ban_score_angemeldet($redaktion, array_merge($settings, array('waf_ban_logged_in_percent' => 500))), 60);
+expect_same('the share comes from the settings',
+	waf_ban_score_logged_in($editor, array_merge($settings, array('waf_ban_logged_in_percent' => 50))), 30);
+expect_same('at 0 percent logged-in points count nothing',
+	waf_ban_score_logged_in($editor, array_merge($settings, array('waf_ban_logged_in_percent' => 0))), 0);
+expect_same('at 100 percent nothing is discounted',
+	waf_ban_score_logged_in($editor, array_merge($settings, array('waf_ban_logged_in_percent' => 100))), 60);
+expect_same('without the setting nothing is discounted', waf_ban_score_logged_in($editor, $settings), 60);
+expect_same('there are never more logged-in points than points',
+	waf_ban_score_logged_in(array('score' => '40', 'score_logged_in' => '999'), $logged), 4);
+expect_same('without logged-in points the sum stays as it is',
+	waf_ban_score_logged_in(array('score' => '80'), $logged), 80);
+expect_same('a share above 100 is capped',
+	waf_ban_score_logged_in($editor, array_merge($settings, array('waf_ban_logged_in_percent' => 500))), 60);
+$plain = waf_ban_decide(array($attacker), $settings, $sites);
+expect_same('without a discount the reason stays as it was',
+	strpos(waf_ban_reason($plain[0], 10, 'Regel 930130'), 'abgewertet'), false);
 
 // --- How long -----------------------------------------------------------------
 

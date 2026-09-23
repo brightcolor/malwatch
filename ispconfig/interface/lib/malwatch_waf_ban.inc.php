@@ -25,31 +25,29 @@ function waf_ban_site_score($settings, $site)
 }
 
 /**
- * Die Punkte einer Gruppe, nachdem Treffer aus angemeldeten Sitzungen abgewertet
- * wurden. In den Backends der Kunden lösen Seitenbaukästen und Medien-Uploads
- * laufend Regeln des CRS aus; am 23.09.2026 sperrte die Abwehr deshalb den
- * Redakteur einer Kundenwebsite aus. Angemeldete Sitzungen zählen darum nur mit
- * einem Bruchteil, voreingestellt 10 Prozent. Die Abfrage in ban_scan() liefert
- * dafür `score_angemeldet` und lässt Anmeldung und XML-RPC ausdrücklich außen
- * vor, denn dort sitzen die Rateangriffe.
- *
- * Der Anteil steht in `waf_ban_logged_in_percent`, solange die Einstellung
- * fehlt, gilt der Vorgabewert.
+ * The points of a group after the hits from logged-in sessions were discounted.
+ * In the backends of customer websites, page builders and media uploads keep
+ * triggering CRS rules; on 2026-09-23 this locked out the editor of a customer
+ * website. Points from logged-in sessions therefore count at
+ * waf_ban_logged_in_percent (default 10). ban_scan() delivers them as
+ * score_logged_in and counts logins and XML-RPC in full, where password guessing
+ * happens. The cookie that marks a session can be forged: with a forged cookie
+ * on every request an address needs 100 / percent times the points. Without the
+ * setting the points stay as they are; waf_settings() always supplies it.
  */
-function waf_ban_score_angemeldet($row, $settings)
+function waf_ban_score_logged_in($row, $settings)
 {
 	$score = isset($row['score']) ? (int) $row['score'] : 0;
-	$angemeldet = isset($row['score_angemeldet']) ? (int) $row['score_angemeldet'] : 0;
-	if ($angemeldet <= 0 || $score <= 0) {
+	$logged_in = isset($row['score_logged_in']) ? (int) $row['score_logged_in'] : 0;
+	if ($logged_in <= 0 || $score <= 0) {
 		return $score;
 	}
-	$anteil = isset($settings['waf_ban_logged_in_percent'])
-		? (int) $settings['waf_ban_logged_in_percent'] : 10;
-	$anteil = max(0, min(100, $anteil));
-	// Mehr angemeldete Punkte als Punkte insgesamt kann es nicht geben; eine
-	// widersprüchliche Zeile darf die Rechnung nicht ins Minus ziehen.
-	$angemeldet = min($angemeldet, $score);
-	return (int) max(0, $score - round($angemeldet * (100 - $anteil) / 100));
+	$percent = isset($settings['waf_ban_logged_in_percent']) ? (int) $settings['waf_ban_logged_in_percent'] : 100;
+	$percent = max(0, min(100, $percent));
+	// A group holds at most as many logged-in points as points; a contradicting
+	// row keeps the sum at zero or above.
+	$logged_in = min($logged_in, $score);
+	return (int) max(0, $score - round($logged_in * (100 - $percent) / 100));
 }
 
 /**
@@ -149,8 +147,8 @@ function waf_ban_decide($groups, $settings, $sites, $origins = array())
 		$id = (int) $row['parent_domain_id'];
 		$site = isset($sites[$id]) ? $sites[$id] : null;
 		$limit = waf_ban_site_score($settings, $site);
-		$roh = (int) $row['score'];
-		$score = waf_ban_score_angemeldet($row, $settings);
+		$raw = (int) $row['score'];
+		$score = waf_ban_score_logged_in($row, $settings);
 		$ip = (string) $row['client_ip'];
 		// A suspicious origin weighs the hits more heavily and may bring a
 		// threshold of its own. A website that never triggers stays free: the
@@ -179,7 +177,7 @@ function waf_ban_decide($groups, $settings, $sites, $origins = array())
 			'ip' => $ip,
 			'domain' => is_array($site) && isset($site['domain']) ? (string) $site['domain'] : '',
 			'score' => $score,
-			'score_roh' => $roh,
+			'score_raw' => $raw,
 			'weighted' => $weighted,
 			'factor' => $factor,
 			'hits' => (int) $row['hits'],
@@ -298,11 +296,11 @@ function waf_ban_reason($pick, $minutes, $rule_label)
 			$reason .= ', Punkte mit ' . (int) $pick['factor'] . ' % gewertet';
 		}
 	}
-	// Angemeldete Sitzungen wurden abgewertet: der rohe Punktestand gehört in den
-	// Grund, sonst sucht man später vergeblich nach den fehlenden Punkten.
-	if (isset($pick['score_roh']) && (int) $pick['score_roh'] > (int) $pick['score']) {
+	// Logged-in sessions were discounted: the raw points go into the reason, so
+	// the difference can be traced later.
+	if (isset($pick['score_raw']) && (int) $pick['score_raw'] > (int) $pick['score']) {
 		$reason .= ', angemeldete Zugriffe abgewertet (roh '
-			. number_format((int) $pick['score_roh'], 0, ',', '.') . ')';
+			. number_format((int) $pick['score_raw'], 0, ',', '.') . ')';
 	}
 	return waf_origin_cut($reason . '.', 255);
 }

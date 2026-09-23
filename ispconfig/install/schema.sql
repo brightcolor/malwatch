@@ -1086,6 +1086,15 @@ SET @mw := (SELECT IF(COUNT(*) = 1,
     AND COLUMN_DEFAULT IN ('200', '''200'''));
 PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
+-- From 0.28.3 hits from logged-in WordPress sessions count at this share when the
+-- automatic blocking adds up the points of an address; see waf_ban_score_logged_in().
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_config` ADD COLUMN `waf_ban_logged_in_percent` int(11) unsigned NOT NULL DEFAULT ''10''',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_config' AND COLUMN_NAME = 'waf_ban_logged_in_percent');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
 -- Die Herkunft senkt die Schwelle, ab 0.25.0. Alles beginnt ausgeschaltet.
 SET @mw := (SELECT IF(COUNT(*) = 0,
   'ALTER TABLE `malwatch_config` ADD COLUMN `waf_ban_origin` enum(''off'',''on'') NOT NULL DEFAULT ''off'', ADD COLUMN `waf_ban_origin_score` int(11) unsigned NOT NULL DEFAULT ''20'', ADD COLUMN `waf_ban_origin_factor` int(11) unsigned NOT NULL DEFAULT ''200'', ADD COLUMN `waf_ban_origin_now` enum(''off'',''on'') NOT NULL DEFAULT ''off'', ADD COLUMN `waf_ban_origin_hosting` enum(''off'',''on'') NOT NULL DEFAULT ''off'', ADD COLUMN `waf_ban_origin_vpn` enum(''off'',''on'') NOT NULL DEFAULT ''off'', ADD COLUMN `waf_ban_origin_tor` enum(''off'',''on'') NOT NULL DEFAULT ''off'', ADD COLUMN `waf_ban_origin_countries` varchar(255) NOT NULL DEFAULT '''', ADD COLUMN `waf_ban_origin_asn` varchar(255) NOT NULL DEFAULT ''''',

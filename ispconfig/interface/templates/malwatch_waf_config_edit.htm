@@ -187,6 +187,14 @@
 </div>
 
 <div class="form-group">
+	<label for="waf_ban_logged_in_percent" class="col-sm-3 control-label">{tmpl_var name='waf_ban_logged_in_percent_txt'}</label>
+	<div class="col-sm-9">
+		<input type="number" min="0" max="100" step="1" name="waf_ban_logged_in_percent" id="waf_ban_logged_in_percent" value="{tmpl_var name='waf_ban_logged_in_percent'}" class="form-control mw-wafcfg-num" />
+		<span class="help-block">{tmpl_var name='waf_ban_logged_in_percent_hint_txt'}</span>
+	</div>
+</div>
+
+<div class="form-group">
 	<label for="waf_ban_hours_first" class="col-sm-3 control-label">{tmpl_var name='waf_ban_hours_first_txt'}</label>
 	<div class="col-sm-9">
 		<input type="number" min="1" max="8760" step="1" name="waf_ban_hours_first" id="waf_ban_hours_first" value="{tmpl_var name='waf_ban_hours_first'}" class="form-control mw-wafcfg-num" />

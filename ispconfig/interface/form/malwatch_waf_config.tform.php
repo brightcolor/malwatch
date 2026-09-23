@@ -277,6 +277,17 @@ $form['tabs']['waf'] = array(
 			'width' => '10',
 			'maxlength' => '4'
 		),
+		'waf_ban_logged_in_percent' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '10',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '0:100', 'errmsg' => 'waf_ban_logged_in_percent_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '3'
+		),
 		'waf_ban_hours_first' => array(
 			'datatype' => 'INTEGER',
 			'formtype' => 'TEXT',
