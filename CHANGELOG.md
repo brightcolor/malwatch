@@ -2,6 +2,40 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.29.0] – 2026-09-23
+
+### Hinzugefügt
+
+**Jede Datei wird geprüft, der Inhalt entscheidet statt der Endung.** Der Scanner
+las bisher nur bekannte Endungen. Ein Lader, der seinen Rumpf als `.css` oder
+`.orig` ablegt und von anderer Stelle einbindet, blieb dadurch ungelesen. Jetzt
+liest der Scanner jede Datei und entscheidet aus den ersten Bytes, ob sie PHP
+oder ein Bild ist. PHP unter fremdem Namen und Code hinter einem Bildkopf werden
+so erkannt, ganz gleich wie die Datei heißt. Die Endung entscheidet weiter dort,
+wo der Webserver nach ihr geht: „PHP im Upload-Verzeichnis" bleibt eine Frage des
+Namens. Auf frischem WordPress und Joomla erzeugt das keinen einzigen Fehlalarm.
+
+**`wp-admin` und `wp-includes` gelten als vollständige Ordner.** WordPress legt
+in diese beiden Verzeichnisse nichts von der Website. Eine ausführbare Datei, die
+die Herstellerliste dort nicht kennt, ist auf einem anderen Weg hineingekommen
+und wird als fremd gemeldet — der Weg, auf dem eine untergeschobene
+`wp-admin/wp-admin.php` auffällt. Die Wurzel bleibt teilweise bekannt, dort
+liegen Konfiguration und `wp-content`.
+
+**Fünf neue Regeln und ein erweiterter Kampagnenmarker** gegen einen
+ALFA-Webshell-Befall:
+
+- `php.webshell.column_cipher` (kritisch): der Lader, der seinen Rumpf per
+  Spaltentransposition zusammensetzt und ausführt. Vorher nur „mittel".
+- `php.dropper.temp_include` (kritisch): schreibt dekodierten Code in eine
+  Temp-Datei und bindet sie ein.
+- `htaccess.cgi_handler` (hoch): macht eine fremde Endung über CGI ausführbar.
+- `htaccess.disable_security` (hoch): schaltet mod_security ab.
+- `malware.alfa_toolkit` (kritisch): Dateien im Verzeichnis
+  `ALFA_DATA`/`alfacgiapi` oder mit der Endung `.alfa`.
+- `php.webshell.known` erkennt zusätzlich die Marker `1nv1s1bl3` und
+  „Sole Sad & Invisible".
+
 ## [0.28.3] – 2026-09-23
 
 ### Behoben

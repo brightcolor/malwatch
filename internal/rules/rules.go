@@ -29,7 +29,15 @@ type Rule struct {
 	// Match is the pattern. Rules are written to work on the raw bytes.
 	Match *regexp.Regexp
 	// Exts limits the rule to these extensions. Empty means every candidate.
+	//
+	// A rule for PHP code also reads a file that opens like PHP under another
+	// name, and a rule for images one that starts with image bytes; see Looks.
 	Exts []string
+	// ExtOnly keeps Exts to the name alone. A rule that asks what the web
+	// server would run goes by the extension, because that is what the
+	// server goes by: PHP code in a .txt file in an upload directory is
+	// served as text.
+	ExtOnly bool
 	// Requires, when set, must also be present in the file. It keeps rules
 	// that are only suspicious in combination from firing on their own.
 	Requires *regexp.Regexp
@@ -55,24 +63,41 @@ type Rule struct {
 }
 
 // AppliesTo reports whether the rule wants to look at this file. path is the
-// location below the scanned root.
-func (r *Rule) AppliesTo(path, ext string) bool {
-	if len(r.Exts) > 0 {
-		found := false
-		for _, e := range r.Exts {
-			if e == ext {
-				found = true
-				break
-			}
-		}
-		if !found {
-			return false
-		}
+// location below the scanned root, ext the extension of its name and looks
+// what its first bytes show.
+func (r *Rule) AppliesTo(path, ext string, looks Looks) bool {
+	if len(r.Exts) > 0 && !contains(r.Exts, ext) && (r.ExtOnly || !r.readsContent(looks)) {
+		return false
 	}
 	if r.PathMatch != nil && !r.PathMatch.MatchString(path) {
 		return false
 	}
 	return true
+}
+
+// readsContent reports whether the rule reads a file of this kind whatever
+// it is called: a rule for PHP reads PHP code, a rule for images reads images.
+func (r *Rule) readsContent(looks Looks) bool {
+	if looks.PHP && contains(r.Exts, "php") {
+		return true
+	}
+	if looks.Image {
+		for _, e := range imageExts {
+			if contains(r.Exts, e) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func contains(list []string, s string) bool {
+	for _, e := range list {
+		if e == s {
+			return true
+		}
+	}
+	return false
 }
 
 // Extension groups used by several rules.

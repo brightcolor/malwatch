@@ -82,6 +82,29 @@ func (i *Index) AddVendorTree(root, label string, files map[string]string) {
 	i.add(root, label, files, true)
 }
 
+// AddCore registers the checksum list of a CMS core whose directories
+// wholeDirs belong to the core alone.
+//
+// The install as a whole stays partial, as with AddInstall: its root holds
+// the configuration and the site's own content. A directory in wholeDirs is
+// different - WordPress keeps nothing of the site in wp-admin or
+// wp-includes, so a file there that the release does not contain came in
+// some other way. wp-cli verify-checksums asks the same question of the same
+// two directories.
+func (i *Index) AddCore(root, label string, files map[string]string, wholeDirs ...string) {
+	i.add(root, label, files, false)
+	for _, dir := range wholeDirs {
+		prefix := strings.Trim(dir, "/") + "/"
+		below := make(map[string]string)
+		for path, sum := range files {
+			if strings.HasPrefix(path, prefix) {
+				below[path[len(prefix):]] = sum
+			}
+		}
+		i.add(filepath.Join(root, filepath.FromSlash(dir)), label, below, true)
+	}
+}
+
 func (i *Index) add(root, label string, files map[string]string, complete bool) {
 	if len(files) == 0 {
 		return

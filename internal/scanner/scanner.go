@@ -353,34 +353,15 @@ func isGeneratedReport(content []byte) bool {
 }
 
 // interesting decides whether a file is worth reading at all.
+//
+// Every file with content is. The extension only says what the web server
+// does with a file; PHP runs whatever it is told to include, and the shell
+// scripts of a web shell carry a name of their own choosing. A list of
+// extensions worth reading let a payload parked as .dat or .alfa through
+// unread. What a file is gets decided from its first bytes instead, see
+// rules.Looks.
 func interesting(f walk.File) bool {
-	if f.Size == 0 {
-		return false
-	}
-	if _, ok := textExt[f.Ext]; ok {
-		return true
-	}
-	if _, ok := imageExt[f.Ext]; ok {
-		// Images are read because a PHP payload appended to a JPEG is a
-		// standard trick; the rule catalog looks for exactly that.
-		return true
-	}
-	// Files without an extension are common for .htaccess and for dropped
-	// shells, so they are read as well.
-	return f.Ext == ""
-}
-
-var textExt = map[string]struct{}{
-	"php": {}, "php3": {}, "php4": {}, "php5": {}, "php7": {}, "php8": {},
-	"phtml": {}, "phps": {}, "inc": {}, "module": {}, "tpl": {}, "twig": {},
-	"js": {}, "mjs": {}, "cjs": {}, "html": {}, "htm": {}, "shtml": {},
-	"htaccess": {}, "css": {}, "txt": {}, "xml": {}, "json": {}, "sh": {},
-	"pl": {}, "py": {}, "cgi": {}, "asp": {}, "aspx": {}, "jsp": {},
-}
-
-var imageExt = map[string]struct{}{
-	"jpg": {}, "jpeg": {}, "png": {}, "gif": {}, "bmp": {}, "webp": {},
-	"ico": {}, "svg": {},
+	return f.Size > 0
 }
 
 // fingerprint identifies the detection state. Any change invalidates the
@@ -580,7 +561,11 @@ func loadChecksums(known *knownfiles.Index, fetcher *knownfiles.Fetcher, inst cm
 			if inst.Locale != "" {
 				label += " " + inst.Locale
 			}
-			known.AddInstall(inst.Path, label, files)
+			// wp-admin and wp-includes hold nothing of the site, so what the
+			// release lacks there came in some other way - the question that
+			// found wp-admin/wp-admin.php on a live site. The root stays
+			// partial: wp-config.php and wp-content are the site's own.
+			known.AddCore(inst.Path, label, files, "wp-admin", "wp-includes")
 		}
 	case "plugin":
 		if files, err := fetcher.WordPressPlugin(inst.Slug, inst.Version); err == nil {

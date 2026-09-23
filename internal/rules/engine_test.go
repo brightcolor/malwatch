@@ -262,6 +262,56 @@ var samples = []sample{
 		miss: `<?php /* helper for the shell escaping tests */ echo 1;`,
 	},
 	{
+		// Der Nachlader cookies.php dieses Befalls trug den Namen der Kampagne
+		// im Kopf. 1nv1s1bl3 kommt in ehrlichem Code nicht vor.
+		rule: "php.webshell.known", ext: "php", path: "/web/b.php",
+		hit:  `<?php /* Plugin Name: ApiServer  Author: Team 1nv1s1bl3 Solutions */ echo 1;`,
+		miss: `<?php /* Author: Invisible Support Team */ echo 1;`,
+	},
+	{
+		// Der ALFA-Lader entschlüsselt sich per Spaltentransposition und führt
+		// das Ergebnis aus. v0.28.3 sah nur eval auf einer Variablen (mittel).
+		rule: "php.webshell.column_cipher", ext: "php", path: "/web/a.php",
+		hit: `<?php for($r=0;$r<$N;$r++) $arr[$r] .= $S[$r + $i * $N]; $X = "?>".implode('',$arr); eval($X);`,
+		// Ehrliche Matrixtransposition, ohne eval: die Nebenbedingung hält sie ab.
+		miss: `<?php // Matrix transponieren` + "\n" + `for($r=0;$r<$n;$r++) $spalte[$r] .= $feld[$r + $i * $cols];`,
+	},
+	{
+		// cookies.php: schreibt dekodierten Code in eine Temp-Datei und bindet
+		// sie ein.
+		rule: "php.dropper.temp_include", ext: "php", path: "/web/a.php",
+		hit: `<?php $d = base64_decode($blob); $t = tempnam(sys_get_temp_dir(), 'obf_'); ` +
+			`file_put_contents($t, $d); include($t); unlink($t);`,
+		// Ehrlicher Umgang mit tempnam: hochladen, ablegen, verschieben - ohne
+		// Einbindung und ohne Dekodierer.
+		miss: `<?php $tmp = tempnam(sys_get_temp_dir(), 'up'); file_put_contents($tmp, $upload); rename($tmp, $dest);`,
+	},
+	{
+		rule: "htaccess.cgi_handler", ext: "", path: "/web/wp-content/uploads/ALFA_DATA/alfacgiapi/.htaccess",
+		hit: "Options FollowSymLinks MultiViews Indexes ExecCGI\nAddHandler cgi-script .alfa\n",
+		// Wörtlich von drei betreuten Seiten: gzip erwähnt cgi-script, führt aber
+		// nichts aus.
+		miss: "mod_gzip_item_include handler ^cgi-script$\nOptions +FollowSymLinks\n",
+	},
+	{
+		rule: "htaccess.disable_security", ext: "", path: "/web/wp-content/themes/Newspaper/.htaccess",
+		hit: "<IfModule mod_security.c>\nSec------Engine Off\nSec------ScanPOST Off\n</IfModule>\n",
+		// Verweist auf mod_security, schaltet es aber nicht ab.
+		miss: "<IfModule mod_security.c>\nSecRuleRemoveById 950004\n</IfModule>\n",
+	},
+	{
+		// Der ALFA-Baukasten legt seine CGI-Werkzeuge in ein Verzeichnis
+		// ALFA_DATA/alfacgiapi und gibt ihnen die Endung .alfa. Beides kommt in
+		// ehrlicher Software nicht vor; der Ort verrät die Datei, ganz gleich
+		// was in ihr steht.
+		rule: "malware.alfa_toolkit", ext: "alfa",
+		path: "/web/wp-content/plugins/x/assets/img/ALFA_DATA/alfacgiapi/bash.alfa",
+		hit:  "#!/bin/bash\ncd \"$1\" && ls -la\n",
+		// Ein gewöhnliches Shell-Skript an gewöhnlichem Ort.
+		miss:     "#!/bin/bash\necho bereit\n",
+		missPath: "/web/wp-content/scripts/deploy.sh",
+	},
+	{
 		rule: "php.webshell.password_gate", ext: "php", path: "/web/a.php",
 		hit:  `<?php if (md5($_POST['p']) === '5f4dcc3b') { eval($_POST['c']); }`,
 		miss: `<?php if (md5($_POST['p']) === $user['hash']) { $ok = true; }`,

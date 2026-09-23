@@ -89,6 +89,29 @@ func TestFindsAPlantedShellAndLeavesHonestCodeAlone(t *testing.T) {
 	}
 }
 
+// Every file is opened, whatever its extension. The name only says what the
+// web server does with a file; PHP runs whatever it is told to include, and a
+// payload parked as .dat was never read at all.
+func TestEveryFileIsReadWhateverItsName(t *testing.T) {
+	root := tree(t, map[string]string{
+		// Inert probe: the payload decodes to "echo 1;".
+		"web/wp-content/uploads/2024/05/cache.dat": `<?php eval(base64_decode("ZWNobyAxOw=="));` + "\n",
+		"web/fonts/symbol.woff2":                   "wOF2\x00\x01\x00\x00\x00\x00\x07\x10\x00\x0b",
+		"web/wp-content/uploads/2024/05/liste.dat": "Name;Ort\nMüller;Lübeck\n",
+	})
+
+	rep := run(t, baseOptions(root))
+
+	if got := findingsFor(rep, "cache.dat"); len(got) == 0 {
+		t.Fatal("PHP code stored as .dat was not found")
+	}
+	for _, clean := range []string{"symbol.woff2", "liste.dat"} {
+		if got := findingsFor(rep, clean); len(got) > 0 {
+			t.Errorf("false positive in %s: %+v", clean, got)
+		}
+	}
+}
+
 func TestExitCodeFollowsTheThreshold(t *testing.T) {
 	root := tree(t, map[string]string{
 		// eval on a plain variable is a medium finding, nothing worse.

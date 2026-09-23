@@ -60,9 +60,11 @@ func (e *Engine) Scan(path, rel, ext string, content []byte) []report.Finding {
 	var index []int32
 	built := false
 
+	looks := look(content)
+
 	var out []report.Finding
 	for _, r := range e.rules {
-		if !r.AppliesTo(rel, ext) {
+		if !r.AppliesTo(rel, ext, looks) {
 			continue
 		}
 		if f, ok := e.apply(r, path, content, content, nil); ok {

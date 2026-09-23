@@ -23,6 +23,13 @@ JavaScript, HTML und `.htaccess`: Verschleierung, Ausführung von Anfragedaten,
 Webshell-Merkmale, eingeschleuste Rahmen und Weiterleitungen, PHP an Orten, wo
 nur Uploads liegen dürfen. ClamAV zusätzlich, wenn es installiert ist.
 
+Geprüft wird jede Datei, und was eine Datei ist, entscheiden ihre ersten Bytes,
+nicht ihre Endung. So findet der Scanner PHP, das als `.css`, `.txt` oder
+`.orig` abgelegt und von anderer Stelle eingebunden wird, und Code hinter einem
+Bildkopf, auch wenn die Datei keine Bildendung trägt. Die Endung entscheidet
+weiter dort, wo es auf sie ankommt: ob der Webserver eine Datei ausführt, hängt
+am Namen, deshalb bleibt „PHP im Upload-Verzeichnis" eine Frage der Endung.
+
 **Veränderte Herstellerdateien.** Für WordPress werden Kern und Plugins gegen
 die offiziellen Prüfsummen verglichen. Eine unveränderte Originaldatei erzeugt
 keinen Fehlalarm, eine veränderte einen eigenen Befund. Verglichen wird, was
@@ -32,6 +39,14 @@ Dateien in der Wurzel. Ausgenommen bleiben die mitgelieferten Themes unter
 für die wordpress.org in jeder Sprache nur die englische Prüfsumme
 veröffentlicht. Beide Ausnahmen gelten nur für diesen Vergleich; Signaturen
 und Heuristik lesen die Dateien weiter.
+
+`wp-admin` und `wp-includes` liefert WordPress als Ganzes aus: Was dort steht
+und nicht zur Auslieferung gehört, ist auf einem anderen Weg hineingekommen.
+Eine ausführbare Datei in diesen beiden Ordnern, die die Herstellerliste nicht
+kennt, wird deshalb als fremd gemeldet — der Weg, auf dem etwa eine
+untergeschobene `wp-admin/wp-admin.php` auffällt. Die Wurzel bleibt teilweise
+bekannt: dort liegen die Konfiguration und `wp-content`, die der Website
+gehören.
 
 **Veraltete Installationen** von WordPress samt Plugins und Themes, Joomla,
 Drupal, TYPO3, Contao, Nextcloud, phpMyAdmin, Matomo, MediaWiki, Shopware und

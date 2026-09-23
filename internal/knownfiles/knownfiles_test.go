@@ -118,6 +118,47 @@ func TestUnsafeSlugAndVersionAreRejected(t *testing.T) {
 	}
 }
 
+// A CMS core ships some of its directories whole. WordPress puts nothing of
+// the site into wp-admin and wp-includes, so a file there that the release
+// does not contain came in some other way. The root of the install stays
+// partial: wp-config.php and wp-content belong to the site.
+func TestACoreShipsItsDirectoriesWhole(t *testing.T) {
+	root := filepath.FromSlash("/web")
+	index := []byte("<?php // wp-admin/index.php")
+	idx := New()
+	idx.AddCore(root, "WordPress 6.5.5", map[string]string{
+		"wp-admin/index.php":      md5hex(index),
+		"wp-includes/version.php": md5hex([]byte("<?php $wp_version = '6.5.5';")),
+		"wp-load.php":             md5hex([]byte("<?php // wp-load")),
+	}, "wp-admin", "wp-includes")
+
+	cases := []struct {
+		path string
+		want Status
+	}{
+		{"wp-admin/index.php", Original},
+		{"wp-admin/wp-admin.php", Foreign},
+		{"wp-includes/load.php.orig", Foreign},
+		{"wp-config.php", Unknown},
+		{"wp-content/plugins/akismet/akismet.php", Unknown},
+		// A sibling whose name starts the same is not inside wp-admin.
+		{"wp-admin-alt/tool.php", Unknown},
+	}
+	for _, c := range cases {
+		content := []byte("<?php // eine Datei")
+		if c.want == Original {
+			content = index
+		}
+		got, label := idx.Check(filepath.Join(root, filepath.FromSlash(c.path)), content)
+		if got != c.want {
+			t.Errorf("%s = %v, want %v", c.path, got, c.want)
+		}
+		if got == Foreign && label != "WordPress 6.5.5" {
+			t.Errorf("%s: label %q, want the release", c.path, label)
+		}
+	}
+}
+
 // TestAVendorTreeReportsWhatTheVendorDoesNotShip covers the difference
 // between the two ways of registering a checksum list. A CMS core is
 // surrounded by files its list never mentions - the configuration, the
