@@ -59,6 +59,38 @@ expect_same('nothing crossed, nothing picked', waf_ban_decide(array(
 	array('client_ip' => '198.51.100.7', 'parent_domain_id' => '11', 'score' => '5', 'hits' => '1', 'rule' => '')),
 	$settings, $sites), array());
 
+// --- Angemeldete Sitzungen ----------------------------------------------------
+
+// Der Fall vom 23.09.2026: Der Seitenbaukasten einer Kundenwebsite löste beim
+// Speichern Regeln des CRS aus, sämtliche Treffer kamen aus der angemeldeten
+// Sitzung des Redakteurs. Abgewertet bleibt die Adresse unter der Schwelle.
+$redaktion = array('client_ip' => '203.0.113.77', 'parent_domain_id' => '11', 'score' => '60',
+	'score_angemeldet' => '60', 'hits' => '13', 'rule' => '941310');
+expect_same('angemeldete Punkte zählen zu einem Zehntel',
+	waf_ban_score_angemeldet($redaktion, $settings), 6);
+expect_same('der Redakteur wird nicht gesperrt',
+	waf_ban_decide(array($redaktion), $settings, $sites), array());
+
+// Wer ein Anmelde-Cookie vortäuscht, kommt damit nicht durch: Seine Punkte
+// stammen fast alle aus Anfragen ohne Anmeldung.
+$angreifer = array('client_ip' => '203.0.113.9', 'parent_domain_id' => '11', 'score' => '1235',
+	'score_angemeldet' => '20', 'hits' => '140', 'rule' => '930130');
+$getroffen = waf_ban_decide(array($angreifer), $settings, $sites);
+expect_same('der Angreifer bleibt gesperrt',
+	array(count($getroffen), $getroffen[0]['score'], $getroffen[0]['score_roh']), array(1, 1217, 1235));
+expect_same('der Grund nennt den rohen Stand',
+	strpos(waf_ban_reason($getroffen[0], 10, 'Regel 930130'), 'angemeldete Zugriffe abgewertet (roh 1.235)') !== false,
+	true);
+
+expect_same('der Anteil kommt aus den Einstellungen',
+	waf_ban_score_angemeldet($redaktion, array_merge($settings, array('waf_ban_logged_in_percent' => 50))), 30);
+expect_same('mehr angemeldete Punkte als Punkte insgesamt gibt es nicht',
+	waf_ban_score_angemeldet(array('score' => '40', 'score_angemeldet' => '999'), $settings), 4);
+expect_same('ohne angemeldete Punkte bleibt die Rechnung unverändert',
+	waf_ban_score_angemeldet(array('score' => '80'), $settings), 80);
+expect_same('ein unsinniger Anteil wird auf 100 Prozent begrenzt',
+	waf_ban_score_angemeldet($redaktion, array_merge($settings, array('waf_ban_logged_in_percent' => 500))), 60);
+
 // --- How long -----------------------------------------------------------------
 
 expect_same('the first block', waf_ban_level(0), 1);

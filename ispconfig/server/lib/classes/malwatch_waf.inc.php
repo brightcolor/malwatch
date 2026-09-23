@@ -1235,7 +1235,13 @@ class malwatch_waf
 		$minutes = (int) $settings['waf_ban_window_minutes'];
 		$since = date('Y-m-d H:i:s', strtotime($now) - $minutes * 60);
 		$groups = $this->rows($app->dbmaster->queryAllRecords(
-			'SELECT client_ip, parent_domain_id, SUM(anomaly_score) AS score, COUNT(*) AS hits '
+			'SELECT client_ip, parent_domain_id, SUM(anomaly_score) AS score, '
+			// Punkte aus angemeldeten Sitzungen getrennt: waf_ban_score_angemeldet()
+			// wertet sie ab, damit Seitenbaukästen und Uploads im Backend keine
+			// Redakteure aussperren. Anmeldung und XML-RPC bleiben voll gewertet.
+			. "SUM(CASE WHEN logged_in = 'y' AND path NOT LIKE '%wp-login.php%' "
+			. "AND path NOT LIKE '%xmlrpc.php%' THEN anomaly_score ELSE 0 END) AS score_angemeldet, "
+			. 'COUNT(*) AS hits '
 			. "FROM malwatch_waf_hit WHERE server_id = ? AND seen_at >= ? AND client_ip != '' "
 			. 'GROUP BY client_ip, parent_domain_id', $conf['server_id'], $since));
 		if (count($groups) === 0) {
