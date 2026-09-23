@@ -30,6 +30,11 @@ Bildkopf, auch wenn die Datei keine Bildendung trägt. Die Endung entscheidet
 weiter dort, wo es auf sie ankommt: ob der Webserver eine Datei ausführt, hängt
 am Namen, deshalb bleibt „PHP im Upload-Verzeichnis" eine Frage der Endung.
 
+Werkzeuge, die auch ehrlich installiert werden, etwa ein eigenständiger
+Datei-Manager, meldet der Scanner als „mittel": als Hinweis, nachzusehen, ob
+jemand das Werkzeug dort haben wollte. Selbsttätig verschoben wird eine solche
+Datei nie.
+
 **Veränderte Herstellerdateien.** Für WordPress werden Kern und Plugins gegen
 die offiziellen Prüfsummen verglichen. Eine unveränderte Originaldatei erzeugt
 keinen Fehlalarm, eine veränderte einen eigenen Befund. Verglichen wird, was

@@ -312,6 +312,45 @@ var samples = []sample{
 		missPath: "/web/wp-content/scripts/deploy.sh",
 	},
 	{
+		// Tiny File Manager lag als refto.php neben einem Spam-Mailer. Erkannt
+		// wird er an seinen eigenen Konstanten, nicht am Titel, den ein
+		// Angreifer umbenennt.
+		rule: "php.tool.file_manager", ext: "php", path: "/web/refto.php",
+		hit: `<?php define('FM_SESSION_ID', 'filemanager'); define('FM_ROOT_PATH', $root_path); ` +
+			`define('FM_SELF_URL', $self_url);`,
+		// Ein Anschluss an FileMaker nutzt dasselbe Präfix für eine eigene
+		// Konstante; ohne die Sitzungs- und Adresskonstanten des Datei-Managers
+		// ist das keiner.
+		miss: `<?php define('FM_ROOT_PATH', __DIR__); define('FM_API_URL', 'https://example.invalid/fmi');`,
+	},
+	{
+		// Die Signaturliste eines Sicherheits-Plugins nennt den Namen und die
+		// Konstante, definiert aber nichts.
+		rule: "php.tool.file_manager", ext: "php", path: "/web/wp-content/plugins/scanner/signatures.php",
+		hit: `<?php define('FM_ROOT_PATH', $p); define('FM_USE_AUTH', true);`,
+		miss: `<?php $hacktools = array('Tiny File Manager' => 'fm', 'FM_ROOT_PATH' => 'marker', ` +
+			`'FM_SESSION_ID' => 'marker');`,
+	},
+	{
+		// Das Sperr-.htaccess zweier Befälle: verbietet PHP in jeder Schreibung
+		// und lässt nur die eigenen Einstiege zu. Wörtlich gekürzt aus einem
+		// Fund, der in 182 Verzeichnissen einer Website stand.
+		rule: "htaccess.php_lockdown", ext: "htaccess", path: "/web/wp-content/uploads/.htaccess",
+		hit: "<FilesMatch \".*\\.(py|exe|phtml|php|PHP|Php|PHp|pHp|pHP|phP|PhP|php5|suspected)$\">\n" +
+			"Order Allow,Deny\nDeny from all\n</FilesMatch>\n" +
+			"<FilesMatch \"^(wp-login.php|wp-blog-header.php|)$\">\nOrder Allow,Deny\nAllow from all\n</FilesMatch>\n",
+		// Härtung eines Upload-Ordners: sperrt PHP in jeder Schreibung, gibt
+		// aber nichts frei.
+		miss: "<FilesMatch \"\\.(php|PHP|Php|PHp|pHp|pHP|phP|PhP)$\">\nOrder Allow,Deny\nDeny from all\n</FilesMatch>\n",
+	},
+	{
+		// Eine gewöhnliche Freigabe ohne die Schreibvarianten.
+		rule: "htaccess.php_lockdown", ext: "htaccess", path: "/web/.htaccess",
+		hit: "<FilesMatch \"\\.(php|PhP)$\">\nDeny from all\n</FilesMatch>\n" +
+			"<FilesMatch \"^(index.php)$\">\nRequire all granted\n</FilesMatch>\n",
+		miss: "<FilesMatch \"\\.php$\">\nRequire all granted\n</FilesMatch>\n",
+	},
+	{
 		rule: "php.webshell.password_gate", ext: "php", path: "/web/a.php",
 		hit:  `<?php if (md5($_POST['p']) === '5f4dcc3b') { eval($_POST['c']); }`,
 		miss: `<?php if (md5($_POST['p']) === $user['hash']) { $ok = true; }`,

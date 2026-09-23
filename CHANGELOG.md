@@ -2,6 +2,34 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.30.0] – 2026-09-23
+
+### Hinzugefügt
+
+**Eigenständige Datei-Manager werden gemeldet.** Auf einer übernommenen Website
+lag neben einem Spam-Mailer ein Tiny File Manager: eine einzelne PHP-Datei, mit
+der sich alles hochladen, ändern und löschen lässt, was der Webnutzer darf. Der
+Scanner meldete den Mailer, den Datei-Manager nicht, denn Tiny File Manager ist
+ehrliche Open-Source-Software, die viele mit Absicht installieren. Die neue
+Regel `php.tool.file_manager` meldet ihn als „mittel": ein Hinweis zum
+Nachsehen, nie ein Grund für eine selbsttätige Quarantäne. Erkannt wird das
+Werkzeug an seinen eigenen Konstanten, nicht am Titel, den ein Angreifer als
+Erstes umbenennt. Eine Signaturliste, die nur den Namen nennt, löst nichts aus.
+
+**Das Sperr-`.htaccess` von Angreifern wird erkannt.** Zwei Befälle hinterließen
+dieselbe Art Datei, einer davon in 182 Verzeichnissen einer Website: PHP wird in
+jeder Schreibweise der Endung verboten (`php`, `PHp`, `pHP` …, dazu `suspected`),
+danach wird eine kurze Liste eigener Einstiege wieder freigegeben. Das sperrt
+andere Angreifer und jedes Aufräumskript aus. Die Regel `htaccess.php_lockdown`
+(hoch) verlangt beides: die ausgeschriebenen Schreibvarianten und eine Freigabe.
+Eine Härtungsregel für einen Upload-Ordner, die PHP sperrt und nichts freigibt,
+bleibt unbehelligt. Unter nginx wirkt eine solche Datei nicht; sie ist trotzdem
+eine Spur des Angreifers, und unter Apache legt sie die Website lahm.
+
+Gemessen auf zwei Servern mit zusammen 2,8 Millionen Dateien: Jeder Treffer der
+beiden Regeln stammt von einem Angreifer, frisches WordPress und Joomla bleiben
+ohne Fund.
+
 ## [0.29.1] – 2026-09-23
 
 ### Behoben

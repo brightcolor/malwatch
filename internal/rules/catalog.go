@@ -475,6 +475,32 @@ var catalog = []*Rule{
 		Match: rx(`(?is)leafmailer|orvx\.pw`),
 	},
 	{
+		ID:          "php.tool.file_manager",
+		Severity:    report.SeverityMedium,
+		Description: "eigenständiger Datei-Manager (Tiny File Manager)",
+		// A web shell does not have to be written by an attacker. Tiny File
+		// Manager is honest open source: one PHP file that lists, uploads,
+		// edits and deletes whatever the web user may touch. Dropped next to a
+		// spam mailer it is the attacker's back door; installed on purpose it
+		// is a tool somebody meant to have. The file cannot tell the two
+		// apart, so the rule asks a human to look and never moves the file on
+		// its own - medium, not AutoSafe.
+		//
+		// It keys on the tool's own constants rather than its title, which an
+		// attacker renames first. FM_ROOT_PATH alone is not enough: FM is also
+		// FileMaker's prefix, and a connector may define a root path of its
+		// own. The session and address constants belong to the file manager.
+		// A security plugin that lists the name in its signatures defines
+		// none of them.
+		//
+		// Measured on two hosts with 2,8 million files: one hit where an
+		// attacker had put it, one copy inside another scanner's quarantine,
+		// nothing else.
+		Exts:     phpExts,
+		Match:    rx(`(?i)\bdefine\s*\(\s*['"]FM_ROOT_PATH['"]`),
+		Requires: rx(`(?i)\bdefine\s*\(\s*['"]FM_(?:SESSION_ID|SELF_URL|USE_AUTH)['"]`),
+	},
+	{
 		ID:          "php.include.remote",
 		Severity:    report.SeverityHigh,
 		AutoSafe:    true,
@@ -578,6 +604,29 @@ var catalog = []*Rule{
 		// einzelne Regel; die ganze Maschine schaltet er nicht aus.
 		PathMatch: rx(`(?:^|/)\.htaccess$`),
 		Match:     rx(`(?im)^\s*Sec[A-Za-z-]*(?:Engine|ScanPOST|FilterEngine|RuleEngine)\s+Off\b`),
+	},
+	{
+		ID:          "htaccess.php_lockdown",
+		Severity:    report.SeverityHigh,
+		Description: "sperrt fremdes PHP und lässt nur eigene Einstiege zu",
+		// Two infections on two hosts left the same kind of file behind, one
+		// of them in 182 directories of a single site: deny PHP in every
+		// spelling of the extension - php, PHp, pHp and the rest, plus
+		// "suspected", the name cleanup tools give to what they catch - and
+		// then allow a short list of names back in. That locks out other
+		// attackers and every cleanup script, and keeps the attacker's own
+		// entry points running.
+		//
+		// The permutations are the tell. Nobody writing a rule by hand spells
+		// out PHp and pHP; a hardening rule that does so for an upload folder
+		// still frees nothing, which is what Requires asks for. The match is
+		// case sensitive on purpose.
+		//
+		// nginx ignores .htaccess, so there the file does nothing. It is still
+		// written by an attacker, and on Apache it takes the site down.
+		PathMatch: rx(`(?:^|/)\.htaccess$`),
+		Match:     rx(`(?m)^\s*<FilesMatch\s+"[^"\n]*(?:PHp|pHp|pHP|phP|PhP)`),
+		Requires:  rx(`(?im)^\s*(?:Allow\s+from\s+all|Require\s+all\s+granted)\b`),
 	},
 	{
 		ID:          "php.webshell.password_gate",
