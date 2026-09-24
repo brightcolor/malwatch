@@ -367,10 +367,14 @@ Installation und Bedienung stehen in [ispconfig/README.md](ispconfig/README.md).
 ```bash
 make build
 make test
+make dist
 ```
 
 Gebraucht wird Go 1.24 oder neuer. Weitere Abhängigkeiten hat das Programm
-nicht.
+nicht. Gebaut wird statisch gelinkt (`CGO_ENABLED=0`), die Binary startet damit
+auf jedem Linux, auch mit älterer glibc. `make dist` legt die Release-Binaries
+für amd64 und arm64 unter `dist/` ab und prüft sie mit `file`; ist eine davon
+dynamisch gelinkt, bricht der Bau ab.
 
 ## Herkunft der Signaturen
 

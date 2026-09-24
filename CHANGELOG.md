@@ -2,6 +2,17 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.30.1] – 2026-09-24
+
+### Behoben
+
+**Die amd64-Binary startet auf älteren Linux-Systemen.** Bis einschließlich
+0.30.0 war die veröffentlichte Binary für amd64 gegen die glibc des Bauservers
+gelinkt und startete auf Systemen mit älterer glibc nicht, etwa unter Ubuntu
+20.04 („``version `GLIBC_2.34' not found``“). Die Release-Binaries sind jetzt
+statisch gelinkt (`CGO_ENABLED=0`) und laufen auf jedem Linux. `make dist`
+prüft jede Binary und bricht den Bau ab, sobald eine dynamisch gelinkt ist.
+
 ## [0.30.0] – 2026-09-23
 
 ### Hinzugefügt

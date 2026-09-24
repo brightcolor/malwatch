@@ -23,6 +23,32 @@ jobs:
       - name: Build
         run: go build ./...
 
+  static-binaries:
+    # The release binaries have to start on older systems too. Built with cgo,
+    # the amd64 binary needs the runner's glibc (Ubuntu 20.04: GLIBC_2.34 not
+    # found), and make dist refuses it.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+          cache: true
+      - name: Build the release binaries
+        run: make dist
+      - name: The check refuses a binary built with cgo
+        # An empty CGO_ENABLED leaves the choice to Go, as the Makefile did up
+        # to v0.30.0: cgo for the native amd64 build.
+        run: |
+          if make dist CGO_ENABLED= > cgo.log 2>&1; then
+            cat cgo.log
+            echo "make dist accepted a dynamically linked binary"
+            exit 1
+          fi
+          cat cgo.log
+          grep -q "dist/malwatch-linux-amd64 is dynamically linked" cgo.log || {
+            echo "make dist failed, but not at the check for static binaries"; exit 1; }
+
   php-syntax:
     runs-on: ubuntu-latest
     steps:
