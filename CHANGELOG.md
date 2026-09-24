@@ -2,6 +2,51 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.31.0] – 2026-09-24
+
+### Hinzugefügt
+
+**Drei Webshell-Familien werden am Inhalt erkannt.** Bei der Bereinigung zweier
+Server lagen Schaddateien, die malwatch nur über ihren Ort im WordPress-Kern
+fand oder gar nicht:
+
+- `php.webshell.include_wrapper` (kritisch): rund 25 KB große Dateien, die sich
+  mit kopierten Doc-Kommentaren von WordPress tarnen. Kern ist eine Funktion,
+  die nur ihren Parameter einbindet, dazu ein verschlüsselter Block aus hohen
+  Bytes. Außerhalb von `wp-admin` und `wp-includes`, etwa im Statistik-Ordner,
+  blieben sie bisher ungemeldet. Die Hülle allein hat auch der Autoloader von
+  Composer; gemeldet wird erst die Hülle zusammen mit dem Block.
+- `php.backdoor.self_delete` (kritisch, ohne selbsttätige Quarantäne): ein
+  kleines Upload-Skript mit Passwort per GET, das sich auf Zuruf selbst löscht.
+  Gemeldet wird die Selbstlöschung auf Zuruf zusammen mit einem Schreibvorgang;
+  ein Installer, der sich nach getaner Arbeit entfernt, bleibt still.
+- `php.obfuscation.hex_function_names` (kritisch): eine Webshell, die ihre
+  Funktionsnamen als Hex-Texte in einem Array führt (`'7068705f756e616d65'`
+  steht für `php_uname`).
+
+Über alle PHP-Dateien beider Server treffen die drei Regeln nur Schadcode.
+
+### Behoben
+
+**Ein getauschter WordPress-Kern gehört wieder der Website.** `repair` legt
+`wp-admin` und `wp-includes` vor dem Tausch in die Quarantäne. Danach war kein
+alter Ordner mehr da, von dem der neue Kern Besitzer und Rechte hätte übernehmen
+können, und er behielt die Identität des entpackten Archivs: `root`. WordPress
+konnte sich auf solchen Websites nicht mehr selbst aktualisieren. `repair` liest
+Besitzer, Gruppe und Rechte jetzt vor dem Ablegen und gibt sie dem neuen Kern
+zurück, wie bei Plugins und Themes. Websites, die mit einer früheren Version
+repariert wurden, lassen sich im Webstamm so richten:
+`find wp-admin wp-includes -user root -exec chown -h <benutzer>:<gruppe> {} +`.
+
+**`htaccess.cgi_handler` meldet die Härtung `Options -ExecCGI` nicht mehr.**
+Gravity Forms und LimeSurvey schalten CGI in ihren Upload-Ordnern mit dieser
+Zeile ab. Gemeldet wird jetzt nur `ExecCGI` ohne Minus.
+
+**`php.eval.hexname` meldet den Lizenzschlüssel von MailWizz nicht mehr.**
+MailWizz schreibt seinen Optionsschlüssel `system.license.purchase_code` in Hex,
+und die Regel sah darin das Wort `system`. `eval` und `system` zählen jetzt nur
+als ganzer Name.
+
 ## [0.30.2] – 2026-09-24
 
 ### Behoben

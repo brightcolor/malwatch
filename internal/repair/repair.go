@@ -367,6 +367,14 @@ func repairCore(opts Options, mode string, stagedDir string) (int, []string, err
 	}
 
 	var ids []string
+	// Read before quarantine.Store removes the directories: SwapCore then
+	// finds them gone and has no identity left to carry over, so the staged
+	// tree would stay as it was unpacked - owned by root.
+	type identity struct {
+		mode     os.FileMode
+		uid, gid int
+	}
+	kept := make(map[string]identity)
 	for _, dir := range coreDirs {
 		target := filepath.Join(opts.Root, dir)
 		if _, err := os.Lstat(target); err != nil {
@@ -374,6 +382,9 @@ func repairCore(opts Options, mode string, stagedDir string) (int, []string, err
 		}
 		if err := InsideRoot(opts.Root, target); err != nil {
 			return 0, ids, err
+		}
+		if mode, uid, gid, ok := captureMode(target); ok {
+			kept[dir] = identity{mode, uid, gid}
 		}
 
 		reason := opts.reason("Beim Ersetzen durch das Original abgelegt")
@@ -408,6 +419,9 @@ func repairCore(opts Options, mode string, stagedDir string) (int, []string, err
 	// wp-admin and wp-includes are already gone, quarantined above; SwapCore
 	// finds them missing and puts the staged tree straight in their place.
 	n, err := SwapCore(opts.Root, stagedDir)
+	for dir, id := range kept {
+		_ = applyOwnership(filepath.Join(opts.Root, dir), id.uid, id.gid, id.mode)
+	}
 	return n, ids, err
 }
 

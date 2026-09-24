@@ -3,6 +3,7 @@ package repair
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/brightcolor/malwatch/internal/quarantine"
@@ -136,6 +137,79 @@ func TestRepairCoreSkipsALooseRootFileIdenticalToTheVendors(t *testing.T) {
 	}
 	if len(entries) != 0 {
 		t.Errorf("quarantine store holds %d entries, want 0 for an unchanged loose file: %+v", len(entries), entries)
+	}
+}
+
+// TestRepairCoreGivesTheNewCoreTheIdentityOfTheOldOne guards the core swap
+// the way TestSwapKeepsTheModeOfTheReplacedTree guards a plugin swap.
+// repairCore files wp-admin and wp-includes into quarantine first, which
+// removes them, so SwapCore found nothing to read an owner from and moved
+// the staged tree in as it was: unpacked by root, owned by root. On
+// web.herkules five sites repaired in September kept a root-owned core that
+// WordPress could no longer update. The mode travels in the same walk as the
+// owner, so a hardened 750 surviving the swap shows the walk ran; the owner
+// itself can only be checked as root.
+func TestRepairCoreGivesTheNewCoreTheIdentityOfTheOldOne(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Unix permission bits do not exist on Windows")
+	}
+	root := coreOnlyRoot(t, "<?php // index\n")
+	// As root the owner can be checked too: the site's user stands in as
+	// nobody, the staged tree stays root's like an unpacked archive.
+	const siteUID, siteGID = 65534, 65534
+	asRoot := os.Geteuid() == 0
+	for _, dir := range []string{"wp-admin", "wp-includes"} {
+		if err := os.Chmod(filepath.Join(root, dir), 0o750); err != nil {
+			t.Fatal(err)
+		}
+		if asRoot {
+			if err := os.Chown(filepath.Join(root, dir), siteUID, siteGID); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+
+	// The archive's own, wide-open modes must not reach the site.
+	staged := t.TempDir()
+	for _, rel := range []string{"wp-admin/admin.php", "wp-includes/version.php"} {
+		p := filepath.Join(staged, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(p), 0o777); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chmod(filepath.Dir(p), 0o777); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte("<?php // ORIGINAL\n"), 0o777); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	opts := Options{Root: root, QuarantineDir: t.TempDir()}
+	if _, _, err := repairCore(opts, "replace", staged); err != nil {
+		t.Fatalf("repairCore failed: %v", err)
+	}
+
+	for _, c := range []struct {
+		rel  string
+		want os.FileMode
+	}{
+		{"wp-admin", 0o750},
+		{"wp-admin/admin.php", 0o640},
+		{"wp-includes", 0o750},
+		{"wp-includes/version.php", 0o640},
+	} {
+		info, err := os.Stat(filepath.Join(root, filepath.FromSlash(c.rel)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if info.Mode().Perm() != c.want {
+			t.Errorf("%s has mode %o, want %o", c.rel, info.Mode().Perm(), c.want)
+		}
+		if asRoot {
+			if uid, gid := ownerOf(info); uid != siteUID || gid != siteGID {
+				t.Errorf("%s belongs to %d:%d, want the site's %d:%d", c.rel, uid, gid, siteUID, siteGID)
+			}
+		}
 	}
 }
 

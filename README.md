@@ -163,7 +163,9 @@ nicht Teil der Software.
 
 Erst wird alles geholt und geprüft, dann gesichert, dann getauscht. Bis zum
 Tauschen ist keine Datei der Website angefasst: reißt das Netz ab, kostet das
-einen Lauf und keine Website. Was angefasst wird, landet vorher in derselben
+einen Lauf und keine Website. Jeder getauschte Ordner, der Kern eingeschlossen,
+bekommt Besitzer, Gruppe und Rechte des Ordners, den er ersetzt; Dateien
+verlieren dabei die Ausführungsrechte, die ein Archiv mitbringt. Was angefasst wird, landet vorher in derselben
 Quarantäne, die auch `malwatch quarantine` verwaltet (siehe unten) — als
 `tar.gz` unter `--quarantine-dir`, mit `restore` von dort auch von Hand
 zurückholbar.

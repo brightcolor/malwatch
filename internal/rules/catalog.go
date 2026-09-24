@@ -43,7 +43,10 @@ var catalog = []*Rule{
 		Description: "Funktionsname in Hex-Schreibweise verschleiert",
 		Exts:        phpExts,
 		// \x65\x76\x61\x6c spells "eval"; the same trick hides system and assert.
-		Match: rx(`(?i)\\x6[15]\\x7[03]\\x7[03]\\x6[05]|\\x65\\x76\\x61\\x6c|\\x73\\x79\\x73\\x74\\x65\\x6d`),
+		// eval and system count only as a whole name: MailWizz keeps its
+		// option key system.license.… in hex, and there "system" is just the
+		// start of a longer text.
+		Match: rx(`(?i)\\x6[15]\\x7[03]\\x7[03]\\x6[05]|(?:\\x65\\x76\\x61\\x6c|\\x73\\x79\\x73\\x74\\x65\\x6d)(?:[^\\]|$)`),
 	},
 	{
 		ID:          "php.preg_replace.eval",
@@ -566,6 +569,52 @@ var catalog = []*Rule{
 		Requires:    rx(`(?i)\beval\s*\(`),
 	},
 	{
+		// torrios.de, Herbst 2024: rund 25 KB mit kopierten Doc-Kommentaren
+		// von WordPress, damit die Datei wie Kern aussieht. Darunter eine
+		// Funktion, die nichts tut als ihren Parameter einzubinden, und ein
+		// Block aus hohen Bytes, den sie entschlüsselt, ablegt und so
+		// ausführt. Die Hülle allein hat auch der Autoloader von Composer;
+		// den Block hat er nicht. Außerhalb von wp-admin und wp-includes sah
+		// malwatch diese Dateien bisher gar nicht.
+		ID:          "php.webshell.include_wrapper",
+		Severity:    report.SeverityCritical,
+		AutoSafe:    true,
+		Description: "Einbinde-Hülle mit verschlüsseltem Block",
+		Exts:        phpExts,
+		Match:       rx(`(?is)\bfunction\s+\w+\s*\(\s*\$\w+\s*\)\s*\{\s*(?:include|require)(?:_once)?\s*\(?\s*\$\w+\s*\)?\s*;\s*\}`),
+		Requires:    rx(`(?i)(?:\\x[89a-f][0-9a-f][^"\\\n]{0,2}){16,}`),
+	},
+	{
+		// oldcommercialroom.de, wp-admin/network/site.php: Die Webshell führt
+		// ihre Funktionsnamen als Hex-Texte in einem Array ('7068705f756e616d65'
+		// ist php_uname) und verwandelt sie erst zur Laufzeit zurück, damit
+		// keiner der Namen im Klartext dasteht. Ein Name allein kann ein
+		// Schlüssel sein; php_uname oder base64_decode zusammen mit einem
+		// Werkzeug zum Lesen, Schreiben oder Ausführen ist ein Baukasten.
+		ID:          "php.obfuscation.hex_function_names",
+		Severity:    report.SeverityCritical,
+		AutoSafe:    true,
+		Description: "Funktionsnamen als Hex-Texte versteckt",
+		Exts:        phpExts,
+		Match:       rx(`(?i)['"](?:7068705f756e616d65|6261736536345f6465636f6465)['"]`),
+		Requires: rx(`(?i)['"](?:66696c655f6765745f636f6e74656e7473|66696c655f7075745f636f6e74656e7473|` +
+			`6d6f76655f75706c6f616465645f66696c65|73797374656d|7368656c6c5f65786563|65786563|` +
+			`7061737374687275|70726f635f6f70656e|706f70656e|667772697465)['"]`),
+	},
+	{
+		// oldcommercialroom.de, wp-comments.php: ein Passwort per GET, ein
+		// Upload über $_FILES und auf ?del löscht sich die Datei selbst, damit
+		// nach getaner Arbeit nichts liegen bleibt. Installer löschen sich
+		// auch, aber am Ende ihres Laufs und nicht auf Zuruf von außen.
+		ID:          "php.backdoor.self_delete",
+		Severity:    report.SeverityCritical,
+		Description: "Upload-Skript, das sich auf Zuruf selbst löscht",
+		Exts:        phpExts,
+		Match: rx(`(?is)\bif\s*\(\s*isset\s*\(\s*\$_(?:GET|POST|REQUEST|COOKIE)\s*\[\s*['"][^'"]{1,40}['"]\s*\]\s*\)\s*\)` +
+			`\s*\{?\s*@?\s*unlink\s*\(\s*__FILE__\s*\)`),
+		Requires: rx(`(?i)\b(?:move_uploaded_file|file_put_contents|fwrite|copy)\s*\(`),
+	},
+	{
 		// cookies.php dieses Befalls: dekodieren, in eine Temp-Datei schreiben,
 		// diese einbinden, wieder löschen. Eine Temp-Datei anzulegen und zu
 		// beschreiben ist gewöhnlich; sie danach einzubinden heißt, zur Laufzeit
@@ -600,10 +649,12 @@ var catalog = []*Rule{
 		// ausführbar macht. AddHandler cgi-script und der x-httpd-cgi-Typ
 		// gehören auf eine geteilte Webseite nicht; ExecCGI in Options ist der
 		// Schalter dazu. mod_gzip_item_include nennt cgi-script nur als Filter
-		// und wird von der Wortgrenze am Handler nicht getroffen.
+		// und wird von der Wortgrenze am Handler nicht getroffen. Options
+		// -ExecCGI ist die Härtung von Gravity Forms und LimeSurvey und
+		// schaltet CGI ab; gemeint ist nur ExecCGI ohne Minus.
 		PathMatch: rx(`(?:^|/)\.htaccess$`),
 		Match: rx(`(?im)^\s*(?:AddHandler\s+cgi-script|AddType\s+application/x-httpd-cgi|` +
-			`Options\b[^\n]*\bExecCGI\b|SetHandler\s+cgi-script)`),
+			`Options\b[^\n]*\s\+?ExecCGI\b|SetHandler\s+cgi-script)`),
 	},
 	{
 		ID:          "htaccess.disable_security",

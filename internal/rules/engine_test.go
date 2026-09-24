@@ -101,6 +101,14 @@ var samples = []sample{
 		miss: `<?php $sep = "\x2c"; echo $sep;`,
 	},
 	{
+		// MailWizz schreibt seinen Optionsschlüssel system.license.… in Hex.
+		// "system" ist dort nur der Anfang eines längeren Textes und kein
+		// Funktionsname.
+		rule: "php.eval.hexname", ext: "php", path: "/web/apps/common/components/init/SystemInit.php",
+		hit:  `<?php $f = "\x73\x79\x73\x74\x65\x6d"; $f($c);`,
+		miss: `<?php if (Yii::app()->options->get("\x73\x79\x73\x74\x65\x6d\x2e\x6c\x69\x63\x65\x6e\x73\x65")) { return; }`,
+	},
+	{
 		rule: "php.preg_replace.eval", ext: "php", path: "/web/a.php",
 		hit:  `<?php preg_replace('/(.*)/e', $_GET['x'], 'y');`,
 		miss: `<?php preg_replace('/\s+/', ' ', $text);`,
@@ -316,6 +324,71 @@ var samples = []sample{
 		// Wörtlich von drei betreuten Seiten: gzip erwähnt cgi-script, führt aber
 		// nichts aus.
 		miss: "mod_gzip_item_include handler ^cgi-script$\nOptions +FollowSymLinks\n",
+	},
+	{
+		// Gravity Forms und LimeSurvey härten ihre Upload-Ordner mit
+		// Options -ExecCGI. Das Minus schaltet CGI ab.
+		rule: "htaccess.cgi_handler", ext: "", path: "/web/wp-content/uploads/gravity_forms/.htaccess",
+		hit: "Options +ExecCGI\n",
+		miss: "<Files *>\n  SetHandler none\n  SetHandler default-handler\n  Options -ExecCGI\n" +
+			"  RemoveHandler .cgi .php .php3 .php4 .php5 .phtml .pl .py .pyc .pyo\n</Files>\n",
+	},
+	{
+		// torrios.de: rund 25 KB, getarnt mit kopierten Doc-Kommentaren von
+		// WordPress. Kern ist eine Funktion, die nur ihren Parameter
+		// einbindet, dazu ein verschlüsselter Block aus hohen Bytes. Die
+		// Probe ist entschärft: Die Bytes sind Zufall.
+		rule: "php.webshell.include_wrapper", ext: "php", path: "/web/wp-includes/blocks/avatar/admin-ajax.php",
+		hit: "<?php\n/**\n * Retrieves a collection of widgets.\n *\n * @since 5.8.0\n */\n" +
+			`function export_translations($item_limit){include($item_limit);}` + "\n" +
+			`function validate(){$interim_login="\xa8\xb1\xa4\xaf\xdf\xac\xa3\xa9\x80\xb8{\x96\xa4\x86i\xdd\xd9\xe1\xc9\xa2\xd9\xed\xb9\xa4\xa4";}`,
+		// Der Autoloader von Composer hat dieselbe Hülle, aber keinen Block;
+		// ein paar kodierte Umlaute ändern daran nichts.
+		miss: "<?php\nnamespace Composer\\Autoload;\n" +
+			`function includeFile($file) { include $file; }` + "\n" +
+			`$labels = array("\xc3\xa4", "\xc3\xb6", "\xc3\xbc");`,
+	},
+	{
+		rule: "php.webshell.include_wrapper", ext: "php", path: "/web/wp-includes/js/tinymce/skins/a.php",
+		hit: `<?php function get_allowed($p) { require_once($p); }` + "\n" +
+			`$k = "\x9f\x8e\xa0\xb1\xc2\xd3\xe4\xf5\x86\x97\xa8\xb9\xca\xdb\xec\xfd\x8e\x9f";`,
+		// Eine Schriftart-Tabelle in PHP hat den Block, bindet aber nichts
+		// über eine Hülle ein.
+		miss: `<?php $glyphs = "\x9f\x8e\xa0\xb1\xc2\xd3\xe4\xf5\x86\x97\xa8\xb9\xca\xdb\xec\xfd\x8e\x9f";` + "\n" +
+			`require_once __DIR__ . '/font.php';`,
+	},
+	{
+		// oldcommercialroom.de, wp-comments.php: Passwort per GET, Upload
+		// über $_FILES, und auf ?del löscht sich die Datei selbst. Entschärft
+		// auf die beiden Merkmale.
+		rule: "php.backdoor.self_delete", ext: "php", path: "/web/wp-comments.php",
+		hit: `<?php if(isset($_GET["del"])){ @unlink(__FILE__); }` + "\n" +
+			`move_uploaded_file($tmp, $dest);`,
+		// BackupBuddy räumt sein Rückfall-Skript am Ende bedingungslos weg.
+		miss: "<?php\nif ( isset( $_POST['finish'] ) ) { echo 'fertig'; }\n" +
+			"move_uploaded_file( $upload['tmp_name'], $target );\n// Delete this script.\n@unlink( __FILE__ );\n",
+	},
+	{
+		// oldcommercialroom.de, wp-admin/network/site.php: die Namen der
+		// Funktionen stehen als Hex-Texte in einem Array und werden erst zur
+		// Laufzeit zurückverwandelt. Entschärft auf das Array.
+		rule: "php.obfuscation.hex_function_names", ext: "php", path: "/web/wp-admin/network/site.php",
+		hit: `<?php $Array = ['7068705f756e616d65', '6261736536345f6465636f6465', '66696c655f6765745f636f6e74656e7473'];`,
+		// Ein einzelner Name als Schlüssel ist noch kein Werkzeugkasten.
+		miss: `<?php $info = array('7068705f756e616d65' => 'Systemname');`,
+	},
+	{
+		rule: "php.obfuscation.hex_function_names", ext: "php", path: "/web/a.php",
+		hit:  `<?php $f = ["6261736536345f6465636f6465", "7061737374687275"];`,
+		miss: `<?php $cache_key = '66696c655f6765745f636f6e74656e7473'; // Name der Funktion als Schlüssel`,
+	},
+	{
+		rule: "php.backdoor.self_delete", ext: "php", path: "/web/wp-comments.php",
+		hit: `<?php if (isset($_POST['x'])) { unlink(__FILE__); }` + "\n" +
+			`file_put_contents($name, $body);`,
+		// Ein Installer, der sich nach getaner Arbeit auf Knopfdruck
+		// entfernt, schreibt nichts.
+		miss: `<?php if (isset($_POST['loeschen'])) { @unlink(__FILE__); echo 'Installer entfernt'; exit; }`,
 	},
 	{
 		rule: "htaccess.disable_security", ext: "", path: "/web/wp-content/themes/Newspaper/.htaccess",
