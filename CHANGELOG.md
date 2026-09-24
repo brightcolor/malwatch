@@ -2,6 +2,23 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.30.2] – 2026-09-24
+
+### Behoben
+
+**Die Regel für Nachlader über Temp-Dateien meldet keine gewöhnlichen Bibliotheken
+mehr.** `php.dropper.temp_include` (seit 0.29.0) verlangte nur, dass `tempnam`,
+das Einbinden einer Variablen und ein Dekodierer irgendwo in derselben Datei
+vorkommen. Große Bibliotheken haben alle drei an verschiedenen Stellen: PHPMailer 5
+signiert über Temp-Dateien, bindet eine Sprachdatei ein und dekodiert base64 für
+MIME. Auf einem Server meldete die Regel so 22 Dateien aus PHPMailer, HTMLPurifier,
+fpdf, elFinder, dompdf, timthumb und dem Contao Manager als kritisch, und weil die
+Regel zum selbsttätigen Verschieben freigegeben ist, hätte eine automatische
+Maßnahme diese Bibliotheken in die Quarantäne gelegt. Die Regel verlangt jetzt,
+dass Anlegen, Schreiben und Einbinden dicht aufeinander folgen, mit höchstens zwei
+Anweisungen dazwischen, wie im echten Nachlader. Die 22 Dateien bleiben still,
+der Nachlader aus dem Befall, für den die Regel gebaut wurde, wird weiter erkannt.
+
 ## [0.30.1] – 2026-09-24
 
 ### Behoben

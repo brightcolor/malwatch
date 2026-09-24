@@ -287,6 +287,30 @@ var samples = []sample{
 		miss: `<?php $tmp = tempnam(sys_get_temp_dir(), 'up'); file_put_contents($tmp, $upload); rename($tmp, $dest);`,
 	},
 	{
+		// PHPMailer 5 hat alle drei Zutaten in einer Datei, aber nicht
+		// hintereinander: signieren über Temp-Dateien, eine Sprachdatei per
+		// include, base64 für MIME. Auf 22 Websites eines Servers meldete die
+		// erste Fassung der Regel diese und ähnliche Bibliotheken (HTMLPurifier,
+		// fpdf, elFinder, dompdf) als kritisch und zum Verschieben freigegeben.
+		rule: "php.dropper.temp_include", ext: "php", path: "/web/wp-content/plugins/x/class.phpmailer.php",
+		hit: `<?php $data = base64_decode($payload); $f = tempnam(sys_get_temp_dir(), 'x');` + "\n" +
+			`fwrite($h = fopen($f, 'w'), $data);` + "\n" + `require_once $f;`,
+		miss: `<?php class PHPMailer { public function setLanguage($langcode, $lang_path) { include $lang_path; }` + "\n" +
+			`protected function doSign($message) { $file = tempnam(sys_get_temp_dir(), 'srcsign');` + "\n" +
+			`$signed = tempnam(sys_get_temp_dir(), 'mailsign'); file_put_contents($file, $message);` + "\n" +
+			`$sign = @openssl_pkcs7_sign($file, $signed, 'file://' . $this->sign_cert_file, array()); @unlink($file); }` + "\n" +
+			`public function base64DecodeHeader($s) { return base64_decode($s); } }`,
+	},
+	{
+		// Der Cache von HTMLPurifier: in eine Temp-Datei schreiben und umbenennen.
+		// Eingebunden wird an ganz anderer Stelle eine ganz andere Datei.
+		rule: "php.dropper.temp_include", ext: "php", path: "/web/lib/HTMLPurifier.standalone.php",
+		hit: `<?php $t = tempnam(sys_get_temp_dir(), 'c'); file_put_contents($t, gzinflate($blob)); include $t;`,
+		miss: `<?php function load($file) { require $file; }` + "\n" +
+			`function write($file, $data) { $tmp = tempnam(dirname($file), '.'); file_put_contents($tmp, $data); ` +
+			`rename($tmp, $file); chmod($file, 0644); }` + "\n" + `$x = base64_decode($config['key']);`,
+	},
+	{
 		rule: "htaccess.cgi_handler", ext: "", path: "/web/wp-content/uploads/ALFA_DATA/alfacgiapi/.htaccess",
 		hit: "Options FollowSymLinks MultiViews Indexes ExecCGI\nAddHandler cgi-script .alfa\n",
 		// Wörtlich von drei betreuten Seiten: gzip erwähnt cgi-script, führt aber

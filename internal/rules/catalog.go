@@ -571,13 +571,24 @@ var catalog = []*Rule{
 		// beschreiben ist gewöhnlich; sie danach einzubinden heißt, zur Laufzeit
 		// erzeugten Code auszuführen. Zusammen mit einem Dekodierer im selben
 		// File bleibt kein ehrlicher Grund.
+		//
+		// The three steps have to follow one another. The first version only
+		// asked for tempnam, an include of a variable and a decoder somewhere in
+		// the file, and on one server it reported 22 honest libraries as
+		// critical: PHPMailer 5 signs through temp files, includes a language
+		// file elsewhere and decodes base64 for MIME; HTMLPurifier, fpdf,
+		// elFinder, dompdf and timthumb have the same three ingredients in
+		// different places. The loader writes and includes in consecutive
+		// statements. Up to two statements may sit between the steps, for an
+		// fopen or an fclose; [^;] keeps each gap inside one statement.
 		ID:          "php.dropper.temp_include",
 		Severity:    report.SeverityCritical,
 		AutoSafe:    true,
 		Description: "erzeugt eine Temp-Datei und bindet sie als Code ein",
 		Exts:        phpExts,
-		Match:       rx(`(?i)\btempnam\s*\(`),
-		Requires:    rx(`(?is)\b(?:include|require)(?:_once)?\s*\(?\s*\$\w`),
+		Match: rx(`(?is)\btempnam\s*\([^;]{0,200};(?:[^;]{0,200};){0,2}?[^;]{0,200}?` +
+			`\b(?:file_put_contents|fwrite|fputs)\s*\([^;]{0,400};(?:[^;]{0,200};){0,2}?[^;]{0,80}?` +
+			`\b(?:include|require)(?:_once)?\b`),
 		AlsoRequires: rx(`(?i)\b(?:base64_decode|gzinflate|gzuncompress|gzdecode|str_rot13|` +
 			`hex2bin|convert_uudecode|rawurldecode)\s*\(`),
 	},
