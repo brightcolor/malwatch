@@ -1083,7 +1083,7 @@ function waf_panel_handle_post($app, $wb, $post)
 		foreach (array('countries' => 'waf_origin_country', 'asn' => 'waf_origin_asn') as $kind => $field) {
 			$values = isset($post[$field]) && is_array($post[$field]) ? $post[$field] : array();
 			$lists[$kind] = array();
-			foreach (array_slice($values, 0, 500) as $one) {
+			foreach (array_slice($values, 0, WAF_ORIGIN_CHOICE_MAX) as $one) {
 				if (is_scalar($one)) {
 					$lists[$kind][] = (string) $one;
 				}
@@ -1737,6 +1737,17 @@ function waf_config_summaries($wb, $settings)
 		$n($settings['waf_log_keep_days']), $n($settings['waf_ban_keep_days']), $n($settings['waf_ban_proposal_days']));
 	$lines['cron'] = sprintf($t('sum_cron_txt'), $n($settings['waf_ingest_max_lines']), $n($settings['waf_tick_wait_seconds']),
 		$n($settings['waf_tick_fresh_seconds']));
+	// The sources whose addresses differ from their defaults.
+	$defaults = waf_settings_defaults();
+	$own = 0;
+	foreach (waf_origin_sources() as $source) {
+		if (waf_list_parse($settings[$source['urls']]) !== waf_list_parse($defaults[$source['urls']])) {
+			$own++;
+		}
+	}
+	$lines['tech'] = sprintf($t('sum_tech_txt'), $n($settings['waf_fetch_timeout_seconds']),
+		$n($settings['waf_proxycheck_batch']), $n($settings['waf_cleanup_rounds']), $n($settings['waf_cleanup_batch']))
+		. ($own > 0 ? sprintf($t('sum_tech_own_txt'), $n($own)) : '');
 	$lines['facts'] = sprintf($t('sum_facts_txt'),
 		$t((string) $settings['waf_emergency'] === 'y' ? 'sum_emergency_on_txt' : 'sum_emergency_off_txt'),
 		$t((string) $settings['waf_response_body'] === 'lean' ? 'response_lean_txt' : 'response_full_txt'));
@@ -1803,13 +1814,20 @@ function waf_config_lists($wb, $record)
 			$bad = waf_list_bad_cookies($items);
 		} elseif ($kind === 'days') {
 			$bad = waf_list_bad_days($items);
+		} elseif ($kind === 'urls' || $kind === 'url') {
+			$bad = waf_list_bad_urls($items);
+			// A single address takes one entry; every further one is named.
+			if ($kind === 'url' && count($bad) === 0 && count($items) > 1) {
+				$bad = array_slice($items, 1);
+			}
 		} else {
 			$bad = waf_list_bad_paths($items);
 		}
 		$label = waf_panel_text($wb, $key . '_txt', $key);
-		if ($kind === 'networks' && count($items) === 0) {
-			// Without localhost and the network of the proxy a block can hit every website.
-			$errors[] = sprintf(waf_panel_text($wb, 'list_empty_networks_txt', '%1$s'), $label);
+		if (count($items) === 0 && in_array($kind, array('networks', 'urls', 'url'), true)) {
+			// Without localhost and the network of the proxy a block can hit every
+			// website; without an address a source or a service loads nothing.
+			$errors[] = sprintf(waf_panel_text($wb, 'list_empty_' . $kind . '_txt', '%1$s'), $label);
 		} elseif (count($bad) > 0) {
 			$rule = waf_panel_text($wb, 'list_rule_' . $kind . '_txt', '');
 			if ($kind === 'days') {
@@ -1819,9 +1837,9 @@ function waf_config_lists($wb, $record)
 			}
 			$errors[] = sprintf(waf_panel_text($wb, 'list_error_txt', '%1$s: %2$s %3$s'), $label,
 				'„' . implode('“, „', $bad) . '“', $rule);
-		} elseif (!waf_list_fits($items)) {
+		} elseif (!waf_list_fits($items, waf_list_max($kind))) {
 			$errors[] = sprintf(waf_panel_text($wb, 'list_too_long_txt', '%1$s: %2$s'), $label,
-				number_format(WAF_LIST_MAX, 0, ',', '.'));
+				number_format(waf_list_max($kind), 0, ',', '.'));
 		}
 		$record[$key] = waf_list_join($items);
 	}

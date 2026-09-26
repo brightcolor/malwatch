@@ -2,6 +2,45 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.34.0] – 2026-09-26
+
+### Hinzugefügt
+
+**Die technischen Werte der Abwehr sind Einstellungen.** Security > Abwehr >
+Einstellungen hat den neuen Abschnitt „Technik“ mit 46 Einstellungen in fünf
+Gruppen. Die Vorgaben sind die bisherigen Werte; das Verhalten ändert sich erst,
+wenn jemand einen Wert ändert.
+
+- Quellen der Herkunft: für jede der acht Quellen (DB-IP und MaxMind je Land und
+  Provider, Tor, X4BNet VPN und Rechenzentren, Suchmaschinen) die Adressen, eine
+  je Zeile, bei DB-IP mit `{month}` für den Monat, dazu die Mindestzahl an
+  Einträgen und die Höchstgröße in MB. Dazu die zwei Schwellen der
+  Plausibilitätsprüfung: höchstens 1 % unlesbare Zeilen, mindestens 50 % des
+  bisherigen Stands.
+- Downloads: Verbindungsaufbau 10 s, Download 120 s, 3 Weiterleitungen.
+- proxycheck.io: Adresse des Dienstes, 100 Adressen je Anfrage, Antwort bis 2 MB,
+  Verbindungsaufbau 5 s, Antwort 10 s, ein Fehlschlag wird nach 60 Minuten erneut
+  gefragt, höchstens 3 Versuche.
+- Arbeit im Hintergrund: 500 Adressen je Lauf nachschlagen, alte Treffer in 50
+  Schritten zu je 1.000 löschen, Antwortdateien ohne Treffer nach 60 Minuten
+  löschen, 20.000 Zeilen von `blocked.log` je Lauf, bis zu 50 Regelmeldungen je
+  Treffer.
+- Anzeige und Kommandozeile: 50 Pfade auf der Seite einer Website, Vorschau einer
+  Ausnahme 300 ms nach der letzten Eingabe, `waf-switch jobs` zeigt 20 Aufträge,
+  `waf-switch` wartet 2 Minuten über die Frist eines Auftrags hinaus und fragt im
+  Abstand von „Aktualisierung laufender Aufträge“ nach.
+
+Adressen müssen mit `https://` beginnen. Eine Quelle ohne Adresse und mehr als
+eine Adresse für proxycheck.io nimmt das Formular nicht an, jeweils mit einer
+Meldung, die Ursache und nächsten Schritt nennt. Adressfelder nutzen die volle
+Breite und wachsen mit ihrem Inhalt.
+
+### Behoben
+
+**DB-IP greift beim Monatswechsel sauber auf den Vormonat zurück.** Bisher
+rechnete der Code „jetzt minus 15 Tage“ und versuchte ab dem 16. eines Monats den
+laufenden Monat zweimal. Der Rückfall ist jetzt immer der Kalender-Vormonat.
+
 ## [0.33.0] – 2026-09-26
 
 ### Hinzugefügt

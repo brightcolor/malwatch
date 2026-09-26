@@ -112,15 +112,19 @@ function waf_cli_report($job)
 
 function waf_cli_wait($waf, $job_id)
 {
+	// Asks at the interval of waf_poll_seconds, up to waf_cli_wait_margin_minutes
+	// past the deadline of a job.
 	$settings = $waf->settings();
-	$rounds = ($settings['waf_job_deadline_minutes'] + 2) * 12;
+	$step = max(1, (int) $settings['waf_poll_seconds']);
+	$rounds = (int) ceil(((int) $settings['waf_job_deadline_minutes'] + (int) $settings['waf_cli_wait_margin_minutes'])
+		* 60 / $step);
 	for ($i = 0; $i < $rounds; $i++) {
 		$waf->pass();
 		$job = $waf->job($job_id);
 		if (is_array($job) && ($job['job_status'] === 'done' || $job['job_status'] === 'error')) {
 			return waf_cli_report($job);
 		}
-		sleep(5);
+		sleep($step);
 	}
 	echo "Der Auftrag $job_id läuft noch; der Cron führt ihn weiter.\n";
 	return 1;
@@ -266,9 +270,11 @@ switch ($command) {
 		exit(0);
 
 	case 'jobs':
+		$settings = $waf->settings();
 		$rows = $app->dbmaster->queryAllRecords(
 			'SELECT job_id, job_status, options, created_at, job_log FROM malwatch_job '
-			. "WHERE server_id = ? AND job_kind = 'waf' ORDER BY job_id DESC LIMIT 20", $conf['server_id']);
+			. "WHERE server_id = ? AND job_kind = 'waf' ORDER BY job_id DESC LIMIT ?", $conf['server_id'],
+			(int) $settings['waf_cli_jobs']);
 		foreach (is_array($rows) ? $rows : array() as $row) {
 			$options = json_decode((string) $row['options'], true);
 			$lines = preg_split('/\R/', trim((string) $row['job_log']));

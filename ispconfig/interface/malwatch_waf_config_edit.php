@@ -166,7 +166,16 @@ class page_action extends tform_actions
 				$stored_values[$key] = waf_list_lines($stored_values[$key]);
 			}
 		}
+		// The two numbers of a source carry the name of their source in the dialog.
+		$review_labels = array();
+		foreach (waf_origin_sources() as $name => $source) {
+			foreach (array('min', 'mb') as $part) {
+				$review_labels[$source[$part]] = waf_panel_text($wb, $source['urls'] . '_txt', $name) . ', '
+					. waf_panel_text($wb, $source[$part] . '_txt', $part);
+			}
+		}
 		$app->tpl->setVar('review_data', $app->functions->htmlentities(malwatch_review_json($stored_values, array(
+			'labels' => $review_labels,
 			'secrets' => array(
 				'waf_origin_maxmind_key' => array('mask' => waf_panel_key_mask($this->waf_stored_key),
 					'clear' => 'waf_origin_key_clear'),

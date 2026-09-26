@@ -1449,8 +1449,11 @@ if [ -f "$waf_class" ]; then
 		|| fail "malwatch_waf.inc.php has no poster; a probe cannot answer for proxycheck.io"
 	sed -n '/public function cron_minute(/,/^	}/p' "$waf_class" | grep -q 'origin_external(' \
 		|| fail "cron_minute() never asks the external service"
-	grep -q 'https://proxycheck.io/v3/' "$waf_class" \
-		|| fail "malwatch_waf.inc.php never calls the v3 address of proxycheck.io"
+	# From 0.34.0 the address is the setting waf_proxycheck_url, v3 by default.
+	grep -q "'waf_proxycheck_url' => 'https://proxycheck.io/v3/'" "$root/interface/lib/malwatch_waf_lib.inc.php" \
+		|| fail "waf_settings_defaults() nennt nicht die v3-Adresse von proxycheck.io als Vorgabe"
+	grep -q "waf_proxycheck_address(\$settings\['waf_proxycheck_url'\], \$key)" "$waf_class" \
+		|| fail "malwatch_waf.inc.php fragt proxycheck.io ohne die Adresse aus waf_proxycheck_url"
 fi
 
 # 72. The key travels in the address of the request and nowhere else: never in
@@ -1614,7 +1617,18 @@ done
 #     Sperre schuetzen.
 for col in waf_ban_proposal_days waf_ban_page_rows waf_ban_page_step waf_ban_page_timeout waf_ban_logged_in_percent \
 	waf_ban_logged_in_paths waf_ban_full_paths waf_login_cookies waf_own_networks waf_ban_origin_rows waf_poll_seconds \
-	waf_tick_fresh_seconds waf_lock_retry_ms waf_ban_rule_hits waf_periods waf_period_default; do
+	waf_tick_fresh_seconds waf_lock_retry_ms waf_ban_rule_hits waf_periods waf_period_default \
+	waf_src_dbip_country_urls waf_src_dbip_country_min waf_src_dbip_country_mb waf_src_dbip_asn_urls \
+	waf_src_dbip_asn_min waf_src_dbip_asn_mb waf_src_maxmind_country_urls waf_src_maxmind_country_min \
+	waf_src_maxmind_country_mb waf_src_maxmind_asn_urls waf_src_maxmind_asn_min waf_src_maxmind_asn_mb \
+	waf_src_tor_urls waf_src_tor_min waf_src_tor_mb waf_src_x4b_vpn_urls waf_src_x4b_vpn_min waf_src_x4b_vpn_mb \
+	waf_src_x4b_datacenter_urls waf_src_x4b_datacenter_min waf_src_x4b_datacenter_mb waf_src_searchbots_urls \
+	waf_src_searchbots_min waf_src_searchbots_mb waf_origin_bad_percent waf_origin_keep_percent \
+	waf_fetch_connect_seconds waf_fetch_timeout_seconds waf_fetch_redirects waf_proxycheck_url \
+	waf_proxycheck_batch waf_proxycheck_answer_mb waf_proxycheck_connect_seconds waf_proxycheck_timeout_seconds \
+	waf_proxycheck_retry_minutes waf_proxycheck_tries waf_origin_lookup_batch waf_cleanup_batch \
+	waf_cleanup_rounds waf_response_grace_minutes waf_blocked_lines waf_hit_rules_max waf_show_paths \
+	waf_preview_delay_ms waf_cli_jobs waf_cli_wait_margin_minutes; do
 	grep -q "ADD COLUMN \`$col\`" "$root/install/schema.sql" \
 		|| fail "malwatch_config bekommt keine Spalte $col"
 	grep -q "'$col' =>" "$root/interface/lib/malwatch_waf_lib.inc.php" \
@@ -1826,6 +1840,26 @@ grep -q "(int) \$settings\['waf_ban_origin_rows'\]" "$root/interface/malwatch_wa
 	|| fail "die Auswahl der Herkunft zeigt eine feste Zahl Zeilen statt waf_ban_origin_rows"
 if grep -vE "^$comment_start" "$root/interface/lib/malwatch_waf_lib.inc.php" | grep -qE "array\(1, 7, 30, 90\)|: 7, "; then
 	fail "die Zeiträume der Übersicht stehen wieder fest im Code; sie kommen aus waf_periods"
+fi
+# From 0.34.0 the technical values too: downloads, proxycheck.io, cleanup,
+# reading, the sources of the origin, the website page and waf-switch.
+if [ -f "$class" ] && grep -vE "^$comment_start" "$class" | grep -qE \
+	"CURLOPT_(CONNECTTIMEOUT|TIMEOUT|MAXREDIRS), [0-9]|\\\$round < [0-9]|ORDER BY hit_id LIMIT [0-9]|time\(\) - [0-9]|external_tries < [0-9]|proxycheck\.io/v3|\\\$lines < [0-9]|\\\$limit = [0-9]|86400\)\) : array"; then
+	fail "malwatch_waf.inc.php trägt wieder feste Zeitlimits, Stapelgrößen oder Adressen; sie gehören in die Einstellungen (Abschnitt Technik)"
+fi
+if grep -vE "^$comment_start" "$root/interface/lib/malwatch_waf_origin.inc.php" | grep -qE "https://|'min' => [0-9]|'bytes' =>"; then
+	fail "malwatch_waf_origin.inc.php trägt wieder Adressen oder Grenzen der Quellen; sie kommen aus waf_src_*"
+fi
+if grep -vE "^$comment_start" "$root/interface/lib/malwatch_waf_lib.inc.php" | grep -qE "count\(\\\$rules\) >= [0-9]"; then
+	fail "waf_audit_parse_line() begrenzt die Regelmeldungen wieder fest; die Grenze ist waf_hit_rules_max"
+fi
+if grep -qE "array_slice\(waf_panel_paths\(\\\$day_rows\), 0, [0-9]" "$root/interface/malwatch_waf_show.php" \
+	|| grep -qE "setTimeout\(load, [0-9]" "$root/interface/templates/malwatch_waf_show.htm"; then
+	fail "die Seite einer Website zeigt feste Pfadzahlen oder wartet fest auf die Vorschau (waf_show_paths, waf_preview_delay_ms)"
+fi
+switch_tool="$root/../waf/waf-switch"
+if [ -f "$switch_tool" ] && grep -vE "^$comment_start" "$switch_tool" | grep -qE "LIMIT [0-9]|sleep\([0-9]|\+ [0-9]+\) \* [0-9]"; then
+	fail "waf-switch wartet oder listet wieder mit festen Zahlen (waf_cli_jobs, waf_cli_wait_margin_minutes, waf_poll_seconds)"
 fi
 for page in malwatch_waf_list malwatch_waf_show malwatch_waf_exception_list malwatch_waf_ban_list; do
 	grep -q "data-mw-poll=\"{tmpl_var name='poll_ms'}\"" "$root/interface/templates/$page.htm" \

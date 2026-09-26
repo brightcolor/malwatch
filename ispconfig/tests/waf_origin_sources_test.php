@@ -5,7 +5,9 @@
  *
  *   php ispconfig/tests/waf_origin_sources_test.php
  */
-require __DIR__ . '/../interface/lib/malwatch_waf_origin.inc.php';
+// The shared library brings the origin library along and holds the defaults the
+// sources read from (waf_settings_defaults()).
+require __DIR__ . '/../interface/lib/malwatch_waf_lib.inc.php';
 
 $failures = 0;
 
@@ -32,11 +34,29 @@ expect_same('sources of the settings', waf_origin_chosen(array('waf_origin_geo' 
 expect_same('sources with everything off', waf_origin_chosen(array()), array());
 expect_same('sources with MaxMind and X4BNet', waf_origin_chosen(array('waf_origin_geo' => 'maxmind', 'waf_origin_net' => 'x4b')),
 	array('maxmind_country', 'maxmind_asn', 'x4b_vpn', 'x4b_datacenter'));
-expect_same('address of DB-IP with the month', waf_origin_urls('dbip_country', '2026-09'),
+$plain = waf_settings(array());
+expect_same('address of DB-IP with the month', waf_origin_urls('dbip_country', '2026-09', $plain),
 	array('https://download.db-ip.com/free/dbip-country-lite-2026-09.csv.gz'));
-expect_same('address of DB-IP without a month', count(waf_origin_urls('dbip_asn', 'kein-monat')), 1);
-expect_same('two addresses for X4BNet', count(waf_origin_urls('x4b_vpn', '')), 2);
-expect_same('address of an unknown source', waf_origin_urls('gibt-es-nicht', ''), array());
+expect_same('address of DB-IP without a month', count(waf_origin_urls('dbip_asn', 'kein-monat', $plain)), 1);
+expect_same('two addresses for X4BNet', count(waf_origin_urls('x4b_vpn', '', $plain)), 2);
+expect_same('address of an unknown source', waf_origin_urls('gibt-es-nicht', '', $plain), array());
+expect_same('addresses of a mirror from the settings', waf_origin_urls('tor', '', array_merge($plain,
+	array('waf_src_tor_urls' => "https://mirror.example/tor.txt\nhttps://mirror2.example/exits"))),
+	array('https://mirror.example/tor.txt', 'https://mirror2.example/exits'));
+expect_same('every source names the settings of its addresses, minimum and size', array(
+	waf_origin_sources()['tor']['urls'], waf_origin_sources()['tor']['min'], waf_origin_sources()['tor']['mb']),
+	array('waf_src_tor_urls', 'waf_src_tor_min', 'waf_src_tor_mb'));
+$named = true;
+foreach (waf_origin_sources() as $source) {
+	foreach (array('urls', 'min', 'mb', 'hours') as $part) {
+		$named = $named && array_key_exists($source[$part], waf_settings_defaults());
+	}
+}
+expect_same('every setting a source names has a default', $named, true);
+expect_same('DB-IP tries its month and the month before', array(
+	waf_origin_months('dbip_country', '2026-09-20 12:00:00'), waf_origin_months('dbip_asn', '2026-01-03 00:10:00')),
+	array(array('2026-09', '2026-08'), array('2026-01', '2025-12')));
+expect_same('other sources have no month', waf_origin_months('tor', '2026-09-20 12:00:00'), array(''));
 
 // --- DB-IP --------------------------------------------------------------------
 
@@ -127,19 +147,31 @@ expect_same('parts of something else', waf_origin_parts('kein Wert'), array());
 // --- Plausibility -------------------------------------------------------------
 
 $good = array('ranges' => 150000, 'values' => 250, 'lines' => 150000, 'bad' => 10, 'skipped' => 0);
-expect_same('a plausible file', waf_origin_check('dbip_country', $good, 149000), '');
+expect_same('a plausible file', waf_origin_check('dbip_country', $good, 149000, $plain), '');
 expect_same('a file with too few ranges',
-	strpos(waf_origin_check('dbip_country', array('ranges' => 12, 'values' => 2, 'lines' => 12, 'bad' => 0, 'skipped' => 0), 0),
+	strpos(waf_origin_check('dbip_country', array('ranges' => 12, 'values' => 2, 'lines' => 12, 'bad' => 0, 'skipped' => 0), 0, $plain),
 		'liefert nur 12 Bereiche, erwartet sind mindestens 100000.') !== false, true);
 expect_same('a file with too many bad lines',
-	strpos(waf_origin_check('tor', array('ranges' => 500, 'values' => 1, 'lines' => 1000, 'bad' => 400, 'skipped' => 0), 0),
+	strpos(waf_origin_check('tor', array('ranges' => 500, 'values' => 1, 'lines' => 1000, 'bad' => 400, 'skipped' => 0), 0, $plain),
 		'400 von 1000 Zeilen ergeben keinen Adressbereich') !== false, true);
 expect_same('a file that lost half of its ranges',
-	strpos(waf_origin_check('dbip_country', $good, 400000), 'vorher waren es 400000') !== false, true);
-expect_same('an unknown source', strpos(waf_origin_check('gibt-es-nicht', $good, 0), 'ist unbekannt') !== false, true);
+	strpos(waf_origin_check('dbip_country', $good, 400000, $plain), 'vorher waren es 400000') !== false, true);
+expect_same('an unknown source', strpos(waf_origin_check('gibt-es-nicht', $good, 0, $plain), 'ist unbekannt') !== false, true);
 $ende = 'Der bisherige Stand bleibt aktiv, der nächste Abruf versucht es erneut.';
 expect_same('every message names what happens next',
-	substr(waf_origin_check('tor', array('ranges' => 1, 'values' => 1, 'lines' => 1, 'bad' => 0, 'skipped' => 0), 0), -strlen($ende)), $ende);
+	substr(waf_origin_check('tor', array('ranges' => 1, 'values' => 1, 'lines' => 1, 'bad' => 0, 'skipped' => 0), 0, $plain), -strlen($ende)), $ende);
+
+// The thresholds of the check come from the settings.
+$loose = array_merge($plain, array('waf_origin_bad_percent' => 50, 'waf_src_tor_min' => 400));
+expect_same('bad lines within waf_origin_bad_percent pass',
+	waf_origin_check('tor', array('ranges' => 500, 'values' => 1, 'lines' => 1000, 'bad' => 400, 'skipped' => 0), 0, $loose), '');
+expect_same('the minimum of a source comes from its setting',
+	strpos(waf_origin_check('tor', array('ranges' => 300, 'values' => 1, 'lines' => 300, 'bad' => 0, 'skipped' => 0), 0, $loose),
+		'erwartet sind mindestens 400.') !== false, true);
+$strict = array_merge($plain, array('waf_origin_keep_percent' => 100));
+expect_same('waf_origin_keep_percent refuses a file with fewer ranges than before', array(
+	waf_origin_check('dbip_country', $good, 150000, $strict), strpos(waf_origin_check('dbip_country', $good, 150001, $strict),
+		'vorher waren es 150001') !== false), array('', true));
 
 foreach (glob($dir . '/*') as $name) {
 	@unlink($name);
@@ -209,7 +241,7 @@ expect_same('the search engines are chosen with their own setting',
 	waf_origin_chosen(array('waf_ban_bots' => 'on', 'waf_ban_mode' => 'propose')), array('searchbots'));
 expect_same('with the automatic blocking off nothing is downloaded for them',
 	waf_origin_chosen(array('waf_ban_bots' => 'on', 'waf_ban_mode' => 'off')), array());
-expect_same('two addresses for the search engines', count(waf_origin_urls('searchbots', '')), 2);
+expect_same('two addresses for the search engines', count(waf_origin_urls('searchbots', '', $plain)), 2);
 $bots = __DIR__ . '/fixtures/bots';
 $bots_out = $dir . '/searchbots.bin';
 $bot_counts = waf_origin_read_bots(array($bots . '/googlebot.json', $bots . '/bingbot.json'), $bots_out);

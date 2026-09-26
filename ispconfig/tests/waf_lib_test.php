@@ -623,7 +623,10 @@ expect_same('periods as whole days within the longest keep', waf_list_bad_days(a
 	'1', '7', '0', 'x', '3650', '3651', '2.5', ' 30')), array('0', 'x', '3651', '2.5', ' 30'));
 expect_same('the lists of the settings and what they hold', waf_settings_lists(), array(
 	'waf_ban_logged_in_paths' => 'paths', 'waf_ban_full_paths' => 'paths', 'waf_login_cookies' => 'cookies',
-	'waf_own_networks' => 'networks', 'waf_periods' => 'days'));
+	'waf_own_networks' => 'networks', 'waf_periods' => 'days',
+	'waf_src_dbip_country_urls' => 'urls', 'waf_src_dbip_asn_urls' => 'urls', 'waf_src_maxmind_country_urls' => 'urls',
+	'waf_src_maxmind_asn_urls' => 'urls', 'waf_src_tor_urls' => 'urls', 'waf_src_x4b_vpn_urls' => 'urls',
+	'waf_src_x4b_datacenter_urls' => 'urls', 'waf_src_searchbots_urls' => 'urls', 'waf_proxycheck_url' => 'url'));
 
 $fresh = waf_settings(array());
 expect_same('the lists and numbers of 0.32.0 with their defaults', array(
@@ -648,6 +651,54 @@ expect_same('the login cookie comes from the settings', array(
 	waf_audit_parse_line($sample[0], array('joomla_user_', 'wordpress_logged_in_'))['logged_in'],
 	waf_audit_parse_line($sample[0], array())['logged_in'],
 ), array(false, true, false));
+
+// --- The technical values of 0.34.0 ------------------------------------------------
+
+$tech = waf_settings(array());
+expect_same('the technical values with their defaults', array(
+	$tech['waf_src_dbip_country_urls'], $tech['waf_src_dbip_country_min'], $tech['waf_src_dbip_country_mb'],
+	$tech['waf_src_tor_min'], $tech['waf_src_tor_mb'], $tech['waf_src_x4b_vpn_min'], $tech['waf_src_searchbots_min'],
+	$tech['waf_src_searchbots_mb'], $tech['waf_origin_bad_percent'], $tech['waf_origin_keep_percent'],
+	$tech['waf_fetch_connect_seconds'], $tech['waf_fetch_timeout_seconds'], $tech['waf_fetch_redirects'],
+	$tech['waf_proxycheck_url'], $tech['waf_proxycheck_batch'], $tech['waf_proxycheck_answer_mb'],
+	$tech['waf_proxycheck_connect_seconds'], $tech['waf_proxycheck_timeout_seconds'],
+	$tech['waf_proxycheck_retry_minutes'], $tech['waf_proxycheck_tries'], $tech['waf_origin_lookup_batch'],
+	$tech['waf_cleanup_batch'], $tech['waf_cleanup_rounds'], $tech['waf_response_grace_minutes'],
+	$tech['waf_blocked_lines'], $tech['waf_hit_rules_max'], $tech['waf_show_paths'], $tech['waf_preview_delay_ms'],
+	$tech['waf_cli_jobs'], $tech['waf_cli_wait_margin_minutes'],
+), array('https://download.db-ip.com/free/dbip-country-lite-{month}.csv.gz', 100000, 80, 100, 20, 1000, 10, 8, 1, 50,
+	10, 120, 3, 'https://proxycheck.io/v3/', 100, 2, 5, 10, 60, 3, 500, 1000, 50, 60, 20000, 50, 50, 300, 20, 2));
+expect_same('two addresses each for X4BNet and the search engines', array(
+	count(waf_list_parse($tech['waf_src_x4b_vpn_urls'])), count(waf_list_parse($tech['waf_src_x4b_datacenter_urls'])),
+	count(waf_list_parse($tech['waf_src_searchbots_urls']))), array(2, 2, 2));
+expect_same('the technical numbers stay in their bounds', array(
+	waf_settings(array('waf_fetch_redirects' => '99'))['waf_fetch_redirects'],
+	waf_settings(array('waf_cleanup_batch' => '5'))['waf_cleanup_batch'],
+	waf_settings(array('waf_src_tor_mb' => '0'))['waf_src_tor_mb'],
+), array(10, 100, 1));
+expect_same('addresses start with https:// and hold no space', waf_list_bad_urls(array(
+	'https://a.example/x.csv.gz', 'https://a.example/lite-{month}.csv.gz', 'https://a.example:8443/list?x=1',
+	'http://a.example/x', 'ftp://a.example/x', 'https://a b', 'https://', 'a.example')),
+	array('http://a.example/x', 'ftp://a.example/x', 'https://a b', 'https://', 'a.example'));
+expect_same('each list fits its column', array(waf_list_max('urls'), waf_list_max('url'), waf_list_max('paths')),
+	array(512, 255, 1024));
+expect_same('a list of addresses longer than its column', array(
+	waf_list_fits(array(str_repeat('a', 512)), waf_list_max('urls')),
+	waf_list_fits(array(str_repeat('a', 513)), waf_list_max('urls'))), array(true, false));
+expect_same('the addresses and the single address of the settings', array(waf_settings_lists()['waf_src_tor_urls'],
+	waf_settings_lists()['waf_proxycheck_url']), array('urls', 'url'));
+expect_same('download options from the settings', waf_fetch_options(array_merge($tech,
+	array('waf_fetch_connect_seconds' => 7, 'waf_fetch_timeout_seconds' => 90, 'waf_fetch_redirects' => 0))),
+	array('connect' => 7, 'timeout' => 90, 'redirects' => 0));
+expect_same('request options of proxycheck.io from the settings', waf_proxycheck_options(array_merge($tech,
+	array('waf_proxycheck_connect_seconds' => 3, 'waf_proxycheck_timeout_seconds' => 20, 'waf_proxycheck_answer_mb' => 4))),
+	array('connect' => 3, 'timeout' => 20, 'bytes' => 4194304));
+expect_same('the address of proxycheck.io carries the key', array(
+	waf_proxycheck_address('https://proxycheck.io/v3/', 'k-1'),
+	waf_proxycheck_address('https://p.example/api?format=json', 'k 1')),
+	array('https://proxycheck.io/v3/?key=k-1', 'https://p.example/api?format=json&key=k%201'));
+expect_same('rule messages per hit follow the setting', array(count(waf_audit_parse_line($sample[2])['rules']),
+	count(waf_audit_parse_line($sample[2], null, 2)['rules'])), array(3, 2));
 
 // --- summary -----------------------------------------------------------------
 if ($failures > 0) {

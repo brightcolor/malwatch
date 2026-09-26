@@ -350,28 +350,29 @@ function waf_origin_find($reader, $ip)
 /**
  * The sources this server can load, keyed by their name in
  * malwatch_waf_origin_source. Each one names the setting that turns it on and
- * its value, how its file is read, the smallest plausible number of ranges and
- * the largest download in bytes.
+ * its value, how its file is read, and the settings of how often it is loaded,
+ * its addresses, the smallest plausible number of ranges and the largest
+ * download in MB (waf_settings_defaults() holds their defaults).
  */
 function waf_origin_sources()
 {
 	return array(
-		'dbip_country' => array('setting' => 'waf_origin_geo', 'value' => 'dbip', 'kind' => 'country',
-			'min' => 100000, 'bytes' => 80 * 1024 * 1024, 'hours' => 'waf_origin_db_hours'),
-		'dbip_asn' => array('setting' => 'waf_origin_geo', 'value' => 'dbip', 'kind' => 'asn',
-			'min' => 100000, 'bytes' => 80 * 1024 * 1024, 'hours' => 'waf_origin_db_hours'),
-		'maxmind_country' => array('setting' => 'waf_origin_geo', 'value' => 'maxmind', 'kind' => 'country',
-			'min' => 100000, 'bytes' => 80 * 1024 * 1024, 'hours' => 'waf_origin_db_hours'),
-		'maxmind_asn' => array('setting' => 'waf_origin_geo', 'value' => 'maxmind', 'kind' => 'asn',
-			'min' => 100000, 'bytes' => 80 * 1024 * 1024, 'hours' => 'waf_origin_db_hours'),
-		'tor' => array('setting' => 'waf_origin_tor', 'value' => 'torproject', 'kind' => 'list',
-			'min' => 100, 'bytes' => 20 * 1024 * 1024, 'hours' => 'waf_origin_tor_hours'),
-		'x4b_vpn' => array('setting' => 'waf_origin_net', 'value' => 'x4b', 'kind' => 'list',
-			'min' => 1000, 'bytes' => 20 * 1024 * 1024, 'hours' => 'waf_origin_list_hours'),
-		'x4b_datacenter' => array('setting' => 'waf_origin_net', 'value' => 'x4b', 'kind' => 'list',
-			'min' => 1000, 'bytes' => 20 * 1024 * 1024, 'hours' => 'waf_origin_list_hours'),
-		'searchbots' => array('setting' => 'waf_ban_bots', 'value' => 'on', 'kind' => 'bots',
-			'min' => 10, 'bytes' => 8 * 1024 * 1024, 'hours' => 'waf_origin_list_hours'),
+		'dbip_country' => array('setting' => 'waf_origin_geo', 'value' => 'dbip', 'kind' => 'country', 'hours' => 'waf_origin_db_hours',
+			'urls' => 'waf_src_dbip_country_urls', 'min' => 'waf_src_dbip_country_min', 'mb' => 'waf_src_dbip_country_mb'),
+		'dbip_asn' => array('setting' => 'waf_origin_geo', 'value' => 'dbip', 'kind' => 'asn', 'hours' => 'waf_origin_db_hours',
+			'urls' => 'waf_src_dbip_asn_urls', 'min' => 'waf_src_dbip_asn_min', 'mb' => 'waf_src_dbip_asn_mb'),
+		'maxmind_country' => array('setting' => 'waf_origin_geo', 'value' => 'maxmind', 'kind' => 'country', 'hours' => 'waf_origin_db_hours',
+			'urls' => 'waf_src_maxmind_country_urls', 'min' => 'waf_src_maxmind_country_min', 'mb' => 'waf_src_maxmind_country_mb'),
+		'maxmind_asn' => array('setting' => 'waf_origin_geo', 'value' => 'maxmind', 'kind' => 'asn', 'hours' => 'waf_origin_db_hours',
+			'urls' => 'waf_src_maxmind_asn_urls', 'min' => 'waf_src_maxmind_asn_min', 'mb' => 'waf_src_maxmind_asn_mb'),
+		'tor' => array('setting' => 'waf_origin_tor', 'value' => 'torproject', 'kind' => 'list', 'hours' => 'waf_origin_tor_hours',
+			'urls' => 'waf_src_tor_urls', 'min' => 'waf_src_tor_min', 'mb' => 'waf_src_tor_mb'),
+		'x4b_vpn' => array('setting' => 'waf_origin_net', 'value' => 'x4b', 'kind' => 'list', 'hours' => 'waf_origin_list_hours',
+			'urls' => 'waf_src_x4b_vpn_urls', 'min' => 'waf_src_x4b_vpn_min', 'mb' => 'waf_src_x4b_vpn_mb'),
+		'x4b_datacenter' => array('setting' => 'waf_origin_net', 'value' => 'x4b', 'kind' => 'list', 'hours' => 'waf_origin_list_hours',
+			'urls' => 'waf_src_x4b_datacenter_urls', 'min' => 'waf_src_x4b_datacenter_min', 'mb' => 'waf_src_x4b_datacenter_mb'),
+		'searchbots' => array('setting' => 'waf_ban_bots', 'value' => 'on', 'kind' => 'bots', 'hours' => 'waf_origin_list_hours',
+			'urls' => 'waf_src_searchbots_urls', 'min' => 'waf_src_searchbots_min', 'mb' => 'waf_src_searchbots_mb'),
 	);
 }
 
@@ -395,36 +396,44 @@ function waf_origin_chosen($settings)
 	return $chosen;
 }
 
-/** The addresses the source is loaded from, one download per entry. */
-function waf_origin_urls($name, $month)
+/**
+ * The addresses the source is loaded from, one download per entry: its list of
+ * the settings, {month} replaced by the month (YYYY-MM, the current one while
+ * $month is none). The shared library (waf_list_parse()) is loaded wherever
+ * this runs.
+ */
+function waf_origin_urls($name, $month, $settings)
 {
-	if ($name === 'searchbots') {
-		// Google and Bing publish the ranges of their crawlers as JSON.
-		return array(
-			'https://developers.google.com/static/search/apis/ipranges/googlebot.json',
-			'https://www.bing.com/toolbox/bingbot.json',
-		);
+	$sources = waf_origin_sources();
+	if (!isset($sources[$name]) || !isset($settings[$sources[$name]['urls']])) {
+		return array();
 	}
 	$month = preg_match('/^\d{4}-\d{2}$/', (string) $month) ? (string) $month : gmdate('Y-m');
-	switch ($name) {
-		case 'dbip_country':
-			return array('https://download.db-ip.com/free/dbip-country-lite-' . $month . '.csv.gz');
-		case 'dbip_asn':
-			return array('https://download.db-ip.com/free/dbip-asn-lite-' . $month . '.csv.gz');
-		case 'maxmind_country':
-			return array('https://download.maxmind.com/geoip/databases/GeoLite2-Country-CSV/download?suffix=zip');
-		case 'maxmind_asn':
-			return array('https://download.maxmind.com/geoip/databases/GeoLite2-ASN-CSV/download?suffix=zip');
-		case 'tor':
-			return array('https://check.torproject.org/torbulkexitlist');
-		case 'x4b_vpn':
-			return array('https://raw.githubusercontent.com/X4BNet/lists_vpn/main/output/vpn/ipv4.txt',
-				'https://raw.githubusercontent.com/X4BNet/lists_vpn/main/output/vpn/ipv6.txt');
-		case 'x4b_datacenter':
-			return array('https://raw.githubusercontent.com/X4BNet/lists_vpn/main/output/datacenter/ipv4.txt',
-				'https://raw.githubusercontent.com/X4BNet/lists_vpn/main/output/datacenter/ipv6.txt');
+	$urls = array();
+	foreach (waf_list_parse($settings[$sources[$name]['urls']]) as $url) {
+		$urls[] = str_replace('{month}', $month, $url);
 	}
-	return array();
+	return $urls;
+}
+
+/**
+ * The months whose file a source tries, in order: DB-IP publishes one file per
+ * month, and at the turn of the month the new one may be missing, so the file
+ * of the month before counts as well. Other sources have no month ('').
+ */
+function waf_origin_months($name, $now)
+{
+	if (strpos((string) $name, 'dbip_') !== 0) {
+		return array('');
+	}
+	$current = gmdate('Y-m', strtotime((string) $now));
+	$year = (int) substr($current, 0, 4);
+	$month = (int) substr($current, 5, 2) - 1;
+	if ($month < 1) {
+		$month = 12;
+		$year--;
+	}
+	return array($current, sprintf('%04d-%02d', $year, $month));
 }
 
 /** An empty result of a reader; the readers count their lines into it. */
@@ -768,24 +777,26 @@ function waf_origin_cut($text, $bytes)
  * how many ranges the file in use holds, 0 when there is none. Returns '' when
  * it may, else the reason with what happens next.
  */
-function waf_origin_check($name, $counts, $previous)
+function waf_origin_check($name, $counts, $previous, $settings)
 {
 	$sources = waf_origin_sources();
 	if (!isset($sources[$name]) || !is_array($counts)) {
 		return 'Die Quelle ' . $name . ' ist unbekannt. Bitte die Einstellungen der Abwehr prüfen.';
 	}
 	$keep = ' Der bisherige Stand bleibt aktiv, der nächste Abruf versucht es erneut.';
-	if ($counts['lines'] > 0 && $counts['bad'] > $counts['lines'] / 100) {
+	// Unreadable lines may make up waf_origin_bad_percent of the file.
+	if ($counts['lines'] > 0 && $counts['bad'] * 100 > $counts['lines'] * (int) $settings['waf_origin_bad_percent']) {
 		return 'Die Datei der Quelle ' . $name . ' ist unlesbar: ' . $counts['bad'] . ' von '
 			. $counts['lines'] . ' Zeilen ergeben keinen Adressbereich.' . $keep;
 	}
-	$min = (int) $sources[$name]['min'];
+	$min = (int) $settings[$sources[$name]['min']];
 	if ($counts['ranges'] < $min) {
 		return 'Die Quelle ' . $name . ' liefert nur ' . $counts['ranges'] . ' Bereiche, erwartet sind mindestens '
 			. $min . '.' . $keep;
 	}
+	// A new file keeps at least waf_origin_keep_percent of the ranges in use.
 	$previous = (int) $previous;
-	if ($previous > 0 && $counts['ranges'] < $previous / 2) {
+	if ($previous > 0 && $counts['ranges'] * 100 < $previous * (int) $settings['waf_origin_keep_percent']) {
 		return 'Die Quelle ' . $name . ' liefert nur noch ' . $counts['ranges'] . ' Bereiche, vorher waren es '
 			. $previous . '.' . $keep;
 	}
@@ -807,7 +818,9 @@ function waf_origin_due($name, $row, $settings, $now)
 	if ($checked === '' || $checked === '0000-00-00 00:00:00') {
 		return true;
 	}
-	$hours = isset($settings[$sources[$name]['hours']]) ? (int) $settings[$sources[$name]['hours']] : 24;
+	$defaults = waf_settings_defaults();
+	$key = $sources[$name]['hours'];
+	$hours = isset($settings[$key]) ? (int) $settings[$key] : (int) $defaults[$key];
 	$hours = $hours < 1 ? 1 : $hours;
 	$then = strtotime($checked);
 	$point = strtotime((string) $now);

@@ -138,7 +138,7 @@ class malwatch_waf
 		$login_cookies = waf_list_parse($settings['waf_login_cookies']);
 		foreach ($read['lines'] as $line) {
 			$stats['lines']++;
-			$hit = waf_audit_parse_line($line, $login_cookies);
+			$hit = waf_audit_parse_line($line, $login_cookies, (int) $settings['waf_hit_rules_max']);
 			if ($hit === null) {
 				$stats['broken']++;
 				continue;
@@ -195,11 +195,13 @@ class malwatch_waf
 		$dir = $this->ensure_dirs();
 		$counts = array('hits' => 0, 'days' => 0, 'files' => 0, 'staging' => 0, 'addresses' => 0);
 
-		for ($round = 0; $round < 50; $round++) {
+		// Old hits go in waf_cleanup_rounds steps of waf_cleanup_batch rows, so no
+		// single delete holds the table for long; the rest follows at the next run.
+		for ($round = 0; $round < (int) $settings['waf_cleanup_rounds']; $round++) {
 			$old = $this->rows($app->dbmaster->queryAllRecords(
 				'SELECT hit_id, response_file FROM malwatch_waf_hit WHERE server_id = ? '
-				. 'AND seen_at < DATE_SUB(NOW(), INTERVAL ? DAY) ORDER BY hit_id LIMIT 1000',
-				$conf['server_id'], $settings['waf_detail_days']));
+				. 'AND seen_at < DATE_SUB(NOW(), INTERVAL ? DAY) ORDER BY hit_id LIMIT ?',
+				$conf['server_id'], $settings['waf_detail_days'], (int) $settings['waf_cleanup_batch']));
 			if (count($old) === 0) {
 				break;
 			}
@@ -237,7 +239,7 @@ class malwatch_waf
 				continue;
 			}
 			// A younger file may belong to a hit that is being written right now.
-			if (filemtime($file) < time() - 3600 && @unlink($file)) {
+			if (filemtime($file) < time() - (int) $settings['waf_response_grace_minutes'] * 60 && @unlink($file)) {
 				$counts['files']++;
 			}
 		}
@@ -356,9 +358,10 @@ class malwatch_waf
 		curl_setopt($curl, CURLOPT_URL, $url);
 		curl_setopt($curl, CURLOPT_FILE, $handle);
 		curl_setopt($curl, CURLOPT_FOLLOWLOCATION, true);
-		curl_setopt($curl, CURLOPT_MAXREDIRS, 3);
-		curl_setopt($curl, CURLOPT_CONNECTTIMEOUT, 10);
-		curl_setopt($curl, CURLOPT_TIMEOUT, 120);
+		$options = waf_fetch_options($this->settings());
+		curl_setopt($curl, CURLOPT_MAXREDIRS, $options['redirects']);
+		curl_setopt($curl, CURLOPT_CONNECTTIMEOUT, $options['connect']);
+		curl_setopt($curl, CURLOPT_TIMEOUT, $options['timeout']);
 		curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, true);
 		curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, 2);
 		curl_setopt($curl, CURLOPT_USERAGENT, 'malwatch/' . $this->version());
@@ -409,8 +412,9 @@ class malwatch_waf
 		curl_setopt($curl, CURLOPT_POST, true);
 		curl_setopt($curl, CURLOPT_POSTFIELDS, $body);
 		curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
-		curl_setopt($curl, CURLOPT_CONNECTTIMEOUT, 5);
-		curl_setopt($curl, CURLOPT_TIMEOUT, 10);
+		$options = waf_proxycheck_options($this->settings());
+		curl_setopt($curl, CURLOPT_CONNECTTIMEOUT, $options['connect']);
+		curl_setopt($curl, CURLOPT_TIMEOUT, $options['timeout']);
 		curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, true);
 		curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, 2);
 		curl_setopt($curl, CURLOPT_USERAGENT, 'malwatch/' . $this->version());
@@ -877,20 +881,17 @@ class malwatch_waf
 			}
 			$auth = $settings['waf_origin_maxmind_account'] . ':' . $settings['waf_origin_maxmind_key'];
 		}
-		// DB-IP publishes one file per month; at the turn of the month the new
-		// one may be missing, then the one of last month still counts.
-		$months = strpos($name, 'dbip_') === 0
-			? array($version, gmdate('Y-m', strtotime((string) $now) - 15 * 86400)) : array('');
+		$months = waf_origin_months($name, $now);
 		$files = array();
 		$error = '';
 		foreach ($months as $month) {
 			$files = array();
 			$error = '';
 			$version = $month;
-			foreach (waf_origin_urls($name, $month) as $index => $url) {
+			foreach (waf_origin_urls($name, $month, $settings) as $index => $url) {
 				$file = $tmp . '/' . $name . '-' . $index . '.tmp';
 				@unlink($file);
-				$loaded = $this->fetch($url, $file, (int) $source['bytes'], $auth);
+				$loaded = $this->fetch($url, $file, (int) $settings[$source['mb']] * 1024 * 1024, $auth);
 				if (!$loaded[0]) {
 					$error = $loaded[1];
 					break;
@@ -930,7 +931,7 @@ class malwatch_waf
 			@unlink($fresh);
 			return $this->origin_note($name, false, 'Die Datei ließ sich nicht umbauen. Bitte Platz unter ' . $dir . ' prüfen.', $row, $now);
 		}
-		$refused = waf_origin_check($name, $counts, $previous);
+		$refused = waf_origin_check($name, $counts, $previous, $settings);
 		if ($refused !== '') {
 			@unlink($fresh);
 			return $this->origin_note($name, false, $refused, $row, $now);
@@ -1055,11 +1056,12 @@ class malwatch_waf
 	 * One pass looks at most at $limit addresses, so a burst of a scanner never
 	 * holds the cron.
 	 */
-	public function origin_lookup($limit = 500)
+	public function origin_lookup($limit = null)
 	{
 		global $app, $conf;
 
 		$settings = $this->settings();
+		$limit = $limit === null ? (int) $settings['waf_origin_lookup_batch'] : (int) $limit;
 		// A new address goes to the external service as soon as one is chosen.
 		if (waf_origin_external($settings) !== '') {
 			$app->dbmaster->query("UPDATE malwatch_waf_ip SET external_state = 'pending' WHERE server_id = ? "
@@ -1114,11 +1116,12 @@ class malwatch_waf
 	 * answer. The state of the source names numbers and reasons, never the key
 	 * and never an address.
 	 */
-	public function origin_external($limit = 100)
+	public function origin_external($limit = null)
 	{
 		global $app, $conf;
 
 		$settings = $this->settings();
+		$limit = $limit === null ? (int) $settings['waf_proxycheck_batch'] : (int) $limit;
 		$name = waf_origin_external($settings);
 		if ($name === '') {
 			return 0;
@@ -1127,10 +1130,12 @@ class malwatch_waf
 		$row = $app->dbmaster->queryOneRecord(
 			'SELECT * FROM malwatch_waf_origin_source WHERE server_id = ? AND source = ?', $conf['server_id'], $name);
 		$quota = waf_origin_quota($row, substr($now, 0, 10), $settings['waf_origin_proxycheck_daily']);
-		// An answer that failed comes back in line after an hour, three times in all.
+		// An answer that failed comes back in line after waf_proxycheck_retry_minutes,
+		// until it has failed waf_proxycheck_tries times.
 		$app->dbmaster->query("UPDATE malwatch_waf_ip SET external_state = 'pending' WHERE server_id = ? "
-			. "AND external_state = 'failed' AND external_tries < 3 AND (external_at IS NULL OR external_at < ?)",
-			$conf['server_id'], date('Y-m-d H:i:s', strtotime($now) - 3600));
+			. "AND external_state = 'failed' AND external_tries < ? AND (external_at IS NULL OR external_at < ?)",
+			$conf['server_id'], (int) $settings['waf_proxycheck_tries'],
+			date('Y-m-d H:i:s', strtotime($now) - (int) $settings['waf_proxycheck_retry_minutes'] * 60));
 		if ($quota['left'] <= 0) {
 			$app->dbmaster->query("UPDATE malwatch_waf_ip SET external_state = 'limit' WHERE server_id = ? "
 				. "AND external_state = 'pending'", $conf['server_id']);
@@ -1157,7 +1162,8 @@ class malwatch_waf
 		if ($body === '') {
 			return 0;
 		}
-		$answer = $this->post('https://proxycheck.io/v3/?key=' . rawurlencode($key), $body, 2 * 1024 * 1024);
+		$options = waf_proxycheck_options($settings);
+		$answer = $this->post(waf_proxycheck_address($settings['waf_proxycheck_url'], $key), $body, $options['bytes']);
 		$read = $answer[0] ? waf_origin_proxycheck_read($answer[1])
 			: array('ok' => false, 'error' => $answer[1], 'ips' => array());
 		$quota['queries'] += count($ips);
@@ -1648,7 +1654,8 @@ class malwatch_waf
 		}
 		$seen = array();
 		$lines = 0;
-		while (($line = fgets($handle)) !== false && $lines < 20000) {
+		$settings = $this->settings();
+		while (($line = fgets($handle)) !== false && $lines < (int) $settings['waf_blocked_lines']) {
 			$lines++;
 			$one = waf_ban_log_line($line);
 			if ($one === null || !isset($since[$one['ip']]) || $one['at'] < $since[$one['ip']]) {
@@ -1741,11 +1748,12 @@ class malwatch_waf
 					&& is_array($options['asn']) ? array_map('strval', $options['asn']) : array()));
 				$stored = array('waf_ban_origin_countries' => waf_ban_origin_store($countries),
 					'waf_ban_origin_asn' => waf_ban_origin_store($asns));
-				// Both columns hold 255 characters. A longer list is refused as a whole,
-				// so the database never cuts a number in half.
+				// Both columns hold WAF_ORIGIN_CHOICE_MAX characters. A longer list is
+				// refused as a whole, so the database never cuts a number in half.
 				foreach ($stored as $text) {
-					if (strlen($text) > 255) {
-						return $this->finish($job, false, 'Die Auswahl ist zu lang: Eine Liste fasst 255 Zeichen, '
+					if (strlen($text) > WAF_ORIGIN_CHOICE_MAX) {
+						return $this->finish($job, false, 'Die Auswahl ist zu lang: Eine Liste fasst '
+							. WAF_ORIGIN_CHOICE_MAX . ' Zeichen, '
 							. 'etwa 80 Länder oder 35 Anbieter. Bitte weniger ankreuzen; es gilt weiter die bisherige '
 							. 'Auswahl.');
 					}

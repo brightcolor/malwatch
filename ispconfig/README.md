@@ -153,7 +153,10 @@ sich, sobald `waf/install.sh` ModSecurity im nginx eingerichtet hat
   und Abschnitte. Ein Wert, der von der Vorgabe abweicht, trägt einen Punkt und den
   Knopf „Vorgabe übernehmen“. Listen (Pfade, Cookies, eigene Netze, Zeiträume)
   stehen ein Eintrag je Zeile. Vor dem Speichern listet das Fenster „Änderungen
-  prüfen“ jede geänderte Einstellung mit bisherigem und neuem Wert.
+  prüfen“ jede geänderte Einstellung mit bisherigem und neuem Wert. Der Abschnitt
+  „Technik“ führt die Adressen und Grenzen der Herkunftsquellen, die Zeitlimits
+  der Downloads, die Anfragen an proxycheck.io und die Stapelgrößen der Arbeit im
+  Hintergrund.
 
 Jeder Knopf legt einen Auftrag in `malwatch_job` mit `job_kind = 'waf'` an. Die
 Cron-Klasse ruft jede Minute `malwatch_waf` auf: Sie liest höchstens so viele Zeilen
@@ -197,8 +200,9 @@ Protokoll oder Fehlertext.
 
 Für VPN, Proxy und Rechenzentrum steht neben den X4BNet-Listen proxycheck.io zur
 Wahl. Der Dienst braucht einen Schlüssel und beantwortet jede Adresse einzeln: Ein
-eigener Schritt im Cron schickt je Durchgang höchstens eine Anfrage mit 100
-Adressen und bleibt unter dem Tageslimit aus den Einstellungen. Er ersetzt die
+eigener Schritt im Cron schickt je Durchgang höchstens eine Anfrage mit so vielen
+Adressen, wie unter „Technik“ eingestellt ist (Vorgabe 100), und bleibt unter dem
+Tageslimit aus den Einstellungen. Er ersetzt die
 Merkmale VPN, Rechenzentrum und Proxy; Land, Provider und Tor bleiben bei den
 lokalen Quellen, solange eine davon gewählt ist.
 

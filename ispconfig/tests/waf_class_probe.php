@@ -521,8 +521,10 @@ $waf->fetcher = function ($url, $target, $limit, $auth) use ($fixtures) {
 	}
 	return array(false, 'Nicht gefunden (404).');
 };
-$probe_settings = array('waf_origin_geo' => 'dbip', 'waf_origin_tor' => 'torproject', 'waf_origin_net' => 'x4b',
-	'waf_origin_tor_hours' => 1, 'waf_origin_list_hours' => 24, 'waf_origin_db_hours' => 24);
+// Complete settings, as the job passes them: the sources read their addresses and
+// limits from there since 0.34.0.
+$probe_settings = array_merge(waf_settings(array()), array('waf_origin_geo' => 'dbip', 'waf_origin_tor' => 'torproject',
+	'waf_origin_net' => 'x4b', 'waf_origin_tor_hours' => 1, 'waf_origin_list_hours' => 24, 'waf_origin_db_hours' => 24));
 $result = $waf->origin_update_sources($probe_settings, array(), '2026-09-17 20:00:00');
 // The sample files are far too short for the real limits, so every source is
 // refused and the file in use stays as it is.
@@ -1244,6 +1246,34 @@ $db->query("DELETE FROM malwatch_waf_hit WHERE unique_id = 'probe-origin'");
 $waf->cleanup();
 expect_same('the address goes with its last hit',
 	count_rows("SELECT ip FROM malwatch_waf_ip WHERE ip = '192.0.2.10'"), 0);
+
+// --- 0.34.0: the technical values of the settings ------------------------------
+
+// Old hits go in steps of waf_cleanup_batch, at most waf_cleanup_rounds per run.
+$db->query('UPDATE malwatch_config SET waf_cleanup_batch = 100, waf_cleanup_rounds = 2 WHERE config_id = 1');
+for ($i = 0; $i < 250; $i++) {
+	$db->query('INSERT INTO malwatch_waf_hit (server_id, parent_domain_id, domain, unique_id, seen_at, client_ip, method, '
+		. 'uri, path, status, anomaly_score, would_block, logged_in, rules, request_headers) '
+		. "VALUES (?, 11, 'beispiel.test', ?, DATE_SUB(NOW(), INTERVAL 40 DAY), '198.51.100.99', 'GET', '/alt', '/alt', "
+		. "404, 1, 'n', 'n', '[]', '{}')", $server, 'probe-old-' . $i);
+}
+$first = $waf->cleanup();
+$second = $waf->cleanup();
+expect_same('cleanup deletes waf_cleanup_rounds steps of waf_cleanup_batch hits per run', array($first['hits'],
+	$second['hits'], count_rows("SELECT hit_id FROM malwatch_waf_hit WHERE unique_id LIKE 'probe-old-%'")), array(200, 50, 0));
+
+// The lookup in the range files takes waf_origin_lookup_batch addresses per pass.
+$db->query('UPDATE malwatch_config SET waf_origin_lookup_batch = 1000 WHERE config_id = 1');
+$waf->origin_lookup();
+foreach (array('198.51.100.201', '198.51.100.202') as $n => $ip) {
+	$db->query('INSERT INTO malwatch_waf_hit (server_id, parent_domain_id, domain, unique_id, seen_at, client_ip, method, '
+		. 'uri, path, status, anomaly_score, would_block, logged_in, rules, request_headers) '
+		. "VALUES (?, 11, 'beispiel.test', ?, NOW(), ?, 'GET', '/x', '/x', 404, 1, 'n', 'n', '[]', '{}')",
+		$server, 'probe-lookup-' . $n, $ip);
+}
+$db->query('UPDATE malwatch_config SET waf_origin_lookup_batch = 1 WHERE config_id = 1');
+expect_same('the lookup takes waf_origin_lookup_batch addresses per pass',
+	array($waf->origin_lookup(), $waf->origin_lookup(), $waf->origin_lookup()), array(1, 1, 0));
 
 // --- summary -----------------------------------------------------------------
 waf_remove_dir($tmp);

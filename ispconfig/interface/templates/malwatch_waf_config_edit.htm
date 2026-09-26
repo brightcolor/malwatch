@@ -503,6 +503,253 @@
 	</div>
 </details>
 
+<details class="mw-cfg-sec" id="mw-cfg-tech" data-mw-sec="tech">
+	<summary><h2 class="mw-cfg-title">{tmpl_var name='tech_head_txt'}</h2><span class="mw-cfg-state">{tmpl_var name='state_tech'}</span><span class="mw-cfg-badge" hidden></span></summary>
+	<div class="mw-cfg-body">
+		<p class="mw-cfg-intro">{tmpl_var name='tech_intro_txt'}</p>
+		<h3 class="mw-cfg-group">{tmpl_var name='tech_sources_head_txt'}</h3>
+		<p class="mw-cfg-hint mw-cfg-group-intro">{tmpl_var name='tech_sources_intro_txt'}</p>
+		<div class="mw-cfg-field">
+			<label for="waf_src_dbip_country_urls">{tmpl_var name='waf_src_dbip_country_urls_txt'}</label>
+			<div class="mw-cfg-control">
+				<textarea name="waf_src_dbip_country_urls" id="waf_src_dbip_country_urls" rows="2" class="form-control mw-cfg-list mw-cfg-urls" spellcheck="false" autocomplete="off" data-default="{tmpl_var name='default_waf_src_dbip_country_urls'}">{tmpl_var name='lines_waf_src_dbip_country_urls'}</textarea>
+				<div class="mw-cfg-pair">
+					<div class="mw-cfg-part"><label for="waf_src_dbip_country_min">{tmpl_var name='waf_src_dbip_country_min_txt'}</label><div class="input-group"><input type="number" min="{tmpl_var name='min_waf_src_dbip_country_min'}" max="{tmpl_var name='max_waf_src_dbip_country_min'}" step="1" name="waf_src_dbip_country_min" id="waf_src_dbip_country_min" value="{tmpl_var name='waf_src_dbip_country_min'}" data-default="{tmpl_var name='default_waf_src_dbip_country_min'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_entries_txt'}</span></div></div>
+					<div class="mw-cfg-part"><label for="waf_src_dbip_country_mb">{tmpl_var name='waf_src_dbip_country_mb_txt'}</label><div class="input-group"><input type="number" min="{tmpl_var name='min_waf_src_dbip_country_mb'}" max="{tmpl_var name='max_waf_src_dbip_country_mb'}" step="1" name="waf_src_dbip_country_mb" id="waf_src_dbip_country_mb" value="{tmpl_var name='waf_src_dbip_country_mb'}" data-default="{tmpl_var name='default_waf_src_dbip_country_mb'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_mb_txt'}</span></div></div>
+				</div>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_src_dbip_asn_urls">{tmpl_var name='waf_src_dbip_asn_urls_txt'}</label>
+			<div class="mw-cfg-control">
+				<textarea name="waf_src_dbip_asn_urls" id="waf_src_dbip_asn_urls" rows="2" class="form-control mw-cfg-list mw-cfg-urls" spellcheck="false" autocomplete="off" data-default="{tmpl_var name='default_waf_src_dbip_asn_urls'}">{tmpl_var name='lines_waf_src_dbip_asn_urls'}</textarea>
+				<div class="mw-cfg-pair">
+					<div class="mw-cfg-part"><label for="waf_src_dbip_asn_min">{tmpl_var name='waf_src_dbip_asn_min_txt'}</label><div class="input-group"><input type="number" min="{tmpl_var name='min_waf_src_dbip_asn_min'}" max="{tmpl_var name='max_waf_src_dbip_asn_min'}" step="1" name="waf_src_dbip_asn_min" id="waf_src_dbip_asn_min" value="{tmpl_var name='waf_src_dbip_asn_min'}" data-default="{tmpl_var name='default_waf_src_dbip_asn_min'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_entries_txt'}</span></div></div>
+					<div class="mw-cfg-part"><label for="waf_src_dbip_asn_mb">{tmpl_var name='waf_src_dbip_asn_mb_txt'}</label><div class="input-group"><input type="number" min="{tmpl_var name='min_waf_src_dbip_asn_mb'}" max="{tmpl_var name='max_waf_src_dbip_asn_mb'}" step="1" name="waf_src_dbip_asn_mb" id="waf_src_dbip_asn_mb" value="{tmpl_var name='waf_src_dbip_asn_mb'}" data-default="{tmpl_var name='default_waf_src_dbip_asn_mb'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_mb_txt'}</span></div></div>
+				</div>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_src_maxmind_country_urls">{tmpl_var name='waf_src_maxmind_country_urls_txt'}</label>
+			<div class="mw-cfg-control">
+				<textarea name="waf_src_maxmind_country_urls" id="waf_src_maxmind_country_urls" rows="2" class="form-control mw-cfg-list mw-cfg-urls" spellcheck="false" autocomplete="off" data-default="{tmpl_var name='default_waf_src_maxmind_country_urls'}">{tmpl_var name='lines_waf_src_maxmind_country_urls'}</textarea>
+				<div class="mw-cfg-pair">
+					<div class="mw-cfg-part"><label for="waf_src_maxmind_country_min">{tmpl_var name='waf_src_maxmind_country_min_txt'}</label><div class="input-group"><input type="number" min="{tmpl_var name='min_waf_src_maxmind_country_min'}" max="{tmpl_var name='max_waf_src_maxmind_country_min'}" step="1" name="waf_src_maxmind_country_min" id="waf_src_maxmind_country_min" value="{tmpl_var name='waf_src_maxmind_country_min'}" data-default="{tmpl_var name='default_waf_src_maxmind_country_min'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_entries_txt'}</span></div></div>
+					<div class="mw-cfg-part"><label for="waf_src_maxmind_country_mb">{tmpl_var name='waf_src_maxmind_country_mb_txt'}</label><div class="input-group"><input type="number" min="{tmpl_var name='min_waf_src_maxmind_country_mb'}" max="{tmpl_var name='max_waf_src_maxmind_country_mb'}" step="1" name="waf_src_maxmind_country_mb" id="waf_src_maxmind_country_mb" value="{tmpl_var name='waf_src_maxmind_country_mb'}" data-default="{tmpl_var name='default_waf_src_maxmind_country_mb'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_mb_txt'}</span></div></div>
+				</div>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_src_maxmind_asn_urls">{tmpl_var name='waf_src_maxmind_asn_urls_txt'}</label>
+			<div class="mw-cfg-control">
+				<textarea name="waf_src_maxmind_asn_urls" id="waf_src_maxmind_asn_urls" rows="2" class="form-control mw-cfg-list mw-cfg-urls" spellcheck="false" autocomplete="off" data-default="{tmpl_var name='default_waf_src_maxmind_asn_urls'}">{tmpl_var name='lines_waf_src_maxmind_asn_urls'}</textarea>
+				<div class="mw-cfg-pair">
+					<div class="mw-cfg-part"><label for="waf_src_maxmind_asn_min">{tmpl_var name='waf_src_maxmind_asn_min_txt'}</label><div class="input-group"><input type="number" min="{tmpl_var name='min_waf_src_maxmind_asn_min'}" max="{tmpl_var name='max_waf_src_maxmind_asn_min'}" step="1" name="waf_src_maxmind_asn_min" id="waf_src_maxmind_asn_min" value="{tmpl_var name='waf_src_maxmind_asn_min'}" data-default="{tmpl_var name='default_waf_src_maxmind_asn_min'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_entries_txt'}</span></div></div>
+					<div class="mw-cfg-part"><label for="waf_src_maxmind_asn_mb">{tmpl_var name='waf_src_maxmind_asn_mb_txt'}</label><div class="input-group"><input type="number" min="{tmpl_var name='min_waf_src_maxmind_asn_mb'}" max="{tmpl_var name='max_waf_src_maxmind_asn_mb'}" step="1" name="waf_src_maxmind_asn_mb" id="waf_src_maxmind_asn_mb" value="{tmpl_var name='waf_src_maxmind_asn_mb'}" data-default="{tmpl_var name='default_waf_src_maxmind_asn_mb'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_mb_txt'}</span></div></div>
+				</div>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_src_tor_urls">{tmpl_var name='waf_src_tor_urls_txt'}</label>
+			<div class="mw-cfg-control">
+				<textarea name="waf_src_tor_urls" id="waf_src_tor_urls" rows="2" class="form-control mw-cfg-list mw-cfg-urls" spellcheck="false" autocomplete="off" data-default="{tmpl_var name='default_waf_src_tor_urls'}">{tmpl_var name='lines_waf_src_tor_urls'}</textarea>
+				<div class="mw-cfg-pair">
+					<div class="mw-cfg-part"><label for="waf_src_tor_min">{tmpl_var name='waf_src_tor_min_txt'}</label><div class="input-group"><input type="number" min="{tmpl_var name='min_waf_src_tor_min'}" max="{tmpl_var name='max_waf_src_tor_min'}" step="1" name="waf_src_tor_min" id="waf_src_tor_min" value="{tmpl_var name='waf_src_tor_min'}" data-default="{tmpl_var name='default_waf_src_tor_min'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_entries_txt'}</span></div></div>
+					<div class="mw-cfg-part"><label for="waf_src_tor_mb">{tmpl_var name='waf_src_tor_mb_txt'}</label><div class="input-group"><input type="number" min="{tmpl_var name='min_waf_src_tor_mb'}" max="{tmpl_var name='max_waf_src_tor_mb'}" step="1" name="waf_src_tor_mb" id="waf_src_tor_mb" value="{tmpl_var name='waf_src_tor_mb'}" data-default="{tmpl_var name='default_waf_src_tor_mb'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_mb_txt'}</span></div></div>
+				</div>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_src_x4b_vpn_urls">{tmpl_var name='waf_src_x4b_vpn_urls_txt'}</label>
+			<div class="mw-cfg-control">
+				<textarea name="waf_src_x4b_vpn_urls" id="waf_src_x4b_vpn_urls" rows="2" class="form-control mw-cfg-list mw-cfg-urls" spellcheck="false" autocomplete="off" data-default="{tmpl_var name='default_waf_src_x4b_vpn_urls'}">{tmpl_var name='lines_waf_src_x4b_vpn_urls'}</textarea>
+				<div class="mw-cfg-pair">
+					<div class="mw-cfg-part"><label for="waf_src_x4b_vpn_min">{tmpl_var name='waf_src_x4b_vpn_min_txt'}</label><div class="input-group"><input type="number" min="{tmpl_var name='min_waf_src_x4b_vpn_min'}" max="{tmpl_var name='max_waf_src_x4b_vpn_min'}" step="1" name="waf_src_x4b_vpn_min" id="waf_src_x4b_vpn_min" value="{tmpl_var name='waf_src_x4b_vpn_min'}" data-default="{tmpl_var name='default_waf_src_x4b_vpn_min'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_entries_txt'}</span></div></div>
+					<div class="mw-cfg-part"><label for="waf_src_x4b_vpn_mb">{tmpl_var name='waf_src_x4b_vpn_mb_txt'}</label><div class="input-group"><input type="number" min="{tmpl_var name='min_waf_src_x4b_vpn_mb'}" max="{tmpl_var name='max_waf_src_x4b_vpn_mb'}" step="1" name="waf_src_x4b_vpn_mb" id="waf_src_x4b_vpn_mb" value="{tmpl_var name='waf_src_x4b_vpn_mb'}" data-default="{tmpl_var name='default_waf_src_x4b_vpn_mb'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_mb_txt'}</span></div></div>
+				</div>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_src_x4b_datacenter_urls">{tmpl_var name='waf_src_x4b_datacenter_urls_txt'}</label>
+			<div class="mw-cfg-control">
+				<textarea name="waf_src_x4b_datacenter_urls" id="waf_src_x4b_datacenter_urls" rows="2" class="form-control mw-cfg-list mw-cfg-urls" spellcheck="false" autocomplete="off" data-default="{tmpl_var name='default_waf_src_x4b_datacenter_urls'}">{tmpl_var name='lines_waf_src_x4b_datacenter_urls'}</textarea>
+				<div class="mw-cfg-pair">
+					<div class="mw-cfg-part"><label for="waf_src_x4b_datacenter_min">{tmpl_var name='waf_src_x4b_datacenter_min_txt'}</label><div class="input-group"><input type="number" min="{tmpl_var name='min_waf_src_x4b_datacenter_min'}" max="{tmpl_var name='max_waf_src_x4b_datacenter_min'}" step="1" name="waf_src_x4b_datacenter_min" id="waf_src_x4b_datacenter_min" value="{tmpl_var name='waf_src_x4b_datacenter_min'}" data-default="{tmpl_var name='default_waf_src_x4b_datacenter_min'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_entries_txt'}</span></div></div>
+					<div class="mw-cfg-part"><label for="waf_src_x4b_datacenter_mb">{tmpl_var name='waf_src_x4b_datacenter_mb_txt'}</label><div class="input-group"><input type="number" min="{tmpl_var name='min_waf_src_x4b_datacenter_mb'}" max="{tmpl_var name='max_waf_src_x4b_datacenter_mb'}" step="1" name="waf_src_x4b_datacenter_mb" id="waf_src_x4b_datacenter_mb" value="{tmpl_var name='waf_src_x4b_datacenter_mb'}" data-default="{tmpl_var name='default_waf_src_x4b_datacenter_mb'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_mb_txt'}</span></div></div>
+				</div>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_src_searchbots_urls">{tmpl_var name='waf_src_searchbots_urls_txt'}</label>
+			<div class="mw-cfg-control">
+				<textarea name="waf_src_searchbots_urls" id="waf_src_searchbots_urls" rows="2" class="form-control mw-cfg-list mw-cfg-urls" spellcheck="false" autocomplete="off" data-default="{tmpl_var name='default_waf_src_searchbots_urls'}">{tmpl_var name='lines_waf_src_searchbots_urls'}</textarea>
+				<div class="mw-cfg-pair">
+					<div class="mw-cfg-part"><label for="waf_src_searchbots_min">{tmpl_var name='waf_src_searchbots_min_txt'}</label><div class="input-group"><input type="number" min="{tmpl_var name='min_waf_src_searchbots_min'}" max="{tmpl_var name='max_waf_src_searchbots_min'}" step="1" name="waf_src_searchbots_min" id="waf_src_searchbots_min" value="{tmpl_var name='waf_src_searchbots_min'}" data-default="{tmpl_var name='default_waf_src_searchbots_min'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_entries_txt'}</span></div></div>
+					<div class="mw-cfg-part"><label for="waf_src_searchbots_mb">{tmpl_var name='waf_src_searchbots_mb_txt'}</label><div class="input-group"><input type="number" min="{tmpl_var name='min_waf_src_searchbots_mb'}" max="{tmpl_var name='max_waf_src_searchbots_mb'}" step="1" name="waf_src_searchbots_mb" id="waf_src_searchbots_mb" value="{tmpl_var name='waf_src_searchbots_mb'}" data-default="{tmpl_var name='default_waf_src_searchbots_mb'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_mb_txt'}</span></div></div>
+				</div>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_origin_bad_percent">{tmpl_var name='waf_origin_bad_percent_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_origin_bad_percent'}" max="{tmpl_var name='max_waf_origin_bad_percent'}" step="1" name="waf_origin_bad_percent" id="waf_origin_bad_percent" value="{tmpl_var name='waf_origin_bad_percent'}" data-default="{tmpl_var name='default_waf_origin_bad_percent'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_percent_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_origin_bad_percent_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_origin_keep_percent">{tmpl_var name='waf_origin_keep_percent_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_origin_keep_percent'}" max="{tmpl_var name='max_waf_origin_keep_percent'}" step="1" name="waf_origin_keep_percent" id="waf_origin_keep_percent" value="{tmpl_var name='waf_origin_keep_percent'}" data-default="{tmpl_var name='default_waf_origin_keep_percent'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_percent_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_origin_keep_percent_hint_txt'}</p>
+			</div>
+		</div>
+		<h3 class="mw-cfg-group">{tmpl_var name='tech_downloads_head_txt'}</h3>
+		<div class="mw-cfg-field">
+			<label for="waf_fetch_connect_seconds">{tmpl_var name='waf_fetch_connect_seconds_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_fetch_connect_seconds'}" max="{tmpl_var name='max_waf_fetch_connect_seconds'}" step="1" name="waf_fetch_connect_seconds" id="waf_fetch_connect_seconds" value="{tmpl_var name='waf_fetch_connect_seconds'}" data-default="{tmpl_var name='default_waf_fetch_connect_seconds'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_seconds_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_fetch_connect_seconds_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_fetch_timeout_seconds">{tmpl_var name='waf_fetch_timeout_seconds_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_fetch_timeout_seconds'}" max="{tmpl_var name='max_waf_fetch_timeout_seconds'}" step="1" name="waf_fetch_timeout_seconds" id="waf_fetch_timeout_seconds" value="{tmpl_var name='waf_fetch_timeout_seconds'}" data-default="{tmpl_var name='default_waf_fetch_timeout_seconds'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_seconds_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_fetch_timeout_seconds_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_fetch_redirects">{tmpl_var name='waf_fetch_redirects_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_fetch_redirects'}" max="{tmpl_var name='max_waf_fetch_redirects'}" step="1" name="waf_fetch_redirects" id="waf_fetch_redirects" value="{tmpl_var name='waf_fetch_redirects'}" data-default="{tmpl_var name='default_waf_fetch_redirects'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_redirects_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_fetch_redirects_hint_txt'}</p>
+			</div>
+		</div>
+		<h3 class="mw-cfg-group">{tmpl_var name='tech_proxycheck_head_txt'}</h3>
+		<div class="mw-cfg-field">
+			<label for="waf_proxycheck_url">{tmpl_var name='waf_proxycheck_url_txt'}</label>
+			<div class="mw-cfg-control">
+				<input type="text" name="waf_proxycheck_url" id="waf_proxycheck_url" value="{tmpl_var name='waf_proxycheck_url'}" class="form-control mw-cfg-text mw-cfg-url" autocomplete="off" spellcheck="false" maxlength="255" data-default="{tmpl_var name='default_waf_proxycheck_url'}" />
+				<p class="mw-cfg-hint">{tmpl_var name='waf_proxycheck_url_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_proxycheck_batch">{tmpl_var name='waf_proxycheck_batch_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_proxycheck_batch'}" max="{tmpl_var name='max_waf_proxycheck_batch'}" step="1" name="waf_proxycheck_batch" id="waf_proxycheck_batch" value="{tmpl_var name='waf_proxycheck_batch'}" data-default="{tmpl_var name='default_waf_proxycheck_batch'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_addresses_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_proxycheck_batch_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_proxycheck_answer_mb">{tmpl_var name='waf_proxycheck_answer_mb_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_proxycheck_answer_mb'}" max="{tmpl_var name='max_waf_proxycheck_answer_mb'}" step="1" name="waf_proxycheck_answer_mb" id="waf_proxycheck_answer_mb" value="{tmpl_var name='waf_proxycheck_answer_mb'}" data-default="{tmpl_var name='default_waf_proxycheck_answer_mb'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_mb_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_proxycheck_answer_mb_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_proxycheck_connect_seconds">{tmpl_var name='waf_proxycheck_connect_seconds_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_proxycheck_connect_seconds'}" max="{tmpl_var name='max_waf_proxycheck_connect_seconds'}" step="1" name="waf_proxycheck_connect_seconds" id="waf_proxycheck_connect_seconds" value="{tmpl_var name='waf_proxycheck_connect_seconds'}" data-default="{tmpl_var name='default_waf_proxycheck_connect_seconds'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_seconds_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_proxycheck_connect_seconds_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_proxycheck_timeout_seconds">{tmpl_var name='waf_proxycheck_timeout_seconds_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_proxycheck_timeout_seconds'}" max="{tmpl_var name='max_waf_proxycheck_timeout_seconds'}" step="1" name="waf_proxycheck_timeout_seconds" id="waf_proxycheck_timeout_seconds" value="{tmpl_var name='waf_proxycheck_timeout_seconds'}" data-default="{tmpl_var name='default_waf_proxycheck_timeout_seconds'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_seconds_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_proxycheck_timeout_seconds_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_proxycheck_retry_minutes">{tmpl_var name='waf_proxycheck_retry_minutes_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_proxycheck_retry_minutes'}" max="{tmpl_var name='max_waf_proxycheck_retry_minutes'}" step="1" name="waf_proxycheck_retry_minutes" id="waf_proxycheck_retry_minutes" value="{tmpl_var name='waf_proxycheck_retry_minutes'}" data-default="{tmpl_var name='default_waf_proxycheck_retry_minutes'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_minutes_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_proxycheck_retry_minutes_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_proxycheck_tries">{tmpl_var name='waf_proxycheck_tries_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_proxycheck_tries'}" max="{tmpl_var name='max_waf_proxycheck_tries'}" step="1" name="waf_proxycheck_tries" id="waf_proxycheck_tries" value="{tmpl_var name='waf_proxycheck_tries'}" data-default="{tmpl_var name='default_waf_proxycheck_tries'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_tries_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_proxycheck_tries_hint_txt'}</p>
+			</div>
+		</div>
+		<h3 class="mw-cfg-group">{tmpl_var name='tech_work_head_txt'}</h3>
+		<div class="mw-cfg-field">
+			<label for="waf_origin_lookup_batch">{tmpl_var name='waf_origin_lookup_batch_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_origin_lookup_batch'}" max="{tmpl_var name='max_waf_origin_lookup_batch'}" step="1" name="waf_origin_lookup_batch" id="waf_origin_lookup_batch" value="{tmpl_var name='waf_origin_lookup_batch'}" data-default="{tmpl_var name='default_waf_origin_lookup_batch'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_addresses_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_origin_lookup_batch_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_cleanup_batch">{tmpl_var name='waf_cleanup_batch_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_cleanup_batch'}" max="{tmpl_var name='max_waf_cleanup_batch'}" step="1" name="waf_cleanup_batch" id="waf_cleanup_batch" value="{tmpl_var name='waf_cleanup_batch'}" data-default="{tmpl_var name='default_waf_cleanup_batch'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_hits_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_cleanup_batch_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_cleanup_rounds">{tmpl_var name='waf_cleanup_rounds_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_cleanup_rounds'}" max="{tmpl_var name='max_waf_cleanup_rounds'}" step="1" name="waf_cleanup_rounds" id="waf_cleanup_rounds" value="{tmpl_var name='waf_cleanup_rounds'}" data-default="{tmpl_var name='default_waf_cleanup_rounds'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_steps_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_cleanup_rounds_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_response_grace_minutes">{tmpl_var name='waf_response_grace_minutes_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_response_grace_minutes'}" max="{tmpl_var name='max_waf_response_grace_minutes'}" step="1" name="waf_response_grace_minutes" id="waf_response_grace_minutes" value="{tmpl_var name='waf_response_grace_minutes'}" data-default="{tmpl_var name='default_waf_response_grace_minutes'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_minutes_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_response_grace_minutes_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_blocked_lines">{tmpl_var name='waf_blocked_lines_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_blocked_lines'}" max="{tmpl_var name='max_waf_blocked_lines'}" step="1" name="waf_blocked_lines" id="waf_blocked_lines" value="{tmpl_var name='waf_blocked_lines'}" data-default="{tmpl_var name='default_waf_blocked_lines'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_rows_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_blocked_lines_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_hit_rules_max">{tmpl_var name='waf_hit_rules_max_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_hit_rules_max'}" max="{tmpl_var name='max_waf_hit_rules_max'}" step="1" name="waf_hit_rules_max" id="waf_hit_rules_max" value="{tmpl_var name='waf_hit_rules_max'}" data-default="{tmpl_var name='default_waf_hit_rules_max'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_messages_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_hit_rules_max_hint_txt'}</p>
+			</div>
+		</div>
+		<h3 class="mw-cfg-group">{tmpl_var name='tech_display_head_txt'}</h3>
+		<div class="mw-cfg-field">
+			<label for="waf_show_paths">{tmpl_var name='waf_show_paths_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_show_paths'}" max="{tmpl_var name='max_waf_show_paths'}" step="1" name="waf_show_paths" id="waf_show_paths" value="{tmpl_var name='waf_show_paths'}" data-default="{tmpl_var name='default_waf_show_paths'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_paths_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_show_paths_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_preview_delay_ms">{tmpl_var name='waf_preview_delay_ms_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_preview_delay_ms'}" max="{tmpl_var name='max_waf_preview_delay_ms'}" step="1" name="waf_preview_delay_ms" id="waf_preview_delay_ms" value="{tmpl_var name='waf_preview_delay_ms'}" data-default="{tmpl_var name='default_waf_preview_delay_ms'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_ms_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_preview_delay_ms_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_cli_jobs">{tmpl_var name='waf_cli_jobs_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_cli_jobs'}" max="{tmpl_var name='max_waf_cli_jobs'}" step="1" name="waf_cli_jobs" id="waf_cli_jobs" value="{tmpl_var name='waf_cli_jobs'}" data-default="{tmpl_var name='default_waf_cli_jobs'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_jobs_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_cli_jobs_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_cli_wait_margin_minutes">{tmpl_var name='waf_cli_wait_margin_minutes_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_cli_wait_margin_minutes'}" max="{tmpl_var name='max_waf_cli_wait_margin_minutes'}" step="1" name="waf_cli_wait_margin_minutes" id="waf_cli_wait_margin_minutes" value="{tmpl_var name='waf_cli_wait_margin_minutes'}" data-default="{tmpl_var name='default_waf_cli_wait_margin_minutes'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_minutes_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_cli_wait_margin_minutes_hint_txt'}</p>
+			</div>
+		</div>
+	</div>
+</details>
+
 <details class="mw-cfg-sec" id="mw-cfg-facts" data-mw-sec="facts">
 	<summary><h2 class="mw-cfg-title">{tmpl_var name='facts_head_txt'}</h2><span class="mw-cfg-state">{tmpl_var name='state_facts'}</span><span class="mw-cfg-badge" hidden></span></summary>
 	<div class="mw-cfg-body">
@@ -581,6 +828,18 @@
 #mw-wafcfg .mw-cfg-steps label{display:block;font-size:12.5px;font-weight:400;opacity:.8;margin:0 0 3px}
 #mw-wafcfg .mw-cfg-meta{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12.5px;margin:5px 0 0}
 #mw-wafcfg .mw-cfg-meta span{opacity:.8}
+/* Technik: groups inside the section, the addresses of a source at full width
+   with their two numbers beside each other. */
+#mw-wafcfg .mw-cfg-group{margin:26px 0 6px;font-size:12px;font-weight:700;letter-spacing:.06em;
+	text-transform:uppercase;opacity:.75}
+#mw-wafcfg .mw-cfg-intro + .mw-cfg-group{margin-top:12px}
+#mw-wafcfg .mw-cfg-group-intro{margin:0 0 10px}
+#mw-wafcfg .mw-cfg-list.mw-cfg-urls{max-width:100%;width:100%}
+#mw-wafcfg .mw-cfg-url{max-width:100%}
+#mw-wafcfg .mw-cfg-pair{display:flex;flex-wrap:wrap;gap:8px 20px;margin-top:8px}
+#mw-wafcfg .mw-cfg-part{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px}
+#mw-wafcfg .mw-cfg-part label{margin:0;font-weight:400;min-width:6.5em}
+#mw-wafcfg .mw-cfg-part .mw-cfg-meta{flex-basis:100%}
 #mw-wafcfg .mw-cfg-hint{font-size:13px;opacity:.8;margin:6px 0 0;max-width:72ch;line-height:1.45}
 #mw-wafcfg .mw-cfg-clear{display:inline-flex;gap:6px;align-items:center;font-weight:400;margin:6px 0 0}
 #mw-wafcfg .mw-seg{display:inline-flex;flex-wrap:wrap;border:1px solid var(--mw-line);border-radius:8px;overflow:hidden}
@@ -638,9 +897,14 @@
 			+ parseFloat(cs.borderLeftWidth) + parseFloat(cs.borderRightWidth);
 		input.style.width = Math.ceil(text + frame + 24) + 'px';
 	});
-	// A list field shows all its lines and one more.
+	// A list field shows all its lines and one more. A field of addresses also
+	// grows with the lines a long address wraps into, once it is in sight.
 	function rows(area) {
 		area.rows = Math.max(2, area.value.split('\n').length + 1);
+		if (area.classList.contains('mw-cfg-urls') && area.offsetParent !== null) {
+			area.style.height = 'auto';
+			area.style.height = (area.scrollHeight + area.offsetHeight - area.clientHeight) + 'px';
+		}
 	}
 	each(root.querySelectorAll('textarea.mw-cfg-list'), rows);
 
@@ -653,6 +917,7 @@
 		if (kept === 'open') { box.open = true; }
 		if (kept === 'closed') { box.open = false; }
 		box.addEventListener('toggle', function () {
+			if (box.open) { each(box.querySelectorAll('textarea.mw-cfg-urls'), rows); }
 			if (root.getAttribute('data-mw-searching') === '1') { return; }
 			try {
 				if (!store) { return; }

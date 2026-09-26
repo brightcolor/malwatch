@@ -108,7 +108,8 @@
 <tmpl_if name="has_site">
 <div id="mw-wafsite" data-mw-jobs="security/malwatch_waf_jobs.php?since={tmpl_var name='first_job'}" data-mw-poll="{tmpl_var name='poll_ms'}"
 	data-mw-self="{tmpl_var name='self_href'}"
-	data-mw-preview="security/malwatch_waf_preview.php?id={tmpl_var name='domain_id'}">
+	data-mw-preview="security/malwatch_waf_preview.php?id={tmpl_var name='domain_id'}"
+	data-mw-preview-delay="{tmpl_var name='preview_delay_ms'}">
 
 <p class="mw-back"><a href="#" data-load-content="security/malwatch_waf_list.php">{tmpl_var name='show_back_txt'}</a></p>
 
@@ -500,7 +501,7 @@
 	function update() {
 		arrange();
 		if (waiting) { clearTimeout(waiting); }
-		waiting = setTimeout(load, 300);
+		waiting = setTimeout(load, parseInt(root.getAttribute('data-mw-preview-delay'), 10) || 0);
 	}
 
 	// "Ausnahme …" fills the form from a rule or a request and moves to it.

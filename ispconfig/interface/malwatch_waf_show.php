@@ -118,6 +118,8 @@ $app->tpl->setLoop('jobs', $job_rows);
 $app->tpl->setVar('has_jobs', count($job_rows) > 0 ? 1 : 0);
 $app->tpl->setVar('first_job', $first_job);
 $app->tpl->setVar('poll_ms', waf_panel_poll_ms(waf_panel_settings($app)));
+// How long after the last key the preview of an exception is asked for (waf_preview_delay_ms).
+$app->tpl->setVar('preview_delay_ms', (int) $settings['waf_preview_delay_ms']);
 $app->tpl->setVar('self_href', $app->functions->htmlentities('security/malwatch_waf_show.php?id=' . $domain_id . '&days=' . $days . $ip_query));
 
 // The preview for enforce.
@@ -288,7 +290,7 @@ $app->tpl->setLoop('rules', $rule_rows);
 $app->tpl->setVar('has_rules', count($rule_rows) > 0 ? 1 : 0);
 
 $path_rows = array();
-foreach (array_slice(waf_panel_paths($day_rows), 0, 50) as $path) {
+foreach (array_slice(waf_panel_paths($day_rows), 0, (int) $settings['waf_show_paths']) as $path) {
 	$path_rows[] = array(
 		'path' => $app->functions->htmlentities($path['path']),
 		'path_hits' => number_format($path['hits'], 0, ',', '.'),

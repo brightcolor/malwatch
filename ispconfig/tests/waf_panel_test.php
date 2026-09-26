@@ -340,7 +340,7 @@ foreach (waf_settings_lists() as $key => $kind) {
 // The line in the title of each section: how it is set right now.
 $sum = waf_config_summaries($config_words['de'], waf_settings(array('waf_ban_mode' => 'block')));
 expect_same('every section of the settings page has its line', array_keys($sum),
-	array('ban', 'logged_in', 'never', 'origin_ban', 'origin_src', 'f2b', 'enforce', 'display', 'keep', 'cron', 'facts'));
+	array('ban', 'logged_in', 'never', 'origin_ban', 'origin_src', 'f2b', 'enforce', 'display', 'keep', 'cron', 'tech', 'facts'));
 expect_same('the line of the blocks', $sum['ban'], 'Automatik sperrt · ab 50 Punkten in 10 Minuten · 1 → 24 → 168 Stunden');
 expect_same('the line of the logged-in users', $sum['logged_in'],
 	'zählen zu 10 % auf /wp-admin/, /wp-json/ · immer voll: wp-login.php, xmlrpc.php');
@@ -360,6 +360,12 @@ expect_same('the line of the display shows the periods the overview offers', str
 	'Übersicht: 3, 14, 60 Tage, beim Öffnen 60 · '), 0);
 expect_same('the line of the clock', $sum['cron'], '5.000 Zeilen je Lauf · wartet bis 30 Sekunden · Ausfall nach 180 Sekunden');
 expect_same('the line of the server', $sum['facts'], 'Notaus aus · Seitenantwort vollständig');
+expect_same('the line of the technical values', $sum['tech'],
+	'Downloads bis 120 s · proxycheck.io 100 Adressen je Anfrage · Aufräumen 50 × 1.000 Treffer je Lauf');
+expect_same('the line names the sources with own addresses', waf_config_summaries($config_words['de'],
+	waf_settings(array('waf_src_tor_urls' => 'https://mirror.example/tor.txt')))['tech'],
+	'Downloads bis 120 s · proxycheck.io 100 Adressen je Anfrage · Aufräumen 50 × 1.000 Treffer je Lauf'
+	. ' · Quellen mit eigenen Adressen: 1');
 
 // The choices of a field with the stored one checked, for buttons in the template.
 $choices = waf_config_choices(array('waf_ban_mode' => $config_tab['fields']['waf_ban_mode']),
@@ -386,6 +392,22 @@ $empty = waf_config_lists($config_words['de'], array('waf_own_networks' => " \n 
 expect_same('an empty list of own networks is refused, an empty list of paths is allowed', array(count($empty['errors']),
 	strpos($empty['errors'][0], 'Eigene Netze') === 0, strpos($empty['errors'][0], '127.0.0.0/8') !== false,
 	strpos($empty['errors'][0], 'speichere erneut') !== false), array(1, true, true, true));
+$urls = waf_config_lists($config_words['de'], array('waf_src_tor_urls' => "https://mirror.example/tor.txt\nhttp://unsicher.example/x",
+	'waf_proxycheck_url' => 'https://proxycheck.io/v3/'));
+expect_same('an address without https:// is named with the rule', array(count($urls['errors']),
+	strpos($urls['errors'][0], '„http://unsicher.example/x“') !== false, strpos($urls['errors'][0], 'https://') !== false),
+	array(1, true, true));
+$missing = waf_config_lists($config_words['de'], array('waf_src_tor_urls' => '',
+	'waf_proxycheck_url' => "https://a.example/\nhttps://b.example/"));
+expect_same('a source without an address and two addresses for proxycheck.io are refused', array(count($missing['errors']),
+	strpos($missing['errors'][0], 'Tor') === 0, strpos($missing['errors'][1], '„https://b.example/“') !== false),
+	array(2, true, true));
+expect_same('good addresses are stored with commas', waf_config_lists($config_words['de'],
+	array('waf_src_x4b_vpn_urls' => "https://a.example/v4.txt\nhttps://a.example/v6.txt"))['record']['waf_src_x4b_vpn_urls'],
+	'https://a.example/v4.txt,https://a.example/v6.txt');
+$long_urls = waf_config_lists($config_words['de'], array('waf_src_tor_urls' => 'https://a.example/' . str_repeat('x', 600)));
+expect_same('addresses longer than their column are refused with its length', array(count($long_urls['errors']),
+	strpos($long_urls['errors'][0], '512') !== false), array(1, true));
 $days = waf_config_lists($config_words['de'], array('waf_periods' => "1\n7\n0\nzwei\n7"));
 expect_same('a bad period is named with the rule and the longest keep', array(count($days['errors']),
 	strpos($days['errors'][0], '„0“, „zwei“') !== false, strpos($days['errors'][0], '3.650') !== false,

@@ -648,6 +648,485 @@ $form['tabs']['waf'] = array(
 			'value' => '',
 			'width' => '10',
 			'maxlength' => '4'
+		),
+		'waf_src_dbip_country_urls' => array(
+			'datatype' => 'VARCHAR',
+			'formtype' => 'TEXT',
+			'default' => 'https://download.db-ip.com/free/dbip-country-lite-{month}.csv.gz',
+			'value' => '',
+			'width' => '40',
+			'maxlength' => '512'
+		),
+		'waf_src_dbip_country_min' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '100000',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '1:10000000', 'errmsg' => 'waf_src_dbip_country_min_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '8'
+		),
+		'waf_src_dbip_country_mb' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '80',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '1:1024', 'errmsg' => 'waf_src_dbip_country_mb_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '4'
+		),
+		'waf_src_dbip_asn_urls' => array(
+			'datatype' => 'VARCHAR',
+			'formtype' => 'TEXT',
+			'default' => 'https://download.db-ip.com/free/dbip-asn-lite-{month}.csv.gz',
+			'value' => '',
+			'width' => '40',
+			'maxlength' => '512'
+		),
+		'waf_src_dbip_asn_min' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '100000',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '1:10000000', 'errmsg' => 'waf_src_dbip_asn_min_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '8'
+		),
+		'waf_src_dbip_asn_mb' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '80',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '1:1024', 'errmsg' => 'waf_src_dbip_asn_mb_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '4'
+		),
+		'waf_src_maxmind_country_urls' => array(
+			'datatype' => 'VARCHAR',
+			'formtype' => 'TEXT',
+			'default' => 'https://download.maxmind.com/geoip/databases/GeoLite2-Country-CSV/download?suffix=zip',
+			'value' => '',
+			'width' => '40',
+			'maxlength' => '512'
+		),
+		'waf_src_maxmind_country_min' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '100000',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '1:10000000', 'errmsg' => 'waf_src_maxmind_country_min_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '8'
+		),
+		'waf_src_maxmind_country_mb' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '80',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '1:1024', 'errmsg' => 'waf_src_maxmind_country_mb_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '4'
+		),
+		'waf_src_maxmind_asn_urls' => array(
+			'datatype' => 'VARCHAR',
+			'formtype' => 'TEXT',
+			'default' => 'https://download.maxmind.com/geoip/databases/GeoLite2-ASN-CSV/download?suffix=zip',
+			'value' => '',
+			'width' => '40',
+			'maxlength' => '512'
+		),
+		'waf_src_maxmind_asn_min' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '100000',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '1:10000000', 'errmsg' => 'waf_src_maxmind_asn_min_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '8'
+		),
+		'waf_src_maxmind_asn_mb' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '80',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '1:1024', 'errmsg' => 'waf_src_maxmind_asn_mb_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '4'
+		),
+		'waf_src_tor_urls' => array(
+			'datatype' => 'VARCHAR',
+			'formtype' => 'TEXT',
+			'default' => 'https://check.torproject.org/torbulkexitlist',
+			'value' => '',
+			'width' => '40',
+			'maxlength' => '512'
+		),
+		'waf_src_tor_min' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '100',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '1:10000000', 'errmsg' => 'waf_src_tor_min_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '8'
+		),
+		'waf_src_tor_mb' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '20',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '1:1024', 'errmsg' => 'waf_src_tor_mb_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '4'
+		),
+		'waf_src_x4b_vpn_urls' => array(
+			'datatype' => 'VARCHAR',
+			'formtype' => 'TEXT',
+			'default' => 'https://raw.githubusercontent.com/X4BNet/lists_vpn/main/output/vpn/ipv4.txt,https://raw.githubusercontent.com/X4BNet/lists_vpn/main/output/vpn/ipv6.txt',
+			'value' => '',
+			'width' => '40',
+			'maxlength' => '512'
+		),
+		'waf_src_x4b_vpn_min' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '1000',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '1:10000000', 'errmsg' => 'waf_src_x4b_vpn_min_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '8'
+		),
+		'waf_src_x4b_vpn_mb' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '20',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '1:1024', 'errmsg' => 'waf_src_x4b_vpn_mb_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '4'
+		),
+		'waf_src_x4b_datacenter_urls' => array(
+			'datatype' => 'VARCHAR',
+			'formtype' => 'TEXT',
+			'default' => 'https://raw.githubusercontent.com/X4BNet/lists_vpn/main/output/datacenter/ipv4.txt,https://raw.githubusercontent.com/X4BNet/lists_vpn/main/output/datacenter/ipv6.txt',
+			'value' => '',
+			'width' => '40',
+			'maxlength' => '512'
+		),
+		'waf_src_x4b_datacenter_min' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '1000',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '1:10000000', 'errmsg' => 'waf_src_x4b_datacenter_min_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '8'
+		),
+		'waf_src_x4b_datacenter_mb' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '20',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '1:1024', 'errmsg' => 'waf_src_x4b_datacenter_mb_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '4'
+		),
+		'waf_src_searchbots_urls' => array(
+			'datatype' => 'VARCHAR',
+			'formtype' => 'TEXT',
+			'default' => 'https://developers.google.com/static/search/apis/ipranges/googlebot.json,https://www.bing.com/toolbox/bingbot.json',
+			'value' => '',
+			'width' => '40',
+			'maxlength' => '512'
+		),
+		'waf_src_searchbots_min' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '10',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '1:10000000', 'errmsg' => 'waf_src_searchbots_min_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '8'
+		),
+		'waf_src_searchbots_mb' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '8',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '1:1024', 'errmsg' => 'waf_src_searchbots_mb_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '4'
+		),
+		'waf_origin_bad_percent' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '1',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '0:50', 'errmsg' => 'waf_origin_bad_percent_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '2'
+		),
+		'waf_origin_keep_percent' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '50',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '0:100', 'errmsg' => 'waf_origin_keep_percent_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '3'
+		),
+		'waf_fetch_connect_seconds' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '10',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '1:120', 'errmsg' => 'waf_fetch_connect_seconds_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '3'
+		),
+		'waf_fetch_timeout_seconds' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '120',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '10:3600', 'errmsg' => 'waf_fetch_timeout_seconds_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '4'
+		),
+		'waf_fetch_redirects' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '3',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '0:10', 'errmsg' => 'waf_fetch_redirects_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '2'
+		),
+		'waf_proxycheck_url' => array(
+			'datatype' => 'VARCHAR',
+			'formtype' => 'TEXT',
+			'default' => 'https://proxycheck.io/v3/',
+			'value' => '',
+			'width' => '40',
+			'maxlength' => '255'
+		),
+		'waf_proxycheck_batch' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '100',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '1:1000', 'errmsg' => 'waf_proxycheck_batch_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '4'
+		),
+		'waf_proxycheck_answer_mb' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '2',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '1:50', 'errmsg' => 'waf_proxycheck_answer_mb_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '2'
+		),
+		'waf_proxycheck_connect_seconds' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '5',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '1:60', 'errmsg' => 'waf_proxycheck_connect_seconds_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '2'
+		),
+		'waf_proxycheck_timeout_seconds' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '10',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '2:300', 'errmsg' => 'waf_proxycheck_timeout_seconds_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '3'
+		),
+		'waf_proxycheck_retry_minutes' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '60',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '5:1440', 'errmsg' => 'waf_proxycheck_retry_minutes_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '4'
+		),
+		'waf_proxycheck_tries' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '3',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '1:10', 'errmsg' => 'waf_proxycheck_tries_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '2'
+		),
+		'waf_origin_lookup_batch' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '500',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '1:100000', 'errmsg' => 'waf_origin_lookup_batch_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '6'
+		),
+		'waf_cleanup_batch' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '1000',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '100:100000', 'errmsg' => 'waf_cleanup_batch_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '6'
+		),
+		'waf_cleanup_rounds' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '50',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '1:1000', 'errmsg' => 'waf_cleanup_rounds_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '4'
+		),
+		'waf_response_grace_minutes' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '60',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '5:10080', 'errmsg' => 'waf_response_grace_minutes_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '5'
+		),
+		'waf_blocked_lines' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '20000',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '1:1000000', 'errmsg' => 'waf_blocked_lines_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '7'
+		),
+		'waf_hit_rules_max' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '50',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '5:500', 'errmsg' => 'waf_hit_rules_max_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '3'
+		),
+		'waf_show_paths' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '50',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '10:1000', 'errmsg' => 'waf_show_paths_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '4'
+		),
+		'waf_preview_delay_ms' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '300',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '50:5000', 'errmsg' => 'waf_preview_delay_ms_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '4'
+		),
+		'waf_cli_jobs' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '20',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '5:500', 'errmsg' => 'waf_cli_jobs_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '3'
+		),
+		'waf_cli_wait_margin_minutes' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '2',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '0:60', 'errmsg' => 'waf_cli_wait_margin_minutes_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '2'
 		)
 	)
 );

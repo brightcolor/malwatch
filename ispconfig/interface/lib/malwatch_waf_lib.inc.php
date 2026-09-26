@@ -366,10 +366,15 @@ function waf_audit_param($data)
  * One line of the JSON audit log as a hit, or null for a line that is no
  * usable entry. tests/waf_audit_sample.log shows the shape ModSecurity 3.0.12
  * writes. $login_cookies are the beginnings of cookie names that mark a
- * logged-in session (waf_login_cookies); null takes the default.
+ * logged-in session (waf_login_cookies), $rules_max how many rule messages a
+ * hit keeps (waf_hit_rules_max); null takes the default.
  */
-function waf_audit_parse_line($line, $login_cookies = null)
+function waf_audit_parse_line($line, $login_cookies = null, $rules_max = null)
 {
+	if ($rules_max === null) {
+		$defaults = waf_settings_defaults();
+		$rules_max = (int) $defaults['waf_hit_rules_max'];
+	}
 	$line = trim((string) $line);
 	if ($line === '' || $line[0] !== '{') {
 		return null;
@@ -403,7 +408,7 @@ function waf_audit_parse_line($line, $login_cookies = null)
 				$score = max($score, (int) $m[1]);
 			}
 		}
-		if (isset($seen[$rule_id]) || count($rules) >= 50) {
+		if (isset($seen[$rule_id]) || count($rules) >= $rules_max) {
 			continue;
 		}
 		$seen[$rule_id] = true;
@@ -878,6 +883,55 @@ function waf_settings_defaults()
 		'waf_ban_rule_hits' => 200,
 		'waf_periods' => '1,7,30,90',
 		'waf_period_default' => 7,
+		// From 0.34.0 the technical values: the sources of the origin (addresses,
+		// smallest plausible number of entries, largest download in MB), downloads,
+		// proxycheck.io, cleanup, reading and the command line.
+		'waf_src_dbip_country_urls' => 'https://download.db-ip.com/free/dbip-country-lite-{month}.csv.gz',
+		'waf_src_dbip_country_min' => 100000,
+		'waf_src_dbip_country_mb' => 80,
+		'waf_src_dbip_asn_urls' => 'https://download.db-ip.com/free/dbip-asn-lite-{month}.csv.gz',
+		'waf_src_dbip_asn_min' => 100000,
+		'waf_src_dbip_asn_mb' => 80,
+		'waf_src_maxmind_country_urls' => 'https://download.maxmind.com/geoip/databases/GeoLite2-Country-CSV/download?suffix=zip',
+		'waf_src_maxmind_country_min' => 100000,
+		'waf_src_maxmind_country_mb' => 80,
+		'waf_src_maxmind_asn_urls' => 'https://download.maxmind.com/geoip/databases/GeoLite2-ASN-CSV/download?suffix=zip',
+		'waf_src_maxmind_asn_min' => 100000,
+		'waf_src_maxmind_asn_mb' => 80,
+		'waf_src_tor_urls' => 'https://check.torproject.org/torbulkexitlist',
+		'waf_src_tor_min' => 100,
+		'waf_src_tor_mb' => 20,
+		'waf_src_x4b_vpn_urls' => 'https://raw.githubusercontent.com/X4BNet/lists_vpn/main/output/vpn/ipv4.txt,https://raw.githubusercontent.com/X4BNet/lists_vpn/main/output/vpn/ipv6.txt',
+		'waf_src_x4b_vpn_min' => 1000,
+		'waf_src_x4b_vpn_mb' => 20,
+		'waf_src_x4b_datacenter_urls' => 'https://raw.githubusercontent.com/X4BNet/lists_vpn/main/output/datacenter/ipv4.txt,https://raw.githubusercontent.com/X4BNet/lists_vpn/main/output/datacenter/ipv6.txt',
+		'waf_src_x4b_datacenter_min' => 1000,
+		'waf_src_x4b_datacenter_mb' => 20,
+		'waf_src_searchbots_urls' => 'https://developers.google.com/static/search/apis/ipranges/googlebot.json,https://www.bing.com/toolbox/bingbot.json',
+		'waf_src_searchbots_min' => 10,
+		'waf_src_searchbots_mb' => 8,
+		'waf_origin_bad_percent' => 1,
+		'waf_origin_keep_percent' => 50,
+		'waf_fetch_connect_seconds' => 10,
+		'waf_fetch_timeout_seconds' => 120,
+		'waf_fetch_redirects' => 3,
+		'waf_proxycheck_url' => 'https://proxycheck.io/v3/',
+		'waf_proxycheck_batch' => 100,
+		'waf_proxycheck_answer_mb' => 2,
+		'waf_proxycheck_connect_seconds' => 5,
+		'waf_proxycheck_timeout_seconds' => 10,
+		'waf_proxycheck_retry_minutes' => 60,
+		'waf_proxycheck_tries' => 3,
+		'waf_origin_lookup_batch' => 500,
+		'waf_cleanup_batch' => 1000,
+		'waf_cleanup_rounds' => 50,
+		'waf_response_grace_minutes' => 60,
+		'waf_blocked_lines' => 20000,
+		'waf_hit_rules_max' => 50,
+		'waf_show_paths' => 50,
+		'waf_preview_delay_ms' => 300,
+		'waf_cli_jobs' => 20,
+		'waf_cli_wait_margin_minutes' => 2,
 	);
 }
 
@@ -924,6 +978,43 @@ function waf_settings_limits()
 		'waf_lock_retry_ms' => array(50, 5000),
 		'waf_ban_rule_hits' => array(50, 5000),
 		'waf_period_default' => array(1, 3650),
+		'waf_src_dbip_country_min' => array(1, 10000000),
+		'waf_src_dbip_country_mb' => array(1, 1024),
+		'waf_src_dbip_asn_min' => array(1, 10000000),
+		'waf_src_dbip_asn_mb' => array(1, 1024),
+		'waf_src_maxmind_country_min' => array(1, 10000000),
+		'waf_src_maxmind_country_mb' => array(1, 1024),
+		'waf_src_maxmind_asn_min' => array(1, 10000000),
+		'waf_src_maxmind_asn_mb' => array(1, 1024),
+		'waf_src_tor_min' => array(1, 10000000),
+		'waf_src_tor_mb' => array(1, 1024),
+		'waf_src_x4b_vpn_min' => array(1, 10000000),
+		'waf_src_x4b_vpn_mb' => array(1, 1024),
+		'waf_src_x4b_datacenter_min' => array(1, 10000000),
+		'waf_src_x4b_datacenter_mb' => array(1, 1024),
+		'waf_src_searchbots_min' => array(1, 10000000),
+		'waf_src_searchbots_mb' => array(1, 1024),
+		'waf_origin_bad_percent' => array(0, 50),
+		'waf_origin_keep_percent' => array(0, 100),
+		'waf_fetch_connect_seconds' => array(1, 120),
+		'waf_fetch_timeout_seconds' => array(10, 3600),
+		'waf_fetch_redirects' => array(0, 10),
+		'waf_proxycheck_batch' => array(1, 1000),
+		'waf_proxycheck_answer_mb' => array(1, 50),
+		'waf_proxycheck_connect_seconds' => array(1, 60),
+		'waf_proxycheck_timeout_seconds' => array(2, 300),
+		'waf_proxycheck_retry_minutes' => array(5, 1440),
+		'waf_proxycheck_tries' => array(1, 10),
+		'waf_origin_lookup_batch' => array(1, 100000),
+		'waf_cleanup_batch' => array(100, 100000),
+		'waf_cleanup_rounds' => array(1, 1000),
+		'waf_response_grace_minutes' => array(5, 10080),
+		'waf_blocked_lines' => array(1, 1000000),
+		'waf_hit_rules_max' => array(5, 500),
+		'waf_show_paths' => array(10, 1000),
+		'waf_preview_delay_ms' => array(50, 5000),
+		'waf_cli_jobs' => array(5, 500),
+		'waf_cli_wait_margin_minutes' => array(0, 60),
 	);
 }
 
@@ -931,11 +1022,23 @@ if (!defined('WAF_LIST_MAX')) {
 	/** The longest text a list of the settings holds: its column is varchar(1024). */
 	define('WAF_LIST_MAX', 1024);
 }
+if (!defined('WAF_URL_LIST_MAX')) {
+	/** The addresses of a source: their column is varchar(512), so the row of the settings keeps its room. */
+	define('WAF_URL_LIST_MAX', 512);
+}
+if (!defined('WAF_ORIGIN_CHOICE_MAX')) {
+	/** The chosen countries and providers: each column is varchar(255), so no more entries fit. */
+	define('WAF_ORIGIN_CHOICE_MAX', 255);
+}
+if (!defined('WAF_URL_MAX')) {
+	/** A single address of the settings: its column is varchar(255). */
+	define('WAF_URL_MAX', 255);
+}
 
 /**
  * The settings that hold lists, and what each list holds: paths, cookie names,
- * networks or periods in days. They are stored with commas and shown one entry
- * per line.
+ * networks, periods in days, addresses (urls) or a single address (url). They
+ * are stored with commas and shown one entry per line.
  */
 function waf_settings_lists()
 {
@@ -945,6 +1048,15 @@ function waf_settings_lists()
 		'waf_login_cookies' => 'cookies',
 		'waf_own_networks' => 'networks',
 		'waf_periods' => 'days',
+		'waf_src_dbip_country_urls' => 'urls',
+		'waf_src_dbip_asn_urls' => 'urls',
+		'waf_src_maxmind_country_urls' => 'urls',
+		'waf_src_maxmind_asn_urls' => 'urls',
+		'waf_src_tor_urls' => 'urls',
+		'waf_src_x4b_vpn_urls' => 'urls',
+		'waf_src_x4b_datacenter_urls' => 'urls',
+		'waf_src_searchbots_urls' => 'urls',
+		'waf_proxycheck_url' => 'url',
 	);
 }
 
@@ -1007,10 +1119,54 @@ function waf_list_bad_days($items)
 	}));
 }
 
-/** true while the stored list fits into its column. */
-function waf_list_fits($items)
+/** The entries that are no address to download from: https://, a host, no space. {month} may stand in it. */
+function waf_list_bad_urls($items)
 {
-	return strlen(waf_list_join($items)) <= WAF_LIST_MAX;
+	return array_values(array_filter($items, function ($one) {
+		return !preg_match('#^https://[A-Za-z0-9.-]+(?::[0-9]{1,5})?(?:[/?][^\s]*)?$#', (string) $one);
+	}));
+}
+
+/** How long a stored list of the kind may be: the length of its column. */
+function waf_list_max($kind)
+{
+	if ($kind === 'urls') {
+		return WAF_URL_LIST_MAX;
+	}
+	return $kind === 'url' ? WAF_URL_MAX : WAF_LIST_MAX;
+}
+
+/** true while the stored list fits into its column ($max, WAF_LIST_MAX without). */
+function waf_list_fits($items, $max = null)
+{
+	return strlen(waf_list_join($items)) <= ($max === null ? WAF_LIST_MAX : (int) $max);
+}
+
+/** How the server downloads the lists of the sources (curl): connect, whole download, redirects. */
+function waf_fetch_options($settings)
+{
+	return array(
+		'connect' => (int) $settings['waf_fetch_connect_seconds'],
+		'timeout' => (int) $settings['waf_fetch_timeout_seconds'],
+		'redirects' => (int) $settings['waf_fetch_redirects'],
+	);
+}
+
+/** How the server asks proxycheck.io: connect, whole answer, largest answer in bytes. */
+function waf_proxycheck_options($settings)
+{
+	return array(
+		'connect' => (int) $settings['waf_proxycheck_connect_seconds'],
+		'timeout' => (int) $settings['waf_proxycheck_timeout_seconds'],
+		'bytes' => (int) $settings['waf_proxycheck_answer_mb'] * 1024 * 1024,
+	);
+}
+
+/** The address of proxycheck.io from the settings with the key as its last parameter. */
+function waf_proxycheck_address($url, $key)
+{
+	$url = (string) $url;
+	return $url . (strpos($url, '?') === false ? '?' : '&') . 'key=' . rawurlencode((string) $key);
 }
 
 /**
