@@ -109,10 +109,14 @@ expect_same('lede of a week', waf_panel_lede($wb, array('detect' => 1, 'enforce'
 expect_same('lede without detecting websites', waf_panel_lede($wb, array('detect' => 0, 'enforce' => 3, 'hits' => 0, 'would_block' => 0), 30),
 	'Keine Website schreibt mit, 3 blockieren. In 30 Tagen 0 Treffer.');
 
-$filters = waf_panel_filters(array('days' => '30', 'state' => 'enforce', 'wp' => '1'), 90);
+$filters = waf_panel_filters(array('days' => '30', 'state' => 'enforce', 'wp' => '1'), waf_settings(array()));
 expect_same('filters', $filters, array('days' => 30, 'state' => 'enforce', 'wordpress' => true, 'hits' => false));
-expect_same('filters with odd values', waf_panel_filters(array('days' => '5', 'state' => 'scharf'), 90),
+expect_same('filters with odd values', waf_panel_filters(array('days' => '5', 'state' => 'scharf'), waf_settings(array())),
 	array('days' => 7, 'state' => '', 'wordpress' => false, 'hits' => false));
+expect_same('without a period the page opens with waf_period_default', array(
+	waf_panel_filters(array(), waf_settings(array('waf_period_default' => '30')))['days'],
+	waf_panel_filters(array('days' => '14'), waf_settings(array('waf_periods' => '3,14,60')))['days'],
+), array(30, 14));
 expect_same('query', waf_panel_query($filters, array('hits' => true)), 'days=30&state=enforce&wp=1&hits=1');
 expect_same('query without filters', waf_panel_query($filters, array('state' => '', 'wordpress' => false)), 'days=30');
 
@@ -324,6 +328,74 @@ foreach (waf_settings_limits() as $key => $limit) {
 		isset($validator['errmsg']) && isset($config_words['de'][$validator['errmsg']]), true);
 	expect_same("settings form label of $key", isset($config_words['de'][$key . '_txt']), true);
 }
+// Every list of the settings is a field of its own, checked on the page.
+foreach (waf_settings_lists() as $key => $kind) {
+	expect_same("settings form list $key", array(
+		isset($config_tab['fields'][$key]['datatype']) ? $config_tab['fields'][$key]['datatype'] : '',
+		isset($config_tab['fields'][$key]['default']) ? $config_tab['fields'][$key]['default'] : null,
+		isset($config_words['de'][$key . '_txt']), isset($config_words['de']['list_rule_' . $kind . '_txt']),
+	), array('VARCHAR', (string) $config_defaults[$key], true, true));
+}
+
+// The line in the title of each section: how it is set right now.
+$sum = waf_config_summaries($config_words['de'], waf_settings(array('waf_ban_mode' => 'block')));
+expect_same('every section of the settings page has its line', array_keys($sum),
+	array('ban', 'logged_in', 'never', 'origin_ban', 'origin_src', 'f2b', 'enforce', 'display', 'keep', 'cron', 'facts'));
+expect_same('the line of the blocks', $sum['ban'], 'Automatik sperrt · ab 50 Punkten in 10 Minuten · 1 → 24 → 168 Stunden');
+expect_same('the line of the logged-in users', $sum['logged_in'],
+	'zählen zu 10 % auf /wp-admin/, /wp-json/ · immer voll: wp-login.php, xmlrpc.php');
+expect_same('an empty list of paths reads as all paths, an empty full list is left out',
+	waf_config_summaries($config_words['de'], waf_settings(array('waf_ban_logged_in_paths' => '', 'waf_ban_full_paths' => '')))['logged_in'],
+	'zählen zu 10 % auf allen Pfaden');
+expect_same('100 percent switches the discount off',
+	waf_config_summaries($config_words['de'], waf_settings(array('waf_ban_logged_in_percent' => '100')))['logged_in'],
+	'zählen voll, die Abwertung ist aus');
+expect_same('the line of what is never blocked', $sum['never'],
+	'eigene Netze: 3 · Suchmaschinen frei · weitere Ausnahmen auf der Seite Sperren');
+expect_same('the line of fail2ban', $sum['f2b'], 'fail2ban wird gelesen · überall sperren: Web mit Staffel und Jail recidive');
+expect_same('the line of the display', $sum['display'], 'Übersicht: 1, 7, 30, 90 Tage, beim Öffnen 7 · '
+	. 'Regelkarten bis 5.000 Treffer · Sperren: 25 Zeilen je Schritt, höchstens 1.000 · Aktualisierung alle 5 Sekunden');
+expect_same('the line of the display shows the periods the overview offers', strpos(waf_config_summaries($config_words['de'],
+	waf_settings(array('waf_periods' => '60,3,14,400', 'waf_stats_days' => '90', 'waf_period_default' => '7')))['display'],
+	'Übersicht: 3, 14, 60 Tage, beim Öffnen 60 · '), 0);
+expect_same('the line of the clock', $sum['cron'], '5.000 Zeilen je Lauf · wartet bis 30 Sekunden · Ausfall nach 180 Sekunden');
+expect_same('the line of the server', $sum['facts'], 'Notaus aus · Seitenantwort vollständig');
+
+// The choices of a field with the stored one checked, for buttons in the template.
+$choices = waf_config_choices(array('waf_ban_mode' => $config_tab['fields']['waf_ban_mode']),
+	array('waf_ban_mode' => 'block'), $config_words['de']);
+expect_same('a choice lists its options with the stored one checked', $choices['waf_ban_mode'], array(
+	array('choice_value' => 'off', 'choice_label' => 'aus', 'choice_checked' => 0, 'choice_id' => 'waf_ban_mode_off'),
+	array('choice_value' => 'propose', 'choice_label' => 'vorschlagen', 'choice_checked' => 0, 'choice_id' => 'waf_ban_mode_propose'),
+	array('choice_value' => 'block', 'choice_label' => 'sperren', 'choice_checked' => 1, 'choice_id' => 'waf_ban_mode_block'),
+));
+$defaults = waf_config_template_defaults();
+expect_same('defaults for the template, lists one entry per line', array(
+	$defaults['default_waf_ban_score'], $defaults['default_waf_own_networks'], $defaults['default_waf_periods']),
+	array('50', "127.0.0.0/8\n::1/128\n10.50.0.0/24", "1\n7\n30\n90"));
+
+// Lists are stored normalized; a bad entry is named in the message.
+$checked = waf_config_lists($config_words['de'], array('waf_own_networks' => "10.0.0.0/8\nkein-netz",
+	'waf_ban_logged_in_paths' => "/wp-admin/\n/wp-admin/", 'waf_ban_full_paths' => '', 'waf_login_cookies' => 'wordpress_logged_in_'));
+expect_same('lists are stored normalized', array($checked['record']['waf_ban_logged_in_paths'],
+	$checked['record']['waf_ban_full_paths'], $checked['record']['waf_own_networks']), array('/wp-admin/', '', '10.0.0.0/8,kein-netz'));
+expect_same('a bad entry is named in the message, with the rule and the next step', array(count($checked['errors']),
+	strpos($checked['errors'][0], '„kein-netz“') !== false, strpos($checked['errors'][0], 'Eigene Netze') === 0,
+	strpos($checked['errors'][0], 'erneut speichern') !== false), array(1, true, true, true));
+$empty = waf_config_lists($config_words['de'], array('waf_own_networks' => " \n ", 'waf_ban_full_paths' => ''));
+expect_same('an empty list of own networks is refused, an empty list of paths is allowed', array(count($empty['errors']),
+	strpos($empty['errors'][0], 'Eigene Netze') === 0, strpos($empty['errors'][0], '127.0.0.0/8') !== false,
+	strpos($empty['errors'][0], 'speichere erneut') !== false), array(1, true, true, true));
+$days = waf_config_lists($config_words['de'], array('waf_periods' => "1\n7\n0\nzwei\n7"));
+expect_same('a bad period is named with the rule and the longest keep', array(count($days['errors']),
+	strpos($days['errors'][0], '„0“, „zwei“') !== false, strpos($days['errors'][0], '3.650') !== false,
+	strpos($days['errors'][0], 'Zeiträume der Übersicht') === 0), array(1, true, true, true));
+expect_same('good periods are stored with commas', waf_config_lists($config_words['de'],
+	array('waf_periods' => "90\n1\n7\n7"))['record']['waf_periods'], '90,1,7');
+$long = waf_config_lists($config_words['de'], array('waf_ban_full_paths' => str_repeat('a', 700) . "\n" . str_repeat('b', 700)));
+expect_same('a list longer than its column is refused', array(count($long['errors']),
+	strpos($long['errors'][0], '1.024') !== false), array(1, true));
+
 expect_same('settings form title and tab', array(
 	isset($config_words['de'][$config_form['title']]),
 	isset($config_words['de'][$config_tab['title']]),
@@ -730,7 +802,7 @@ $rows = array(
 	array('value' => 'BE', 'label' => 'BE', 'hits' => 1006, 'addresses' => 2),
 	array('value' => '', 'label' => '', 'hits' => 9, 'addresses' => 1),
 );
-$view = waf_panel_ban_origin_rows($rows, array('FR', 'CN'));
+$view = waf_panel_ban_origin_rows($rows, array('FR', 'CN'), 25);
 expect_same('the busiest come first and the empty row stays out',
 	array_map(function ($one) { return $one['value']; }, $view), array('FR', 'BE', 'CN'));
 expect_same('what is on the list is ticked',
@@ -756,7 +828,11 @@ $long = array();
 for ($i = 0; $i < 40; $i++) {
 	$long[] = array('value' => 'L' . $i, 'label' => 'L' . $i, 'hits' => 40 - $i, 'addresses' => 1);
 }
-expect_same('the list stays short', count(waf_panel_ban_origin_rows($long, array())), 25);
+expect_same('the list stays as short as the setting says', array(
+	count(waf_panel_ban_origin_rows($long, array(), 25)), count(waf_panel_ban_origin_rows($long, array(), 10))), array(25, 10));
+expect_same('pages ask for running jobs as often as the settings say',
+	array(waf_panel_poll_ms(array('waf_poll_seconds' => 5)), waf_panel_poll_ms(array('waf_poll_seconds' => '12'))),
+	array(5000, 12000));
 
 // --- Die Adresse der veröffentlichten Liste ----------------------------------
 

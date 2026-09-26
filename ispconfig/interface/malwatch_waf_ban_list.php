@@ -60,6 +60,7 @@ foreach (waf_panel_rows($app->db->queryAllRecords(
 $app->tpl->setLoop('jobs', $job_rows);
 $app->tpl->setVar('has_jobs', count($job_rows) > 0 ? 1 : 0);
 $app->tpl->setVar('first_job', $first_job);
+$app->tpl->setVar('poll_ms', waf_panel_poll_ms(waf_panel_settings($app)));
 
 // Each list shows one step of rows first (waf_ban_page_step). "Weitere laden"
 // asks the page for more with rows_<list>, up to the limit waf_ban_page_rows;
@@ -235,12 +236,12 @@ $countries = waf_panel_ban_origin_rows(waf_panel_rows($app->db->queryAllRecords(
 	'SELECT i.country AS value, i.country AS label, SUM(x.hits) AS hits, COUNT(*) AS addresses '
 	. 'FROM ' . $per_address . ' JOIN malwatch_waf_ip i ON i.ip = x.client_ip '
 	. "WHERE i.country != '' GROUP BY i.country ORDER BY hits DESC", $days)),
-	$chosen_countries, 25, 'country', $language);
+	$chosen_countries, (int) $settings['waf_ban_origin_rows'], 'country', $language);
 $providers = waf_panel_ban_origin_rows(waf_panel_rows($app->db->queryAllRecords(
 	'SELECT i.asn AS value, i.as_org AS label, SUM(x.hits) AS hits, COUNT(*) AS addresses '
 	. 'FROM ' . $per_address . ' JOIN malwatch_waf_ip i ON i.ip = x.client_ip '
 	. 'WHERE i.asn > 0 GROUP BY i.asn, i.as_org ORDER BY hits DESC', $days)),
-	$chosen_asns, 25, 'asn', $language);
+	$chosen_asns, (int) $settings['waf_ban_origin_rows'], 'asn', $language);
 foreach (array('country' => $countries, 'asn' => $providers) as $kind => $list) {
 	$loop = array();
 	foreach ($list as $one) {

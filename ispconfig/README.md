@@ -41,6 +41,9 @@ Pfad unter **Security > Scanner > Einstellungen** prüfen.
 
 Die Cron-Klasse läuft jede Minute. Eine von Hand angestoßene Prüfung startet
 also innerhalb einer Minute, das Ergebnis erscheint, sobald der Lauf fertig ist.
+Solange sie läuft, fragen die Übersicht und die Seite der Website ihren
+Fortschritt ab, in dem Abstand aus **Security > Scanner > Einstellungen**
+(Vorgabe 2 Sekunden).
 
 ## Schwachstellen
 
@@ -143,9 +146,12 @@ sich, sobald `waf/install.sh` ModSecurity im nginx eingerichtet hat
   Adresse filtert sie), ihre Ausnahmen und das Formular „Ausnahme anlegen“.
 - **Ausnahmen:** alle Ausnahmen mit Zustand und Fehlergrund, gefiltert nach Zustand
   und Website.
-- **Einstellungen:** Aufbewahrung, Mindestdauer vor „scharf“, Zeitraum der Vorschau,
-  Zahl der Einzeltreffer für die Regel-Karten, Herkunft der Adressen, Zeilen je
-  Durchgang, Frist für den vhost.
+- **Einstellungen:** elf Abschnitte zum Auf- und Zuklappen, von Sperren über
+  Herkunft, fail2ban und Anzeige bis Aufbewahrung und Takt. Jeder Titel sagt in
+  einer Zeile, wie der Abschnitt gerade eingestellt ist; die Suche filtert Felder
+  und Abschnitte. Ein Wert, der von der Vorgabe abweicht, trägt einen Punkt und den
+  Knopf „Vorgabe übernehmen“. Listen (Pfade, Cookies, eigene Netze, Zeiträume)
+  stehen ein Eintrag je Zeile.
 
 Jeder Knopf legt einen Auftrag in `malwatch_job` mit `job_kind = 'waf'` an. Die
 Cron-Klasse ruft jede Minute `malwatch_waf` auf: Sie liest höchstens so viele Zeilen
@@ -202,8 +208,12 @@ nur zur Ansicht, im Zustand „sperren" wirksam. Die aktiven Sperren stehen als
 `/etc/nginx/conf.d/waf-blocked.conf`; geschrieben wird die Datei nur von der
 Serverklasse, und nginx wird erst geprüft und dann neu geladen. Die erste Sperre
 dauert eine Stunde, die zweite 24, ab der dritten sieben Tage. Nie gesperrt
-werden die eigenen Netze, die Ausnahmeliste und die Adressbereiche von Google und
-Bing. `/var/log/waf/blocked.log` zählt, was seither abgeprallt ist.
+werden die eigenen Netze (Vorgabe `127.0.0.0/8`, `::1/128`, `10.50.0.0/24`), die
+Ausnahmeliste und die Adressbereiche von Google und Bing. Treffer aus angemeldeten
+Sitzungen zählen auf den Backend-Pfaden (Vorgabe `/wp-admin/`, `/wp-json/`) nur
+zum eingestellten Anteil; `wp-login.php` und `xmlrpc.php` zählen immer voll. Alle
+Listen stehen unter Abwehr > Einstellungen. `/var/log/waf/blocked.log` zählt, was
+seither abgeprallt ist.
 `waf-switch ban off` macht ohne Panel wieder auf.
 
 ## Aktionen

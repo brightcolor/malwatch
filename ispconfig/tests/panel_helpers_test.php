@@ -81,6 +81,35 @@ expect_same('no jump', malwatch_site_jump(''), '');
 expect_same('unknown section', malwatch_site_jump('findings'), '');
 expect_same('parameter that is no string', malwatch_site_jump(array('vulns')), '');
 
+// A setting missing in the row, e.g. between an update of the files and of the
+// database, comes from malwatch_config_defaults().
+class ConfigDbStub
+{
+	public $row;
+	public function queryOneRecord()
+	{
+		return $this->row;
+	}
+}
+$stub = new stdClass();
+$stub->db = new ConfigDbStub();
+$stub->db->row = null;
+$config = malwatch_get_config($stub);
+expect_same('no row: scanner', $config['binary_path'], '/usr/local/bin/malwatch');
+expect_same('no row: refresh', $config['poll_seconds'], 2);
+$stub->db->row = array('config_id' => '1', 'binary_path' => '/opt/malwatch/bin', 'poll_seconds' => '7');
+$config = malwatch_get_config($stub);
+expect_same('row: refresh kept', $config['poll_seconds'], '7');
+expect_same('row: scanner kept', $config['binary_path'], '/opt/malwatch/bin');
+$stub->db->row = array('config_id' => '1', 'binary_path' => '/opt/malwatch/bin');
+$config = malwatch_get_config($stub);
+expect_same('row from before the column', $config['poll_seconds'], 2);
+
+// How often the scanner pages ask for a running scan, in milliseconds.
+expect_same('refresh', malwatch_poll_ms(array('poll_seconds' => '7')), 7000);
+expect_same('refresh of zero', malwatch_poll_ms(array('poll_seconds' => '0')), 2000);
+expect_same('refresh without the key', malwatch_poll_ms(array()), 2000);
+
 if ($failures > 0) {
 	exit(1);
 }

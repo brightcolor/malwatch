@@ -272,6 +272,17 @@ expect_same('the threshold of a website is queued', jobs_of($db),
 	array(array(1, 'waf', array('domain_id' => 11, 'score' => 80, 'trigger' => 'y', 'action' => 'ban_site',
 		'user' => 'admin'))));
 
+// The threshold of a website keeps the limits of waf_ban_score, and the message names them.
+$limits = waf_settings_limits();
+foreach (array($limits['waf_ban_score'][0] - 1, $limits['waf_ban_score'][1] + 1) as $outside) {
+	$db = fresh_db();
+	$result = waf_panel_handle_post($app, $wb, array('waf_action' => 'ban_site', 'waf_site' => '11',
+		'waf_score' => (string) $outside, 'waf_trigger' => 'y'));
+	expect_same('a threshold of ' . $outside . ' is refused with the limits', array(jobs_of($db),
+		strpos($result[1], $limits['waf_ban_score'][0] . ' bis ' . $limits['waf_ban_score'][1]) !== false,
+		strpos($result[1], 'erneut speichern') !== false), array(array(), true, true));
+}
+
 // --- fail2ban und „überall sperren" ---------------------------------------------
 
 $db = fresh_db();

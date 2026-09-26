@@ -25,6 +25,8 @@ $wb['max_parallel_txt'] = 'Gleichzeitige Prüfungen';
 $wb['max_parallel_hint_txt'] = 'Mehrere Prüfungen gleichzeitig belasten die Platte spürbar. Auf einem Server mit vielen Websites lieber bei 1 bis 2 bleiben.';
 $wb['job_timeout_hours_txt'] = 'Abbruch nach Stunden';
 $wb['keep_scans_txt'] = 'Aufbewahrte Prüfläufe je Website';
+$wb['poll_seconds_txt'] = 'Aktualisierung des Fortschritts (Sekunden)';
+$wb['poll_seconds_hint_txt'] = 'So oft fragen die Übersicht und die Seite einer Website nach, wie weit eine laufende Prüfung ist. Kleinere Werte zeigen den Fortschritt flüssiger; jede Nachfrage ist eine Anfrage an das Panel.';
 $wb['use_clamav_txt'] = 'ClamAV mitverwenden';
 $wb['use_clamav_hint_txt'] = 'Nur wirksam, wenn clamdscan oder clamscan installiert ist.';
 $wb['auto_update_signatures_txt'] = 'Signaturen täglich aktualisieren';
@@ -108,6 +110,7 @@ $wb['scan_max_age_error_range'] = 'Die Zahl der Tage muss zwischen 0 und 3650 li
 $wb['max_parallel_error_range'] = 'Die Zahl gleichzeitiger Prüfungen muss zwischen 1 und 16 liegen.';
 $wb['job_timeout_error_range'] = 'Die Abbruchzeit muss zwischen 1 und 168 Stunden liegen.';
 $wb['keep_scans_error_range'] = 'Die Zahl aufbewahrter Prüfläufe muss zwischen 1 und 1000 liegen.';
+$wb['poll_seconds_error_range'] = 'Die Aktualisierung des Fortschritts muss zwischen 1 und 60 Sekunden liegen. Bitte eine Zahl von 1 bis 60 eintragen und erneut speichern.';
 $wb['wpscan_token_error_regex'] = 'Der WPScan-Schlüssel besteht aus Buchstaben, Ziffern, Binde- und Unterstrichen, höchstens 128 Zeichen.';
 
 $wb['btn_save_txt'] = 'Einstellungen speichern';

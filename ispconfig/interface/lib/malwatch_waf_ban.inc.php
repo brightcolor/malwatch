@@ -306,13 +306,25 @@ function waf_ban_reason($pick, $minutes, $rule_label)
 }
 
 /**
- * The networks that are never blocked, whatever the settings say: localhost and
- * the network of the proxy in front of the server. Without them the server
- * could lock itself out.
+ * The part of the query of ban_scan() that sums the points of logged-in
+ * sessions: only on paths that contain an entry of $discount (all paths when
+ * the list is empty), and never on paths that contain an entry of $full, where
+ * password guessing happens. The entries go in as parameters; LOCATE() looks
+ * for plain text, so a _ or % in an entry stays what it is.
  */
-function waf_ban_fixed_allow()
+function waf_ban_logged_in_sql($discount, $full)
 {
-	return array('127.0.0.0/8', '::1/128', '10.50.0.0/24');
+	$sql = "SUM(CASE WHEN logged_in = 'y'";
+	$params = array();
+	if (count($discount) > 0) {
+		$sql .= ' AND (' . implode(' OR ', array_fill(0, count($discount), 'LOCATE(?, path) > 0')) . ')';
+		$params = array_merge($params, array_values($discount));
+	}
+	foreach ($full as $one) {
+		$sql .= ' AND LOCATE(?, path) = 0';
+		$params[] = $one;
+	}
+	return array('sql' => $sql . ' THEN anomaly_score ELSE 0 END)', 'params' => $params);
 }
 
 /** true when the address lies in one of the given addresses or ranges. */
@@ -335,13 +347,15 @@ function waf_ban_allow_match($cidrs, $ip)
 }
 
 /**
- * The three layers before a block: the fixed networks, the list of the operator
- * (which carries the addresses of the server itself) and the ranges of the
- * search engines. $reader is the open reader of the source searchbots or null.
+ * The three layers before a block: the own networks of the settings
+ * (waf_own_networks: localhost and the proxy in front of the server, so the
+ * server never locks itself out), the list of the operator (which carries the
+ * addresses of the server itself) and the ranges of the search engines.
+ * $reader is the open reader of the source searchbots or null.
  */
-function waf_ban_allowed($ip, $cidrs, $reader)
+function waf_ban_allowed($ip, $cidrs, $reader, $own)
 {
-	if (waf_ban_allow_match(waf_ban_fixed_allow(), $ip)) {
+	if (waf_ban_allow_match($own, $ip)) {
 		return true;
 	}
 	if (waf_ban_allow_match($cidrs, $ip)) {

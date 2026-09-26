@@ -56,6 +56,7 @@ foreach (waf_panel_rows($app->db->queryAllRecords(
 $app->tpl->setLoop('jobs', $job_rows);
 $app->tpl->setVar('has_jobs', count($job_rows) > 0 ? 1 : 0);
 $app->tpl->setVar('first_job', $first_job);
+$app->tpl->setVar('poll_ms', waf_panel_poll_ms(waf_panel_settings($app)));
 
 $all_rows = waf_panel_rows($app->db->queryAllRecords('SELECT * FROM malwatch_waf_exception ORDER BY exception_id DESC'));
 $list = waf_panel_exception_list($all_rows, $filters);

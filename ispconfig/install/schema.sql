@@ -1095,6 +1095,26 @@ SET @mw := (SELECT IF(COUNT(*) = 0,
   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_config' AND COLUMN_NAME = 'waf_ban_logged_in_percent');
 PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
+-- From 0.32.0 these values of the Abwehr come from the settings: the paths and
+-- cookies of logged-in sessions, the own networks, the rows of the origin
+-- picker, how often pages ask for running jobs, the clock, the lock, the hits
+-- read for the most frequent rule and the periods of the overview. Lists are
+-- stored with commas; varchar(1024) is WAF_LIST_MAX in malwatch_waf_lib.inc.php.
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_config` ADD COLUMN `waf_ban_logged_in_paths` varchar(1024) NOT NULL DEFAULT ''/wp-admin/,/wp-json/'', ADD COLUMN `waf_ban_full_paths` varchar(1024) NOT NULL DEFAULT ''wp-login.php,xmlrpc.php'', ADD COLUMN `waf_login_cookies` varchar(1024) NOT NULL DEFAULT ''wordpress_logged_in_'', ADD COLUMN `waf_own_networks` varchar(1024) NOT NULL DEFAULT ''127.0.0.0/8,::1/128,10.50.0.0/24'', ADD COLUMN `waf_ban_origin_rows` int(11) unsigned NOT NULL DEFAULT ''25'', ADD COLUMN `waf_poll_seconds` int(11) unsigned NOT NULL DEFAULT ''5'', ADD COLUMN `waf_tick_fresh_seconds` int(11) unsigned NOT NULL DEFAULT ''180'', ADD COLUMN `waf_lock_retry_ms` int(11) unsigned NOT NULL DEFAULT ''250'', ADD COLUMN `waf_ban_rule_hits` int(11) unsigned NOT NULL DEFAULT ''200'', ADD COLUMN `waf_periods` varchar(1024) NOT NULL DEFAULT ''1,7,30,90'', ADD COLUMN `waf_period_default` int(11) unsigned NOT NULL DEFAULT ''7''',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_config' AND COLUMN_NAME = 'waf_ban_logged_in_paths');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- How often the scanner pages ask for a running scan, from 0.32.0.
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_config` ADD COLUMN `poll_seconds` int(11) unsigned NOT NULL DEFAULT ''2'' AFTER `keep_scans`',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_config' AND COLUMN_NAME = 'poll_seconds');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
 -- Die Herkunft senkt die Schwelle, ab 0.25.0. Alles beginnt ausgeschaltet.
 SET @mw := (SELECT IF(COUNT(*) = 0,
   'ALTER TABLE `malwatch_config` ADD COLUMN `waf_ban_origin` enum(''off'',''on'') NOT NULL DEFAULT ''off'', ADD COLUMN `waf_ban_origin_score` int(11) unsigned NOT NULL DEFAULT ''20'', ADD COLUMN `waf_ban_origin_factor` int(11) unsigned NOT NULL DEFAULT ''200'', ADD COLUMN `waf_ban_origin_now` enum(''off'',''on'') NOT NULL DEFAULT ''off'', ADD COLUMN `waf_ban_origin_hosting` enum(''off'',''on'') NOT NULL DEFAULT ''off'', ADD COLUMN `waf_ban_origin_vpn` enum(''off'',''on'') NOT NULL DEFAULT ''off'', ADD COLUMN `waf_ban_origin_tor` enum(''off'',''on'') NOT NULL DEFAULT ''off'', ADD COLUMN `waf_ban_origin_countries` varchar(255) NOT NULL DEFAULT '''', ADD COLUMN `waf_ban_origin_asn` varchar(255) NOT NULL DEFAULT ''''',

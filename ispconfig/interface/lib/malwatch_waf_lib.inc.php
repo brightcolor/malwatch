@@ -365,9 +365,10 @@ function waf_audit_param($data)
 /**
  * One line of the JSON audit log as a hit, or null for a line that is no
  * usable entry. tests/waf_audit_sample.log shows the shape ModSecurity 3.0.12
- * writes.
+ * writes. $login_cookies are the beginnings of cookie names that mark a
+ * logged-in session (waf_login_cookies); null takes the default.
  */
-function waf_audit_parse_line($line)
+function waf_audit_parse_line($line, $login_cookies = null)
 {
 	$line = trim((string) $line);
 	if ($line === '' || $line[0] !== '{') {
@@ -425,10 +426,18 @@ function waf_audit_parse_line($line)
 	$query = strpos($uri, '?');
 	$path = $query === false ? $uri : substr($uri, 0, $query);
 
+	// A request comes from a logged-in session when one of its cookies begins
+	// like an entry of waf_login_cookies.
+	if ($login_cookies === null) {
+		$defaults = waf_settings_defaults();
+		$login_cookies = waf_list_parse($defaults['waf_login_cookies']);
+	}
 	$logged_in = false;
 	foreach (waf_cookie_names(waf_audit_header($headers, 'Cookie')) as $name) {
-		if (strpos($name, 'wordpress_logged_in_') === 0) {
-			$logged_in = true;
+		foreach ($login_cookies as $prefix) {
+			if ((string) $prefix !== '' && strpos($name, (string) $prefix) === 0) {
+				$logged_in = true;
+			}
 		}
 	}
 	$client_ip = isset($t['client_ip']) ? (string) $t['client_ip'] : '';
@@ -858,6 +867,17 @@ function waf_settings_defaults()
 		'waf_origin_tor_hours' => 1,
 		'waf_origin_list_hours' => 24,
 		'waf_origin_db_hours' => 24,
+		'waf_ban_logged_in_paths' => '/wp-admin/,/wp-json/',
+		'waf_ban_full_paths' => 'wp-login.php,xmlrpc.php',
+		'waf_login_cookies' => 'wordpress_logged_in_',
+		'waf_own_networks' => '127.0.0.0/8,::1/128,10.50.0.0/24',
+		'waf_ban_origin_rows' => 25,
+		'waf_poll_seconds' => 5,
+		'waf_tick_fresh_seconds' => 180,
+		'waf_lock_retry_ms' => 250,
+		'waf_ban_rule_hits' => 200,
+		'waf_periods' => '1,7,30,90',
+		'waf_period_default' => 7,
 	);
 }
 
@@ -898,7 +918,99 @@ function waf_settings_limits()
 		'waf_origin_tor_hours' => array(1, 168),
 		'waf_origin_list_hours' => array(1, 720),
 		'waf_origin_db_hours' => array(1, 720),
+		'waf_ban_origin_rows' => array(5, 200),
+		'waf_poll_seconds' => array(2, 60),
+		'waf_tick_fresh_seconds' => array(120, 3600),
+		'waf_lock_retry_ms' => array(50, 5000),
+		'waf_ban_rule_hits' => array(50, 5000),
+		'waf_period_default' => array(1, 3650),
 	);
+}
+
+if (!defined('WAF_LIST_MAX')) {
+	/** The longest text a list of the settings holds: its column is varchar(1024). */
+	define('WAF_LIST_MAX', 1024);
+}
+
+/**
+ * The settings that hold lists, and what each list holds: paths, cookie names,
+ * networks or periods in days. They are stored with commas and shown one entry
+ * per line.
+ */
+function waf_settings_lists()
+{
+	return array(
+		'waf_ban_logged_in_paths' => 'paths',
+		'waf_ban_full_paths' => 'paths',
+		'waf_login_cookies' => 'cookies',
+		'waf_own_networks' => 'networks',
+		'waf_periods' => 'days',
+	);
+}
+
+/** The entries of a stored or typed list: split at line breaks and commas, trimmed, without blanks and doubles. */
+function waf_list_parse($text)
+{
+	$items = array();
+	foreach (preg_split('/[\r\n,]+/', (string) $text) as $one) {
+		$one = trim($one);
+		if ($one !== '' && !in_array($one, $items, true)) {
+			$items[] = $one;
+		}
+	}
+	return $items;
+}
+
+/** A list as it is stored. */
+function waf_list_join($items)
+{
+	return implode(',', $items);
+}
+
+/** A stored list for a text field, one entry per line. */
+function waf_list_lines($text)
+{
+	return implode("\n", waf_list_parse($text));
+}
+
+/** The entries that are no path: whitespace or a comma inside. */
+function waf_list_bad_paths($items)
+{
+	return array_values(array_filter($items, function ($one) {
+		return !preg_match('/^[^\s,]+$/u', (string) $one);
+	}));
+}
+
+/** The entries that are no beginning of a cookie name: letters, digits, dot, dash and underscore. */
+function waf_list_bad_cookies($items)
+{
+	return array_values(array_filter($items, function ($one) {
+		return !preg_match('/^[A-Za-z0-9_.-]+$/', (string) $one);
+	}));
+}
+
+/** The entries that are no network: a range like 10.0.0.0/8 or 2001:db8::/32, or a single address. */
+function waf_list_bad_networks($items)
+{
+	return array_values(array_filter($items, function ($one) {
+		return waf_origin_cidr($one) === null;
+	}));
+}
+
+/** The entries that are no period: whole days from 1 up to the longest keep of the day figures. */
+function waf_list_bad_days($items)
+{
+	$limits = waf_settings_limits();
+	$longest = $limits['waf_stats_days'][1];
+	return array_values(array_filter($items, function ($one) use ($longest) {
+		return !preg_match('/^[1-9][0-9]*$/', (string) $one) || (int) $one > $longest;
+	}));
+}
+
+/** true while the stored list fits into its column. */
+function waf_list_fits($items)
+{
+	return strlen(waf_list_join($items)) <= WAF_LIST_MAX;
 }
 
 /**
@@ -911,9 +1023,12 @@ function waf_settings($row)
 	$row = is_array($row) ? $row : array();
 	$defaults = waf_settings_defaults();
 	$settings = array();
+	$lists = waf_settings_lists();
 	foreach ($defaults as $key => $default) {
 		$value = isset($row[$key]) ? $row[$key] : null;
-		$settings[$key] = ($value === null || $value === '') ? $default : $value;
+		// An emptied list is a choice of the operator; a missing column takes the default.
+		$missing = $value === null || ($value === '' && !isset($lists[$key]));
+		$settings[$key] = $missing ? $default : $value;
 	}
 	foreach (waf_settings_limits() as $key => $limit) {
 		$settings[$key] = max($limit[0], min($limit[1], (int) $settings[$key]));
@@ -998,25 +1113,34 @@ function waf_enforce_block_reason($state, $since, $now, $min_days, $emergency)
 	return '';
 }
 
-/** The periods the overview offers, in days, within the time day figures are kept. */
-function waf_periods($stats_days)
+/**
+ * The periods the overview offers, in days, shortest first: the list
+ * waf_periods within the time the day figures are kept (waf_stats_days).
+ * Without one inside that time the overview offers the time itself.
+ */
+function waf_periods($settings)
 {
+	$keep = max(1, (int) $settings['waf_stats_days']);
 	$periods = array();
-	foreach (array(1, 7, 30, 90) as $days) {
-		if ($days <= max(1, (int) $stats_days)) {
+	foreach (waf_list_parse($settings['waf_periods']) as $one) {
+		$days = (int) $one;
+		if ((string) $days === $one && $days >= 1 && $days <= $keep && !in_array($days, $periods, true)) {
 			$periods[] = $days;
 		}
 	}
-	return $periods;
+	sort($periods);
+	return count($periods) > 0 ? $periods : array($keep);
 }
 
-function waf_period($requested, $stats_days)
+/** The period asked for if the overview offers it, else waf_period_default, else the longest one offered. */
+function waf_period($requested, $settings)
 {
-	$periods = waf_periods($stats_days);
-	if (in_array((int) $requested, $periods, true)) {
+	$periods = waf_periods($settings);
+	if (is_scalar($requested) && in_array((int) $requested, $periods, true)) {
 		return (int) $requested;
 	}
-	return in_array(7, $periods, true) ? 7 : $periods[count($periods) - 1];
+	$default = (int) $settings['waf_period_default'];
+	return in_array($default, $periods, true) ? $default : $periods[count($periods) - 1];
 }
 
 /** Content of /etc/logrotate.d/waf. copytruncate keeps the file ModSecurity holds open. */

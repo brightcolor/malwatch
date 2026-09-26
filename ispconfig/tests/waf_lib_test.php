@@ -370,13 +370,27 @@ expect_same('enforce again', waf_enforce_block_reason('enforce', '2026-09-01 00:
 expect_same('enforce without waiting time', waf_enforce_block_reason('detect', '2026-09-23 13:20:15', '2026-09-23 13:20:15', 0, 'n'), '');
 expect_same('detect without date', waf_enforce_block_reason('detect', null, '2026-09-23 13:20:15', 7, 'n'), 'too_early');
 
-expect_same('periods', waf_periods(90), array(1, 7, 30, 90));
-expect_same('periods of a short keep', waf_periods(10), array(1, 7));
-expect_same('periods of one day', waf_periods(1), array(1));
-expect_same('period chosen', waf_period('30', 90), 30);
-expect_same('period unknown', waf_period('14', 90), 7);
-expect_same('period beyond the keep', waf_period(90, 10), 7);
-expect_same('period of one day', waf_period(7, 1), 1);
+// The periods of the overview come from waf_periods and waf_period_default,
+// within the time the day figures are kept (waf_stats_days).
+$plain_periods = waf_settings(array());
+$with_keep = function ($settings, $days) { return array_merge($settings, array('waf_stats_days' => $days)); };
+expect_same('periods', waf_periods($plain_periods), array(1, 7, 30, 90));
+expect_same('periods of a short keep', waf_periods($with_keep($plain_periods, 10)), array(1, 7));
+expect_same('periods of one day', waf_periods($with_keep($plain_periods, 1)), array(1));
+expect_same('period chosen', waf_period('30', $plain_periods), 30);
+expect_same('period unknown', waf_period('14', $plain_periods), 7);
+expect_same('period beyond the keep', waf_period(90, $with_keep($plain_periods, 10)), 7);
+expect_same('period of one day', waf_period(7, $with_keep($plain_periods, 1)), 1);
+$own_periods = array_merge($plain_periods, array('waf_periods' => "14\n3, 60,3", 'waf_period_default' => 14));
+expect_same('own periods, sorted and without doubles', waf_periods($own_periods), array(3, 14, 60));
+expect_same('own periods beyond the keep', waf_periods($with_keep($own_periods, 30)), array(3, 14));
+expect_same('no own period within the keep offers the keep',
+	waf_periods(array_merge($with_keep($own_periods, 30), array('waf_periods' => '120'))), array(30));
+expect_same('an emptied list of periods offers the keep', waf_periods(array_merge($own_periods, array('waf_periods' => ''))), array(90));
+expect_same('own default period', waf_period('', $own_periods), 14);
+expect_same('own period chosen', waf_period('3', $own_periods), 3);
+expect_same('a default period missing in the list falls back to the longest',
+	waf_period('', array_merge($own_periods, array('waf_period_default' => 7))), 60);
 
 $rotate = waf_logrotate_text(14, '/var/log/waf/audit.log');
 expect_same('logrotate path', strpos($rotate, "\n/var/log/waf/audit.log {\n") !== false, true);
@@ -589,6 +603,51 @@ expect_same('the share of logged-in requests stays between 0 and 100', array(
 	waf_settings(array('waf_ban_logged_in_percent' => '250'))['waf_ban_logged_in_percent'],
 	waf_settings(array('waf_ban_logged_in_percent' => '0'))['waf_ban_logged_in_percent'],
 ), array(100, 0));
+
+// --- Lists and numbers of 0.32.0 -------------------------------------------------
+
+expect_same('a list reads lines and commas, drops blanks and doubles',
+	waf_list_parse(" /wp-admin/\r\n/wp-json/, /wp-admin/\n\n"), array('/wp-admin/', '/wp-json/'));
+expect_same('an empty list', waf_list_parse(''), array());
+expect_same('a list is stored with commas', waf_list_join(array('/wp-admin/', '/wp-json/')), '/wp-admin/,/wp-json/');
+expect_same('and shown one entry per line', waf_list_lines(' /wp-admin/, /wp-json/'), "/wp-admin/\n/wp-json/");
+expect_same('paths without spaces or commas', waf_list_bad_paths(array(
+	'/wp-admin/', 'wp-login.php', '/mit leerzeichen/', "/tab\there/")), array('/mit leerzeichen/', "/tab\there/"));
+expect_same('cookie names from letters, digits, dot, dash and underscore',
+	waf_list_bad_cookies(array('wordpress_logged_in_', 'joomla_user_state', 'kaputt;cookie')), array('kaputt;cookie'));
+expect_same('networks as ranges or single addresses', waf_list_bad_networks(array(
+	'127.0.0.0/8', '::1/128', '10.50.0.1', '10.50.0.0/33', 'kein-netz')), array('10.50.0.0/33', 'kein-netz'));
+expect_same('a list fits into its column', array(
+	waf_list_fits(array(str_repeat('a', 1024))), waf_list_fits(array(str_repeat('a', 1020), 'bcdef'))), array(true, false));
+expect_same('periods as whole days within the longest keep', waf_list_bad_days(array(
+	'1', '7', '0', 'x', '3650', '3651', '2.5', ' 30')), array('0', 'x', '3651', '2.5', ' 30'));
+expect_same('the lists of the settings and what they hold', waf_settings_lists(), array(
+	'waf_ban_logged_in_paths' => 'paths', 'waf_ban_full_paths' => 'paths', 'waf_login_cookies' => 'cookies',
+	'waf_own_networks' => 'networks', 'waf_periods' => 'days'));
+
+$fresh = waf_settings(array());
+expect_same('the lists and numbers of 0.32.0 with their defaults', array(
+	$fresh['waf_ban_logged_in_paths'], $fresh['waf_ban_full_paths'], $fresh['waf_login_cookies'],
+	$fresh['waf_own_networks'], $fresh['waf_ban_origin_rows'], $fresh['waf_poll_seconds'],
+	$fresh['waf_tick_fresh_seconds'], $fresh['waf_lock_retry_ms'], $fresh['waf_ban_rule_hits'],
+	$fresh['waf_periods'], $fresh['waf_period_default'],
+), array('/wp-admin/,/wp-json/', 'wp-login.php,xmlrpc.php', 'wordpress_logged_in_', '127.0.0.0/8,::1/128,10.50.0.0/24',
+	25, 5, 180, 250, 200, '1,7,30,90', 7));
+expect_same('an emptied list stays empty', array(
+	waf_settings(array('waf_ban_logged_in_paths' => ''))['waf_ban_logged_in_paths'],
+	waf_settings(array('waf_own_networks' => ''))['waf_own_networks'],
+), array('', ''));
+expect_same('the new numbers stay in their bounds', array(
+	waf_settings(array('waf_ban_origin_rows' => '1'))['waf_ban_origin_rows'],
+	waf_settings(array('waf_poll_seconds' => '999'))['waf_poll_seconds'],
+	waf_settings(array('waf_tick_fresh_seconds' => '60'))['waf_tick_fresh_seconds'],
+	waf_settings(array('waf_lock_retry_ms' => '1'))['waf_lock_retry_ms'],
+), array(5, 60, 120, 50));
+expect_same('the login cookie comes from the settings', array(
+	waf_audit_parse_line($sample[0], array('joomla_user_'))['logged_in'],
+	waf_audit_parse_line($sample[0], array('joomla_user_', 'wordpress_logged_in_'))['logged_in'],
+	waf_audit_parse_line($sample[0], array())['logged_in'],
+), array(false, true, false));
 
 // --- summary -----------------------------------------------------------------
 if ($failures > 0) {

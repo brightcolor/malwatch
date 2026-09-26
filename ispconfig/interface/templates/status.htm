@@ -46,7 +46,7 @@
 @media (prefers-reduced-motion:reduce){#mw-status *{transition:none !important}}
 </style>
 
-<div id="mw-status">
+<div id="mw-status" data-mw-poll="{tmpl_var name='poll_ms'}">
 
   <tmpl_if name="attention_count" op="==" value="0">
     <h1 class="mw-lede">{tmpl_var name='all_clear_txt'}</h1>
@@ -121,6 +121,9 @@
 
 	var running = root.querySelectorAll('.mw-site.busy');
 	if (!running.length) { return; }
+	// How often to ask comes from the settings (poll_seconds).
+	var every = parseInt(root.getAttribute('data-mw-poll'), 10);
+	if (!(every > 0)) { return; }
 
 	var timer = null;
 	function stop() { if (timer) { clearInterval(timer); timer = null; } }
@@ -201,7 +204,7 @@
 		});
 	}
 
-	timer = setInterval(poll, 3000);
+	timer = setInterval(poll, every);
 	poll();
 })();
 </script>

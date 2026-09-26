@@ -1612,7 +1612,9 @@ done
 #     Zeilen und laedt bis zu einer Grenze nach. Alle drei sind Einstellungen mit
 #     Spalte, Vorgabe und Feld; und ein Vorschlag darf eine Adresse nie vor einer
 #     Sperre schuetzen.
-for col in waf_ban_proposal_days waf_ban_page_rows waf_ban_page_step waf_ban_page_timeout waf_ban_logged_in_percent; do
+for col in waf_ban_proposal_days waf_ban_page_rows waf_ban_page_step waf_ban_page_timeout waf_ban_logged_in_percent \
+	waf_ban_logged_in_paths waf_ban_full_paths waf_login_cookies waf_own_networks waf_ban_origin_rows waf_poll_seconds \
+	waf_tick_fresh_seconds waf_lock_retry_ms waf_ban_rule_hits waf_periods waf_period_default; do
 	grep -q "ADD COLUMN \`$col\`" "$root/install/schema.sql" \
 		|| fail "malwatch_config bekommt keine Spalte $col"
 	grep -q "'$col' =>" "$root/interface/lib/malwatch_waf_lib.inc.php" \
@@ -1783,11 +1785,93 @@ lib="$root/interface/lib/malwatch_waf_ban.inc.php"
 if [ -f "$class" ] && [ -f "$lib" ]; then
 	grep -q 'AS score_logged_in' "$class" \
 		|| fail "ban_scan() liefert die Punkte angemeldeter Sitzungen nicht getrennt"
-	grep -qF "path NOT LIKE '%wp-login.php%'" "$class" && grep -qF "path NOT LIKE '%xmlrpc.php%'" "$class" \
-		|| fail "ban_scan() wertet auch Anmeldung oder XML-RPC ab; dort laufen die Rateangriffe"
+	# From 0.32.0 the paths come from waf_ban_logged_in_paths and waf_ban_full_paths.
+	grep -q 'waf_ban_logged_in_sql(' "$class" \
+		|| fail "ban_scan() wertet angemeldete Zugriffe ohne die Pfadlisten der Einstellungen ab"
+	sed -n '/^function waf_ban_logged_in_sql/,/^}/p' "$lib" | grep -qF 'LOCATE(?, path) = 0' \
+		|| fail "waf_ban_logged_in_sql() lässt die Pfade aus waf_ban_full_paths nicht voll zählen; dort laufen die Rateangriffe"
 	grep -q '\$score = waf_ban_score_logged_in(\$row, \$settings);' "$lib" \
 		|| fail "waf_ban_decide() rechnet mit den Punkten angemeldeter Sitzungen in voller Hoehe"
 fi
+
+# 92. Values that were fixed in the code until 0.31 come from the settings from
+#     0.32.0 on: the clock, the lock, the hits for the most frequent rule, the
+#     paths and cookies of logged-in sessions, the own networks, the rows of the
+#     origin picker, the periods of the overview, the limits of a website's
+#     threshold and how often a page asks for running jobs.
+class="$root/server/lib/classes/malwatch_waf.inc.php"
+if [ -f "$class" ]; then
+	sed -n '/public function tick_is_fresh/,/^	}/p' "$class" | grep -q "waf_tick_fresh_seconds" \
+		|| fail "tick_is_fresh() nimmt die Frische des Takts nicht aus den Einstellungen"
+	sed -n '/private function lock(/,/^	}/p' "$class" | grep -q "waf_lock_retry_ms" \
+		|| fail "lock() nimmt die Wartezeit zwischen zwei Versuchen nicht aus den Einstellungen"
+	grep -qF "(int) \$settings['waf_ban_rule_hits']" "$class" \
+		|| fail "ban_scan() liest die Treffer für die häufigste Regel ohne waf_ban_rule_hits"
+	grep -q "own_networks()" "$class" \
+		|| fail "malwatch_waf.inc.php schützt die eigenen Netze ohne waf_own_networks"
+	if grep -vE "^$comment_start" "$class" | grep -qE "wp-login|xmlrpc|wordpress_logged_in_|usleep\([0-9]|< ?5 \|\| .* > ?10000"; then
+		fail "malwatch_waf.inc.php trägt wieder feste Pfade, Cookies, Wartezeiten oder Grenzen; sie gehören in die Einstellungen"
+	fi
+fi
+if grep -rq "waf_ban_fixed_allow" "$root/interface/lib" "$root/server/lib"; then
+	fail "waf_ban_fixed_allow ist zurück; die eigenen Netze kommen aus waf_own_networks"
+fi
+if grep -nE 'setInterval\([A-Za-z_]+, *[0-9]' "$root"/interface/templates/*.htm; then
+	fail "eine Seite fragt in einem festen Abstand nach; der Abstand kommt aus den Einstellungen (data-mw-poll)"
+fi
+if grep -nE 'max="[0-9]{3,}"' "$root"/interface/templates/malwatch_waf_*.htm; then
+	fail "ein Zahlenfeld der Abwehr trägt eine feste Obergrenze; sie kommt aus waf_settings_limits()"
+fi
+grep -q "(int) \$settings\['waf_ban_origin_rows'\]" "$root/interface/malwatch_waf_ban_list.php" \
+	|| fail "die Auswahl der Herkunft zeigt eine feste Zahl Zeilen statt waf_ban_origin_rows"
+if grep -vE "^$comment_start" "$root/interface/lib/malwatch_waf_lib.inc.php" | grep -qE "array\(1, 7, 30, 90\)|: 7, "; then
+	fail "die Zeiträume der Übersicht stehen wieder fest im Code; sie kommen aus waf_periods"
+fi
+for page in malwatch_waf_list malwatch_waf_show malwatch_waf_exception_list malwatch_waf_ban_list; do
+	grep -q "data-mw-poll=\"{tmpl_var name='poll_ms'}\"" "$root/interface/templates/$page.htm" \
+		|| fail "$page.htm bekommt den Abstand der Nachfrage nicht aus waf_poll_seconds"
+	grep -q "setVar('poll_ms', waf_panel_poll_ms(" "$root/interface/$page.php" \
+		|| fail "$page.php setzt poll_ms nicht aus waf_poll_seconds"
+done
+
+# 93. Every number field of the settings page carries its limits and its default
+#     from waf_settings_limits() and waf_settings_defaults(): the page sizes the
+#     field by its largest value and marks a value that differs from the default.
+tpl="$root/interface/templates/malwatch_waf_config_edit.htm"
+grep -o '<input type="number"[^>]*>' "$tpl" > "$tmpdir/numbers" || true
+[ -s "$tmpdir/numbers" ] || fail "malwatch_waf_config_edit.htm hat keine Zahlenfelder mehr"
+while IFS= read -r input; do
+	name=$(printf '%s\n' "$input" | sed -n 's/.* name="\([a-z0-9_]*\)".*/\1/p')
+	for part in "min=\"{tmpl_var name='min_$name'}\"" "max=\"{tmpl_var name='max_$name'}\"" \
+		"data-default=\"{tmpl_var name='default_$name'}\""; do
+		printf '%s\n' "$input" | grep -qF "$part" \
+			|| fail "malwatch_waf_config_edit.htm: dem Zahlenfeld $name fehlt $part"
+	done
+done < "$tmpdir/numbers"
+
+# 94. The scanner pages ask for a running scan as often as poll_seconds says:
+#     column, default, form field, words, the attribute and the page code.
+grep -q "ADD COLUMN \`poll_seconds\`" "$root/install/schema.sql" \
+	|| fail "malwatch_config bekommt keine Spalte poll_seconds"
+grep -q "'poll_seconds' => 2," "$root/interface/lib/malwatch_lib.inc.php" \
+	|| fail "malwatch_config_defaults() kennt poll_seconds nicht"
+grep -q "'default' => '2'," "$root/interface/form/malwatch_config.tform.php" \
+	&& grep -q "'poll_seconds_error_range'" "$root/interface/form/malwatch_config.tform.php" \
+	|| fail "das Formular des Scanners hat kein Feld poll_seconds mit Vorgabe und Grenzen"
+grep -q 'name="poll_seconds"' "$root/interface/templates/malwatch_config_edit.htm" \
+	|| fail "die Einstellungsseite des Scanners hat kein Feld poll_seconds"
+for lang in de en; do
+	for key in poll_seconds_txt poll_seconds_hint_txt poll_seconds_error_range; do
+		grep -q "\$wb\['$key'\]" "$root/interface/lang/${lang}_malwatch_config.lng" \
+			|| fail "${lang}_malwatch_config.lng: $key fehlt"
+	done
+done
+for page in status malwatch_site_show; do
+	grep -q "data-mw-poll=\"{tmpl_var name='poll_ms'}\"" "$root/interface/templates/$page.htm" \
+		|| fail "$page.htm bekommt den Abstand der Nachfrage nicht aus poll_seconds"
+	grep -q "setVar('poll_ms', malwatch_poll_ms(" "$root/interface/$page.php" \
+		|| fail "$page.php setzt poll_ms nicht aus poll_seconds"
+done
 
 
 if [ "$status" -eq 0 ]; then

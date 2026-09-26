@@ -8,17 +8,33 @@
  * only looks in the core library directory.
  */
 
+/**
+ * The values the scanner settings fall back to while the row or one of its
+ * columns is missing, e.g. between an update of the files and of the database.
+ * poll_seconds: how often the scanner pages ask for a running scan.
+ */
+function malwatch_config_defaults()
+{
+	return array(
+		'binary_path' => '/usr/local/bin/malwatch',
+		'state_dir' => '/var/lib/malwatch',
+		'default_schedule' => 'weekly',
+		'default_excludes' => '',
+		'poll_seconds' => 2,
+	);
+}
+
 /** Returns the global settings plus whether the scanner is actually there. */
 function malwatch_get_config($app)
 {
 	$row = $app->db->queryOneRecord('SELECT * FROM malwatch_config WHERE config_id = 1');
 	if (!is_array($row)) {
-		$row = array(
-			'binary_path' => '/usr/local/bin/malwatch',
-			'state_dir' => '/var/lib/malwatch',
-			'default_schedule' => 'weekly',
-			'default_excludes' => '',
-		);
+		$row = array();
+	}
+	foreach (malwatch_config_defaults() as $key => $default) {
+		if (!isset($row[$key])) {
+			$row[$key] = $default;
+		}
 	}
 	// The panel may run on a different machine than the web server, in which
 	// case the file is not visible from here. An unreadable path is reported
@@ -29,6 +45,21 @@ function malwatch_get_config($app)
 		$row['binary_ready'] = is_file((string) $row['binary_path']);
 	}
 	return $row;
+}
+
+/**
+ * How often the scanner pages ask for a running scan, in milliseconds
+ * (poll_seconds). A value below one second uses the default: a page that
+ * never asks would show a scan as running until it is reloaded by hand.
+ */
+function malwatch_poll_ms($config)
+{
+	$seconds = isset($config['poll_seconds']) ? (int) $config['poll_seconds'] : 0;
+	if ($seconds < 1) {
+		$defaults = malwatch_config_defaults();
+		$seconds = $defaults['poll_seconds'];
+	}
+	return $seconds * 1000;
 }
 
 /**

@@ -2,6 +2,61 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.32.0] – 2026-09-26
+
+### Geändert
+
+**Die Einstellungen der Abwehr sind neu geordnet.** Security > Abwehr >
+Einstellungen hat elf Abschnitte zum Auf- und Zuklappen: Sperren, Angemeldete
+Nutzer, Nie sperren, Verdächtige Herkunft, Herkunft der Adressen, fail2ban,
+Scharf schalten, Anzeige, Aufbewahrung, Takt und Hintergrund, Stand auf dem
+Server. Jeder Titel sagt in einer Zeile, wie der Abschnitt gerade eingestellt
+ist, etwa „Automatik sperrt · ab 50 Punkten in 10 Minuten · 1 → 24 → 168
+Stunden“. Die Suche oben filtert Felder und Abschnitte. Ein Wert, der von der
+Vorgabe abweicht, trägt einen Punkt, nennt die Vorgabe und lässt sich mit
+„Vorgabe übernehmen“ zurücksetzen; die Leiste unten zählt, was noch nicht
+gespeichert ist. Einheiten stehen neben dem Feld, Schalter sind Knopfgruppen, und
+jedes Zahlenfeld ist so breit wie sein größter erlaubter Wert. Meldet das
+Speichern einen Fehler, sind alle Abschnitte offen.
+
+**Angemeldete Zugriffe werden nur auf den Backend-Pfaden abgewertet.** Bis 0.31
+galt der Anteil aus „Angemeldete Zugriffe zählen mit“ auf jedem Pfad außer
+Anmeldung und XML-RPC. Jetzt gilt er auf den Pfaden der Liste „Abwerten auf diesen
+Pfaden“ (Vorgabe `/wp-admin/`, `/wp-json/`); auf allen anderen Pfaden zählen auch
+angemeldete Zugriffe voll. Eine leere Liste wertet wie bisher auf allen Pfaden ab.
+
+### Hinzugefügt
+
+**Werte, die bisher fest im Code standen, sind Einstellungen**, jede mit Vorgabe,
+Grenzen, Hinweis und einer Meldung, die Ursache und nächsten Schritt nennt:
+
+- Angemeldete Nutzer: „Immer voll zählen“ (Vorgabe `wp-login.php`, `xmlrpc.php`)
+  und „Anmeldung erkennen an“ (Vorgabe `wordpress_logged_in_`), dazu die Pfade
+  der Abwertung.
+- Nie sperren: die eigenen Netze (Vorgabe `127.0.0.0/8`, `::1/128`,
+  `10.50.0.0/24`). Eine leere Liste nimmt das Formular nicht an, damit keine
+  Sperre den Server selbst oder den Proxy davor trifft.
+- Anzeige: die Zeiträume der Übersicht (Vorgabe 1, 7, 30 und 90 Tage) und der
+  Zeitraum beim Öffnen (Vorgabe 7), die Zeilen der Herkunftsauswahl auf der Seite
+  Sperren (Vorgabe 25) und wie oft die Seiten der Abwehr laufende Aufträge
+  nachfragen (Vorgabe 5 Sekunden).
+- Takt und Hintergrund: wann der Minutentakt als ausgefallen gilt (Vorgabe 180
+  Sekunden), wie oft ein Auftrag eine belegte Sperre erneut versucht (Vorgabe
+  250 ms) und wie viele Treffer einer Adresse die Automatik liest, um die
+  häufigste Regel zu nennen (Vorgabe 200).
+- Scanner > Einstellungen: wie oft die Übersicht und die Seite einer Website den
+  Fortschritt einer laufenden Prüfung abfragen (Vorgabe 2 Sekunden; die
+  Übersicht fragte bisher alle 3 Sekunden).
+
+Listen stehen ein Eintrag je Zeile. Ein Eintrag, der nicht passt, steht mit
+Namen und Regel in der Meldung, und gespeichert wird erst die korrigierte Liste.
+
+**Die eigene Schwelle einer Website nimmt ihre Grenzen aus „Punkte für eine
+Sperre“.** Panel, Auftrag und Eingabefeld prüften 5 bis 10000 bisher je für sich.
+
+Die Datenbank bekommt zwölf Spalten in `malwatch_config`; `schema.sql` legt sie
+beim Update an, vorhandene Werte bleiben.
+
 ## [0.31.0] – 2026-09-24
 
 ### Hinzugefügt

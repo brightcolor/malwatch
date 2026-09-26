@@ -288,6 +288,39 @@ $form['tabs']['waf'] = array(
 			'width' => '10',
 			'maxlength' => '3'
 		),
+		// Lists, stored with commas and checked on the page (waf_config_lists()).
+		'waf_ban_logged_in_paths' => array(
+			'datatype' => 'VARCHAR',
+			'formtype' => 'TEXT',
+			'default' => '/wp-admin/,/wp-json/',
+			'value' => '',
+			'width' => '40',
+			'maxlength' => '1024'
+		),
+		'waf_ban_full_paths' => array(
+			'datatype' => 'VARCHAR',
+			'formtype' => 'TEXT',
+			'default' => 'wp-login.php,xmlrpc.php',
+			'value' => '',
+			'width' => '40',
+			'maxlength' => '1024'
+		),
+		'waf_login_cookies' => array(
+			'datatype' => 'VARCHAR',
+			'formtype' => 'TEXT',
+			'default' => 'wordpress_logged_in_',
+			'value' => '',
+			'width' => '40',
+			'maxlength' => '1024'
+		),
+		'waf_own_networks' => array(
+			'datatype' => 'VARCHAR',
+			'formtype' => 'TEXT',
+			'default' => '127.0.0.0/8,::1/128,10.50.0.0/24',
+			'value' => '',
+			'width' => '40',
+			'maxlength' => '1024'
+		),
 		'waf_ban_hours_first' => array(
 			'datatype' => 'INTEGER',
 			'formtype' => 'TEXT',
@@ -541,6 +574,80 @@ $form['tabs']['waf'] = array(
 			'value' => '',
 			'width' => '10',
 			'maxlength' => '3'
+		),
+		'waf_ban_origin_rows' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '25',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '5:200', 'errmsg' => 'waf_ban_origin_rows_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '3'
+		),
+		'waf_poll_seconds' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '5',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '2:60', 'errmsg' => 'waf_poll_seconds_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '2'
+		),
+		'waf_tick_fresh_seconds' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '180',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '120:3600', 'errmsg' => 'waf_tick_fresh_seconds_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '4'
+		),
+		'waf_lock_retry_ms' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '250',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '50:5000', 'errmsg' => 'waf_lock_retry_ms_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '4'
+		),
+		'waf_ban_rule_hits' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '200',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '50:5000', 'errmsg' => 'waf_ban_rule_hits_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '4'
+		),
+		'waf_periods' => array(
+			'datatype' => 'VARCHAR',
+			'formtype' => 'TEXT',
+			'default' => '1,7,30,90',
+			'value' => '',
+			'width' => '40',
+			'maxlength' => '1024'
+		),
+		'waf_period_default' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '7',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '1:3650', 'errmsg' => 'waf_period_default_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '4'
 		)
 	)
 );

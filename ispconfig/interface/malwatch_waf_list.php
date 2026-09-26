@@ -39,7 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $settings = waf_panel_settings($app);
 $clock = waf_panel_clock($app);
 // After a button the filters come back as hidden fields of the form.
-$filters = waf_panel_filters(array_merge($_GET, $_POST), $settings['waf_stats_days']);
+$filters = waf_panel_filters(array_merge($_GET, $_POST), $settings);
 
 $app->tpl->newTemplate('form.tpl.htm');
 $app->tpl->setInclude('content_tpl', 'templates/malwatch_waf_list.htm');
@@ -82,6 +82,7 @@ foreach (waf_panel_rows($app->db->queryAllRecords(
 $app->tpl->setLoop('jobs', $job_rows);
 $app->tpl->setVar('has_jobs', count($job_rows) > 0 ? 1 : 0);
 $app->tpl->setVar('first_job', $first_job);
+$app->tpl->setVar('poll_ms', waf_panel_poll_ms(waf_panel_settings($app)));
 
 $recent_rows = array();
 foreach (waf_panel_rows($app->db->queryAllRecords(
@@ -133,7 +134,7 @@ $app->tpl->setVar('origin_line', $app->functions->htmlentities(waf_panel_origin_
 
 $link = 'security/malwatch_waf_list.php?';
 $periods = array();
-foreach (waf_periods($settings['waf_stats_days']) as $days) {
+foreach (waf_periods($settings) as $days) {
 	$periods[] = array(
 		'label' => $app->functions->htmlentities($days === 1 ? $wb['period_today_txt'] : sprintf($wb['period_days_txt'], $days)),
 		'href' => $app->functions->htmlentities($link . waf_panel_query($filters, array('days' => $days))),

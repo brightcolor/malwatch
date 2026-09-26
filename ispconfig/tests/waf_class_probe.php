@@ -782,6 +782,36 @@ $db->query('UPDATE malwatch_config SET waf_ban_logged_in_percent = 10 WHERE conf
 $db->query('DELETE FROM malwatch_waf_ban');
 $db->query('DELETE FROM malwatch_waf_hit');
 
+// 0.32.0: the discount holds on the paths of the settings only, and the own
+// networks come from the settings as well.
+$db->query("UPDATE malwatch_config SET waf_ban_logged_in_paths = '/wp-admin/,/wp-json/', "
+	. "waf_ban_full_paths = 'wp-login.php,xmlrpc.php' WHERE config_id = 1");
+foreach (array(
+	array('198.51.100.94', '/wp-json/td-composer/do_job', 'y', 13),
+	array('198.51.100.95', '/ueber-uns/', 'y', 13),
+) as $one) {
+	for ($i = 0; $i < $one[3]; $i++) {
+		$db->query('INSERT INTO malwatch_waf_hit (server_id, parent_domain_id, domain, unique_id, seen_at, client_ip, '
+			. "method, uri, path, status, anomaly_score, would_block, logged_in, rules, request_headers) "
+			. "VALUES (?, 11, 'beispiel.test', ?, NOW(), ?, 'POST', ?, ?, 403, 5, 'y', ?, '[\"941310\"]', '{}')",
+			$server, 'probe-logged-in-' . ($logged_hit++), $one[0], $one[1], $one[1], $one[2]);
+	}
+}
+expect_same('a logged-in session outside the chosen paths counts in full', $waf->ban_scan(), 1);
+expect_same('only the address outside the backend is proposed', array(
+	count_rows("SELECT ip FROM malwatch_waf_ban WHERE ip = '198.51.100.94'"),
+	count_rows("SELECT ip FROM malwatch_waf_ban WHERE ip = '198.51.100.95'"),
+), array(0, 1));
+$db->query('DELETE FROM malwatch_waf_ban');
+$db->query("UPDATE malwatch_config SET waf_ban_logged_in_paths = '' WHERE config_id = 1");
+expect_same('with an empty list of paths every logged-in hit is discounted', $waf->ban_scan(), 0);
+$db->query("UPDATE malwatch_config SET waf_ban_logged_in_paths = '/wp-admin/,/wp-json/', "
+	. "waf_own_networks = '198.51.100.95/32' WHERE config_id = 1");
+expect_same('an own network of the settings is never proposed', $waf->ban_scan(), 0);
+$db->query("UPDATE malwatch_config SET waf_own_networks = '127.0.0.0/8,::1/128,10.50.0.0/24' WHERE config_id = 1");
+$db->query('DELETE FROM malwatch_waf_ban');
+$db->query('DELETE FROM malwatch_waf_hit');
+
 // Herkunft senkt die Schwelle: derselbe Scanner, einmal ohne und einmal mit.
 $db->query('DELETE FROM malwatch_waf_ban');
 $db->query('DELETE FROM malwatch_waf_hit');
@@ -1169,6 +1199,21 @@ $start = microtime(true);
 expect_same('the hourly part gives up after its wait', $waf->cron_hourly(1), null);
 expect_same('and it did not wait for the whole hold', microtime(true) - $start < 2.5, true);
 proc_close($holder);
+
+// 0.32.0: the clock and the lock follow their settings.
+$db->query('UPDATE malwatch_config SET waf_lock_retry_ms = 1000 WHERE config_id = 1');
+$holder = hold_waf_lock($probe_dir, 1.2);
+$start = microtime(true);
+expect_same('the pass waits in steps of waf_lock_retry_ms', $waf->cron_minute(5), true);
+expect_same('and tries again only after a whole step', microtime(true) - $start >= 1.9, true);
+proc_close($holder);
+$db->query('UPDATE malwatch_config SET waf_lock_retry_ms = 250, waf_tick_fresh_seconds = 300 WHERE config_id = 1');
+$waf->mark_tick();
+touch($probe_dir . '/waf/tick', time() - 240);
+expect_same('the clock stays fresh as long as waf_tick_fresh_seconds says', $waf->tick_is_fresh(), true);
+$db->query('UPDATE malwatch_config SET waf_tick_fresh_seconds = 180 WHERE config_id = 1');
+expect_same('and turns stale after that', $waf->tick_is_fresh(), false);
+@unlink($probe_dir . '/waf/tick');
 
 // Der Schlüssel der veröffentlichten Liste.
 $db->query("UPDATE malwatch_config SET waf_ban_token = '' WHERE config_id = 1");

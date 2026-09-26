@@ -381,12 +381,12 @@ function waf_panel_lede($wb, $counts, $days)
 	return $first . ', ' . $second . '. ' . $third . '.';
 }
 
-/** Period and filters of the overview from its query string. */
-function waf_panel_filters($get, $stats_days)
+/** Period and filters of the overview from its query string; without a period it opens with waf_period_default. */
+function waf_panel_filters($get, $settings)
 {
 	$state = isset($get['state']) ? (string) $get['state'] : '';
 	return array(
-		'days' => waf_period(isset($get['days']) ? $get['days'] : 7, $stats_days),
+		'days' => waf_period(isset($get['days']) ? $get['days'] : '', $settings),
 		'state' => waf_state_valid($state) ? $state : '',
 		'wordpress' => !empty($get['wp']),
 		'hits' => !empty($get['hits']),
@@ -1176,8 +1176,10 @@ function waf_panel_handle_post($app, $wb, $post)
 		if ($domain_id <= 0) {
 			return array('', waf_panel_text($wb, 'err_no_site_txt', ''));
 		}
-		if ($score !== 0 && ($score < 5 || $score > 10000)) {
-			return array('', waf_panel_text($wb, 'ban_err_score_txt', ''));
+		$limits = waf_settings_limits();
+		list($lowest, $highest) = $limits['waf_ban_score'];
+		if ($score !== 0 && ($score < $lowest || $score > $highest)) {
+			return array('', sprintf(waf_panel_text($wb, 'ban_err_score_txt', '%1$s–%2$s'), $lowest, $highest));
 		}
 		return waf_panel_ban_queue($app, $wb, 'ban_site',
 			array('domain_id' => $domain_id, 'score' => $score, 'trigger' => $trigger));
@@ -1401,7 +1403,7 @@ function waf_panel_ban_until($wb, $row, $now)
  * the number of hits and whether it counts as suspicious today. $rows carries
  * value, label, hits and addresses; $chosen the values already on the list.
  */
-function waf_panel_ban_origin_rows($rows, $chosen, $max = 25, $kind = '', $language = 'de')
+function waf_panel_ban_origin_rows($rows, $chosen, $max, $kind = '', $language = 'de')
 {
 	$chosen = array_map('strval', $chosen);
 	$view = array();
@@ -1671,4 +1673,157 @@ function waf_panel_ban_rows($wb, $rows, $origins, $now, $language = 'de')
 		);
 	}
 	return $view;
+}
+
+/** How often a page asks for running jobs, in milliseconds (waf_poll_seconds). */
+function waf_panel_poll_ms($settings)
+{
+	return (int) $settings['waf_poll_seconds'] * 1000;
+}
+
+// --- The settings page --------------------------------------------------------
+
+/**
+ * The line in the title of each section of the settings page: how it is set
+ * right now. $settings comes from waf_settings(); the keys are the sections in
+ * the order of the page.
+ */
+function waf_config_summaries($wb, $settings)
+{
+	$n = function ($value) {
+		return number_format((int) $value, 0, ',', '.');
+	};
+	$t = function ($key, $fallback = '') use ($wb) {
+		return waf_panel_text($wb, $key, $fallback === '' ? $key : $fallback);
+	};
+	$list = function ($key) use ($settings) {
+		return implode(', ', waf_list_parse(isset($settings[$key]) ? $settings[$key] : ''));
+	};
+	$lines = array();
+	$mode = (string) $settings['waf_ban_mode'];
+	$lines['ban'] = sprintf($t('sum_ban_txt'), $t('sum_ban_mode_' . $mode . '_txt', $mode), $n($settings['waf_ban_score']),
+		$n($settings['waf_ban_window_minutes']), $n($settings['waf_ban_hours_first']), $n($settings['waf_ban_hours_second']),
+		$n($settings['waf_ban_hours_third']));
+	if ((int) $settings['waf_ban_logged_in_percent'] >= 100) {
+		$lines['logged_in'] = $t('sum_logged_in_off_txt');
+	} else {
+		$paths = $list('waf_ban_logged_in_paths');
+		$line = sprintf($t('sum_logged_in_txt'), $n($settings['waf_ban_logged_in_percent']),
+			$paths === '' ? $t('sum_logged_in_all_txt') : $paths);
+		$full = $list('waf_ban_full_paths');
+		$lines['logged_in'] = $full === '' ? $line : $line . ' · ' . sprintf($t('sum_logged_in_full_txt'), $full);
+	}
+	$lines['never'] = implode(' · ', array(
+		sprintf($t('sum_never_txt'), $n(count(waf_list_parse($settings['waf_own_networks'])))),
+		$t((string) $settings['waf_ban_bots'] === 'off' ? 'sum_bots_off_txt' : 'sum_bots_on_txt'),
+		$t('sum_never_more_txt'),
+	));
+	$lines['origin_ban'] = (string) $settings['waf_ban_origin'] === 'on'
+		? sprintf($t('sum_origin_ban_on_txt'), $n($settings['waf_ban_origin_score']), $n($settings['waf_ban_origin_factor']),
+			$t((string) $settings['waf_ban_origin_now'] === 'on' ? 'sum_origin_now_on_txt' : 'sum_origin_now_off_txt'))
+		: $t('sum_origin_ban_off_txt');
+	$lines['origin_src'] = sprintf($t('sum_origin_src_txt'),
+		$t('sum_src_' . $settings['waf_origin_geo'] . '_txt', (string) $settings['waf_origin_geo']),
+		$t('sum_src_' . $settings['waf_origin_tor'] . '_txt', (string) $settings['waf_origin_tor']),
+		$t('sum_src_' . $settings['waf_origin_net'] . '_txt', (string) $settings['waf_origin_net']));
+	$everywhere = (string) $settings['waf_everywhere_mode'];
+	$lines['f2b'] = sprintf($t('sum_f2b_txt'), $t((string) $settings['waf_f2b'] === 'off' ? 'sum_f2b_off_txt' : 'sum_f2b_on_txt'),
+		sprintf($t('sum_everywhere_' . $everywhere . '_txt', $everywhere . ' %s'), (string) $settings['waf_everywhere_jail']));
+	$lines['enforce'] = sprintf($t('sum_enforce_txt'), $n($settings['waf_min_detect_days']), $n($settings['waf_preview_days']));
+	$lines['display'] = sprintf($t('sum_display_txt'), $n($settings['waf_card_hits']), $n($settings['waf_ban_page_step']),
+		$n($settings['waf_ban_page_rows']), $n($settings['waf_poll_seconds']),
+		implode(', ', array_map($n, waf_periods($settings))), $n(waf_period('', $settings)));
+	$lines['keep'] = sprintf($t('sum_keep_txt'), $n($settings['waf_detail_days']), $n($settings['waf_stats_days']),
+		$n($settings['waf_log_keep_days']), $n($settings['waf_ban_keep_days']), $n($settings['waf_ban_proposal_days']));
+	$lines['cron'] = sprintf($t('sum_cron_txt'), $n($settings['waf_ingest_max_lines']), $n($settings['waf_tick_wait_seconds']),
+		$n($settings['waf_tick_fresh_seconds']));
+	$lines['facts'] = sprintf($t('sum_facts_txt'),
+		$t((string) $settings['waf_emergency'] === 'y' ? 'sum_emergency_on_txt' : 'sum_emergency_off_txt'),
+		$t((string) $settings['waf_response_body'] === 'lean' ? 'response_lean_txt' : 'response_full_txt'));
+	return $lines;
+}
+
+/**
+ * The options of every choice of the form for buttons in the template, the
+ * stored value checked. $fields are the fields of the form definition,
+ * $record the values shown; a missing value takes the default of the field.
+ */
+function waf_config_choices($fields, $record, $wb)
+{
+	$choices = array();
+	foreach ($fields as $key => $field) {
+		if (!isset($field['formtype']) || $field['formtype'] !== 'SELECT' || !isset($field['value']) || !is_array($field['value'])) {
+			continue;
+		}
+		$current = isset($record[$key]) && (string) $record[$key] !== '' ? (string) $record[$key]
+			: (isset($field['default']) ? (string) $field['default'] : '');
+		$rows = array();
+		foreach ($field['value'] as $value => $word) {
+			$rows[] = array(
+				'choice_value' => (string) $value,
+				'choice_label' => waf_panel_text($wb, $word, (string) $value),
+				'choice_checked' => (string) $value === $current ? 1 : 0,
+				'choice_id' => $key . '_' . $value,
+			);
+		}
+		$choices[$key] = $rows;
+	}
+	return $choices;
+}
+
+/** The defaults as the template shows them, as default_<setting>; lists one entry per line. */
+function waf_config_template_defaults()
+{
+	$lists = waf_settings_lists();
+	$vars = array();
+	foreach (waf_settings_defaults() as $key => $value) {
+		if ($value === null) {
+			continue;
+		}
+		$vars['default_' . $key] = isset($lists[$key]) ? waf_list_lines($value) : (string) $value;
+	}
+	return $vars;
+}
+
+/**
+ * The lists of a submitted form, stored with commas, and a message for each
+ * list that cannot be stored: its bad entries by name, or its length.
+ */
+function waf_config_lists($wb, $record)
+{
+	$errors = array();
+	foreach (waf_settings_lists() as $key => $kind) {
+		if (!is_array($record) || !array_key_exists($key, $record)) {
+			continue;
+		}
+		$items = waf_list_parse($record[$key]);
+		if ($kind === 'networks') {
+			$bad = waf_list_bad_networks($items);
+		} elseif ($kind === 'cookies') {
+			$bad = waf_list_bad_cookies($items);
+		} elseif ($kind === 'days') {
+			$bad = waf_list_bad_days($items);
+		} else {
+			$bad = waf_list_bad_paths($items);
+		}
+		$label = waf_panel_text($wb, $key . '_txt', $key);
+		if ($kind === 'networks' && count($items) === 0) {
+			// Without localhost and the network of the proxy a block can hit every website.
+			$errors[] = sprintf(waf_panel_text($wb, 'list_empty_networks_txt', '%1$s'), $label);
+		} elseif (count($bad) > 0) {
+			$rule = waf_panel_text($wb, 'list_rule_' . $kind . '_txt', '');
+			if ($kind === 'days') {
+				// A period reaches up to the longest keep of the day figures.
+				$limits = waf_settings_limits();
+				$rule = sprintf($rule, number_format($limits['waf_stats_days'][1], 0, ',', '.'));
+			}
+			$errors[] = sprintf(waf_panel_text($wb, 'list_error_txt', '%1$s: %2$s %3$s'), $label,
+				'„' . implode('“, „', $bad) . '“', $rule);
+		} elseif (!waf_list_fits($items)) {
+			$errors[] = sprintf(waf_panel_text($wb, 'list_too_long_txt', '%1$s: %2$s'), $label,
+				number_format(WAF_LIST_MAX, 0, ',', '.'));
+		}
+		$record[$key] = waf_list_join($items);
+	}
+	return array('record' => $record, 'errors' => $errors);
 }

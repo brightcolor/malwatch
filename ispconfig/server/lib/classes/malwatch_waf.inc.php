@@ -113,8 +113,10 @@ class malwatch_waf
 			return $stats;
 		}
 		if ($dry) {
+			// A dry run reads a file from its start, as far as waf_ingest_max_lines may ever reach.
+			$limits = waf_settings_limits();
 			$offset = 0;
-			$max = 100000;
+			$max = $limits['waf_ingest_max_lines'][1];
 		} else {
 			$reader = $this->reader_state();
 			$offset = waf_reader_start($reader['inode'], $reader['offset'], $stat['ino'], $stat['size']);
@@ -133,9 +135,10 @@ class malwatch_waf
 				$names[(int) $row['domain_id']] = (string) $row['domain'];
 			}
 		}
+		$login_cookies = waf_list_parse($settings['waf_login_cookies']);
 		foreach ($read['lines'] as $line) {
 			$stats['lines']++;
-			$hit = waf_audit_parse_line($line);
+			$hit = waf_audit_parse_line($line, $login_cookies);
 			if ($hit === null) {
 				$stats['broken']++;
 				continue;
@@ -584,6 +587,7 @@ class malwatch_waf
 		}
 		$until = microtime(true) + max(0, (int) $within);
 		$busy = 0;
+		$retry = null;
 		while (!flock($handle, $wait ? LOCK_EX : LOCK_EX | LOCK_NB, $busy)) {
 			// Only a lock another worker holds is worth another try; any other
 			// failure ends at once.
@@ -591,7 +595,11 @@ class malwatch_waf
 				fclose($handle);
 				return false;
 			}
-			usleep(250000);
+			if ($retry === null) {
+				$settings = $this->settings();
+				$retry = (int) $settings['waf_lock_retry_ms'];
+			}
+			usleep($retry * 1000);
 		}
 		$this->lock = $handle;
 		return true;
@@ -696,7 +704,7 @@ class malwatch_waf
 	}
 
 	/**
-	 * true while the own clock ran through within the last three minutes. Then
+	 * true while the own clock ran through within waf_tick_fresh_seconds. Then
 	 * the cron job of ISPConfig leaves the pass to it; once the clock stops, the
 	 * cron job takes the pass over again.
 	 */
@@ -705,7 +713,8 @@ class malwatch_waf
 		$file = $this->ensure_dirs() . '/tick';
 		clearstatcache(true, $file);
 		$time = is_file($file) ? @filemtime($file) : false;
-		return $time !== false && time() - (int) $time < 180;
+		$settings = $this->settings();
+		return $time !== false && time() - (int) $time < (int) $settings['waf_tick_fresh_seconds'];
 	}
 
 	/**
@@ -1234,16 +1243,17 @@ class malwatch_waf
 		$now = $this->now();
 		$minutes = (int) $settings['waf_ban_window_minutes'];
 		$since = date('Y-m-d H:i:s', strtotime($now) - $minutes * 60);
-		$groups = $this->rows($app->dbmaster->queryAllRecords(
+		// The points from logged-in sessions apart, on the paths of
+		// waf_ban_logged_in_paths and outside those of waf_ban_full_paths:
+		// waf_ban_score_logged_in() discounts them, so editors keep working with
+		// page builders and uploads in the backend.
+		$logged = waf_ban_logged_in_sql(waf_list_parse($settings['waf_ban_logged_in_paths']),
+			waf_list_parse($settings['waf_ban_full_paths']));
+		$groups = $this->rows(call_user_func_array(array($app->dbmaster, 'queryAllRecords'), array_merge(array(
 			'SELECT client_ip, parent_domain_id, SUM(anomaly_score) AS score, '
-			// The points from logged-in sessions apart: waf_ban_score_logged_in()
-			// discounts them, so editors keep working with page builders and uploads
-			// in the backend. Logins and XML-RPC keep their full weight.
-			. "SUM(CASE WHEN logged_in = 'y' AND path NOT LIKE '%wp-login.php%' "
-			. "AND path NOT LIKE '%xmlrpc.php%' THEN anomaly_score ELSE 0 END) AS score_logged_in, "
-			. 'COUNT(*) AS hits '
+			. $logged['sql'] . ' AS score_logged_in, COUNT(*) AS hits '
 			. "FROM malwatch_waf_hit WHERE server_id = ? AND seen_at >= ? AND client_ip != '' "
-			. 'GROUP BY client_ip, parent_domain_id', $conf['server_id'], $since));
+			. 'GROUP BY client_ip, parent_domain_id'), $logged['params'], array($conf['server_id'], $since))));
 		if (count($groups) === 0) {
 			return 0;
 		}
@@ -1279,6 +1289,7 @@ class malwatch_waf
 			$known[(string) $row['ip']] = $row;
 		}
 		$allow = $this->ban_allow_list();
+		$own = waf_list_parse($settings['waf_own_networks']);
 		$readers = waf_origin_readers($this->ensure_dirs() . '/origin',
 			(string) $settings['waf_ban_bots'] === 'on' ? array('searchbots') : array());
 		$reader = isset($readers['searchbots']) ? $readers['searchbots'] : null;
@@ -1310,7 +1321,7 @@ class malwatch_waf
 			if (waf_ban_keeps_quiet($earlier, $since, $state)) {
 				continue;
 			}
-			if (waf_ban_allowed($ip, $allow, $reader)) {
+			if (waf_ban_allowed($ip, $allow, $reader, $own)) {
 				continue;
 			}
 			if ($downgraded && !$full) {
@@ -1319,8 +1330,8 @@ class malwatch_waf
 				$full = true;
 			}
 			$top = waf_ban_top_rule($this->rows($app->dbmaster->queryAllRecords(
-				'SELECT rules FROM malwatch_waf_hit WHERE server_id = ? AND client_ip = ? AND seen_at >= ? LIMIT 200',
-				$conf['server_id'], $ip, $since)));
+				'SELECT rules FROM malwatch_waf_hit WHERE server_id = ? AND client_ip = ? AND seen_at >= ? LIMIT ?',
+				$conf['server_id'], $ip, $since, (int) $settings['waf_ban_rule_hits'])));
 			// The level counts blocks; a proposal that becomes one keeps its level.
 			$level = waf_ban_next_level($earlier);
 			// A block because of a marked rule follows its plan: without end on the
@@ -1356,6 +1367,13 @@ class malwatch_waf
 		}
 		waf_origin_readers_close($readers);
 		return $written;
+	}
+
+	/** The own networks of the settings (waf_own_networks), never blocked. */
+	private function own_networks()
+	{
+		$settings = $this->settings();
+		return waf_list_parse($settings['waf_own_networks']);
 	}
 
 	/**
@@ -1747,9 +1765,10 @@ class malwatch_waf
 				}
 				// fail2ban knows no exceptions here; this is the only guard for the
 				// own networks, the addresses of the server and the allow list.
-				if (waf_ban_allowed($ip, $this->ban_allow_list(), null)) {
-					return $this->finish($job, false, 'Diese Adresse steht unter „Nie sperren" oder gehört zum '
-						. 'Server selbst. Sie wird nirgends gesperrt, auch nicht bei fail2ban.');
+				if (waf_ban_allowed($ip, $this->ban_allow_list(), null, $this->own_networks())) {
+					return $this->finish($job, false, 'Diese Adresse steht unter „Nie sperren", gehört zu den eigenen '
+						. 'Netzen unter Abwehr > Einstellungen oder zum Server selbst. Sie wird nirgends gesperrt, auch '
+						. 'nicht bei fail2ban.');
 				}
 				$from = isset($options['jail']) && waf_f2b_jail_ok($options['jail']) ? (string) $options['jail'] : '';
 				$plan = waf_f2b_plan(waf_f2b_mode($from, $this->f2b_jail_modes(), $settings));
@@ -1842,9 +1861,10 @@ class malwatch_waf
 					return $this->finish($job, false, 'Das ist keine Adresse. Bitte eine IPv4- oder IPv6-Adresse '
 						. 'angeben, etwa 192.0.2.10.');
 				}
-				if (waf_ban_allowed($ip, $this->ban_allow_list(), null)) {
-					return $this->finish($job, false, 'Diese Adresse steht unter „Nie sperren" oder gehört zum '
-						. 'Server selbst. Erst den Eintrag dort entfernen, dann sperren.');
+				if (waf_ban_allowed($ip, $this->ban_allow_list(), null, $this->own_networks())) {
+					return $this->finish($job, false, 'Diese Adresse steht unter „Nie sperren", gehört zu den eigenen '
+						. 'Netzen unter Abwehr > Einstellungen oder zum Server selbst. Erst den Eintrag dort entfernen, '
+						. 'dann sperren.');
 				}
 				// Same rule as the automatic: the level counts blocks, so a proposal
 				// blocked by hand starts where its block would have started.
@@ -1930,9 +1950,11 @@ class malwatch_waf
 				$domain_id = (int) (isset($options['domain_id']) ? $options['domain_id'] : 0);
 				$score = (int) (isset($options['score']) ? $options['score'] : 0);
 				$trigger = isset($options['trigger']) && (string) $options['trigger'] === 'n' ? 'n' : 'y';
-				if ($score !== 0 && ($score < 5 || $score > 10000)) {
+				$limits = waf_settings_limits();
+				list($lowest, $highest) = $limits['waf_ban_score'];
+				if ($score !== 0 && ($score < $lowest || $score > $highest)) {
 					return $this->finish($job, false, 'Eigene Schwelle: Erlaubt sind 0 (wie der Server) oder ganze '
-						. 'Zahlen von 5 bis 10000.');
+						. 'Zahlen von ' . $lowest . ' bis ' . $highest . '. Bitte den Wert auf der Seite der Website anpassen.');
 				}
 				$app->dbmaster->query('UPDATE malwatch_site SET waf_ban_score = ?, waf_ban_trigger = ? '
 					. 'WHERE server_id = ? AND parent_domain_id = ?', $score, $trigger, $conf['server_id'], $domain_id);

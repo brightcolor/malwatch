@@ -56,7 +56,7 @@
 @media (prefers-reduced-motion: reduce){#mw-wafban details.mw-sec > summary::before{transition:none}}
 </style>
 
-<div id="mw-wafban" data-mw-jobs="security/malwatch_waf_jobs.php?since={tmpl_var name='first_job'}"
+<div id="mw-wafban" data-mw-jobs="security/malwatch_waf_jobs.php?since={tmpl_var name='first_job'}" data-mw-poll="{tmpl_var name='poll_ms'}"
 	data-mw-self="{tmpl_var name='self_href'}" data-mw-more-error="{tmpl_var name='ban_more_error_txt'}"
 	data-mw-more-http="{tmpl_var name='ban_more_http_txt'}" data-mw-more-nolist="{tmpl_var name='ban_more_nolist_txt'}"
 	data-mw-more-offline="{tmpl_var name='ban_more_offline_txt'}" data-mw-more-slow="{tmpl_var name='ban_more_slow_txt'}"
@@ -514,7 +514,10 @@
 		};
 		xhr.send();
 	}
-	timer = setInterval(poll, 5000);
+	// As often as waf_poll_seconds says.
+	var every = parseInt(root.getAttribute('data-mw-poll'), 10);
+	if (!(every > 0)) { return; }
+	timer = setInterval(poll, every);
 })();
 
 (function () {

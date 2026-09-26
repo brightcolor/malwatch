@@ -25,6 +25,8 @@ $wb['max_parallel_txt'] = 'Concurrent scans';
 $wb['max_parallel_hint_txt'] = 'Several scans at once put a noticeable load on the disk. On a server with many websites, stay at 1 or 2.';
 $wb['job_timeout_hours_txt'] = 'Abort after hours';
 $wb['keep_scans_txt'] = 'Scans kept per website';
+$wb['poll_seconds_txt'] = 'Progress refresh (seconds)';
+$wb['poll_seconds_hint_txt'] = 'How often the overview and the page of a website ask how far a running scan has come. Smaller values show the progress more smoothly; each check is one request to the panel.';
 $wb['use_clamav_txt'] = 'Use ClamAV as well';
 $wb['use_clamav_hint_txt'] = 'Only takes effect when clamdscan or clamscan is installed.';
 $wb['auto_update_signatures_txt'] = 'Update signatures daily';
@@ -107,6 +109,7 @@ $wb['scan_max_age_error_range'] = 'The number of days must be between 0 and 3650
 $wb['max_parallel_error_range'] = 'The number of concurrent scans must be between 1 and 16.';
 $wb['job_timeout_error_range'] = 'The abort time must be between 1 and 168 hours.';
 $wb['keep_scans_error_range'] = 'The number of kept scans must be between 1 and 1000.';
+$wb['poll_seconds_error_range'] = 'The progress refresh must be between 1 and 60 seconds. Enter a number from 1 to 60 and save again.';
 $wb['wpscan_token_error_regex'] = 'The WPScan token consists of letters, digits, hyphens and underscores, at most 128 characters.';
 
 $wb['btn_save_txt'] = 'Save settings';

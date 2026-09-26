@@ -102,6 +102,14 @@ class page_action extends tform_actions
 		foreach (waf_panel_origin_missing($this->dataRecord) as $message) {
 			$app->tform->errorMessage .= $wb[$message] . '<br />';
 		}
+		// Lists come one entry per line and are stored with commas. A message
+		// names each entry that cannot be one; it carries what was typed, so it
+		// is escaped.
+		$lists = waf_config_lists($wb, $this->dataRecord);
+		$this->dataRecord = $lists['record'];
+		foreach ($lists['errors'] as $message) {
+			$app->tform->errorMessage .= $app->functions->htmlentities($message) . '<br />';
+		}
 		parent::onSubmit();
 	}
 
@@ -163,6 +171,41 @@ class page_action extends tform_actions
 		}
 		$app->tpl->setLoop('origin_states', $origin_rows);
 		$app->tpl->setVar('has_origin_states', count($origin_rows) > 0 ? 1 : 0);
+
+		// The title of each section says how it is stored.
+		foreach (waf_config_summaries($wb, $settings) as $section => $line) {
+			$app->tpl->setVar('state_' . $section, $app->functions->htmlentities($line));
+		}
+		// Buttons for the choices, the shown value checked; the value shown is
+		// the stored one, or after a refused save what was sent.
+		foreach (waf_config_choices($app->tform->formDef['tabs']['waf']['fields'], $this->dataRecord, $wb) as $key => $rows) {
+			$loop = array();
+			foreach ($rows as $row) {
+				$loop[] = array(
+					'choice_value' => $app->functions->htmlentities($row['choice_value']),
+					'choice_label' => $app->functions->htmlentities($row['choice_label']),
+					'choice_checked' => $row['choice_checked'],
+					'choice_id' => $app->functions->htmlentities($row['choice_id']),
+				);
+			}
+			$app->tpl->setLoop('choice_' . $key, $loop);
+		}
+		// The limits of every number, as the form checks them.
+		foreach (waf_settings_limits() as $key => $limit) {
+			$app->tpl->setVar('min_' . $key, (int) $limit[0]);
+			$app->tpl->setVar('max_' . $key, (int) $limit[1]);
+		}
+		// The defaults for the marks of adjusted values, lists one entry per line.
+		foreach (waf_config_template_defaults() as $name => $value) {
+			$app->tpl->setVar($name, $app->functions->htmlentities($value));
+		}
+		foreach (waf_settings_lists() as $key => $kind) {
+			$app->tpl->setVar('lines_' . $key, $app->functions->htmlentities(
+				waf_list_lines(isset($this->dataRecord[$key]) ? $this->dataRecord[$key] : '')));
+		}
+		// The words the script of the page writes into attributes.
+		$app->tpl->setVar(malwatch_attr_texts($wb, array('cfg_default_txt', 'cfg_reset_txt', 'cfg_adjusted_txt',
+			'cfg_dirty_one_txt', 'cfg_dirty_many_txt', 'cfg_clean_txt', 'cfg_find_txt')));
 
 		parent::onShowEnd();
 	}

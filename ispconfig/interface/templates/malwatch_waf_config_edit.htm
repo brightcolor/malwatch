@@ -1,421 +1,822 @@
 <!--
 	A tab of tabbed_form.tpl.htm: the panel prints the title, the messages of
-	the ranges and the token fields around it.
+	the ranges and the token fields around it. The sections are details blocks
+	with the stored state in their titles; the script below marks values that
+	differ from their defaults, counts unsaved changes and searches the fields.
+	Every value, limit and default comes from the page; nothing is fixed here.
 -->
-<p class="mw-wafcfg-sub">{tmpl_var name='waf_config_desc_txt'}</p>
+<div id="mw-wafcfg" data-mw-word-default="{tmpl_var name='cfg_default_txt'}" data-mw-word-reset="{tmpl_var name='cfg_reset_txt'}"
+	data-mw-word-adjusted="{tmpl_var name='cfg_adjusted_txt'}" data-mw-word-dirty-one="{tmpl_var name='cfg_dirty_one_txt'}"
+	data-mw-word-dirty-many="{tmpl_var name='cfg_dirty_many_txt'}" data-mw-word-clean="{tmpl_var name='cfg_clean_txt'}">
+
+<p class="mw-cfg-sub">{tmpl_var name='waf_config_desc_txt'}</p>
 
 <tmpl_if name="waf_message">
 	<div class="alert alert-success">{tmpl_var name='waf_message'}</div>
 </tmpl_if>
 
-<p class="mw-wafcfg-head">{tmpl_var name='keep_head_txt'}</p>
-
-<div class="form-group">
-	<label for="waf_detail_days" class="col-sm-3 control-label">{tmpl_var name='waf_detail_days_txt'}</label>
-	<div class="col-sm-9">
-		<input type="number" min="1" max="3650" step="1" name="waf_detail_days" id="waf_detail_days" value="{tmpl_var name='waf_detail_days'}" class="form-control mw-wafcfg-num" />
-		<span class="help-block">{tmpl_var name='waf_detail_days_hint_txt'}</span>
+<div class="mw-cfg-bar">
+	<div class="mw-cfg-search">
+		<svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="5.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M11 11l3.5 3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+		<label for="mw-cfg-find" class="sr-only">{tmpl_var name='cfg_find_label_txt'}</label>
+		<input type="search" class="form-control" id="mw-cfg-find" placeholder="{tmpl_var name='cfg_find_txt'}" autocomplete="off" />
 	</div>
+	<div class="mw-cfg-links"><button type="button" data-mw-all="open">{tmpl_var name='cfg_open_all_txt'}</button><button type="button" data-mw-all="close">{tmpl_var name='cfg_close_all_txt'}</button></div>
+	<span class="mw-cfg-legend"><span class="mw-dot" aria-hidden="true"></span>{tmpl_var name='cfg_legend_txt'}</span>
 </div>
-<div class="form-group">
-	<label for="waf_stats_days" class="col-sm-3 control-label">{tmpl_var name='waf_stats_days_txt'}</label>
-	<div class="col-sm-9">
-		<input type="number" min="1" max="3650" step="1" name="waf_stats_days" id="waf_stats_days" value="{tmpl_var name='waf_stats_days'}" class="form-control mw-wafcfg-num" />
-		<span class="help-block">{tmpl_var name='waf_stats_days_hint_txt'}</span>
+<p class="mw-cfg-empty" id="mw-cfg-empty" hidden>{tmpl_var name='cfg_empty_txt'}</p>
+
+<details class="mw-cfg-sec" id="mw-cfg-ban" data-mw-sec="ban">
+	<summary><h2 class="mw-cfg-title">{tmpl_var name='ban_head_txt'}</h2><span class="mw-cfg-state">{tmpl_var name='state_ban'}</span><span class="mw-cfg-badge" hidden></span></summary>
+	<div class="mw-cfg-body">
+		<p class="mw-cfg-intro">{tmpl_var name='ban_intro_txt'}</p>
+		<div class="mw-cfg-field">
+			<span class="mw-cfg-label" id="label_waf_ban_mode">{tmpl_var name='waf_ban_mode_txt'}</span>
+			<div class="mw-cfg-control">
+				<div class="mw-seg" role="radiogroup" aria-labelledby="label_waf_ban_mode" data-mw-name="waf_ban_mode" data-default="{tmpl_var name='default_waf_ban_mode'}"><tmpl_loop name="choice_waf_ban_mode">
+					<label for="{tmpl_var name='choice_id'}"><input type="radio" name="waf_ban_mode" id="{tmpl_var name='choice_id'}" value="{tmpl_var name='choice_value'}"<tmpl_if name="choice_checked"> checked="checked"</tmpl_if> /><span>{tmpl_var name='choice_label'}</span></label></tmpl_loop>
+				</div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_ban_mode_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_ban_score">{tmpl_var name='waf_ban_score_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_ban_score'}" max="{tmpl_var name='max_waf_ban_score'}" step="1" name="waf_ban_score" id="waf_ban_score" value="{tmpl_var name='waf_ban_score'}" data-default="{tmpl_var name='default_waf_ban_score'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_points_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_ban_score_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_ban_window_minutes">{tmpl_var name='waf_ban_window_minutes_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_ban_window_minutes'}" max="{tmpl_var name='max_waf_ban_window_minutes'}" step="1" name="waf_ban_window_minutes" id="waf_ban_window_minutes" value="{tmpl_var name='waf_ban_window_minutes'}" data-default="{tmpl_var name='default_waf_ban_window_minutes'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_minutes_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_ban_window_minutes_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<span class="mw-cfg-label" id="label_ban_hours">{tmpl_var name='ban_hours_txt'}</span>
+			<div class="mw-cfg-control">
+				<div class="mw-cfg-steps" role="group" aria-labelledby="label_ban_hours">
+					<div><label for="waf_ban_hours_first">{tmpl_var name='waf_ban_hours_first_txt'}</label><div class="input-group"><input type="number" min="{tmpl_var name='min_waf_ban_hours_first'}" max="{tmpl_var name='max_waf_ban_hours_first'}" step="1" name="waf_ban_hours_first" id="waf_ban_hours_first" value="{tmpl_var name='waf_ban_hours_first'}" data-default="{tmpl_var name='default_waf_ban_hours_first'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_hours_txt'}</span></div></div>
+					<div><label for="waf_ban_hours_second">{tmpl_var name='waf_ban_hours_second_txt'}</label><div class="input-group"><input type="number" min="{tmpl_var name='min_waf_ban_hours_second'}" max="{tmpl_var name='max_waf_ban_hours_second'}" step="1" name="waf_ban_hours_second" id="waf_ban_hours_second" value="{tmpl_var name='waf_ban_hours_second'}" data-default="{tmpl_var name='default_waf_ban_hours_second'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_hours_txt'}</span></div></div>
+					<div><label for="waf_ban_hours_third">{tmpl_var name='waf_ban_hours_third_txt'}</label><div class="input-group"><input type="number" min="{tmpl_var name='min_waf_ban_hours_third'}" max="{tmpl_var name='max_waf_ban_hours_third'}" step="1" name="waf_ban_hours_third" id="waf_ban_hours_third" value="{tmpl_var name='waf_ban_hours_third'}" data-default="{tmpl_var name='default_waf_ban_hours_third'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_hours_txt'}</span></div></div>
+				</div>
+				<p class="mw-cfg-hint">{tmpl_var name='ban_hours_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_ban_max">{tmpl_var name='waf_ban_max_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_ban_max'}" max="{tmpl_var name='max_waf_ban_max'}" step="1" name="waf_ban_max" id="waf_ban_max" value="{tmpl_var name='waf_ban_max'}" data-default="{tmpl_var name='default_waf_ban_max'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_addresses_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_ban_max_hint_txt'}</p>
+			</div>
+		</div>
 	</div>
-</div>
-<div class="form-group">
-	<label for="waf_log_keep_days" class="col-sm-3 control-label">{tmpl_var name='waf_log_keep_days_txt'}</label>
-	<div class="col-sm-9">
-		<input type="number" min="1" max="365" step="1" name="waf_log_keep_days" id="waf_log_keep_days" value="{tmpl_var name='waf_log_keep_days'}" class="form-control mw-wafcfg-num" />
-		<span class="help-block">{tmpl_var name='waf_log_keep_days_hint_txt'}</span>
+</details>
+
+<details class="mw-cfg-sec" id="mw-cfg-logged_in" data-mw-sec="logged_in">
+	<summary><h2 class="mw-cfg-title">{tmpl_var name='logged_in_head_txt'}</h2><span class="mw-cfg-state">{tmpl_var name='state_logged_in'}</span><span class="mw-cfg-badge" hidden></span></summary>
+	<div class="mw-cfg-body">
+		<p class="mw-cfg-intro">{tmpl_var name='logged_in_intro_txt'}</p>
+		<div class="mw-cfg-field">
+			<label for="waf_ban_logged_in_percent">{tmpl_var name='waf_ban_logged_in_percent_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_ban_logged_in_percent'}" max="{tmpl_var name='max_waf_ban_logged_in_percent'}" step="1" name="waf_ban_logged_in_percent" id="waf_ban_logged_in_percent" value="{tmpl_var name='waf_ban_logged_in_percent'}" data-default="{tmpl_var name='default_waf_ban_logged_in_percent'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_percent_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_ban_logged_in_percent_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_ban_logged_in_paths">{tmpl_var name='waf_ban_logged_in_paths_txt'}</label>
+			<div class="mw-cfg-control">
+				<textarea name="waf_ban_logged_in_paths" id="waf_ban_logged_in_paths" rows="3" class="form-control mw-cfg-list" spellcheck="false" autocomplete="off" data-default="{tmpl_var name='default_waf_ban_logged_in_paths'}">{tmpl_var name='lines_waf_ban_logged_in_paths'}</textarea>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_ban_logged_in_paths_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_ban_full_paths">{tmpl_var name='waf_ban_full_paths_txt'}</label>
+			<div class="mw-cfg-control">
+				<textarea name="waf_ban_full_paths" id="waf_ban_full_paths" rows="3" class="form-control mw-cfg-list" spellcheck="false" autocomplete="off" data-default="{tmpl_var name='default_waf_ban_full_paths'}">{tmpl_var name='lines_waf_ban_full_paths'}</textarea>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_ban_full_paths_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_login_cookies">{tmpl_var name='waf_login_cookies_txt'}</label>
+			<div class="mw-cfg-control">
+				<textarea name="waf_login_cookies" id="waf_login_cookies" rows="3" class="form-control mw-cfg-list" spellcheck="false" autocomplete="off" data-default="{tmpl_var name='default_waf_login_cookies'}">{tmpl_var name='lines_waf_login_cookies'}</textarea>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_login_cookies_hint_txt'}</p>
+			</div>
+		</div>
 	</div>
-</div>
+</details>
 
-<p class="mw-wafcfg-head">{tmpl_var name='enforce_head_txt'}</p>
-
-<div class="form-group">
-	<label for="waf_min_detect_days" class="col-sm-3 control-label">{tmpl_var name='waf_min_detect_days_txt'}</label>
-	<div class="col-sm-9">
-		<input type="number" min="0" max="365" step="1" name="waf_min_detect_days" id="waf_min_detect_days" value="{tmpl_var name='waf_min_detect_days'}" class="form-control mw-wafcfg-num" />
-		<span class="help-block">{tmpl_var name='waf_min_detect_days_hint_txt'}</span>
+<details class="mw-cfg-sec" id="mw-cfg-never" data-mw-sec="never">
+	<summary><h2 class="mw-cfg-title">{tmpl_var name='never_head_txt'}</h2><span class="mw-cfg-state">{tmpl_var name='state_never'}</span><span class="mw-cfg-badge" hidden></span></summary>
+	<div class="mw-cfg-body">
+		<p class="mw-cfg-intro">{tmpl_var name='never_intro_txt'}</p>
+		<div class="mw-cfg-field">
+			<label for="waf_own_networks">{tmpl_var name='waf_own_networks_txt'}</label>
+			<div class="mw-cfg-control">
+				<textarea name="waf_own_networks" id="waf_own_networks" rows="3" class="form-control mw-cfg-list" spellcheck="false" autocomplete="off" data-default="{tmpl_var name='default_waf_own_networks'}">{tmpl_var name='lines_waf_own_networks'}</textarea>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_own_networks_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<span class="mw-cfg-label" id="label_waf_ban_bots">{tmpl_var name='waf_ban_bots_txt'}</span>
+			<div class="mw-cfg-control">
+				<div class="mw-seg" role="radiogroup" aria-labelledby="label_waf_ban_bots" data-mw-name="waf_ban_bots" data-default="{tmpl_var name='default_waf_ban_bots'}"><tmpl_loop name="choice_waf_ban_bots">
+					<label for="{tmpl_var name='choice_id'}"><input type="radio" name="waf_ban_bots" id="{tmpl_var name='choice_id'}" value="{tmpl_var name='choice_value'}"<tmpl_if name="choice_checked"> checked="checked"</tmpl_if> /><span>{tmpl_var name='choice_label'}</span></label></tmpl_loop>
+				</div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_ban_bots_hint_txt'}</p>
+			</div>
+		</div>
 	</div>
-</div>
-<div class="form-group">
-	<label for="waf_preview_days" class="col-sm-3 control-label">{tmpl_var name='waf_preview_days_txt'}</label>
-	<div class="col-sm-9">
-		<input type="number" min="1" max="365" step="1" name="waf_preview_days" id="waf_preview_days" value="{tmpl_var name='waf_preview_days'}" class="form-control mw-wafcfg-num" />
-		<span class="help-block">{tmpl_var name='waf_preview_days_hint_txt'}</span>
+</details>
+
+<details class="mw-cfg-sec" id="mw-cfg-origin_ban" data-mw-sec="origin_ban">
+	<summary><h2 class="mw-cfg-title">{tmpl_var name='ban_origin_head_txt'}</h2><span class="mw-cfg-state">{tmpl_var name='state_origin_ban'}</span><span class="mw-cfg-badge" hidden></span></summary>
+	<div class="mw-cfg-body">
+		<p class="mw-cfg-intro">{tmpl_var name='ban_origin_intro_txt'}</p>
+		<div class="mw-cfg-field">
+			<span class="mw-cfg-label" id="label_waf_ban_origin">{tmpl_var name='waf_ban_origin_txt'}</span>
+			<div class="mw-cfg-control">
+				<div class="mw-seg" role="radiogroup" aria-labelledby="label_waf_ban_origin" data-mw-name="waf_ban_origin" data-default="{tmpl_var name='default_waf_ban_origin'}"><tmpl_loop name="choice_waf_ban_origin">
+					<label for="{tmpl_var name='choice_id'}"><input type="radio" name="waf_ban_origin" id="{tmpl_var name='choice_id'}" value="{tmpl_var name='choice_value'}"<tmpl_if name="choice_checked"> checked="checked"</tmpl_if> /><span>{tmpl_var name='choice_label'}</span></label></tmpl_loop>
+				</div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_ban_origin_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_ban_origin_score">{tmpl_var name='waf_ban_origin_score_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_ban_origin_score'}" max="{tmpl_var name='max_waf_ban_origin_score'}" step="1" name="waf_ban_origin_score" id="waf_ban_origin_score" value="{tmpl_var name='waf_ban_origin_score'}" data-default="{tmpl_var name='default_waf_ban_origin_score'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_points_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_ban_origin_score_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_ban_origin_factor">{tmpl_var name='waf_ban_origin_factor_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_ban_origin_factor'}" max="{tmpl_var name='max_waf_ban_origin_factor'}" step="1" name="waf_ban_origin_factor" id="waf_ban_origin_factor" value="{tmpl_var name='waf_ban_origin_factor'}" data-default="{tmpl_var name='default_waf_ban_origin_factor'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_percent_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_ban_origin_factor_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<span class="mw-cfg-label" id="label_waf_ban_origin_now">{tmpl_var name='waf_ban_origin_now_txt'}</span>
+			<div class="mw-cfg-control">
+				<div class="mw-seg" role="radiogroup" aria-labelledby="label_waf_ban_origin_now" data-mw-name="waf_ban_origin_now" data-default="{tmpl_var name='default_waf_ban_origin_now'}"><tmpl_loop name="choice_waf_ban_origin_now">
+					<label for="{tmpl_var name='choice_id'}"><input type="radio" name="waf_ban_origin_now" id="{tmpl_var name='choice_id'}" value="{tmpl_var name='choice_value'}"<tmpl_if name="choice_checked"> checked="checked"</tmpl_if> /><span>{tmpl_var name='choice_label'}</span></label></tmpl_loop>
+				</div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_ban_origin_now_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<span class="mw-cfg-label" id="label_waf_ban_origin_hosting">{tmpl_var name='waf_ban_origin_hosting_txt'}</span>
+			<div class="mw-cfg-control">
+				<div class="mw-seg" role="radiogroup" aria-labelledby="label_waf_ban_origin_hosting" data-mw-name="waf_ban_origin_hosting" data-default="{tmpl_var name='default_waf_ban_origin_hosting'}"><tmpl_loop name="choice_waf_ban_origin_hosting">
+					<label for="{tmpl_var name='choice_id'}"><input type="radio" name="waf_ban_origin_hosting" id="{tmpl_var name='choice_id'}" value="{tmpl_var name='choice_value'}"<tmpl_if name="choice_checked"> checked="checked"</tmpl_if> /><span>{tmpl_var name='choice_label'}</span></label></tmpl_loop>
+				</div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_ban_origin_hosting_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<span class="mw-cfg-label" id="label_waf_ban_origin_vpn">{tmpl_var name='waf_ban_origin_vpn_txt'}</span>
+			<div class="mw-cfg-control">
+				<div class="mw-seg" role="radiogroup" aria-labelledby="label_waf_ban_origin_vpn" data-mw-name="waf_ban_origin_vpn" data-default="{tmpl_var name='default_waf_ban_origin_vpn'}"><tmpl_loop name="choice_waf_ban_origin_vpn">
+					<label for="{tmpl_var name='choice_id'}"><input type="radio" name="waf_ban_origin_vpn" id="{tmpl_var name='choice_id'}" value="{tmpl_var name='choice_value'}"<tmpl_if name="choice_checked"> checked="checked"</tmpl_if> /><span>{tmpl_var name='choice_label'}</span></label></tmpl_loop>
+				</div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_ban_origin_vpn_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<span class="mw-cfg-label" id="label_waf_ban_origin_tor">{tmpl_var name='waf_ban_origin_tor_txt'}</span>
+			<div class="mw-cfg-control">
+				<div class="mw-seg" role="radiogroup" aria-labelledby="label_waf_ban_origin_tor" data-mw-name="waf_ban_origin_tor" data-default="{tmpl_var name='default_waf_ban_origin_tor'}"><tmpl_loop name="choice_waf_ban_origin_tor">
+					<label for="{tmpl_var name='choice_id'}"><input type="radio" name="waf_ban_origin_tor" id="{tmpl_var name='choice_id'}" value="{tmpl_var name='choice_value'}"<tmpl_if name="choice_checked"> checked="checked"</tmpl_if> /><span>{tmpl_var name='choice_label'}</span></label></tmpl_loop>
+				</div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_ban_origin_tor_hint_txt'}</p>
+			</div>
+		</div>
 	</div>
-</div>
+</details>
 
-<p class="mw-wafcfg-head">{tmpl_var name='display_head_txt'}</p>
-
-<div class="form-group">
-	<label for="waf_card_hits" class="col-sm-3 control-label">{tmpl_var name='waf_card_hits_txt'}</label>
-	<div class="col-sm-9">
-		<input type="number" min="100" max="100000" step="1" name="waf_card_hits" id="waf_card_hits" value="{tmpl_var name='waf_card_hits'}" class="form-control mw-wafcfg-num" />
-		<span class="help-block">{tmpl_var name='waf_card_hits_hint_txt'}</span>
+<details class="mw-cfg-sec" id="mw-cfg-origin_src" data-mw-sec="origin_src">
+	<summary><h2 class="mw-cfg-title">{tmpl_var name='origin_head_txt'}</h2><span class="mw-cfg-state">{tmpl_var name='state_origin_src'}</span><span class="mw-cfg-badge" hidden></span></summary>
+	<div class="mw-cfg-body">
+		<p class="mw-cfg-intro">{tmpl_var name='origin_intro_txt'}</p>
+		<div class="mw-cfg-field">
+			<span class="mw-cfg-label" id="label_waf_origin_geo">{tmpl_var name='waf_origin_geo_txt'}</span>
+			<div class="mw-cfg-control">
+				<div class="mw-radios" role="radiogroup" aria-labelledby="label_waf_origin_geo" data-mw-name="waf_origin_geo" data-default="{tmpl_var name='default_waf_origin_geo'}"><tmpl_loop name="choice_waf_origin_geo">
+					<label for="{tmpl_var name='choice_id'}"><input type="radio" name="waf_origin_geo" id="{tmpl_var name='choice_id'}" value="{tmpl_var name='choice_value'}"<tmpl_if name="choice_checked"> checked="checked"</tmpl_if> /><span>{tmpl_var name='choice_label'}</span></label></tmpl_loop>
+				</div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_origin_geo_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_origin_maxmind_account">{tmpl_var name='waf_origin_maxmind_account_txt'}</label>
+			<div class="mw-cfg-control">
+				<input type="text" name="waf_origin_maxmind_account" id="waf_origin_maxmind_account" value="{tmpl_var name='waf_origin_maxmind_account'}" class="form-control mw-cfg-text" autocomplete="off" inputmode="numeric" maxlength="32" />
+				<p class="mw-cfg-hint">{tmpl_var name='waf_origin_maxmind_account_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_origin_maxmind_key">{tmpl_var name='waf_origin_maxmind_key_txt'}</label>
+			<div class="mw-cfg-control">
+				<input type="text" name="waf_origin_maxmind_key" id="waf_origin_maxmind_key" value="{tmpl_var name='waf_origin_maxmind_key'}" class="form-control mw-cfg-text" autocomplete="off" maxlength="128" />
+				<p class="mw-cfg-hint">{tmpl_var name='waf_origin_maxmind_key_hint_txt'}</p>
+				<tmpl_if name="origin_key_stored"><label class="mw-cfg-clear"><input type="checkbox" name="waf_origin_key_clear" value="1" /> {tmpl_var name='origin_key_clear_txt'}</label></tmpl_if>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<span class="mw-cfg-label" id="label_waf_origin_tor">{tmpl_var name='waf_origin_tor_txt'}</span>
+			<div class="mw-cfg-control">
+				<div class="mw-seg" role="radiogroup" aria-labelledby="label_waf_origin_tor" data-mw-name="waf_origin_tor" data-default="{tmpl_var name='default_waf_origin_tor'}"><tmpl_loop name="choice_waf_origin_tor">
+					<label for="{tmpl_var name='choice_id'}"><input type="radio" name="waf_origin_tor" id="{tmpl_var name='choice_id'}" value="{tmpl_var name='choice_value'}"<tmpl_if name="choice_checked"> checked="checked"</tmpl_if> /><span>{tmpl_var name='choice_label'}</span></label></tmpl_loop>
+				</div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_origin_tor_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<span class="mw-cfg-label" id="label_waf_origin_net">{tmpl_var name='waf_origin_net_txt'}</span>
+			<div class="mw-cfg-control">
+				<div class="mw-radios" role="radiogroup" aria-labelledby="label_waf_origin_net" data-mw-name="waf_origin_net" data-default="{tmpl_var name='default_waf_origin_net'}"><tmpl_loop name="choice_waf_origin_net">
+					<label for="{tmpl_var name='choice_id'}"><input type="radio" name="waf_origin_net" id="{tmpl_var name='choice_id'}" value="{tmpl_var name='choice_value'}"<tmpl_if name="choice_checked"> checked="checked"</tmpl_if> /><span>{tmpl_var name='choice_label'}</span></label></tmpl_loop>
+				</div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_origin_net_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_origin_proxycheck_key">{tmpl_var name='waf_origin_proxycheck_key_txt'}</label>
+			<div class="mw-cfg-control">
+				<input type="text" name="waf_origin_proxycheck_key" id="waf_origin_proxycheck_key" value="{tmpl_var name='waf_origin_proxycheck_key'}" class="form-control mw-cfg-text" autocomplete="off" maxlength="128" />
+				<p class="mw-cfg-hint">{tmpl_var name='waf_origin_proxycheck_key_hint_txt'}</p>
+				<tmpl_if name="origin_proxycheck_stored"><label class="mw-cfg-clear"><input type="checkbox" name="waf_origin_proxycheck_clear" value="1" /> {tmpl_var name='origin_key_clear_txt'}</label></tmpl_if>
+				<p class="mw-cfg-hint">{tmpl_var name='origin_proxycheck_privacy_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_origin_proxycheck_daily">{tmpl_var name='waf_origin_proxycheck_daily_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_origin_proxycheck_daily'}" max="{tmpl_var name='max_waf_origin_proxycheck_daily'}" step="1" name="waf_origin_proxycheck_daily" id="waf_origin_proxycheck_daily" value="{tmpl_var name='waf_origin_proxycheck_daily'}" data-default="{tmpl_var name='default_waf_origin_proxycheck_daily'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_queries_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_origin_proxycheck_daily_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_origin_tor_hours">{tmpl_var name='waf_origin_tor_hours_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_origin_tor_hours'}" max="{tmpl_var name='max_waf_origin_tor_hours'}" step="1" name="waf_origin_tor_hours" id="waf_origin_tor_hours" value="{tmpl_var name='waf_origin_tor_hours'}" data-default="{tmpl_var name='default_waf_origin_tor_hours'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_hours_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_origin_tor_hours_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_origin_list_hours">{tmpl_var name='waf_origin_list_hours_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_origin_list_hours'}" max="{tmpl_var name='max_waf_origin_list_hours'}" step="1" name="waf_origin_list_hours" id="waf_origin_list_hours" value="{tmpl_var name='waf_origin_list_hours'}" data-default="{tmpl_var name='default_waf_origin_list_hours'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_hours_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_origin_list_hours_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_origin_db_hours">{tmpl_var name='waf_origin_db_hours_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_origin_db_hours'}" max="{tmpl_var name='max_waf_origin_db_hours'}" step="1" name="waf_origin_db_hours" id="waf_origin_db_hours" value="{tmpl_var name='waf_origin_db_hours'}" data-default="{tmpl_var name='default_waf_origin_db_hours'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_hours_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_origin_db_hours_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<span class="mw-cfg-label">{tmpl_var name='origin_state_head_txt'}</span>
+			<div class="mw-cfg-control">
+				<tmpl_if name="has_origin_states">
+				<ul class="mw-cfg-states">
+					<tmpl_loop name="origin_states"><li><strong>{tmpl_var name='origin_label'}</strong> <span<tmpl_if name="origin_failed"> class="mw-cfg-failed"</tmpl_if>>{tmpl_var name='origin_state'}</span></li></tmpl_loop>
+				</ul>
+				<tmpl_else>
+				<p class="mw-cfg-hint">{tmpl_var name='origin_state_none_chosen_txt'}</p>
+				</tmpl_if>
+			</div>
+		</div>
 	</div>
-</div>
+</details>
 
-<p class="mw-wafcfg-head">{tmpl_var name='origin_head_txt'}</p>
-
-<p class="mw-wafcfg-note">{tmpl_var name='origin_intro_txt'}</p>
-
-<div class="form-group">
-	<label for="waf_origin_geo" class="col-sm-3 control-label">{tmpl_var name='waf_origin_geo_txt'}</label>
-	<div class="col-sm-9">
-		<select name="waf_origin_geo" id="waf_origin_geo" class="form-control">{tmpl_var name='waf_origin_geo'}</select>
-		<span class="help-block">{tmpl_var name='waf_origin_geo_hint_txt'}</span>
+<details class="mw-cfg-sec" id="mw-cfg-f2b" data-mw-sec="f2b">
+	<summary><h2 class="mw-cfg-title">{tmpl_var name='f2b_head_txt'}</h2><span class="mw-cfg-state">{tmpl_var name='state_f2b'}</span><span class="mw-cfg-badge" hidden></span></summary>
+	<div class="mw-cfg-body">
+		<p class="mw-cfg-intro">{tmpl_var name='f2b_intro_txt'}</p>
+		<div class="mw-cfg-field">
+			<span class="mw-cfg-label" id="label_waf_f2b">{tmpl_var name='waf_f2b_txt'}</span>
+			<div class="mw-cfg-control">
+				<div class="mw-seg" role="radiogroup" aria-labelledby="label_waf_f2b" data-mw-name="waf_f2b" data-default="{tmpl_var name='default_waf_f2b'}"><tmpl_loop name="choice_waf_f2b">
+					<label for="{tmpl_var name='choice_id'}"><input type="radio" name="waf_f2b" id="{tmpl_var name='choice_id'}" value="{tmpl_var name='choice_value'}"<tmpl_if name="choice_checked"> checked="checked"</tmpl_if> /><span>{tmpl_var name='choice_label'}</span></label></tmpl_loop>
+				</div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_f2b_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<span class="mw-cfg-label" id="label_waf_everywhere_mode">{tmpl_var name='waf_everywhere_mode_txt'}</span>
+			<div class="mw-cfg-control">
+				<div class="mw-radios" role="radiogroup" aria-labelledby="label_waf_everywhere_mode" data-mw-name="waf_everywhere_mode" data-default="{tmpl_var name='default_waf_everywhere_mode'}"><tmpl_loop name="choice_waf_everywhere_mode">
+					<label for="{tmpl_var name='choice_id'}"><input type="radio" name="waf_everywhere_mode" id="{tmpl_var name='choice_id'}" value="{tmpl_var name='choice_value'}"<tmpl_if name="choice_checked"> checked="checked"</tmpl_if> /><span>{tmpl_var name='choice_label'}</span></label></tmpl_loop>
+				</div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_everywhere_mode_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_everywhere_jail">{tmpl_var name='waf_everywhere_jail_txt'}</label>
+			<div class="mw-cfg-control">
+				<input type="text" name="waf_everywhere_jail" id="waf_everywhere_jail" value="{tmpl_var name='waf_everywhere_jail'}" class="form-control mw-cfg-text" autocomplete="off" maxlength="64" data-default="{tmpl_var name='default_waf_everywhere_jail'}" />
+				<p class="mw-cfg-hint">{tmpl_var name='waf_everywhere_jail_hint_txt'}</p>
+			</div>
+		</div>
 	</div>
-</div>
+</details>
 
-<div class="form-group">
-	<label for="waf_origin_maxmind_account" class="col-sm-3 control-label">{tmpl_var name='waf_origin_maxmind_account_txt'}</label>
-	<div class="col-sm-9">
-		<input type="text" name="waf_origin_maxmind_account" id="waf_origin_maxmind_account" value="{tmpl_var name='waf_origin_maxmind_account'}" class="form-control" autocomplete="off" inputmode="numeric" maxlength="32" />
-		<span class="help-block">{tmpl_var name='waf_origin_maxmind_account_hint_txt'}</span>
+<details class="mw-cfg-sec" id="mw-cfg-enforce" data-mw-sec="enforce">
+	<summary><h2 class="mw-cfg-title">{tmpl_var name='enforce_head_txt'}</h2><span class="mw-cfg-state">{tmpl_var name='state_enforce'}</span><span class="mw-cfg-badge" hidden></span></summary>
+	<div class="mw-cfg-body">
+		<p class="mw-cfg-intro">{tmpl_var name='enforce_intro_txt'}</p>
+		<div class="mw-cfg-field">
+			<label for="waf_min_detect_days">{tmpl_var name='waf_min_detect_days_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_min_detect_days'}" max="{tmpl_var name='max_waf_min_detect_days'}" step="1" name="waf_min_detect_days" id="waf_min_detect_days" value="{tmpl_var name='waf_min_detect_days'}" data-default="{tmpl_var name='default_waf_min_detect_days'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_days_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_min_detect_days_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_preview_days">{tmpl_var name='waf_preview_days_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_preview_days'}" max="{tmpl_var name='max_waf_preview_days'}" step="1" name="waf_preview_days" id="waf_preview_days" value="{tmpl_var name='waf_preview_days'}" data-default="{tmpl_var name='default_waf_preview_days'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_days_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_preview_days_hint_txt'}</p>
+			</div>
+		</div>
 	</div>
-</div>
+</details>
 
-<div class="form-group">
-	<label for="waf_origin_maxmind_key" class="col-sm-3 control-label">{tmpl_var name='waf_origin_maxmind_key_txt'}</label>
-	<div class="col-sm-9">
-		<input type="text" name="waf_origin_maxmind_key" id="waf_origin_maxmind_key" value="{tmpl_var name='waf_origin_maxmind_key'}" class="form-control" autocomplete="off" maxlength="128" />
-		<span class="help-block">{tmpl_var name='waf_origin_maxmind_key_hint_txt'}</span>
-		<tmpl_if name="origin_key_stored">
-		<label class="mw-wafcfg-clear"><input type="checkbox" name="waf_origin_key_clear" value="1" /> {tmpl_var name='origin_key_clear_txt'}</label>
-		</tmpl_if>
+<details class="mw-cfg-sec" id="mw-cfg-display" data-mw-sec="display">
+	<summary><h2 class="mw-cfg-title">{tmpl_var name='display_head_txt'}</h2><span class="mw-cfg-state">{tmpl_var name='state_display'}</span><span class="mw-cfg-badge" hidden></span></summary>
+	<div class="mw-cfg-body">
+		<p class="mw-cfg-intro">{tmpl_var name='display_intro_txt'}</p>
+		<div class="mw-cfg-field">
+			<label for="waf_periods">{tmpl_var name='waf_periods_txt'}</label>
+			<div class="mw-cfg-control">
+				<textarea name="waf_periods" id="waf_periods" rows="4" class="form-control mw-cfg-list" spellcheck="false" autocomplete="off" data-default="{tmpl_var name='default_waf_periods'}">{tmpl_var name='lines_waf_periods'}</textarea>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_periods_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_period_default">{tmpl_var name='waf_period_default_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_period_default'}" max="{tmpl_var name='max_waf_period_default'}" step="1" name="waf_period_default" id="waf_period_default" value="{tmpl_var name='waf_period_default'}" data-default="{tmpl_var name='default_waf_period_default'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_days_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_period_default_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_card_hits">{tmpl_var name='waf_card_hits_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_card_hits'}" max="{tmpl_var name='max_waf_card_hits'}" step="1" name="waf_card_hits" id="waf_card_hits" value="{tmpl_var name='waf_card_hits'}" data-default="{tmpl_var name='default_waf_card_hits'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_hits_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_card_hits_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_ban_page_step">{tmpl_var name='waf_ban_page_step_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_ban_page_step'}" max="{tmpl_var name='max_waf_ban_page_step'}" step="1" name="waf_ban_page_step" id="waf_ban_page_step" value="{tmpl_var name='waf_ban_page_step'}" data-default="{tmpl_var name='default_waf_ban_page_step'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_rows_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_ban_page_step_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_ban_page_rows">{tmpl_var name='waf_ban_page_rows_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_ban_page_rows'}" max="{tmpl_var name='max_waf_ban_page_rows'}" step="1" name="waf_ban_page_rows" id="waf_ban_page_rows" value="{tmpl_var name='waf_ban_page_rows'}" data-default="{tmpl_var name='default_waf_ban_page_rows'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_rows_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_ban_page_rows_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_ban_page_timeout">{tmpl_var name='waf_ban_page_timeout_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_ban_page_timeout'}" max="{tmpl_var name='max_waf_ban_page_timeout'}" step="1" name="waf_ban_page_timeout" id="waf_ban_page_timeout" value="{tmpl_var name='waf_ban_page_timeout'}" data-default="{tmpl_var name='default_waf_ban_page_timeout'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_seconds_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_ban_page_timeout_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_ban_origin_rows">{tmpl_var name='waf_ban_origin_rows_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_ban_origin_rows'}" max="{tmpl_var name='max_waf_ban_origin_rows'}" step="1" name="waf_ban_origin_rows" id="waf_ban_origin_rows" value="{tmpl_var name='waf_ban_origin_rows'}" data-default="{tmpl_var name='default_waf_ban_origin_rows'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_rows_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_ban_origin_rows_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_poll_seconds">{tmpl_var name='waf_poll_seconds_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_poll_seconds'}" max="{tmpl_var name='max_waf_poll_seconds'}" step="1" name="waf_poll_seconds" id="waf_poll_seconds" value="{tmpl_var name='waf_poll_seconds'}" data-default="{tmpl_var name='default_waf_poll_seconds'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_seconds_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_poll_seconds_hint_txt'}</p>
+			</div>
+		</div>
 	</div>
-</div>
+</details>
 
-<div class="form-group">
-	<label for="waf_origin_tor" class="col-sm-3 control-label">{tmpl_var name='waf_origin_tor_txt'}</label>
-	<div class="col-sm-9">
-		<select name="waf_origin_tor" id="waf_origin_tor" class="form-control">{tmpl_var name='waf_origin_tor'}</select>
-		<span class="help-block">{tmpl_var name='waf_origin_tor_hint_txt'}</span>
+<details class="mw-cfg-sec" id="mw-cfg-keep" data-mw-sec="keep">
+	<summary><h2 class="mw-cfg-title">{tmpl_var name='keep_head_txt'}</h2><span class="mw-cfg-state">{tmpl_var name='state_keep'}</span><span class="mw-cfg-badge" hidden></span></summary>
+	<div class="mw-cfg-body">
+		<p class="mw-cfg-intro">{tmpl_var name='keep_intro_txt'}</p>
+		<div class="mw-cfg-field">
+			<label for="waf_detail_days">{tmpl_var name='waf_detail_days_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_detail_days'}" max="{tmpl_var name='max_waf_detail_days'}" step="1" name="waf_detail_days" id="waf_detail_days" value="{tmpl_var name='waf_detail_days'}" data-default="{tmpl_var name='default_waf_detail_days'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_days_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_detail_days_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_stats_days">{tmpl_var name='waf_stats_days_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_stats_days'}" max="{tmpl_var name='max_waf_stats_days'}" step="1" name="waf_stats_days" id="waf_stats_days" value="{tmpl_var name='waf_stats_days'}" data-default="{tmpl_var name='default_waf_stats_days'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_days_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_stats_days_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_log_keep_days">{tmpl_var name='waf_log_keep_days_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_log_keep_days'}" max="{tmpl_var name='max_waf_log_keep_days'}" step="1" name="waf_log_keep_days" id="waf_log_keep_days" value="{tmpl_var name='waf_log_keep_days'}" data-default="{tmpl_var name='default_waf_log_keep_days'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_days_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_log_keep_days_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_ban_keep_days">{tmpl_var name='waf_ban_keep_days_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_ban_keep_days'}" max="{tmpl_var name='max_waf_ban_keep_days'}" step="1" name="waf_ban_keep_days" id="waf_ban_keep_days" value="{tmpl_var name='waf_ban_keep_days'}" data-default="{tmpl_var name='default_waf_ban_keep_days'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_days_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_ban_keep_days_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_ban_proposal_days">{tmpl_var name='waf_ban_proposal_days_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_ban_proposal_days'}" max="{tmpl_var name='max_waf_ban_proposal_days'}" step="1" name="waf_ban_proposal_days" id="waf_ban_proposal_days" value="{tmpl_var name='waf_ban_proposal_days'}" data-default="{tmpl_var name='default_waf_ban_proposal_days'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_days_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_ban_proposal_days_hint_txt'}</p>
+			</div>
+		</div>
 	</div>
-</div>
+</details>
 
-<div class="form-group">
-	<label for="waf_origin_net" class="col-sm-3 control-label">{tmpl_var name='waf_origin_net_txt'}</label>
-	<div class="col-sm-9">
-		<select name="waf_origin_net" id="waf_origin_net" class="form-control">{tmpl_var name='waf_origin_net'}</select>
-		<span class="help-block">{tmpl_var name='waf_origin_net_hint_txt'}</span>
+<details class="mw-cfg-sec" id="mw-cfg-cron" data-mw-sec="cron">
+	<summary><h2 class="mw-cfg-title">{tmpl_var name='cron_head_txt'}</h2><span class="mw-cfg-state">{tmpl_var name='state_cron'}</span><span class="mw-cfg-badge" hidden></span></summary>
+	<div class="mw-cfg-body">
+		<p class="mw-cfg-intro">{tmpl_var name='cron_intro_txt'}</p>
+		<div class="mw-cfg-field">
+			<label for="waf_ingest_max_lines">{tmpl_var name='waf_ingest_max_lines_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_ingest_max_lines'}" max="{tmpl_var name='max_waf_ingest_max_lines'}" step="1" name="waf_ingest_max_lines" id="waf_ingest_max_lines" value="{tmpl_var name='waf_ingest_max_lines'}" data-default="{tmpl_var name='default_waf_ingest_max_lines'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_rows_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_ingest_max_lines_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_job_deadline_minutes">{tmpl_var name='waf_job_deadline_minutes_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_job_deadline_minutes'}" max="{tmpl_var name='max_waf_job_deadline_minutes'}" step="1" name="waf_job_deadline_minutes" id="waf_job_deadline_minutes" value="{tmpl_var name='waf_job_deadline_minutes'}" data-default="{tmpl_var name='default_waf_job_deadline_minutes'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_minutes_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_job_deadline_minutes_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_tick_wait_seconds">{tmpl_var name='waf_tick_wait_seconds_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_tick_wait_seconds'}" max="{tmpl_var name='max_waf_tick_wait_seconds'}" step="1" name="waf_tick_wait_seconds" id="waf_tick_wait_seconds" value="{tmpl_var name='waf_tick_wait_seconds'}" data-default="{tmpl_var name='default_waf_tick_wait_seconds'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_seconds_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_tick_wait_seconds_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_tick_fresh_seconds">{tmpl_var name='waf_tick_fresh_seconds_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_tick_fresh_seconds'}" max="{tmpl_var name='max_waf_tick_fresh_seconds'}" step="1" name="waf_tick_fresh_seconds" id="waf_tick_fresh_seconds" value="{tmpl_var name='waf_tick_fresh_seconds'}" data-default="{tmpl_var name='default_waf_tick_fresh_seconds'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_seconds_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_tick_fresh_seconds_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_lock_retry_ms">{tmpl_var name='waf_lock_retry_ms_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_lock_retry_ms'}" max="{tmpl_var name='max_waf_lock_retry_ms'}" step="1" name="waf_lock_retry_ms" id="waf_lock_retry_ms" value="{tmpl_var name='waf_lock_retry_ms'}" data-default="{tmpl_var name='default_waf_lock_retry_ms'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_ms_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_lock_retry_ms_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_ban_rule_hits">{tmpl_var name='waf_ban_rule_hits_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_ban_rule_hits'}" max="{tmpl_var name='max_waf_ban_rule_hits'}" step="1" name="waf_ban_rule_hits" id="waf_ban_rule_hits" value="{tmpl_var name='waf_ban_rule_hits'}" data-default="{tmpl_var name='default_waf_ban_rule_hits'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_hits_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_ban_rule_hits_hint_txt'}</p>
+			</div>
+		</div>
 	</div>
-</div>
+</details>
 
-<div class="form-group">
-	<label for="waf_origin_proxycheck_key" class="col-sm-3 control-label">{tmpl_var name='waf_origin_proxycheck_key_txt'}</label>
-	<div class="col-sm-9">
-		<input type="text" name="waf_origin_proxycheck_key" id="waf_origin_proxycheck_key" value="{tmpl_var name='waf_origin_proxycheck_key'}" class="form-control" autocomplete="off" maxlength="128" />
-		<span class="help-block">{tmpl_var name='waf_origin_proxycheck_key_hint_txt'}</span>
-		<tmpl_if name="origin_proxycheck_stored">
-		<label class="mw-wafcfg-clear"><input type="checkbox" name="waf_origin_proxycheck_clear" value="1" /> {tmpl_var name='origin_key_clear_txt'}</label>
-		</tmpl_if>
-		<p class="mw-wafcfg-note">{tmpl_var name='origin_proxycheck_privacy_txt'}</p>
+<details class="mw-cfg-sec" id="mw-cfg-facts" data-mw-sec="facts">
+	<summary><h2 class="mw-cfg-title">{tmpl_var name='facts_head_txt'}</h2><span class="mw-cfg-state">{tmpl_var name='state_facts'}</span><span class="mw-cfg-badge" hidden></span></summary>
+	<div class="mw-cfg-body">
+		<p class="mw-cfg-intro"></p>
+		<dl class="mw-cfg-facts">
+			<dt>{tmpl_var name='audit_log_txt'}</dt><dd><code>{tmpl_var name='waf_audit_log'}</code></dd>
+			<dt>{tmpl_var name='conf_dir_txt'}</dt><dd><code>{tmpl_var name='waf_conf_dir'}</code></dd>
+			<dt>{tmpl_var name='response_body_txt'}</dt><dd>{tmpl_var name='response_body_line'}</dd>
+			<dt>{tmpl_var name='emergency_txt'}</dt><dd<tmpl_if name="emergency_on"> class="mw-cfg-alarm"</tmpl_if>>{tmpl_var name='emergency_line'}</dd>
+		</dl>
+		<p class="mw-cfg-hint">{tmpl_var name='facts_hint_txt'}</p>
 	</div>
-</div>
-
-<div class="form-group">
-	<label for="waf_origin_proxycheck_daily" class="col-sm-3 control-label">{tmpl_var name='waf_origin_proxycheck_daily_txt'}</label>
-	<div class="col-sm-9">
-		<input type="number" min="1" max="100000" step="1" name="waf_origin_proxycheck_daily" id="waf_origin_proxycheck_daily" value="{tmpl_var name='waf_origin_proxycheck_daily'}" class="form-control mw-wafcfg-num" />
-		<span class="help-block">{tmpl_var name='waf_origin_proxycheck_daily_hint_txt'}</span>
-	</div>
-</div>
-
-<div class="form-group">
-	<label for="waf_origin_tor_hours" class="col-sm-3 control-label">{tmpl_var name='waf_origin_tor_hours_txt'}</label>
-	<div class="col-sm-9">
-		<input type="number" min="1" max="168" step="1" name="waf_origin_tor_hours" id="waf_origin_tor_hours" value="{tmpl_var name='waf_origin_tor_hours'}" class="form-control mw-wafcfg-num" />
-		<span class="help-block">{tmpl_var name='waf_origin_tor_hours_hint_txt'}</span>
-	</div>
-</div>
-
-<div class="form-group">
-	<label for="waf_origin_list_hours" class="col-sm-3 control-label">{tmpl_var name='waf_origin_list_hours_txt'}</label>
-	<div class="col-sm-9">
-		<input type="number" min="1" max="720" step="1" name="waf_origin_list_hours" id="waf_origin_list_hours" value="{tmpl_var name='waf_origin_list_hours'}" class="form-control mw-wafcfg-num" />
-		<span class="help-block">{tmpl_var name='waf_origin_list_hours_hint_txt'}</span>
-	</div>
-</div>
-
-<div class="form-group">
-	<label for="waf_origin_db_hours" class="col-sm-3 control-label">{tmpl_var name='waf_origin_db_hours_txt'}</label>
-	<div class="col-sm-9">
-		<input type="number" min="1" max="720" step="1" name="waf_origin_db_hours" id="waf_origin_db_hours" value="{tmpl_var name='waf_origin_db_hours'}" class="form-control mw-wafcfg-num" />
-		<span class="help-block">{tmpl_var name='waf_origin_db_hours_hint_txt'}</span>
-	</div>
-</div>
-
-<p class="mw-wafcfg-note"><strong>{tmpl_var name='origin_state_head_txt'}</strong></p>
-<tmpl_if name="has_origin_states">
-<ul class="mw-wafcfg-states">
-	<tmpl_loop name="origin_states"><li><strong>{tmpl_var name='origin_label'}</strong> <span<tmpl_if name="origin_failed"> class="mw-wafcfg-failed"</tmpl_if>>{tmpl_var name='origin_state'}</span></li></tmpl_loop>
-</ul>
-<tmpl_else>
-<p class="mw-wafcfg-note">{tmpl_var name='origin_state_none_chosen_txt'}</p>
-</tmpl_if>
-
-<p class="mw-wafcfg-head">{tmpl_var name='ban_head_txt'}</p>
-<p class="mw-wafcfg-note">{tmpl_var name='ban_intro_txt'}</p>
-
-<div class="form-group">
-	<label for="waf_ban_mode" class="col-sm-3 control-label">{tmpl_var name='waf_ban_mode_txt'}</label>
-	<div class="col-sm-9">
-		<select name="waf_ban_mode" id="waf_ban_mode" class="form-control">{tmpl_var name='waf_ban_mode'}</select>
-		<span class="help-block">{tmpl_var name='waf_ban_mode_hint_txt'}</span>
-	</div>
-</div>
-
-<div class="form-group">
-	<label for="waf_ban_score" class="col-sm-3 control-label">{tmpl_var name='waf_ban_score_txt'}</label>
-	<div class="col-sm-9">
-		<input type="number" min="5" max="10000" step="1" name="waf_ban_score" id="waf_ban_score" value="{tmpl_var name='waf_ban_score'}" class="form-control mw-wafcfg-num" />
-		<span class="help-block">{tmpl_var name='waf_ban_score_hint_txt'}</span>
-	</div>
-</div>
-
-<div class="form-group">
-	<label for="waf_ban_window_minutes" class="col-sm-3 control-label">{tmpl_var name='waf_ban_window_minutes_txt'}</label>
-	<div class="col-sm-9">
-		<input type="number" min="1" max="1440" step="1" name="waf_ban_window_minutes" id="waf_ban_window_minutes" value="{tmpl_var name='waf_ban_window_minutes'}" class="form-control mw-wafcfg-num" />
-		<span class="help-block">{tmpl_var name='waf_ban_window_minutes_hint_txt'}</span>
-	</div>
-</div>
-
-<div class="form-group">
-	<label for="waf_ban_logged_in_percent" class="col-sm-3 control-label">{tmpl_var name='waf_ban_logged_in_percent_txt'}</label>
-	<div class="col-sm-9">
-		<input type="number" min="0" max="100" step="1" name="waf_ban_logged_in_percent" id="waf_ban_logged_in_percent" value="{tmpl_var name='waf_ban_logged_in_percent'}" class="form-control mw-wafcfg-num" />
-		<span class="help-block">{tmpl_var name='waf_ban_logged_in_percent_hint_txt'}</span>
-	</div>
-</div>
-
-<div class="form-group">
-	<label for="waf_ban_hours_first" class="col-sm-3 control-label">{tmpl_var name='waf_ban_hours_first_txt'}</label>
-	<div class="col-sm-9">
-		<input type="number" min="1" max="8760" step="1" name="waf_ban_hours_first" id="waf_ban_hours_first" value="{tmpl_var name='waf_ban_hours_first'}" class="form-control mw-wafcfg-num" />
-		<span class="help-block">{tmpl_var name='waf_ban_hours_first_hint_txt'}</span>
-	</div>
-</div>
-
-<div class="form-group">
-	<label for="waf_ban_hours_second" class="col-sm-3 control-label">{tmpl_var name='waf_ban_hours_second_txt'}</label>
-	<div class="col-sm-9">
-		<input type="number" min="1" max="8760" step="1" name="waf_ban_hours_second" id="waf_ban_hours_second" value="{tmpl_var name='waf_ban_hours_second'}" class="form-control mw-wafcfg-num" />
-		<span class="help-block">{tmpl_var name='waf_ban_hours_second_hint_txt'}</span>
-	</div>
-</div>
-
-<div class="form-group">
-	<label for="waf_ban_hours_third" class="col-sm-3 control-label">{tmpl_var name='waf_ban_hours_third_txt'}</label>
-	<div class="col-sm-9">
-		<input type="number" min="1" max="8760" step="1" name="waf_ban_hours_third" id="waf_ban_hours_third" value="{tmpl_var name='waf_ban_hours_third'}" class="form-control mw-wafcfg-num" />
-		<span class="help-block">{tmpl_var name='waf_ban_hours_third_hint_txt'}</span>
-	</div>
-</div>
-
-<div class="form-group">
-	<label for="waf_ban_max" class="col-sm-3 control-label">{tmpl_var name='waf_ban_max_txt'}</label>
-	<div class="col-sm-9">
-		<input type="number" min="100" max="100000" step="1" name="waf_ban_max" id="waf_ban_max" value="{tmpl_var name='waf_ban_max'}" class="form-control mw-wafcfg-num" />
-		<span class="help-block">{tmpl_var name='waf_ban_max_hint_txt'}</span>
-	</div>
-</div>
-
-<div class="form-group">
-	<label for="waf_ban_keep_days" class="col-sm-3 control-label">{tmpl_var name='waf_ban_keep_days_txt'}</label>
-	<div class="col-sm-9">
-		<input type="number" min="1" max="365" step="1" name="waf_ban_keep_days" id="waf_ban_keep_days" value="{tmpl_var name='waf_ban_keep_days'}" class="form-control mw-wafcfg-num" />
-		<span class="help-block">{tmpl_var name='waf_ban_keep_days_hint_txt'}</span>
-	</div>
-</div>
-
-<div class="form-group">
-	<label for="waf_ban_proposal_days" class="col-sm-3 control-label">{tmpl_var name='waf_ban_proposal_days_txt'}</label>
-	<div class="col-sm-9">
-		<input type="number" min="1" max="365" step="1" name="waf_ban_proposal_days" id="waf_ban_proposal_days" value="{tmpl_var name='waf_ban_proposal_days'}" class="form-control mw-wafcfg-num" />
-		<span class="help-block">{tmpl_var name='waf_ban_proposal_days_hint_txt'}</span>
-	</div>
-</div>
-
-<div class="form-group">
-	<label for="waf_ban_page_step" class="col-sm-3 control-label">{tmpl_var name='waf_ban_page_step_txt'}</label>
-	<div class="col-sm-9">
-		<input type="number" min="5" max="500" step="1" name="waf_ban_page_step" id="waf_ban_page_step" value="{tmpl_var name='waf_ban_page_step'}" class="form-control mw-wafcfg-num" />
-		<span class="help-block">{tmpl_var name='waf_ban_page_step_hint_txt'}</span>
-	</div>
-</div>
-
-<div class="form-group">
-	<label for="waf_ban_page_rows" class="col-sm-3 control-label">{tmpl_var name='waf_ban_page_rows_txt'}</label>
-	<div class="col-sm-9">
-		<input type="number" min="20" max="5000" step="1" name="waf_ban_page_rows" id="waf_ban_page_rows" value="{tmpl_var name='waf_ban_page_rows'}" class="form-control mw-wafcfg-num" />
-		<span class="help-block">{tmpl_var name='waf_ban_page_rows_hint_txt'}</span>
-	</div>
-</div>
-
-<div class="form-group">
-	<label for="waf_ban_page_timeout" class="col-sm-3 control-label">{tmpl_var name='waf_ban_page_timeout_txt'}</label>
-	<div class="col-sm-9">
-		<input type="number" min="5" max="300" step="1" name="waf_ban_page_timeout" id="waf_ban_page_timeout" value="{tmpl_var name='waf_ban_page_timeout'}" class="form-control mw-wafcfg-num" />
-		<span class="help-block">{tmpl_var name='waf_ban_page_timeout_hint_txt'}</span>
-	</div>
-</div>
-
-<div class="form-group">
-	<label for="waf_ban_bots" class="col-sm-3 control-label">{tmpl_var name='waf_ban_bots_txt'}</label>
-	<div class="col-sm-9">
-		<select name="waf_ban_bots" id="waf_ban_bots" class="form-control">{tmpl_var name='waf_ban_bots'}</select>
-		<span class="help-block">{tmpl_var name='waf_ban_bots_hint_txt'}</span>
-	</div>
-</div>
-
-<p class="mw-wafcfg-head">{tmpl_var name='ban_origin_head_txt'}</p>
-
-<div class="form-group">
-	<label for="waf_ban_origin" class="col-sm-3 control-label">{tmpl_var name='waf_ban_origin_txt'}</label>
-	<div class="col-sm-9">
-		<select name="waf_ban_origin" id="waf_ban_origin" class="form-control">{tmpl_var name='waf_ban_origin'}</select>
-		<span class="help-block">{tmpl_var name='waf_ban_origin_hint_txt'}</span>
-	</div>
-</div>
-
-<div class="form-group">
-	<label for="waf_ban_origin_score" class="col-sm-3 control-label">{tmpl_var name='waf_ban_origin_score_txt'}</label>
-	<div class="col-sm-9">
-		<input type="number" min="0" max="10000" step="1" name="waf_ban_origin_score" id="waf_ban_origin_score" value="{tmpl_var name='waf_ban_origin_score'}" class="form-control mw-wafcfg-num" />
-		<span class="help-block">{tmpl_var name='waf_ban_origin_score_hint_txt'}</span>
-	</div>
-</div>
-
-<div class="form-group">
-	<label for="waf_ban_origin_factor" class="col-sm-3 control-label">{tmpl_var name='waf_ban_origin_factor_txt'}</label>
-	<div class="col-sm-9">
-		<input type="number" min="100" max="1000" step="1" name="waf_ban_origin_factor" id="waf_ban_origin_factor" value="{tmpl_var name='waf_ban_origin_factor'}" class="form-control mw-wafcfg-num" />
-		<span class="help-block">{tmpl_var name='waf_ban_origin_factor_hint_txt'}</span>
-	</div>
-</div>
-
-<div class="form-group">
-	<label for="waf_ban_origin_now" class="col-sm-3 control-label">{tmpl_var name='waf_ban_origin_now_txt'}</label>
-	<div class="col-sm-9">
-		<select name="waf_ban_origin_now" id="waf_ban_origin_now" class="form-control">{tmpl_var name='waf_ban_origin_now'}</select>
-		<span class="help-block">{tmpl_var name='waf_ban_origin_now_hint_txt'}</span>
-	</div>
-</div>
-
-<div class="form-group">
-	<label for="waf_ban_origin_hosting" class="col-sm-3 control-label">{tmpl_var name='waf_ban_origin_hosting_txt'}</label>
-	<div class="col-sm-9">
-		<select name="waf_ban_origin_hosting" id="waf_ban_origin_hosting" class="form-control">{tmpl_var name='waf_ban_origin_hosting'}</select>
-		<span class="help-block">{tmpl_var name='waf_ban_origin_hosting_hint_txt'}</span>
-	</div>
-</div>
-
-<div class="form-group">
-	<label for="waf_ban_origin_vpn" class="col-sm-3 control-label">{tmpl_var name='waf_ban_origin_vpn_txt'}</label>
-	<div class="col-sm-9">
-		<select name="waf_ban_origin_vpn" id="waf_ban_origin_vpn" class="form-control">{tmpl_var name='waf_ban_origin_vpn'}</select>
-		<span class="help-block">{tmpl_var name='waf_ban_origin_vpn_hint_txt'}</span>
-	</div>
-</div>
-
-<div class="form-group">
-	<label for="waf_ban_origin_tor" class="col-sm-3 control-label">{tmpl_var name='waf_ban_origin_tor_txt'}</label>
-	<div class="col-sm-9">
-		<select name="waf_ban_origin_tor" id="waf_ban_origin_tor" class="form-control">{tmpl_var name='waf_ban_origin_tor'}</select>
-		<span class="help-block">{tmpl_var name='waf_ban_origin_tor_hint_txt'}</span>
-	</div>
-</div>
-
-<p class="mw-wafcfg-head">{tmpl_var name='f2b_head_txt'}</p>
-
-<div class="form-group">
-	<label for="waf_f2b" class="col-sm-3 control-label">{tmpl_var name='waf_f2b_txt'}</label>
-	<div class="col-sm-9">
-		<select name="waf_f2b" id="waf_f2b" class="form-control">{tmpl_var name='waf_f2b'}</select>
-		<span class="help-block">{tmpl_var name='waf_f2b_hint_txt'}</span>
-	</div>
-</div>
-
-<div class="form-group">
-	<label for="waf_everywhere_mode" class="col-sm-3 control-label">{tmpl_var name='waf_everywhere_mode_txt'}</label>
-	<div class="col-sm-9">
-		<select name="waf_everywhere_mode" id="waf_everywhere_mode" class="form-control">{tmpl_var name='waf_everywhere_mode'}</select>
-		<span class="help-block">{tmpl_var name='waf_everywhere_mode_hint_txt'}</span>
-	</div>
-</div>
-
-<div class="form-group">
-	<label for="waf_everywhere_jail" class="col-sm-3 control-label">{tmpl_var name='waf_everywhere_jail_txt'}</label>
-	<div class="col-sm-9">
-		<input type="text" name="waf_everywhere_jail" id="waf_everywhere_jail" value="{tmpl_var name='waf_everywhere_jail'}" class="form-control" maxlength="64" style="max-width:24ch" />
-		<span class="help-block">{tmpl_var name='waf_everywhere_jail_hint_txt'}</span>
-	</div>
-</div>
-
-<p class="mw-wafcfg-head">{tmpl_var name='cron_head_txt'}</p>
-
-<div class="form-group">
-	<label for="waf_ingest_max_lines" class="col-sm-3 control-label">{tmpl_var name='waf_ingest_max_lines_txt'}</label>
-	<div class="col-sm-9">
-		<input type="number" min="100" max="100000" step="1" name="waf_ingest_max_lines" id="waf_ingest_max_lines" value="{tmpl_var name='waf_ingest_max_lines'}" class="form-control mw-wafcfg-num" />
-		<span class="help-block">{tmpl_var name='waf_ingest_max_lines_hint_txt'}</span>
-	</div>
-</div>
-<div class="form-group">
-	<label for="waf_job_deadline_minutes" class="col-sm-3 control-label">{tmpl_var name='waf_job_deadline_minutes_txt'}</label>
-	<div class="col-sm-9">
-		<input type="number" min="2" max="120" step="1" name="waf_job_deadline_minutes" id="waf_job_deadline_minutes" value="{tmpl_var name='waf_job_deadline_minutes'}" class="form-control mw-wafcfg-num" />
-		<span class="help-block">{tmpl_var name='waf_job_deadline_minutes_hint_txt'}</span>
-	</div>
-</div>
-<div class="form-group">
-	<label for="waf_tick_wait_seconds" class="col-sm-3 control-label">{tmpl_var name='waf_tick_wait_seconds_txt'}</label>
-	<div class="col-sm-9">
-		<input type="number" min="0" max="50" step="1" name="waf_tick_wait_seconds" id="waf_tick_wait_seconds" value="{tmpl_var name='waf_tick_wait_seconds'}" class="form-control mw-wafcfg-num" />
-		<span class="help-block">{tmpl_var name='waf_tick_wait_seconds_hint_txt'}</span>
-	</div>
-</div>
-
-<p class="mw-wafcfg-head">{tmpl_var name='facts_head_txt'}</p>
-
-<dl class="mw-wafcfg-facts">
-	<dt>{tmpl_var name='audit_log_txt'}</dt><dd><code>{tmpl_var name='waf_audit_log'}</code></dd>
-	<dt>{tmpl_var name='conf_dir_txt'}</dt><dd><code>{tmpl_var name='waf_conf_dir'}</code></dd>
-	<dt>{tmpl_var name='response_body_txt'}</dt><dd>{tmpl_var name='response_body_line'}</dd>
-	<dt>{tmpl_var name='emergency_txt'}</dt><dd<tmpl_if name="emergency_on"> class="mw-wafcfg-alarm"</tmpl_if>>{tmpl_var name='emergency_line'}</dd>
-</dl>
-<p class="help-block">{tmpl_var name='facts_hint_txt'}</p>
+</details>
 
 <input type="hidden" name="id" value="{tmpl_var name='id'}">
 
-<div class="clear"><div class="right">
+<div class="mw-cfg-save">
+	<span class="mw-cfg-dirty" id="mw-cfg-dirty" aria-live="polite">{tmpl_var name='cfg_clean_txt'}</span>
 	<button class="btn btn-default formbutton-success" type="button" value="{tmpl_var name='btn_save_txt'}"
 		data-submit-form="pageForm" data-form-action="security/malwatch_waf_config_edit.php">{tmpl_var name='btn_save_txt'}</button>
 	<button class="btn btn-default formbutton-default" type="button" value="{tmpl_var name='btn_back_txt'}"
 		data-load-content="security/malwatch_waf_list.php">{tmpl_var name='btn_back_txt'}</button>
-</div></div>
+</div>
+</div>
 
 <style>
-/* Muted text through opacity, fixed colours only for the alarm, as on the
-   other pages of the addon. */
-.mw-wafcfg-sub{margin:0 0 14px;opacity:.72;font-size:13px;max-width:80ch}
-/* ispconfig.css hides p.fieldset-legend, so the sections carry their own heading. */
-.mw-wafcfg-head{margin:22px 0 10px;padding-bottom:4px;font-size:15px;font-weight:600;
-	border-bottom:1px solid var(--cic-line-soft,rgba(128,128,128,.35))}
-.mw-wafcfg-num{max-width:14ch}
-.mw-wafcfg-note{max-width:80ch;opacity:.8;font-size:13px;margin:0 0 10px}
-.mw-wafcfg-clear{display:inline-flex;gap:6px;align-items:center;font-weight:400;margin:4px 0 0}
-.mw-wafcfg-states{margin:0 0 12px;padding-left:18px;font-size:13px;max-width:90ch}
-.mw-wafcfg-failed{color:var(--cic-bad-text,#d13f22)}
-.mw-wafcfg-facts{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:6px 18px;margin:0 0 8px}
-.mw-wafcfg-facts dt{font-weight:400;opacity:.72}
-.mw-wafcfg-facts dd{margin:0;word-break:break-all}
-.mw-wafcfg-facts code{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:12px}
-.mw-wafcfg-alarm{color:var(--cic-bad-text,#d13f22);font-weight:600}
+/* The settings of the Abwehr: sections as cards with their stored state in the
+   title, colours only from the --cic-* variables of the panel theme. */
+#mw-wafcfg{--mw-line:var(--cic-line-soft,rgba(128,128,128,.35));--mw-card:var(--cic-raised,transparent);
+	--mw-accent:var(--cic-accent,#dd630d);--mw-accent-text:var(--cic-accent-text,#b24f09)}
+#mw-wafcfg .mw-cfg-sub{margin:0 0 16px;opacity:.75;font-size:13.5px;max-width:78ch}
+#mw-wafcfg .mw-cfg-bar{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;margin:0 0 14px}
+#mw-wafcfg .mw-cfg-search{position:relative;flex:1 1 20rem;max-width:30rem}
+#mw-wafcfg .mw-cfg-search input{padding-left:32px}
+#mw-wafcfg .mw-cfg-search svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);opacity:.6;pointer-events:none}
+#mw-wafcfg .mw-cfg-links{display:flex;gap:14px;font-size:13px}
+#mw-wafcfg .mw-cfg-links button,#mw-wafcfg .mw-cfg-reset{background:none;border:0;padding:0;color:var(--mw-accent-text);
+	text-decoration:underline;cursor:pointer}
+#mw-wafcfg .mw-cfg-links button:focus-visible,#mw-wafcfg .mw-cfg-reset:focus-visible{outline:2px solid var(--mw-accent);outline-offset:2px}
+#mw-wafcfg .mw-cfg-legend{font-size:12.5px;opacity:.8;margin-left:auto}
+#mw-wafcfg .mw-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--mw-accent);margin-right:6px;vertical-align:1px}
+#mw-wafcfg .mw-cfg-empty{margin:4px 0 14px;font-size:13.5px}
+#mw-wafcfg .mw-cfg-sec{background:var(--mw-card);border:1px solid var(--mw-line);border-radius:10px;margin:0 0 10px}
+#mw-wafcfg .mw-cfg-sec > summary{display:grid;grid-template-columns:18px minmax(0,1fr) auto;gap:2px 10px;align-items:start;
+	padding:12px 16px;cursor:pointer;list-style:none;border-radius:10px}
+#mw-wafcfg .mw-cfg-sec > summary::-webkit-details-marker{display:none}
+#mw-wafcfg .mw-cfg-sec > summary:hover{background:var(--cic-hover,rgba(128,128,128,.08))}
+#mw-wafcfg .mw-cfg-sec > summary:focus-visible{outline:2px solid var(--mw-accent);outline-offset:2px}
+#mw-wafcfg .mw-cfg-sec > summary::before{content:"\25B8";grid-row:1 / span 2;font-size:15px;line-height:1.5;opacity:.7;transition:transform .15s}
+#mw-wafcfg .mw-cfg-sec[open] > summary::before{transform:rotate(90deg)}
+#mw-wafcfg .mw-cfg-sec > summary h2.mw-cfg-title{margin:0;font-size:17px;font-weight:600;line-height:1.35;
+	font-family:inherit;text-transform:none;letter-spacing:0}
+#mw-wafcfg .mw-cfg-state{grid-column:2;font-size:13px;opacity:.75;line-height:1.45;overflow-wrap:anywhere}
+#mw-wafcfg .mw-cfg-badge{grid-column:3;grid-row:1;align-self:center;font-size:12px;padding:2px 9px;border-radius:999px;
+	border:1px solid var(--mw-accent);color:var(--mw-accent-text);white-space:nowrap}
+#mw-wafcfg .mw-cfg-badge[hidden]{display:none}
+#mw-wafcfg .mw-cfg-body{padding:2px 16px 16px 44px;border-top:1px solid var(--mw-line)}
+#mw-wafcfg .mw-cfg-intro{margin:12px 0 4px;font-size:13.5px;max-width:78ch;opacity:.85}
+#mw-wafcfg .mw-cfg-intro:empty{display:none}
+#mw-wafcfg .mw-cfg-field{display:grid;grid-template-columns:minmax(13rem,30%) minmax(0,1fr);gap:4px 22px;padding:14px 0 12px;
+	border-bottom:1px dashed var(--mw-line)}
+#mw-wafcfg .mw-cfg-field:last-of-type{border-bottom:0}
+#mw-wafcfg .mw-cfg-field > label,#mw-wafcfg .mw-cfg-label{font-weight:600;margin:7px 0 0;line-height:1.35}
+#mw-wafcfg .mw-cfg-changed > label::before,#mw-wafcfg .mw-cfg-changed > .mw-cfg-label::before{content:"";display:inline-block;
+	width:8px;height:8px;border-radius:50%;background:var(--mw-accent);margin-right:6px;vertical-align:1px}
+#mw-wafcfg .mw-cfg-control{min-width:0}
+/* Unit fields: the field keeps the width the script gives it, the unit sits beside it. */
+#mw-wafcfg .input-group{display:inline-flex;width:auto;max-width:100%;vertical-align:top}
+#mw-wafcfg .input-group .form-control{float:none;width:9ch;min-width:0;flex:0 0 auto;border-top-right-radius:0;border-bottom-right-radius:0}
+#mw-wafcfg .input-group .input-group-addon{display:flex;align-items:center;width:auto;white-space:nowrap}
+#mw-wafcfg .mw-cfg-text{max-width:min(100%,36ch)}
+#mw-wafcfg .mw-cfg-list{max-width:min(100%,34rem);font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:13px;
+	line-height:1.5;resize:vertical}
+#mw-wafcfg .mw-cfg-steps{display:flex;flex-wrap:wrap;gap:8px 16px}
+#mw-wafcfg .mw-cfg-steps label{display:block;font-size:12.5px;font-weight:400;opacity:.8;margin:0 0 3px}
+#mw-wafcfg .mw-cfg-meta{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12.5px;margin:5px 0 0}
+#mw-wafcfg .mw-cfg-meta span{opacity:.8}
+#mw-wafcfg .mw-cfg-hint{font-size:13px;opacity:.8;margin:6px 0 0;max-width:72ch;line-height:1.45}
+#mw-wafcfg .mw-cfg-clear{display:inline-flex;gap:6px;align-items:center;font-weight:400;margin:6px 0 0}
+#mw-wafcfg .mw-seg{display:inline-flex;flex-wrap:wrap;border:1px solid var(--mw-line);border-radius:8px;overflow:hidden}
+#mw-wafcfg .mw-seg label{margin:0;padding:6px 14px;font-weight:400;cursor:pointer;border-right:1px solid var(--mw-line)}
+#mw-wafcfg .mw-seg label:last-child{border-right:0}
+#mw-wafcfg .mw-seg input{position:absolute;opacity:0;pointer-events:none}
+#mw-wafcfg .mw-seg label:has(input:checked){box-shadow:inset 0 0 0 2px var(--mw-accent);color:var(--mw-accent-text);font-weight:700}
+#mw-wafcfg .mw-seg label:has(input:focus-visible){outline:2px solid var(--mw-accent);outline-offset:-4px}
+#mw-wafcfg .mw-radios{display:grid;gap:6px}
+#mw-wafcfg .mw-radios label{display:flex;gap:8px;align-items:baseline;margin:0;font-weight:400;cursor:pointer}
+#mw-wafcfg .mw-radios input{margin:0}
+#mw-wafcfg .mw-radios label:has(input:checked){font-weight:700}
+#mw-wafcfg .mw-cfg-states{margin:6px 0 0;padding-left:18px;font-size:13px;max-width:90ch}
+#mw-wafcfg .mw-cfg-failed,#mw-wafcfg .mw-cfg-alarm{color:var(--cic-bad-text,#d13f22)}
+#mw-wafcfg .mw-cfg-alarm{font-weight:600}
+#mw-wafcfg .mw-cfg-facts{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:6px 18px;margin:14px 0 8px}
+#mw-wafcfg .mw-cfg-facts dt{font-weight:400;opacity:.75}
+#mw-wafcfg .mw-cfg-facts dd{margin:0;overflow-wrap:anywhere}
+#mw-wafcfg .mw-cfg-facts code{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:12px}
+#mw-wafcfg .mw-cfg-save{position:sticky;bottom:0;z-index:5;display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;
+	justify-content:flex-end;margin:16px 0 0;padding:12px 16px;background:var(--cic-page,Canvas);border-top:1px solid var(--mw-line)}
+#mw-wafcfg .mw-cfg-dirty{margin-right:auto;font-size:13.5px;opacity:.8}
+#mw-wafcfg .mw-cfg-dirty.mw-cfg-pending{opacity:1;color:var(--mw-accent-text);font-weight:600}
+@media (max-width:760px){
+	#mw-wafcfg .mw-cfg-field{grid-template-columns:minmax(0,1fr)}
+	#mw-wafcfg .mw-cfg-body{padding-left:16px}
+	#mw-wafcfg .mw-cfg-legend{margin-left:0}
+}
+@media (prefers-reduced-motion: reduce){#mw-wafcfg .mw-cfg-sec > summary::before{transition:none}}
 </style>
+
+<script>
+(function () {
+	var root = document.getElementById('mw-wafcfg');
+	if (!root) { return; }
+	var store = null;
+	try { store = window.localStorage; } catch (e) { store = null; }
+	function word(name, value) {
+		return (root.getAttribute('data-mw-word-' + name) || '').replace('%s', value);
+	}
+	function each(list, fn) { Array.prototype.forEach.call(list, fn); }
+	var sections = root.querySelectorAll('details.mw-cfg-sec');
+
+	// Every number field as wide as its largest value: the longer of its limit
+	// and the value shown, measured in the font of the field with the widest
+	// digit, plus padding, border and the arrows Chrome shows on hover.
+	var ruler = document.createElement('canvas').getContext('2d');
+	each(root.querySelectorAll('input[type=number]'), function (input) {
+		var cs = getComputedStyle(input);
+		ruler.font = cs.fontStyle + ' ' + cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily;
+		var longest = String(input.max || '').length >= String(input.value || '').length
+			? String(input.max || '') : String(input.value || '');
+		var text = ruler.measureText(longest.replace(/[0-9]/g, '0') || '0').width;
+		var frame = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight)
+			+ parseFloat(cs.borderLeftWidth) + parseFloat(cs.borderRightWidth);
+		input.style.width = Math.ceil(text + frame + 24) + 'px';
+	});
+	// A list field shows all its lines and one more.
+	function rows(area) {
+		area.rows = Math.max(2, area.value.split('\n').length + 1);
+	}
+	each(root.querySelectorAll('textarea.mw-cfg-list'), rows);
+
+	// Sections keep only where they differ from how the page starts them.
+	each(sections, function (box) {
+		var key = 'malwatch.wafcfg.' + box.getAttribute('data-mw-sec');
+		var start = box.open;
+		var kept = null;
+		try { kept = store ? store.getItem(key) : null; } catch (e) { kept = null; }
+		if (kept === 'open') { box.open = true; }
+		if (kept === 'closed') { box.open = false; }
+		box.addEventListener('toggle', function () {
+			if (root.getAttribute('data-mw-searching') === '1') { return; }
+			try {
+				if (!store) { return; }
+				if (box.open === start) { store.removeItem(key); } else { store.setItem(key, box.open ? 'open' : 'closed'); }
+			} catch (e) { }
+		});
+	});
+	// A refused save opens every section, so each named field is in sight.
+	if (document.querySelector('#pageContent .alert-danger')) {
+		each(sections, function (box) { box.open = true; });
+	}
+
+	// The value of a field as text: lists one entry per line, choices by the
+	// checked button.
+	function clean(text) {
+		return String(text).split(/[\r\n,]+/).map(function (one) { return one.trim(); })
+			.filter(function (one) { return one !== ''; }).join('\n');
+	}
+	function valueOf(el) {
+		if (el.hasAttribute('data-mw-name')) {
+			var on = el.querySelector('input[type=radio]:checked');
+			return on ? on.value : '';
+		}
+		return el.tagName === 'TEXTAREA' ? clean(el.value) : String(el.value).trim();
+	}
+	function shown(el, text) {
+		if (el.hasAttribute('data-mw-name')) {
+			var box = el.querySelector('input[value="' + text.replace(/"/g, '') + '"]');
+			var label = box ? box.parentNode.textContent.trim() : text;
+			return label;
+		}
+		return el.tagName === 'TEXTAREA' ? (text === '' ? '–' : text.split('\n').join(', ')) : text;
+	}
+	var marked = root.querySelectorAll('[data-default]');
+	// What the form holds, one entry per field: a group of buttons counts once.
+	var named = root.querySelectorAll('input[name], textarea[name]');
+	function snapshot() {
+		var map = {};
+		each(named, function (el) {
+			if (el.type === 'radio') {
+				if (el.checked) {
+					map[el.name] = el.value;
+				} else if (!Object.prototype.hasOwnProperty.call(map, el.name)) {
+					map[el.name] = '';
+				}
+			} else if (el.type === 'checkbox') {
+				map[el.name] = el.checked ? '1' : '0';
+			} else {
+				map[el.name] = String(el.value);
+			}
+		});
+		return map;
+	}
+	var start = snapshot();
+
+	function refresh() {
+		each(sections, function (box) {
+			var count = 0;
+			each(box.querySelectorAll('[data-default]'), function (el) {
+				var standard = el.tagName === 'TEXTAREA' ? clean(el.getAttribute('data-default')) : el.getAttribute('data-default');
+				var differs = valueOf(el) !== standard;
+				var holder = el.closest('.input-group') || el;
+				var meta = holder.nextElementSibling && holder.nextElementSibling.classList.contains('mw-cfg-meta')
+					? holder.nextElementSibling : null;
+				if (differs && !meta) {
+					meta = document.createElement('div');
+					meta.className = 'mw-cfg-meta';
+					var info = document.createElement('span');
+					var reset = document.createElement('button');
+					reset.type = 'button';
+					reset.className = 'mw-cfg-reset';
+					reset.textContent = word('reset', '');
+					meta.appendChild(info);
+					meta.appendChild(reset);
+					holder.parentNode.insertBefore(meta, holder.nextSibling);
+				}
+				if (meta) {
+					meta.hidden = !differs;
+					meta.firstChild.textContent = word('default', shown(el, standard));
+				}
+				var field = el.closest('.mw-cfg-field');
+				if (field) {
+					field.classList.toggle('mw-cfg-changed', !!field.querySelector('.mw-cfg-meta:not([hidden])'));
+				}
+				if (differs) { count++; }
+			});
+			var badge = box.querySelector('.mw-cfg-badge');
+			badge.textContent = word('adjusted', String(count));
+			badge.hidden = count === 0;
+		});
+		var dirty = 0;
+		var now = snapshot();
+		Object.keys(now).forEach(function (name) {
+			if (now[name] !== start[name]) { dirty++; }
+		});
+		var note = document.getElementById('mw-cfg-dirty');
+		note.textContent = dirty === 0 ? word('clean', '') : (dirty === 1 ? word('dirty-one', '') : word('dirty-many', String(dirty)));
+		note.classList.toggle('mw-cfg-pending', dirty > 0);
+	}
+	root.addEventListener('input', function (e) {
+		if (e.target && e.target.classList && e.target.classList.contains('mw-cfg-list')) { rows(e.target); }
+		if (e.target && e.target.id !== 'mw-cfg-find') { refresh(); }
+	});
+	root.addEventListener('change', refresh);
+
+	root.addEventListener('click', function (e) {
+		var all = e.target.closest ? e.target.closest('[data-mw-all]') : null;
+		if (all) {
+			each(sections, function (box) { box.open = all.getAttribute('data-mw-all') === 'open'; });
+			return;
+		}
+		var reset = e.target.closest ? e.target.closest('.mw-cfg-reset') : null;
+		if (!reset) { return; }
+		var meta = reset.parentNode;
+		var el = meta.previousElementSibling;
+		el = el && el.classList.contains('input-group') ? el.querySelector('[data-default]') : el;
+		if (!el) { return; }
+		var standard = el.getAttribute('data-default');
+		if (el.hasAttribute('data-mw-name')) {
+			each(el.querySelectorAll('input[type=radio]'), function (radio) { radio.checked = radio.value === standard; });
+		} else {
+			el.value = standard;
+			if (el.tagName === 'TEXTAREA') { rows(el); }
+		}
+		refresh();
+		(el.hasAttribute('data-mw-name') ? el.querySelector('input:checked') || el : el).focus();
+	});
+
+	// Search: fields whose label, hint or value hold the words stay, the
+	// sections around them open; an empty search brings back the sections as
+	// they were.
+	var find = document.getElementById('mw-cfg-find');
+	var before = null;
+	find.addEventListener('input', function () {
+		var q = find.value.trim().toLowerCase();
+		if (q !== '' && before === null) {
+			before = [];
+			each(sections, function (box) { before.push(box.open); });
+		}
+		root.setAttribute('data-mw-searching', q === '' ? '0' : '1');
+		var any = false;
+		each(sections, function (box, i) {
+			var title = box.querySelector('summary').textContent.toLowerCase();
+			var hits = 0;
+			each(box.querySelectorAll('.mw-cfg-field'), function (field) {
+				var hit = q === '' || title.indexOf(q) !== -1 || field.textContent.toLowerCase().indexOf(q) !== -1;
+				field.hidden = !hit;
+				if (hit) { hits++; }
+			});
+			var show = q === '' || hits > 0 || title.indexOf(q) !== -1;
+			box.hidden = !show;
+			if (q !== '' && show) { box.open = true; }
+			if (q === '' && before !== null) { box.open = before[i]; }
+			any = any || show;
+		});
+		if (q === '') { before = null; root.setAttribute('data-mw-searching', '0'); }
+		document.getElementById('mw-cfg-empty').hidden = any;
+	});
+	find.addEventListener('keydown', function (e) {
+		if (e.key === 'Escape' && find.value !== '') {
+			e.preventDefault();
+			find.value = '';
+			find.dispatchEvent(new Event('input'));
+		}
+	});
+	refresh();
+})();
+</script>

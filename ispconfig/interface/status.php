@@ -53,6 +53,7 @@ foreach ($rows['attention'] as &$row) {
 unset($row);
 
 $app->tpl->setLoop('sites', $rows['attention']);
+$app->tpl->setVar('poll_ms', malwatch_poll_ms(malwatch_get_config($app)));
 $app->tpl->setVar('attention_count', count($rows['attention']));
 $app->tpl->setVar('quiet_count', $rows['quiet_count']);
 

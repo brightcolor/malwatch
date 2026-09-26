@@ -94,6 +94,13 @@
 	<div class="col-sm-9"><input type="text" name="keep_scans" id="keep_scans" value="{tmpl_var name='keep_scans'}" class="form-control" /></div>
 </div>
 <div class="form-group">
+	<label for="poll_seconds" class="col-sm-3 control-label">{tmpl_var name='poll_seconds_txt'}</label>
+	<div class="col-sm-9">
+		<input type="text" name="poll_seconds" id="poll_seconds" value="{tmpl_var name='poll_seconds'}" class="form-control" />
+		<span class="help-block">{tmpl_var name='poll_seconds_hint_txt'}</span>
+	</div>
+</div>
+<div class="form-group">
 	<label class="col-sm-3 control-label">{tmpl_var name='use_clamav_txt'}</label>
 	<div class="col-sm-9">
 		{tmpl_var name='use_clamav'}

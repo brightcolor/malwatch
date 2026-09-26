@@ -166,6 +166,21 @@ $form['tabs']['settings'] = array(
 			'width' => '10',
 			'maxlength' => '4'
 		),
+		'poll_seconds' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '2',
+			'validators' => array(
+				array(
+					'type' => 'RANGE',
+					'range' => '1:60',
+					'errmsg' => 'poll_seconds_error_range'
+				)
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '2'
+		),
 		'use_clamav' => array(
 			'datatype' => 'VARCHAR',
 			'formtype' => 'CHECKBOX',

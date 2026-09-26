@@ -200,8 +200,8 @@ $software = $app->db->queryAllRecords(
 	$domain_id);
 
 // "Lücken nicht geprüft" says something only while the lookup is switched on.
-$vuln_config = malwatch_get_config($app);
-$vuln_on = !(isset($vuln_config['vuln_scan']) && $vuln_config['vuln_scan'] === 'n');
+$config = malwatch_get_config($app);
+$vuln_on = !(isset($config['vuln_scan']) && $config['vuln_scan'] === 'n');
 
 // How many flaws the page writes out in total. A demo website on the live
 // server carries 425 vulnerable installs; ten flaws each made the page 1.08 MB.
@@ -380,6 +380,7 @@ $running = $app->db->queryOneRecord(
 	. "AND job_kind != 'vulncheck' ORDER BY job_id DESC LIMIT 1", $domain_id);
 $app->tpl->setVar('running_job_id', is_array($running)
 	? $app->functions->intval($running['job_id']) : '');
+$app->tpl->setVar('poll_ms', malwatch_poll_ms($config));
 
 $csrf = $app->auth->csrf_token_get('malwatch_site_show');
 $app->tpl->setVar('_csrf_id', $csrf['csrf_id']);

@@ -106,7 +106,7 @@
 </style>
 
 <tmpl_if name="has_site">
-<div id="mw-wafsite" data-mw-jobs="security/malwatch_waf_jobs.php?since={tmpl_var name='first_job'}"
+<div id="mw-wafsite" data-mw-jobs="security/malwatch_waf_jobs.php?since={tmpl_var name='first_job'}" data-mw-poll="{tmpl_var name='poll_ms'}"
 	data-mw-self="{tmpl_var name='self_href'}"
 	data-mw-preview="security/malwatch_waf_preview.php?id={tmpl_var name='domain_id'}">
 
@@ -170,7 +170,7 @@
 	</div>
 	<div class="mw-switch">
 		<span class="mw-dim">{tmpl_var name='ban_site_head_txt'}: {tmpl_var name='ban_site_line'}</span>
-		<input type="number" min="0" max="10000" step="1" name="waf_score" id="mw-waf-score" value="{tmpl_var name='ban_score_value'}" class="form-control" style="max-width:10ch;display:inline-block" />
+		<input type="number" min="0" max="{tmpl_var name='ban_score_max'}" step="1" name="waf_score" id="mw-waf-score" value="{tmpl_var name='ban_score_value'}" class="form-control" style="width:calc({tmpl_var name='ban_score_digits'}ch + 44px);display:inline-block" />
 		<button class="btn btn-default btn-xs" type="button"
 			data-mw-set-mw-waf-action="ban_site" data-mw-set-mw-waf-trigger="y"
 			data-submit-form="pageForm" data-form-action="security/malwatch_waf_show.php">{tmpl_var name='ban_site_save_txt'}</button>
@@ -568,7 +568,10 @@
 		};
 		xhr.send();
 	}
-	timer = setInterval(poll, 5000);
+	// As often as waf_poll_seconds says.
+	var every = parseInt(root.getAttribute('data-mw-poll'), 10);
+	if (!(every > 0)) { return; }
+	timer = setInterval(poll, every);
 })();
 </script>
 

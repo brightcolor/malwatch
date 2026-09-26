@@ -67,7 +67,7 @@ if (!is_array($site)) {
 
 $settings = waf_panel_settings($app);
 $clock = waf_panel_clock($app);
-$filters = waf_panel_filters(array_merge($_GET, $_POST), $settings['waf_stats_days']);
+$filters = waf_panel_filters(array_merge($_GET, $_POST), $settings);
 $days = $filters['days'];
 $state = waf_state_valid((string) $site['waf_state']) ? (string) $site['waf_state'] : 'off';
 
@@ -87,6 +87,10 @@ $ban_score = is_array($site) && isset($site['waf_ban_score']) ? (int) $site['waf
 $ban_trigger = is_array($site) && isset($site['waf_ban_trigger'])
 	&& (string) $site['waf_ban_trigger'] === 'n' ? 'n' : 'y';
 $app->tpl->setVar('ban_score_value', $ban_score > 0 ? $ban_score : '');
+// The field takes the limits of waf_ban_score and is as wide as its largest value.
+$ban_limits = waf_settings_limits();
+$app->tpl->setVar('ban_score_max', $ban_limits['waf_ban_score'][1]);
+$app->tpl->setVar('ban_score_digits', strlen((string) $ban_limits['waf_ban_score'][1]));
 $app->tpl->setVar('ban_site_line', $app->functions->htmlentities($ban_trigger === 'n'
 	? $wb['ban_site_never_txt']
 	: ($ban_score > 0 ? sprintf($wb['ban_site_own_txt'] . ': %s', number_format($ban_score, 0, ',', '.'))
@@ -113,6 +117,7 @@ $app->tpl->setVar('is_pending', $pending || (string) $site['waf_pending_state'] 
 $app->tpl->setLoop('jobs', $job_rows);
 $app->tpl->setVar('has_jobs', count($job_rows) > 0 ? 1 : 0);
 $app->tpl->setVar('first_job', $first_job);
+$app->tpl->setVar('poll_ms', waf_panel_poll_ms(waf_panel_settings($app)));
 $app->tpl->setVar('self_href', $app->functions->htmlentities('security/malwatch_waf_show.php?id=' . $domain_id . '&days=' . $days . $ip_query));
 
 // The preview for enforce.
@@ -146,7 +151,7 @@ $app->tpl->setVar('has_block_rules', count($block_rows) > 0 ? 1 : 0);
 // Period links and history.
 $link = 'security/malwatch_waf_show.php?id=' . $domain_id . '&days=';
 $periods = array();
-foreach (waf_periods($settings['waf_stats_days']) as $period) {
+foreach (waf_periods($settings) as $period) {
 	$periods[] = array(
 		'label' => $app->functions->htmlentities($period === 1 ? $wb['period_today_txt'] : sprintf($wb['period_days_txt'], $period)),
 		'href' => $app->functions->htmlentities($link . $period . $ip_query),

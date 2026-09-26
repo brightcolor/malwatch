@@ -55,7 +55,7 @@
 #mw-waf .mw-selectbar + .table-wrapper{margin-top:8px}
 </style>
 
-<div id="mw-waf" data-mw-selection data-mw-jobs="security/malwatch_waf_jobs.php?since={tmpl_var name='first_job'}" data-mw-self="{tmpl_var name='self_href'}">
+<div id="mw-waf" data-mw-selection data-mw-jobs="security/malwatch_waf_jobs.php?since={tmpl_var name='first_job'}" data-mw-poll="{tmpl_var name='poll_ms'}" data-mw-self="{tmpl_var name='self_href'}">
 
 <p class="mw-sub">{tmpl_var name='sub_txt'}</p>
 <p class="mw-sub">{tmpl_var name='origin_line'} <a href="#" data-load-content="security/malwatch_waf_config_edit.php">{tmpl_var name='origin_settings_link_txt'}</a></p>
@@ -256,7 +256,10 @@
 		xhr.send();
 	}
 
-	timer = setInterval(poll, 5000);
+	// As often as waf_poll_seconds says.
+	var every = parseInt(root.getAttribute('data-mw-poll'), 10);
+	if (!(every > 0)) { return; }
+	timer = setInterval(poll, every);
 })();
 </script>
 
