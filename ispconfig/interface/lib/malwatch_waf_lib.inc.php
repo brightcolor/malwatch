@@ -46,18 +46,21 @@ function waf_state_normalize($state)
 	return waf_state_valid($state) ? $state : '';
 }
 
-/** The managed block for the field "nginx directives"; '' for off. */
-function waf_block_text($state, $with_ban_log = false)
+/**
+ * The managed block for the field "nginx directives"; '' for off. $ban_log is
+ * the second access log (waf_blocked_log) or '' for none.
+ */
+function waf_block_text($state, $ban_log = '')
 {
 	if ($state === 'off' || !waf_state_valid($state)) {
 		return '';
 	}
 	$lines = array(WAF_MARK_BEGIN . ' (' . $state . ') - managed by waf-switch', 'modsecurity on;');
-	if ($with_ban_log) {
+	if (is_string($ban_log) && $ban_log !== '') {
 		// The second log carries the answers 403 of the deny list; its format and
-		// its condition stand in /etc/nginx/conf.d/waf-blocked.conf. Without that
+		// its condition stand in the include of the block list. Without that
 		// file nginx refuses the unknown format, so the caller decides.
-		$lines[] = 'access_log /var/log/waf/blocked.log mw_block if=$mw_denied;';
+		$lines[] = 'access_log ' . $ban_log . ' mw_block if=$mw_denied;';
 	}
 	if ($state === 'enforce') {
 		$lines[] = "modsecurity_rules 'SecRuleEngine On';";
@@ -79,10 +82,10 @@ function waf_block_remove($text)
 	return preg_replace($pattern, '', (string) $text);
 }
 
-function waf_block_set($text, $state, $with_ban_log = false)
+function waf_block_set($text, $state, $ban_log = '')
 {
 	$rest = waf_block_remove($text);
-	$block = waf_block_text($state, $with_ban_log);
+	$block = waf_block_text($state, $ban_log);
 	if ($block === '') {
 		return $rest;
 	}
@@ -932,7 +935,39 @@ function waf_settings_defaults()
 		'waf_preview_delay_ms' => 300,
 		'waf_cli_jobs' => 20,
 		'waf_cli_wait_margin_minutes' => 2,
+		// From 0.35.0 the places and names on the server (see waf_path_settings(),
+		// waf/install.sh lays them out), the limits of ModSecurity and the minutes
+		// of the guard and of the hourly pass.
+		'waf_rules_include' => '/etc/nginx/conf.d/waf.conf',
+		'waf_blocked_include' => '/etc/nginx/conf.d/waf-blocked.conf',
+		'waf_nginx_service' => 'nginx',
+		'waf_modsec_base' => '/etc/nginx/modsecurity.conf',
+		'waf_crs_setup' => '/etc/modsecurity/crs/crs-setup.conf',
+		'waf_crs_rules' => '/usr/share/modsecurity-crs/rules/*.conf',
+		'waf_rules_check' => '/usr/lib/*/libexec/modsec-rules-check',
+		'waf_cache_dir' => '/var/cache/waf',
+		'waf_blocked_log' => '/var/log/waf/blocked.log',
+		'waf_guard_log' => '/var/log/waf/guard.log',
+		'waf_backup_dir' => '/var/backups/waf-switch',
+		'waf_logrotate_file' => '/etc/logrotate.d/waf',
+		'waf_tools_dir' => '/usr/local/sbin',
+		'waf_cron_file' => '/etc/cron.d/malwatch-waf',
+		'waf_hc_run' => '/usr/local/sbin/hc-run',
+		'waf_hc_tick_name' => 'waf-tick',
+		'waf_hc_guard_name' => 'waf-guard',
+		'waf_bin_dirs' => '/usr/local/sbin,/usr/local/bin,/usr/sbin,/usr/bin,/sbin,/bin',
+		'waf_body_limit_kb' => 12800,
+		'waf_body_nofiles_limit_kb' => 128,
+		'waf_body_limit_action' => 'ProcessPartial',
+		'waf_guard_minute' => 5,
+		'waf_hourly_minute' => 7,
 	);
+}
+
+/** What ModSecurity does with a request body beyond waf_body_limit_kb: check its beginning, or refuse it. */
+function waf_body_limit_actions()
+{
+	return array('ProcessPartial', 'Reject');
 }
 
 /** The three states of the automatic blocking. */
@@ -1015,6 +1050,10 @@ function waf_settings_limits()
 		'waf_preview_delay_ms' => array(50, 5000),
 		'waf_cli_jobs' => array(5, 500),
 		'waf_cli_wait_margin_minutes' => array(0, 60),
+		'waf_guard_minute' => array(0, 59),
+		'waf_hourly_minute' => array(0, 59),
+		'waf_body_limit_kb' => array(1, 1048576),
+		'waf_body_nofiles_limit_kb' => array(1, 1048576),
 	);
 }
 
@@ -1169,10 +1208,277 @@ function waf_proxycheck_address($url, $key)
 	return $url . (strpos($url, '?') === false ? '?' : '&') . 'key=' . rawurlencode((string) $key);
 }
 
+// --- Places and names on the server -------------------------------------------
+
+if (!defined('WAF_PATH_MAX')) {
+	/** A place of the settings: its column is varchar(255). */
+	define('WAF_PATH_MAX', 255);
+}
+if (!defined('WAF_NAME_MAX')) {
+	/** A name of the settings: its column is varchar(64). */
+	define('WAF_NAME_MAX', 64);
+}
+
+/**
+ * The places and names of the Abwehr on the server, in the order the panel and
+ * waf-switch paths show them. waf/install.sh lays them out and changes them;
+ * the panel shows them only. The kind says what a value must be:
+ *   file     an absolute path of a file
+ *   dir      an absolute path of a directory
+ *   pattern  an absolute path that may hold * (a glob)
+ *   program  the path of a program, or empty: the runs then start directly
+ *   dirs     directories, stored with commas
+ *   name     a name for systemd or healthchecks
+ */
+function waf_path_settings()
+{
+	return array(
+		'waf_conf_dir' => array('kind' => 'dir', 'group' => 'nginx'),
+		'waf_rules_include' => array('kind' => 'file', 'group' => 'nginx'),
+		'waf_blocked_include' => array('kind' => 'file', 'group' => 'nginx'),
+		'waf_nginx_service' => array('kind' => 'name', 'group' => 'nginx'),
+		'waf_modsec_base' => array('kind' => 'file', 'group' => 'modsec'),
+		'waf_crs_setup' => array('kind' => 'file', 'group' => 'modsec'),
+		'waf_crs_rules' => array('kind' => 'pattern', 'group' => 'modsec'),
+		'waf_rules_check' => array('kind' => 'pattern', 'group' => 'modsec'),
+		'waf_cache_dir' => array('kind' => 'dir', 'group' => 'modsec'),
+		'waf_audit_log' => array('kind' => 'file', 'group' => 'logs'),
+		'waf_blocked_log' => array('kind' => 'file', 'group' => 'logs'),
+		'waf_guard_log' => array('kind' => 'file', 'group' => 'logs'),
+		'waf_backup_dir' => array('kind' => 'dir', 'group' => 'logs'),
+		'waf_logrotate_file' => array('kind' => 'file', 'group' => 'logs'),
+		'waf_tools_dir' => array('kind' => 'dir', 'group' => 'tools'),
+		'waf_cron_file' => array('kind' => 'file', 'group' => 'tools'),
+		'waf_hc_run' => array('kind' => 'program', 'group' => 'tools'),
+		'waf_hc_tick_name' => array('kind' => 'name', 'group' => 'tools'),
+		'waf_hc_guard_name' => array('kind' => 'name', 'group' => 'tools'),
+		'waf_bin_dirs' => array('kind' => 'dirs', 'group' => 'tools'),
+	);
+}
+
+/** The variable of the environment that changes a place for waf/install.sh: MALWATCH_WAF_CONF_DIR for waf_conf_dir. */
+function waf_path_env($key)
+{
+	return 'MALWATCH_' . strtoupper((string) $key);
+}
+
+/** Variables of the form MALWATCH_WAF_* that belong to the tools themselves. */
+function waf_path_env_other()
+{
+	return array('MALWATCH_WAF_LIB');
+}
+
+/**
+ * A place or name checked for its kind: array(value, problem). The value comes
+ * back normalized: double slashes once, a directory without its closing slash,
+ * directories joined with commas. The problem is '' or a word the command line
+ * and the panel turn into a sentence: empty, relative, chars, dots, root,
+ * trailing, long, name.
+ */
+function waf_path_check($kind, $value)
+{
+	$value = trim((string) $value);
+	if ($kind === 'dirs') {
+		$dirs = array();
+		foreach (waf_list_parse($value) as $one) {
+			$check = waf_path_check('dir', $one);
+			if ($check[1] !== '') {
+				return array($value, $check[1]);
+			}
+			if (!in_array($check[0], $dirs, true)) {
+				$dirs[] = $check[0];
+			}
+		}
+		if (count($dirs) === 0) {
+			return array('', 'empty');
+		}
+		$joined = waf_list_join($dirs);
+		return strlen($joined) > WAF_LIST_MAX ? array($value, 'long') : array($joined, '');
+	}
+	if ($kind === 'name') {
+		if ($value === '') {
+			return array('', 'empty');
+		}
+		return strlen($value) <= WAF_NAME_MAX && preg_match('/^[A-Za-z0-9][A-Za-z0-9@._-]*$/', $value)
+			? array($value, '') : array($value, 'name');
+	}
+	if ($value === '') {
+		return array('', $kind === 'program' ? '' : 'empty');
+	}
+	if ($value[0] !== '/') {
+		return array($value, 'relative');
+	}
+	if (!preg_match($kind === 'pattern' ? '#^[A-Za-z0-9._/*-]+$#' : '#^[A-Za-z0-9._/-]+$#', $value)) {
+		return array($value, 'chars');
+	}
+	$value = preg_replace('#/+#', '/', $value);
+	if (preg_match('#(?:^|/)\.\.?(?:/|$)#', $value)) {
+		return array($value, 'dots');
+	}
+	if ($kind === 'dir') {
+		$value = rtrim($value, '/');
+		if ($value === '') {
+			return array('/', 'root');
+		}
+	} elseif (substr($value, -1) === '/') {
+		return array($value, 'trailing');
+	}
+	return strlen($value) > WAF_PATH_MAX ? array($value, 'long') : array($value, '');
+}
+
+/**
+ * Places that would share a file or a directory: each is a problem of the later
+ * one in the catalog, array(problem, key, name, value, other). Two logs in one
+ * file break both readers; two includes in one file load one of them twice.
+ */
+function waf_path_conflicts($values)
+{
+	$seen = array('file' => array(), 'dir' => array());
+	$problems = array();
+	foreach (waf_path_settings() as $key => $entry) {
+		$class = in_array($entry['kind'], array('file', 'program'), true) ? 'file'
+			: ($entry['kind'] === 'dir' ? 'dir' : '');
+		$value = isset($values[$key]) ? (string) $values[$key] : '';
+		if ($class === '' || $value === '') {
+			continue;
+		}
+		if (isset($seen[$class][$value])) {
+			$problems[] = array('problem' => 'same_' . $class, 'key' => $key, 'name' => waf_path_env($key),
+				'value' => $value, 'other' => $seen[$class][$value]);
+			continue;
+		}
+		$seen[$class][$value] = $key;
+	}
+	return $problems;
+}
+
+/**
+ * The places with the changes waf/install.sh hands over through the environment
+ * (see waf_path_env()). Returns values, the keys that changed and the
+ * problems, each array(problem, key, name, value, other). A variable of that
+ * form that names no place is a problem as well, so a typing error never goes
+ * unnoticed: 'panel' when it names a setting of the panel, 'unknown' else. A
+ * refused value keeps the stored one.
+ */
+function waf_path_overlay($settings, $env)
+{
+	$catalog = waf_path_settings();
+	$defaults = waf_settings_defaults();
+	$values = array();
+	foreach ($catalog as $key => $entry) {
+		$values[$key] = (string) $settings[$key];
+	}
+	$problems = array();
+	foreach ($env as $name => $value) {
+		$name = (string) $name;
+		if (strpos($name, 'MALWATCH_WAF_') !== 0 || in_array($name, waf_path_env_other(), true)) {
+			continue;
+		}
+		$key = strtolower(substr($name, strlen('MALWATCH_')));
+		if (!isset($catalog[$key])) {
+			$problems[] = array('problem' => array_key_exists($key, $defaults) ? 'panel' : 'unknown', 'key' => $key,
+				'name' => $name, 'value' => (string) $value, 'other' => '');
+			continue;
+		}
+		$check = waf_path_check($catalog[$key]['kind'], $value);
+		if ($check[1] !== '') {
+			$problems[] = array('problem' => $check[1], 'key' => $key, 'name' => $name, 'value' => (string) $value,
+				'other' => '');
+			continue;
+		}
+		$values[$key] = $check[0];
+	}
+	$problems = array_merge($problems, waf_path_conflicts($values));
+	$changed = array();
+	foreach ($values as $key => $value) {
+		if ($value !== (string) $settings[$key]) {
+			$changed[] = $key;
+		}
+	}
+	return array('values' => $values, 'changed' => $changed, 'problems' => $problems);
+}
+
+/** One German sentence for a problem of waf_path_overlay(): what is wrong and what to do. waf-switch prints it. */
+function waf_path_problem_text($problem)
+{
+	$catalog = waf_path_settings();
+	$defaults = waf_settings_defaults();
+	$key = (string) $problem['key'];
+	$example = isset($defaults[$key]) ? (string) $defaults[$key] : '';
+	$chars = 'A-Z, a-z, 0-9 und . _ / -' . (isset($catalog[$key]) && $catalog[$key]['kind'] === 'pattern' ? ' *' : '');
+	$texts = array(
+		'empty' => '%1$s ist leer. Bitte einen Wert angeben; die Vorgabe ist %3$s.',
+		'relative' => '%1$s=%2$s ist kein absoluter Pfad. Bitte mit / beginnen, etwa %3$s.',
+		'chars' => '%1$s=%2$s enthält Zeichen außerhalb von %4$s. Bitte einen Pfad aus diesen Zeichen wählen.',
+		'dots' => '%1$s=%2$s enthält . oder .. als Ordner. Bitte den Pfad direkt angeben, etwa %3$s.',
+		'root' => '%1$s=%2$s: Das Wurzelverzeichnis ist für die Abwehr zu allgemein. Bitte ein eigenes Verzeichnis angeben, etwa %3$s.',
+		'trailing' => '%1$s=%2$s endet mit /. Eine Datei braucht einen Namen, etwa %3$s.',
+		'long' => '%1$s=%2$s ist länger, als die Einstellung aufnimmt (Pfade bis ' . WAF_PATH_MAX
+			. ' Zeichen, Verzeichnislisten bis ' . WAF_LIST_MAX . '). Bitte kürzer wählen.',
+		'name' => '%1$s=%2$s ist kein gültiger Name. Erlaubt sind Buchstaben, Ziffern und . _ @ - bis ' . WAF_NAME_MAX
+			. ' Zeichen, etwa %3$s.',
+		'same_file' => '%1$s=%2$s: Diese Datei nutzt schon %5$s. Jede Datei der Abwehr braucht einen eigenen Pfad.',
+		'same_dir' => '%1$s=%2$s: Dieses Verzeichnis nutzt schon %5$s. Bitte ein eigenes Verzeichnis angeben.',
+		'panel' => '%1$s gehört zu den Einstellungen im Panel und ändert sich unter Abwehr > Einstellungen.',
+		'unknown' => '%1$s ist keine Einstellung der Abwehr. waf-switch paths zeigt alle Variablen.',
+	);
+	$text = isset($texts[$problem['problem']]) ? $texts[$problem['problem']] : '%1$s=%2$s wird abgelehnt (%6$s).';
+	return sprintf($text, $problem['name'], $problem['value'], $example, $chars,
+		$problem['other'] !== '' ? waf_path_env($problem['other']) : '', $problem['problem']);
+}
+
+/** A value for the shell in single quotes; a quote inside becomes '\''. */
+function waf_shell_quote($value)
+{
+	return "'" . str_replace("'", "'\\''", (string) $value) . "'";
+}
+
+/**
+ * The places for waf/install.sh as lines of the shell: each place as NAME with
+ * the wanted value and OLD_NAME with the stored one, then the program
+ * directories as a PATH, the places that move, the lock file and the number
+ * of websites whose field carries a block of the Abwehr.
+ */
+function waf_path_shell_text($stored, $overlay, $lock_file, $sites)
+{
+	$settings = array_merge($stored, $overlay['values']);
+	$text = '';
+	foreach (waf_path_settings() as $key => $entry) {
+		$name = strtoupper($key);
+		$text .= $name . '=' . waf_shell_quote($settings[$key]) . "\n"
+			. 'OLD_' . $name . '=' . waf_shell_quote($stored[$key]) . "\n";
+	}
+	return $text
+		. 'WAF_BIN_PATH=' . waf_shell_quote(implode(':', waf_list_parse($settings['waf_bin_dirs']))) . "\n"
+		. 'WAF_CHANGED=' . waf_shell_quote(implode(' ', $overlay['changed'])) . "\n"
+		. 'WAF_LOCK=' . waf_shell_quote($lock_file) . "\n"
+		. 'WAF_SITES=' . (int) $sites . "\n";
+}
+
+/** The text of a file that follows the places, by the name waf-switch paths render takes; null for another name. */
+function waf_path_render_text($file, $settings)
+{
+	switch ((string) $file) {
+		case 'main.conf':
+			return waf_main_conf_text($settings);
+		case 'settings.conf':
+			return waf_settings_conf_text($settings);
+		case 'rules-include':
+			return waf_rules_include_text($settings);
+		case 'blocked-include':
+			return waf_blocked_include_text($settings);
+		case 'logrotate':
+			return waf_logrotate_text($settings['waf_log_keep_days'], $settings['waf_audit_log'], $settings['waf_blocked_log']);
+		case 'cron':
+			return waf_cron_text($settings);
+	}
+	return null;
+}
+
 /**
  * The WAF settings from a malwatch_config row. A column an older schema lacks,
  * or an empty value, takes its default; numbers stay within their limits;
- * the two paths must be plain absolute paths.
+ * places and names pass waf_path_check() or take their default.
  */
 function waf_settings($row)
 {
@@ -1180,10 +1486,13 @@ function waf_settings($row)
 	$defaults = waf_settings_defaults();
 	$settings = array();
 	$lists = waf_settings_lists();
+	$places = waf_path_settings();
 	foreach ($defaults as $key => $default) {
 		$value = isset($row[$key]) ? $row[$key] : null;
-		// An emptied list is a choice of the operator; a missing column takes the default.
-		$missing = $value === null || ($value === '' && !isset($lists[$key]));
+		// An emptied list is a choice of the operator, and so is an empty hc-run;
+		// a missing column takes the default.
+		$empty_ok = isset($lists[$key]) || (isset($places[$key]) && $places[$key]['kind'] === 'program');
+		$missing = $value === null || ($value === '' && !$empty_ok);
 		$settings[$key] = $missing ? $default : $value;
 	}
 	foreach (waf_settings_limits() as $key => $limit) {
@@ -1193,12 +1502,12 @@ function waf_settings($row)
 		$settings['waf_response_body'] = $defaults['waf_response_body'];
 	}
 	$settings['waf_emergency'] = $settings['waf_emergency'] === 'y' ? 'y' : 'n';
-	foreach (array('waf_audit_log', 'waf_conf_dir') as $key) {
-		$path = rtrim((string) $settings[$key], '/');
-		if ($path === '' || !preg_match('#^/[A-Za-z0-9._/-]+$#', $path) || preg_match('#(?:^|/)\.\.?(?:/|$)#', $path)) {
-			$path = $defaults[$key];
-		}
-		$settings[$key] = $path;
+	foreach ($places as $key => $entry) {
+		$check = waf_path_check($entry['kind'], $settings[$key]);
+		$settings[$key] = $check[1] === '' ? $check[0] : $defaults[$key];
+	}
+	if (!in_array((string) $settings['waf_body_limit_action'], waf_body_limit_actions(), true)) {
+		$settings['waf_body_limit_action'] = $defaults['waf_body_limit_action'];
 	}
 	foreach (waf_origin_choices() as $key => $values) {
 		if (!in_array($settings[$key], $values, true)) {
@@ -1299,8 +1608,8 @@ function waf_period($requested, $settings)
 	return in_array($default, $periods, true) ? $default : $periods[count($periods) - 1];
 }
 
-/** Content of /etc/logrotate.d/waf. copytruncate keeps the file ModSecurity holds open. */
-function waf_logrotate_text($keep_days, $audit_log)
+/** Content of the logrotate file (waf_logrotate_file). copytruncate keeps the file ModSecurity holds open. */
+function waf_logrotate_text($keep_days, $audit_log, $blocked_log)
 {
 	return "# Managed by malwatch (Abwehr > Einstellungen). Every change here is overwritten.\n"
 		. $audit_log . " {\n"
@@ -1313,7 +1622,7 @@ function waf_logrotate_text($keep_days, $audit_log)
 		. "\tcopytruncate\n"
 		. "}\n"
 		. "\n"
-		. "/var/log/waf/blocked.log {\n"
+		. $blocked_log . " {\n"
 		. "\tdaily\n"
 		. "\trotate " . max(1, (int) $keep_days) . "\n"
 		. "\tcompress\n"
@@ -1323,6 +1632,116 @@ function waf_logrotate_text($keep_days, $audit_log)
 		. "\tcopytruncate\n"
 		. "\tcreate 640 www-data adm\n"
 		. "}\n";
+}
+
+/**
+ * Content of main.conf in the rules directory: the base of ModSecurity, the
+ * own settings, the CRS with the exclusions around its rules, the answer of
+ * the page and the emergency switch last.
+ */
+function waf_main_conf_text($settings)
+{
+	$dir = $settings['waf_conf_dir'];
+	$lines = array(
+		$settings['waf_modsec_base'],
+		$dir . '/settings.conf',
+		$settings['waf_crs_setup'],
+		$dir . '/crs-extra.conf',
+		$dir . '/exclusions-before.conf',
+		$dir . '/exclusions-panel-before.conf',
+		$settings['waf_crs_rules'],
+		$dir . '/exclusions-after.conf',
+		$dir . '/exclusions-panel-after.conf',
+		$dir . '/response-body.conf',
+		$dir . '/state.conf',
+	);
+	return 'Include ' . implode("\nInclude ", $lines) . "\n";
+}
+
+/**
+ * Content of settings.conf in the rules directory. The engine only detects
+ * here; a website that enforces switches it on in its vhost. The audit log
+ * holds the hits as JSON in the parts the evaluation reads. Without files a
+ * body never gets more room than a body with files.
+ */
+function waf_settings_conf_text($settings)
+{
+	$all = (int) $settings['waf_body_limit_kb'] * 1024;
+	$plain = min($all, (int) $settings['waf_body_nofiles_limit_kb'] * 1024);
+	return "SecRuleEngine DetectionOnly\n"
+		. "SecRequestBodyAccess On\n"
+		. 'SecRequestBodyLimit ' . $all . "\n"
+		. 'SecRequestBodyNoFilesLimit ' . $plain . "\n"
+		. 'SecRequestBodyLimitAction ' . $settings['waf_body_limit_action'] . "\n"
+		. "SecResponseBodyAccess Off\n"
+		. "SecAuditEngine RelevantOnly\n"
+		. 'SecAuditLogRelevantStatus "^$"' . "\n"
+		. "SecAuditLogParts ABCFHZ\n"
+		. "SecAuditLogType Serial\n"
+		. 'SecAuditLog ' . $settings['waf_audit_log'] . "\n"
+		. "SecAuditLogFormat JSON\n"
+		. "SecAuditLogFileMode 0600\n"
+		. "SecAuditLogDirMode 0750\n"
+		. 'SecTmpDir ' . $settings['waf_cache_dir'] . "\n"
+		. 'SecDataDir ' . $settings['waf_cache_dir'] . "\n"
+		. "SecDebugLogLevel 0\n"
+		. "SecStatusEngine Off\n";
+}
+
+/** Content of the include of the rules (waf_rules_include). */
+function waf_rules_include_text($settings)
+{
+	return "# Loads the rules once for every server block; each website switches them on in its vhost.\n"
+		. 'modsecurity_rules_file ' . $settings['waf_conf_dir'] . "/main.conf;\n";
+}
+
+/**
+ * Content of the include of the block list (waf_blocked_include): the list
+ * malwatch writes, and format and condition of the second access log.
+ */
+function waf_blocked_include_text($settings)
+{
+	return "# Managed by malwatch. Bindet die Sperrliste ein, die malwatch schreibt, und\n"
+		. "# legt Format und Bedingung für das zweite Zugriffslog fest, aus dem der Cron\n"
+		. "# die abgewehrten Versuche zählt. Diese Datei selbst wird nicht überschrieben.\n"
+		. 'include ' . $settings['waf_conf_dir'] . "/blocked.conf;\n"
+		. "\n"
+		. "map \$status \$mw_denied {\n"
+		. "\t403     1;\n"
+		. "\tdefault 0;\n"
+		. "}\n"
+		. "\n"
+		. "log_format mw_block '\$time_iso8601 \$remote_addr \$status \$host \"\$request\"';\n";
+}
+
+/**
+ * Content of the cron file of the Abwehr (waf_cron_file): the minute clock and
+ * the hourly guard, apart from the cron of ISPConfig. With hc-run each run
+ * reports to healthchecks under its name; without it the runs start directly.
+ */
+function waf_cron_text($settings)
+{
+	$hc = (string) $settings['waf_hc_run'];
+	$run = function ($name, $command) use ($hc) {
+		return $hc === '' ? $command
+			: 'if [ -x ' . $hc . ' ]; then ' . $hc . ' ' . $name . ' -- ' . $command . '; else ' . $command . '; fi';
+	};
+	$tools = $settings['waf_tools_dir'];
+	$text = "# Managed by malwatch (waf/install.sh, Abwehr > Einstellungen). Every change here is overwritten.\n"
+		. "# The minute clock of the Abwehr and its hourly guard, apart from the cron of\n"
+		. "# ISPConfig: that one runs all its jobs one after another under one lock, and a\n"
+		. "# long run - AWStats at night - held the Abwehr up for half an hour.\n";
+	if ($hc !== '') {
+		$text .= "# hc-run reports each run to healthchecks once its address stands in\n"
+			. '# /etc/hc-run.d/' . $settings['waf_hc_tick_name'] . '.url and /etc/hc-run.d/'
+			. $settings['waf_hc_guard_name'] . ".url.\n";
+	}
+	return $text
+		. "SHELL=/bin/sh\n"
+		. 'PATH=' . implode(':', waf_list_parse($settings['waf_bin_dirs'])) . "\n"
+		. '* * * * * root ' . $run($settings['waf_hc_tick_name'], $tools . '/waf-switch tick') . " > /dev/null 2>&1\n"
+		. (int) $settings['waf_guard_minute'] . ' * * * * root '
+		. $run($settings['waf_hc_guard_name'], $tools . '/waf-guard') . " > /dev/null 2>&1\n";
 }
 
 /**
@@ -1362,8 +1781,8 @@ function waf_site_plan($web, $site, $target, $mode, $server_id, $vhost_state, $n
 		}
 	}
 	// The second access log only belongs into the vhost when nginx knows its
-	// format; the caller says so through the settings it hands over.
-	$new = waf_block_set($old, $result['target'], !empty($settings['waf_ban_log']));
+	// format; the caller hands over its path in waf_ban_log, or ''.
+	$new = waf_block_set($old, $result['target'], isset($settings['waf_ban_log']) ? (string) $settings['waf_ban_log'] : '');
 	if ($new !== $old) {
 		$result['action'] = 'write';
 		$result['text'] = $new;

@@ -392,11 +392,11 @@ expect_same('own period chosen', waf_period('3', $own_periods), 3);
 expect_same('a default period missing in the list falls back to the longest',
 	waf_period('', array_merge($own_periods, array('waf_period_default' => 7))), 60);
 
-$rotate = waf_logrotate_text(14, '/var/log/waf/audit.log');
+$rotate = waf_logrotate_text(14, '/var/log/waf/audit.log', '/var/log/waf/blocked.log');
 expect_same('logrotate path', strpos($rotate, "\n/var/log/waf/audit.log {\n") !== false, true);
 expect_same('logrotate keep', strpos($rotate, "\trotate 14\n") !== false, true);
 expect_same('logrotate copytruncate', strpos($rotate, "\tcopytruncate\n") !== false, true);
-expect_same('logrotate minimum', strpos(waf_logrotate_text(0, '/x'), "\trotate 1\n") !== false, true);
+expect_same('logrotate minimum', strpos(waf_logrotate_text(0, '/x', '/y'), "\trotate 1\n") !== false, true);
 
 $web = array('domain_id' => 11, 'domain' => 'beispiel.test', 'type' => 'vhost', 'server_id' => 1, 'nginx_directives' => $own);
 $web_detect = array_merge($web, array('nginx_directives' => $set));
@@ -522,8 +522,9 @@ expect_same('shipped panel before', file_get_contents($shipped . '/exclusions-pa
 expect_same('shipped panel after', file_get_contents($shipped . '/exclusions-panel-after.conf'), $panel['after']);
 expect_same('shipped response body', file_get_contents($shipped . '/response-body.conf'), waf_response_body_text('full'));
 expect_same('shipped state', file_get_contents($shipped . '/state.conf'), waf_state_file_text(false));
-expect_same('shipped logrotate', file_get_contents($shipped . '/logrotate-waf'), waf_logrotate_text(7, '/var/log/waf/audit.log'));
-$main = file_get_contents($shipped . '/main.conf');
+// From 0.35.0 the files with a place in them come from the settings; the
+// fixtures hold them as they stand on the server with the defaults.
+$main = waf_main_conf_text(waf_settings(array()));
 foreach (array('settings', 'crs-extra', 'exclusions-before', 'exclusions-panel-before', 'exclusions-after',
 	'exclusions-panel-after', 'response-body', 'state') as $name) {
 	expect_same('main includes ' . $name, strpos($main, "Include /etc/nginx/waf/$name.conf\n") !== false, true);
@@ -577,8 +578,8 @@ expect_same('without a row the limit is the default',
 expect_same('without the include of malwatch no second log',
 	strpos(waf_block_text('detect'), 'blocked.log'), false);
 expect_same('with it the line is there',
-	strpos(waf_block_text('detect', true), 'access_log /var/log/waf/blocked.log mw_block if=$mw_denied;') !== false, true);
-expect_same('a website that is off keeps its vhost clean', waf_block_text('off', true), '');
+	strpos(waf_block_text('detect', '/var/log/waf/blocked.log'), 'access_log /var/log/waf/blocked.log mw_block if=$mw_denied;') !== false, true);
+expect_same('a website that is off keeps its vhost clean', waf_block_text('off', '/var/log/waf/blocked.log'), '');
 
 // --- Sperren ------------------------------------------------------------------
 
@@ -699,6 +700,189 @@ expect_same('the address of proxycheck.io carries the key', array(
 	array('https://proxycheck.io/v3/?key=k-1', 'https://p.example/api?format=json&key=k%201'));
 expect_same('rule messages per hit follow the setting', array(count(waf_audit_parse_line($sample[2])['rules']),
 	count(waf_audit_parse_line($sample[2], null, 2)['rules'])), array(3, 2));
+
+// --- 0.35.0: places and names on the server -----------------------------------
+
+// With the defaults every file comes out byte for byte as it stands on the
+// server, so an update changes nothing on disk. The cron file gained the
+// hourly guard in 0.35.0.
+$fixtures = __DIR__ . '/fixtures/waf';
+$places = waf_settings(array());
+expect_same('main.conf from the settings', waf_main_conf_text($places), file_get_contents($fixtures . '/main.conf'));
+expect_same('settings.conf from the settings', waf_settings_conf_text($places), file_get_contents($fixtures . '/settings.conf'));
+expect_same('include of the rules from the settings', waf_rules_include_text($places), file_get_contents($fixtures . '/waf.conf'));
+expect_same('include of the block list from the settings', waf_blocked_include_text($places),
+	file_get_contents($fixtures . '/waf-blocked.conf'));
+expect_same('logrotate from the settings', waf_logrotate_text(7, $places['waf_audit_log'], $places['waf_blocked_log']),
+	file_get_contents($fixtures . '/logrotate-waf'));
+expect_same('cron file from the settings', waf_cron_text($places), file_get_contents($fixtures . '/cron-malwatch-waf'));
+expect_same('the vhost block keeps its text', waf_block_text('detect', $places['waf_blocked_log']),
+	"# WAF-BEGIN (detect) - managed by waf-switch\nmodsecurity on;\n"
+	. 'access_log /var/log/waf/blocked.log mw_block if=$mw_denied;' . "\n# WAF-END\n");
+
+// Other places reach every file.
+$moved = array_merge($places, array(
+	'waf_conf_dir' => '/opt/waf/rules', 'waf_modsec_base' => '/opt/modsec/base.conf',
+	'waf_crs_setup' => '/opt/crs/setup.conf', 'waf_crs_rules' => '/opt/crs/rules/*.conf',
+	'waf_audit_log' => '/srv/log/audit.json', 'waf_cache_dir' => '/srv/cache/waf',
+	'waf_body_limit_kb' => 2048, 'waf_body_nofiles_limit_kb' => 64, 'waf_body_limit_action' => 'Reject',
+	'waf_blocked_log' => '/srv/log/denied.log', 'waf_tools_dir' => '/opt/waf/bin', 'waf_hc_run' => '',
+	'waf_guard_minute' => 17, 'waf_bin_dirs' => '/opt/bin,/usr/bin',
+	'waf_hc_tick_name' => 'tick-a', 'waf_hc_guard_name' => 'guard-a',
+));
+$moved_main = waf_main_conf_text($moved);
+expect_same('main.conf includes the base, the setup and the rules of the settings', array(
+	strpos($moved_main, "Include /opt/modsec/base.conf\n") === 0,
+	strpos($moved_main, "Include /opt/crs/setup.conf\n") !== false,
+	strpos($moved_main, "Include /opt/crs/rules/*.conf\n") !== false,
+	strpos($moved_main, "Include /opt/waf/rules/state.conf\n") !== false,
+	strpos($moved_main, '/etc/'), strpos($moved_main, '/usr/')), array(true, true, true, true, false, false));
+$moved_modsec = waf_settings_conf_text($moved);
+expect_same('settings.conf carries the limits and places of the settings', array(
+	strpos($moved_modsec, "SecRequestBodyLimit 2097152\n") !== false,
+	strpos($moved_modsec, "SecRequestBodyNoFilesLimit 65536\n") !== false,
+	strpos($moved_modsec, "SecRequestBodyLimitAction Reject\n") !== false,
+	strpos($moved_modsec, "SecAuditLog /srv/log/audit.json\n") !== false,
+	substr_count($moved_modsec, " /srv/cache/waf\n")), array(true, true, true, true, 2));
+expect_same('settings.conf never allows more without files than in all', strpos(waf_settings_conf_text(
+	array_merge($places, array('waf_body_limit_kb' => 100, 'waf_body_nofiles_limit_kb' => 500))),
+	"SecRequestBodyNoFilesLimit 102400\n") !== false, true);
+expect_same('the includes point at the rules directory of the settings', array(
+	waf_rules_include_text($moved), strpos(waf_blocked_include_text($moved), "include /opt/waf/rules/blocked.conf;\n") !== false),
+	array("# Loads the rules once for every server block; each website switches them on in its vhost.\n"
+	. "modsecurity_rules_file /opt/waf/rules/main.conf;\n", true));
+$moved_rotate = waf_logrotate_text(3, '/srv/log/audit.json', '/srv/log/denied.log');
+expect_same('logrotate rotates the logs of the settings', array(strpos($moved_rotate, "/srv/log/audit.json {\n") !== false,
+	strpos($moved_rotate, "\n/srv/log/denied.log {\n") !== false, strpos($moved_rotate, '/var/')), array(true, true, false));
+$moved_cron = waf_cron_text($moved);
+expect_same('without hc-run the runs start directly', array(
+	strpos($moved_cron, "\n* * * * * root /opt/waf/bin/waf-switch tick > /dev/null 2>&1\n") !== false,
+	strpos($moved_cron, "\n17 * * * * root /opt/waf/bin/waf-guard > /dev/null 2>&1\n") !== false,
+	strpos($moved_cron, "\nPATH=/opt/bin:/usr/bin\n") !== false,
+	strpos($moved_cron, 'hc-run')), array(true, true, true, false));
+$moved_cron = waf_cron_text(array_merge($moved, array('waf_hc_run' => '/opt/hc/hc-run')));
+expect_same('with hc-run each run reports under its name', array(
+	strpos($moved_cron, 'then /opt/hc/hc-run tick-a -- /opt/waf/bin/waf-switch tick; else /opt/waf/bin/waf-switch tick; fi') !== false,
+	strpos($moved_cron, 'then /opt/hc/hc-run guard-a -- /opt/waf/bin/waf-guard; else /opt/waf/bin/waf-guard; fi') !== false,
+	strpos($moved_cron, '/etc/hc-run.d/tick-a.url') !== false), array(true, true, true));
+expect_same('the vhost block writes into the log of the settings',
+	strpos(waf_block_text('enforce', '/srv/log/denied.log'), 'access_log /srv/log/denied.log mw_block if=$mw_denied;' . "\n") !== false, true);
+expect_same('without a log no line', strpos(waf_block_text('detect', ''), 'access_log'), false);
+
+// The catalog of the places, their checks and their defaults.
+$catalog = waf_path_settings();
+expect_same('every place has its default', array_values(array_diff(array_keys($catalog), array_keys(waf_settings_defaults()))), array());
+expect_same('the groups of the places', array_values(array_unique(array_map(function ($one) {
+	return $one['group'];
+}, $catalog))), array('nginx', 'modsec', 'logs', 'tools'));
+expect_same('the defaults are the places of today', array($places['waf_rules_include'], $places['waf_blocked_include'],
+	$places['waf_modsec_base'], $places['waf_crs_setup'], $places['waf_crs_rules'], $places['waf_rules_check'],
+	$places['waf_cache_dir'], $places['waf_blocked_log'], $places['waf_guard_log'], $places['waf_backup_dir'],
+	$places['waf_logrotate_file'], $places['waf_cron_file'], $places['waf_tools_dir'], $places['waf_hc_run'],
+	$places['waf_nginx_service'], $places['waf_hc_tick_name'], $places['waf_hc_guard_name'], $places['waf_bin_dirs']),
+	array('/etc/nginx/conf.d/waf.conf', '/etc/nginx/conf.d/waf-blocked.conf', '/etc/nginx/modsecurity.conf',
+	'/etc/modsecurity/crs/crs-setup.conf', '/usr/share/modsecurity-crs/rules/*.conf', '/usr/lib/*/libexec/modsec-rules-check',
+	'/var/cache/waf', '/var/log/waf/blocked.log', '/var/log/waf/guard.log', '/var/backups/waf-switch',
+	'/etc/logrotate.d/waf', '/etc/cron.d/malwatch-waf', '/usr/local/sbin', '/usr/local/sbin/hc-run', 'nginx',
+	'waf-tick', 'waf-guard', '/usr/local/sbin,/usr/local/bin,/usr/sbin,/usr/bin,/sbin,/bin'));
+expect_same('the variable of a place', waf_path_env('waf_conf_dir'), 'MALWATCH_WAF_CONF_DIR');
+
+expect_same('a directory loses its closing slash', waf_path_check('dir', '/opt/waf/'), array('/opt/waf', ''));
+expect_same('double slashes count once', waf_path_check('file', '/var//log/waf/a.log'), array('/var/log/waf/a.log', ''));
+expect_same('a relative path is refused', waf_path_check('file', 'var/log/a.log')[1], 'relative');
+expect_same('spaces and umlauts are refused', array(waf_path_check('file', '/var/log/a b.log')[1],
+	waf_path_check('dir', "/var/l\xC3\xB6g")[1]), array('chars', 'chars'));
+expect_same('dots as a folder are refused', array(waf_path_check('file', '/var/log/../a.log')[1],
+	waf_path_check('dir', '/var/./log')[1], waf_path_check('file', '/var/log/waf/audit.log.1')[1]), array('dots', 'dots', ''));
+expect_same('the root is no directory of its own', array(waf_path_check('dir', '/')[1], waf_path_check('dir', '//')[1]),
+	array('root', 'root'));
+expect_same('a file needs a name', waf_path_check('file', '/var/log/')[1], 'trailing');
+expect_same('only a pattern may hold a star', array(waf_path_check('pattern', '/usr/share/crs/*.conf')[1],
+	waf_path_check('file', '/usr/share/crs/*.conf')[1]), array('', 'chars'));
+expect_same('a path fits its column', array(waf_path_check('file', '/' . str_repeat('a', 254))[1],
+	waf_path_check('file', '/' . str_repeat('a', 255))[1]), array('', 'long'));
+expect_same('an empty place is refused, an empty hc-run allowed', array(waf_path_check('file', '')[1],
+	waf_path_check('program', '')), array('empty', array('', '')));
+expect_same('names for systemd and healthchecks', array(waf_path_check('name', 'nginx')[1],
+	waf_path_check('name', 'waf-tick.2')[1], waf_path_check('name', 'nginx; reboot')[1], waf_path_check('name', '')[1],
+	waf_path_check('name', str_repeat('a', 65))[1]), array('', '', 'name', 'empty', 'name'));
+expect_same('directories of programs', array(waf_path_check('dirs', "/opt/bin/\n/usr/bin, /opt/bin"),
+	waf_path_check('dirs', '/opt/bin,bin')[1], waf_path_check('dirs', ' , ')[1]),
+	array(array('/opt/bin,/usr/bin', ''), 'relative', 'empty'));
+
+$stored = waf_settings(array('waf_blocked_log' => 'blocked.log', 'waf_cron_file' => '/etc/cron.d/malwatch-waf/',
+	'waf_hc_run' => '', 'waf_nginx_service' => 'nginx.service', 'waf_bin_dirs' => '', 'waf_crs_rules' => '/opt/crs/*.conf'));
+expect_same('stored places are checked like typed ones', array($stored['waf_blocked_log'], $stored['waf_cron_file'],
+	$stored['waf_hc_run'], $stored['waf_nginx_service'], $stored['waf_bin_dirs'], $stored['waf_crs_rules']),
+	array('/var/log/waf/blocked.log', '/etc/cron.d/malwatch-waf', '', 'nginx.service',
+	'/usr/local/sbin,/usr/local/bin,/usr/sbin,/usr/bin,/sbin,/bin', '/opt/crs/*.conf'));
+
+// The limits of ModSecurity and the minutes of the clock stand in the panel.
+$clock = waf_settings(array());
+expect_same('limits of ModSecurity and minutes of the clock by default', array($clock['waf_body_limit_kb'],
+	$clock['waf_body_nofiles_limit_kb'], $clock['waf_body_limit_action'], $clock['waf_guard_minute'],
+	$clock['waf_hourly_minute']), array(12800, 128, 'ProcessPartial', 5, 7));
+$clock = waf_settings(array('waf_body_limit_kb' => '0', 'waf_body_nofiles_limit_kb' => '2000000',
+	'waf_body_limit_action' => 'Drop', 'waf_guard_minute' => '60', 'waf_hourly_minute' => '-1'));
+expect_same('limits and minutes stay in their ranges', array($clock['waf_body_limit_kb'],
+	$clock['waf_body_nofiles_limit_kb'], $clock['waf_body_limit_action'], $clock['waf_guard_minute'],
+	$clock['waf_hourly_minute']), array(1, 1048576, 'ProcessPartial', 59, 0));
+expect_same('both answers to a large request', waf_body_limit_actions(), array('ProcessPartial', 'Reject'));
+
+// waf/install.sh hands changes over through the environment.
+$overlay = waf_path_overlay($places, array('MALWATCH_WAF_CONF_DIR' => '/opt/waf/', 'PATH' => '/usr/bin',
+	'MALWATCH_WAF_LIB' => '/tmp/lib.php'));
+expect_same('the environment moves a place', array($overlay['values']['waf_conf_dir'], $overlay['changed'],
+	$overlay['problems']), array('/opt/waf', array('waf_conf_dir'), array()));
+$overlay = waf_path_overlay($places, array('MALWATCH_WAF_CONFDIR' => '/opt/waf', 'MALWATCH_WAF_GUARD_MINUTE' => '9',
+	'MALWATCH_WAF_AUDIT_LOG' => 'audit.log'));
+expect_same('a typing error, a setting of the panel and a bad path are named', array_map(function ($one) {
+	return array($one['problem'], $one['name']);
+}, $overlay['problems']), array(array('unknown', 'MALWATCH_WAF_CONFDIR'), array('panel', 'MALWATCH_WAF_GUARD_MINUTE'),
+	array('relative', 'MALWATCH_WAF_AUDIT_LOG')));
+expect_same('a bad value keeps the stored one', array($overlay['values']['waf_audit_log'], $overlay['changed']),
+	array('/var/log/waf/audit.log', array()));
+$overlay = waf_path_overlay($places, array('MALWATCH_WAF_BLOCKED_LOG' => '/var/log/waf/audit.log',
+	'MALWATCH_WAF_BACKUP_DIR' => '/var/cache/waf/'));
+expect_same('two places in one file or one directory are refused', array_map(function ($one) {
+	return array($one['problem'], $one['key'], $one['other']);
+}, $overlay['problems']), array(array('same_file', 'waf_blocked_log', 'waf_audit_log'),
+	array('same_dir', 'waf_backup_dir', 'waf_cache_dir')));
+expect_same('the stored places pass their own check', waf_path_overlay($places, array())['problems'], array());
+
+// What waf-switch paths hands to waf/install.sh.
+$shell = waf_path_shell_text($places, waf_path_overlay($places, array('MALWATCH_WAF_CONF_DIR' => '/opt/waf')),
+	'/var/lib/malwatch/waf/lock', 3);
+expect_same('the shell lines of a moved place', array(
+	strpos($shell, "WAF_CONF_DIR='/opt/waf'\nOLD_WAF_CONF_DIR='/etc/nginx/waf'\n") === 0,
+	strpos($shell, "WAF_HC_RUN='/usr/local/sbin/hc-run'\n") !== false,
+	strpos($shell, "WAF_BIN_PATH='/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'\n") !== false,
+	strpos($shell, "WAF_CHANGED='waf_conf_dir'\nWAF_LOCK='/var/lib/malwatch/waf/lock'\nWAF_SITES=3\n") !== false,
+	substr_count($shell, "\n")), array(true, true, true, true, 2 * count(waf_path_settings()) + 4));
+expect_same('a quote in a value stays inside the quotes', waf_shell_quote("/a'b"), "'/a'\\''b'");
+expect_same('every file of the installer by its name', array(
+	waf_path_render_text('main.conf', $places) === waf_main_conf_text($places),
+	waf_path_render_text('settings.conf', $places) === waf_settings_conf_text($places),
+	waf_path_render_text('rules-include', $places) === waf_rules_include_text($places),
+	waf_path_render_text('blocked-include', $places) === waf_blocked_include_text($places),
+	waf_path_render_text('logrotate', $places) === waf_logrotate_text(7, $places['waf_audit_log'], $places['waf_blocked_log']),
+	waf_path_render_text('cron', $places) === waf_cron_text($places),
+	waf_path_render_text('other', $places)), array(true, true, true, true, true, true, null));
+expect_same('a problem names the variable, the value and the way out', array(
+	waf_path_problem_text(array('problem' => 'relative', 'key' => 'waf_audit_log', 'name' => 'MALWATCH_WAF_AUDIT_LOG',
+		'value' => 'a.log', 'other' => '')),
+	strpos(waf_path_problem_text(array('problem' => 'same_file', 'key' => 'waf_blocked_log', 'name' => 'MALWATCH_WAF_BLOCKED_LOG',
+		'value' => '/x', 'other' => 'waf_audit_log')), 'nutzt schon MALWATCH_WAF_AUDIT_LOG') !== false,
+	strpos(waf_path_problem_text(array('problem' => 'chars', 'key' => 'waf_crs_rules', 'name' => 'MALWATCH_WAF_CRS_RULES',
+		'value' => '/a b', 'other' => '')), '. _ / - *') !== false,
+), array('MALWATCH_WAF_AUDIT_LOG=a.log ist kein absoluter Pfad. Bitte mit / beginnen, etwa /var/log/waf/audit.log.', true, true));
+foreach (array('empty', 'relative', 'chars', 'dots', 'root', 'trailing', 'long', 'name', 'same_file', 'same_dir', 'panel',
+	'unknown') as $code) {
+	$text = waf_path_problem_text(array('problem' => $code, 'key' => 'waf_conf_dir', 'name' => 'MALWATCH_WAF_CONF_DIR',
+		'value' => '/x', 'other' => 'waf_cache_dir'));
+	expect_same("problem $code has a sentence", array(strpos($text, 'MALWATCH_WAF_CONF_DIR') === 0, strpos($text, '%'),
+		substr($text, -1)), array(true, false, '.'));
+}
 
 // --- summary -----------------------------------------------------------------
 if ($failures > 0) {

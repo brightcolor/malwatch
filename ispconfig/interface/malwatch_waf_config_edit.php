@@ -2,10 +2,12 @@
 
 /**
  * Abwehr: the numbers and periods of the WAF on the settings row of malwatch
- * (config_id 1), with a form definition of its own. Paths, response body and
- * emergency stop are shown only. Saving queues apply_settings for every web
- * server, which writes the retention of the audit log into the logrotate
- * file; everything else is read by the cron at its next pass.
+ * (config_id 1), with a form definition of its own. The places on the server,
+ * response body and emergency stop are shown only; waf/install.sh changes the
+ * places. Saving queues apply_settings for every web server, which writes the
+ * logrotate file, settings.conf of ModSecurity and the cron file of the
+ * Abwehr from the settings; everything else is read by the cron at its next
+ * pass.
  */
 
 require_once '../../lib/config.inc.php';
@@ -110,6 +112,10 @@ class page_action extends tform_actions
 		foreach ($lists['errors'] as $message) {
 			$app->tform->errorMessage .= $app->functions->htmlentities($message) . '<br />';
 		}
+		$limits = waf_config_body_limits($wb, $this->dataRecord);
+		if ($limits !== '') {
+			$app->tform->errorMessage .= $app->functions->htmlentities($limits) . '<br />';
+		}
 		parent::onSubmit();
 	}
 
@@ -138,8 +144,21 @@ class page_action extends tform_actions
 		$wb = $this->waf_wb;
 
 		$settings = waf_panel_settings($app);
-		$app->tpl->setVar('waf_audit_log', $app->functions->htmlentities($settings['waf_audit_log']));
-		$app->tpl->setVar('waf_conf_dir', $app->functions->htmlentities($settings['waf_conf_dir']));
+		// The places on the server with the variable that changes each through waf/install.sh.
+		$places = array();
+		foreach (waf_config_places($wb, $settings) as $group) {
+			$rows = array();
+			foreach ($group['place_rows'] as $row) {
+				$rows[] = array(
+					'place_label' => $app->functions->htmlentities($row['place_label']),
+					'place_value' => $app->functions->htmlentities($row['place_value']),
+					'place_env' => $app->functions->htmlentities($row['place_env']),
+					'place_empty' => $row['place_empty'],
+				);
+			}
+			$places[] = array('place_head' => $app->functions->htmlentities($group['place_head']), 'place_rows' => $rows);
+		}
+		$app->tpl->setLoop('places', $places);
 		$app->tpl->setVar('response_body_line', $app->functions->htmlentities(
 			$settings['waf_response_body'] === 'lean' ? $wb['response_lean_txt'] : $wb['response_full_txt']));
 		$app->tpl->setVar('emergency_line', $app->functions->htmlentities($settings['waf_emergency'] === 'y'

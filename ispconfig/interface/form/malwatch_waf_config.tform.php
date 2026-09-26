@@ -1127,6 +1127,62 @@ $form['tabs']['waf'] = array(
 			'value' => '',
 			'width' => '10',
 			'maxlength' => '2'
+		),
+		// From 0.35.0: the minutes of the guard and of the hourly pass, and the
+		// limits of ModSecurity. The places on the server are shown only; they
+		// change through waf/install.sh.
+		'waf_guard_minute' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '5',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '0:59', 'errmsg' => 'waf_guard_minute_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '2'
+		),
+		'waf_hourly_minute' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '7',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '0:59', 'errmsg' => 'waf_hourly_minute_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '2'
+		),
+		'waf_body_limit_kb' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '12800',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '1:1048576', 'errmsg' => 'waf_body_limit_kb_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '7'
+		),
+		'waf_body_nofiles_limit_kb' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '128',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '1:1048576', 'errmsg' => 'waf_body_nofiles_limit_kb_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '7'
+		),
+		'waf_body_limit_action' => array(
+			'datatype' => 'VARCHAR',
+			'formtype' => 'SELECT',
+			'default' => 'ProcessPartial',
+			'value' => array(
+				'ProcessPartial' => 'body_action_partial_txt',
+				'Reject' => 'body_action_reject_txt'
+			)
 		)
 	)
 );

@@ -1,9 +1,12 @@
 #!/bin/bash
-# Keeps the nginx configuration valid. Runs hourly through hc-run and ends
-# with 0 when nginx -t passes, with 1 when something was found, so
-# healthchecks raises it. The details go to /var/log/waf/guard.log.
+# Keeps the nginx configuration valid. Runs hourly from the cron file of the
+# Abwehr and ends with 0 when nginx -t passes, with 1 when something was
+# found, so healthchecks raises it. The details go to the log of the guard
+# (waf_guard_log); waf-switch lies next to this script.
 set -u
-if /usr/local/sbin/waf-switch guard > /dev/null 2>> /var/log/waf/guard.log; then
+switch="$(dirname "$(readlink -f "$0")")/waf-switch"
+log=$("$switch" paths get waf_guard_log) || exit 1
+if "$switch" guard > /dev/null 2>> "$log"; then
 	exit 0
 fi
 exit 1

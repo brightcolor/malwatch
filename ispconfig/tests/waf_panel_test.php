@@ -920,6 +920,46 @@ expect_same('every known jail with its setting', array(
 	$jail_rows[0]['options'][3]['mode_selected'],
 ), array(array('recidive', 'sshd'), 1));
 
+// --- 0.35.0: places, limits of ModSecurity, minutes of the clock ---------------
+
+$action_words = isset($config_tab['fields']['waf_body_limit_action']['value'])
+	? $config_tab['fields']['waf_body_limit_action']['value'] : array();
+expect_same('settings form offers both answers to a large request', array_keys($action_words), waf_body_limit_actions());
+foreach ($action_words as $word) {
+	expect_same("word of the answer $word", isset($config_words['de'][$word]) && isset($config_words['en'][$word]), true);
+}
+expect_same('the places are no field of the form', array_values(array_intersect(array_keys(waf_path_settings()),
+	array_keys($config_tab['fields']))), array());
+
+$places = waf_config_places($config_words['de'], waf_settings(array('waf_hc_run' => '')));
+expect_same('the places in their four groups', array_map(function ($group) {
+	return array($group['place_group'], count($group['place_rows']));
+}, $places), array(array('nginx', 4), array('modsec', 5), array('logs', 5), array('tools', 6)));
+expect_same('a place with its word, its value and its variable', $places[0]['place_rows'][0], array(
+	'place_label' => $config_words['de']['waf_conf_dir_txt'], 'place_value' => '/etc/nginx/waf',
+	'place_env' => 'MALWATCH_WAF_CONF_DIR', 'place_empty' => 0));
+expect_same('an empty hc-run says what happens', array($places[3]['place_rows'][2]['place_value'],
+	$places[3]['place_rows'][2]['place_empty']), array($config_words['de']['place_empty_txt'], 1));
+expect_same('the directories of programs one after another', $places[3]['place_rows'][5]['place_value'],
+	'/usr/local/sbin, /usr/local/bin, /usr/sbin, /usr/bin, /sbin, /bin');
+foreach (array('nginx', 'modsec', 'logs', 'tools') as $group) {
+	expect_same("heading of the places $group", array($places[array_search($group, array('nginx', 'modsec', 'logs', 'tools'))]['place_head'],
+		isset($config_words['en']['places_' . $group . '_txt'])), array($config_words['de']['places_' . $group . '_txt'], true));
+}
+foreach (waf_path_settings() as $key => $entry) {
+	expect_same("word of the place $key", isset($config_words['de'][$key . '_txt']) && isset($config_words['en'][$key . '_txt']), true);
+}
+
+// Without files a request never gets more room than with them.
+expect_same('the two limits of a request agree', waf_config_body_limits($config_words['de'],
+	array('waf_body_limit_kb' => '12800', 'waf_body_nofiles_limit_kb' => '128')), '');
+$body_error = waf_config_body_limits($config_words['de'], array('waf_body_limit_kb' => '100', 'waf_body_nofiles_limit_kb' => '500'));
+expect_same('a larger limit without files is named with both numbers', array(strpos($body_error, '500') !== false,
+	strpos($body_error, '100') !== false, strpos($body_error, 'erneut speichern') !== false), array(true, true, true));
+expect_same('numbers outside their range are left to the form', waf_config_body_limits($config_words['de'],
+	array('waf_body_limit_kb' => 'x', 'waf_body_nofiles_limit_kb' => '500')), '');
+expect_same('a form without the two numbers has nothing to compare', waf_config_body_limits($config_words['de'], array()), '');
+
 // --- summary -----------------------------------------------------------------
 if ($failures > 0) {
 	fwrite(STDERR, $failures . " Fehler\n");

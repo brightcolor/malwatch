@@ -1111,11 +1111,18 @@ grep -q 'malwatch_waf->cron_hourly()' "$cron" \
 #     install.sh umstellt und README.md davon erzaehlt.
 waf_dir="$root/../waf"
 if [ -d "$waf_dir" ]; then
-	for f in waf-switch waf-guard waf-report install.sh README.md conf/main.conf conf/waf.conf \
-		conf/settings.conf conf/crs-extra.conf conf/exclusions-before.conf conf/exclusions-after.conf \
-		conf/exclusions-panel-before.conf conf/exclusions-panel-after.conf conf/response-body.conf \
-		conf/state.conf conf/logrotate-waf; do
+	# main.conf, settings.conf, both includes, logrotate and the cron file come
+	# from the settings since 0.35.0 (waf-switch paths render); the fixtures in
+	# tests/fixtures/waf hold them as they stand with the defaults.
+	for f in waf-switch waf-guard waf-report install.sh README.md conf/crs-extra.conf conf/exclusions-before.conf \
+		conf/exclusions-after.conf conf/exclusions-panel-before.conf conf/exclusions-panel-after.conf \
+		conf/response-body.conf conf/state.conf; do
 		[ -f "$waf_dir/$f" ] || fail "waf/$f fehlt"
+	done
+	for f in main.conf settings.conf waf.conf waf-blocked.conf logrotate-waf cron-malwatch-waf; do
+		if [ -e "$waf_dir/conf/$f" ]; then
+			fail "waf/conf/$f liegt wieder im Paket; der Installer schreibt die Datei aus den Einstellungen"
+		fi
 	done
 	for f in waf-schalter waf-wache waf-bericht lib tests conf/einstellungen.conf conf/crs-zusatz.conf \
 		conf/ausnahmen-vorher.conf conf/ausnahmen-nachher.conf conf/zustand.conf conf/antwortrumpf.conf; do
@@ -1309,12 +1316,17 @@ sed -n '/function onUpdateSave(/,/^	}/p;/function onAfterUpdate(/,/^	}/p' "$cfg_
 #     /etc/nginx/waf is "waf" in the backup directory, so /etc/logrotate.d/waf
 #     copied there under its basename hits that directory: cp stops, and
 #     set -e ends the run before anything is switched.
+#     From 0.35.0 every file goes into the backup under its whole path
+#     (backup_name), the rule directory as "waf"; a copy under its bare name
+#     would meet another place of the same name.
 if [ -f "$waf_dir/install.sh" ]; then
-	backup_part=$(sed -n '/-m 700 "\$BACKUP"/,/say "Sicherung in/p' "$waf_dir/install.sh")
-	if ! printf '%s\n' "$backup_part" | grep -qF '/etc/logrotate.d/waf "$BACKUP/logrotate-waf"' \
-		|| printf '%s\n' "$backup_part" | grep -F '/etc/logrotate.d/waf' | grep -qvF '"$BACKUP/logrotate-waf"'; then
-		fail "waf/install.sh copies /etc/logrotate.d/waf into the backup as waf; the copy of /etc/nginx/waf already has that name"
+	if grep -nE 'cp -[a-z]+ "?\$[A-Za-z_]+"? "\$BACKUP/?"( |$|;)' "$waf_dir/install.sh"; then
+		fail "waf/install.sh copies a file into the backup under its bare name; two places of the same name overwrite each other"
 	fi
+	grep -qF 'cp -a "$OLD_WAF_CONF_DIR" "$BACKUP/waf"' "$waf_dir/install.sh" \
+		|| fail "waf/install.sh keeps no copy of the rule directory in the backup"
+	grep -qF 'cp -p "$1" "$BACKUP/prev/$(backup_name "$1")"' "$waf_dir/install.sh" \
+		|| fail "waf/install.sh keeps no copy of a file it changes, so undo cannot put it back"
 fi
 
 # 64. The address filter of the website page takes an address only through
@@ -1628,7 +1640,8 @@ for col in waf_ban_proposal_days waf_ban_page_rows waf_ban_page_step waf_ban_pag
 	waf_proxycheck_batch waf_proxycheck_answer_mb waf_proxycheck_connect_seconds waf_proxycheck_timeout_seconds \
 	waf_proxycheck_retry_minutes waf_proxycheck_tries waf_origin_lookup_batch waf_cleanup_batch \
 	waf_cleanup_rounds waf_response_grace_minutes waf_blocked_lines waf_hit_rules_max waf_show_paths \
-	waf_preview_delay_ms waf_cli_jobs waf_cli_wait_margin_minutes; do
+	waf_preview_delay_ms waf_cli_jobs waf_cli_wait_margin_minutes waf_guard_minute waf_hourly_minute \
+	waf_body_limit_kb waf_body_nofiles_limit_kb waf_body_limit_action; do
 	grep -q "ADD COLUMN \`$col\`" "$root/install/schema.sql" \
 		|| fail "malwatch_config bekommt keine Spalte $col"
 	grep -q "'$col' =>" "$root/interface/lib/malwatch_waf_lib.inc.php" \
@@ -1698,20 +1711,27 @@ done
 #     Laeufe dem Takt ueberlaesst, solange dieser laeuft - und sie sonst selbst
 #     uebernimmt.
 waf_dir="$root/../waf"
+lib="$root/interface/lib/malwatch_waf_lib.inc.php"
 if [ -d "$waf_dir" ]; then
 	grep -q "case 'tick':" "$waf_dir/waf-switch" \
 		|| fail "waf-switch kennt den Befehl tick nicht"
-	grep -q 'waf-switch tick' "$waf_dir/conf/cron-malwatch-waf" \
-		|| fail "conf/cron-malwatch-waf ruft waf-switch tick nicht auf"
-	grep -q 'hc-run waf-tick' "$waf_dir/conf/cron-malwatch-waf" \
-		|| fail "conf/cron-malwatch-waf meldet den Takt nicht an healthchecks"
-	grep -q '/etc/cron.d/malwatch-waf' "$waf_dir/install.sh" \
+	# From 0.35.0 the cron file comes from waf_cron_text(): the tick every minute
+	# and the guard at waf_guard_minute, both reported under their names.
+	sed -n '/^function waf_cron_text/,/^}/p' "$lib" | grep -qF "'/waf-switch tick'" \
+		|| fail "waf_cron_text() ruft waf-switch tick nicht auf"
+	sed -n '/^function waf_cron_text/,/^}/p' "$lib" | grep -qF "\$settings['waf_hc_tick_name']" \
+		|| fail "waf_cron_text() meldet den Takt nicht unter dem Namen aus den Einstellungen an healthchecks"
+	sed -n '/^function waf_cron_text/,/^}/p' "$lib" | grep -qF "(int) \$settings['waf_guard_minute']" \
+		|| fail "waf_cron_text() startet die Wache nicht zur Minute aus den Einstellungen"
+	grep -qF 'paths render cron' "$waf_dir/install.sh" \
 		|| fail "install.sh richtet den Takt der Abwehr nicht ein"
 fi
 job="$root/server/lib/classes/cron.d/560-malwatch.inc.php"
 if [ -f "$job" ]; then
-	test "$(grep -c 'tick_is_fresh()' "$job")" -ge 2 \
-		|| fail "560-malwatch.inc.php laesst den Minuten- oder den Stundenlauf nicht dem eigenen Takt"
+	grep -q 'tick_is_fresh()' "$job" \
+		|| fail "560-malwatch.inc.php laesst den Minuten- und den Stundenlauf nicht dem eigenen Takt"
+	grep -qF "intval(\$waf_settings['waf_hourly_minute'])" "$job" \
+		|| fail "560-malwatch.inc.php startet den Stundenlauf der Abwehr nicht zur Minute aus den Einstellungen"
 	# Der Cron von ISPConfig haelt waehrenddessen alle seine Jobs auf: nie warten.
 	if grep -q 'cron_minute([^)]' "$job" || grep -q 'cron_hourly([^)]' "$job"; then
 		fail "560-malwatch.inc.php laesst die Abwehr auf ihre Sperre warten und haelt damit ISPConfig auf"
@@ -1739,6 +1759,8 @@ if [ -d "$waf_dir" ]; then
 	if grep -q "if ((int) date('i') === 7)" "$waf_dir/waf-switch"; then
 		fail "waf-switch tick fragt die Minute nach dem Lauf noch einmal ab"
 	fi
+	grep -qF "if (\$minute === (int) \$settings['waf_hourly_minute'])" "$waf_dir/waf-switch" \
+		|| fail "waf-switch tick startet den Stundenlauf nicht zur Minute aus den Einstellungen (waf_hourly_minute)"
 fi
 
 # 89. Die Auswahl der Herkunft zaehlt die Treffer erst je Adresse und verknuepft
@@ -1943,6 +1965,50 @@ grep -q "'mask' => waf_panel_key_mask(\$this->waf_stored_key)" "$root/interface/
 	|| fail "malwatch_waf_config_edit.php gibt dem Dialog den MaxMind-Schlüssel ohne Maske"
 grep -q "'mask' => waf_panel_key_mask(\$this->waf_stored_proxycheck)" "$root/interface/malwatch_waf_config_edit.php" \
 	|| fail "malwatch_waf_config_edit.php gibt dem Dialog den proxycheck-Schlüssel ohne Maske"
+
+# 96. The places and names of the Abwehr on the server come from the settings
+#     from 0.35.0 on (waf_path_settings()): each has an ASCII column, a default
+#     and a word in both languages, and the code of the Abwehr names none of
+#     them itself. Fixed stay the paths of ISPConfig with the fallback of its
+#     vhost directory, /etc/timezone, /dev/null, /bin/sh, the directory of
+#     hc-run and the old names the installer cleans up.
+waf_lib="$root/interface/lib/malwatch_waf_lib.inc.php"
+for key in $(sed -n '/^function waf_path_settings/,/^}/p' "$waf_lib" | grep -oE "'waf_[a-z_]+' => array" | grep -oE "waf_[a-z_]+"); do
+	case "$key" in
+		waf_conf_dir|waf_audit_log) ;;
+		*) grep -qE "ADD COLUMN \`$key\` varchar\([0-9]+\) CHARACTER SET ascii" "$root/install/schema.sql" \
+			|| fail "malwatch_config bekommt keine ASCII-Spalte $key" ;;
+	esac
+	sed -n '/^function waf_settings_defaults/,/^}/p' "$waf_lib" | grep -q "'$key' =>" \
+		|| fail "waf_settings_defaults() kennt den Ort $key nicht"
+	for lang in de en; do
+		grep -q "\$wb\['${key}_txt'\]" "$root/interface/lang/${lang}_malwatch_waf_config.lng" \
+			|| fail "${lang}_malwatch_waf_config.lng: ${key}_txt fehlt"
+	done
+done
+fixed_ok='/usr/local/ispconfig/|/etc/nginx/sites-available|/etc/timezone|/dev/null|/bin/sh|/etc/hc-run\.d/|waf-schalter|waf-wache|waf-bericht|/usr/local/lib/waf'
+for file in "$waf_lib" "$root/interface/lib/malwatch_waf_panel.inc.php" "$root/interface/lib/malwatch_waf_ban.inc.php" \
+	"$root/interface/lib/malwatch_waf_origin.inc.php" "$root/server/lib/classes/malwatch_waf.inc.php" \
+	"$waf_dir/waf-switch" "$waf_dir/waf-guard" "$waf_dir/waf-report" "$waf_dir/install.sh"; do
+	[ -f "$file" ] || continue
+	found=$(sed '/^function waf_settings_defaults/,/^}/d' "$file" | grep -vE "^$comment_start" | grep -vE "$fixed_ok" \
+		| grep -E "['\" =(](/etc/|/var/|/usr/|/opt/|/srv/|/sbin/|/bin/)" || true)
+	if [ -n "$found" ]; then
+		fail "$(basename "$file") nennt wieder einen festen Ort der Abwehr; er gehört in waf_path_settings(): $found"
+	fi
+done
+class="$root/server/lib/classes/malwatch_waf.inc.php"
+if [ -f "$class" ] && grep -qE "'(backup_dir|guard_log|conf_include|logrotate)' =>|public \\\$ban_log" "$class"; then
+	fail "malwatch_waf.inc.php führt wieder eigene Orte neben den Einstellungen"
+fi
+if [ -f "$waf_dir/install.sh" ]; then
+	grep -qF 'places=$("$SWITCH" paths shell)' "$waf_dir/install.sh" \
+		|| fail "waf/install.sh nimmt die Orte nicht aus den Einstellungen (waf-switch paths shell)"
+	grep -qF '"$SWITCH" paths save' "$waf_dir/install.sh" \
+		|| fail "waf/install.sh speichert neue Orte nicht"
+	grep -qF 'readlink -f "$0"' "$waf_dir/waf-guard" \
+		|| fail "waf-guard findet waf-switch nicht neben sich"
+fi
 
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'

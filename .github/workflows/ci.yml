@@ -98,6 +98,8 @@ jobs:
           bash -n waf/waf-guard
           bash -n waf/install.sh
           MALWATCH_WAF_LIB=ispconfig/interface/lib/malwatch_waf_lib.inc.php php waf/waf-report ispconfig/tests/waf_audit_sample.log
+      - name: WAF installer against a scratch tree
+        run: bash ispconfig/tests/waf_install_probe.sh
 
   clean-cms:
     # The counter-check that matters: a freshly downloaded WordPress and

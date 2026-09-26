@@ -28,20 +28,16 @@ class malwatch_waf
 	const LIB_BAN = '/usr/local/ispconfig/interface/web/security/lib/malwatch_waf_ban.inc.php';
 
 	/**
-	 * Paths outside the WAF directory. Public so tests/waf_class_probe.php can
-	 * point them at a scratch directory. vhost_dir comes from the ISPConfig
-	 * server settings and state_dir from malwatch_config while they are null.
+	 * The two places that come from elsewhere: vhost_dir from the server
+	 * settings of ISPConfig, state_dir from the settings of the scanner, while
+	 * they are null. Public so tests/waf_class_probe.php can point them at a
+	 * scratch directory. Every place of the Abwehr itself comes from its
+	 * settings (waf_path_settings()).
 	 */
 	public $paths = array(
 		'vhost_dir' => null,
 		'state_dir' => null,
-		'backup_dir' => '/var/backups/waf-switch',
-		'guard_log' => '/var/log/waf/guard.log',
-		'conf_include' => '/etc/nginx/conf.d/waf.conf',
-		'logrotate' => '/etc/logrotate.d/waf',
 	);
-
-	/** Takes the place of the real commands when set: function ($name, $argument) returning array(code, output). */
 
 	/**
 	 * Takes the place of the download when set: function ($url, $target,
@@ -56,8 +52,7 @@ class malwatch_waf
 	 */
 	public $poster = null;
 
-	/** The log nginx writes the turned away requests into; a probe points it elsewhere. */
-	public $ban_log = '/var/log/waf/blocked.log';
+	/** Takes the place of the real commands when set: function ($name, $argument) returning array(code, output). */
 	public $runner = null;
 
 	/** The handle of the lock file while this process holds it. */
@@ -277,40 +272,53 @@ class malwatch_waf
 		return is_file($file) ? waf_vhost_state((string) file_get_contents($file)) : 'off';
 	}
 
-	/** Runs one of the few commands the WAF needs; returns array(exit code, output). */
+	/**
+	 * Runs one of the few commands the WAF needs; returns array(exit code,
+	 * output). The programs come from the program directories of the settings,
+	 * the rule check first from its own place, the service from its name.
+	 */
 	public function run_command($name, $argument)
 	{
 		if ($this->runner !== null) {
 			return call_user_func($this->runner, $name, $argument);
 		}
-		$systemctl = $this->binary(array('/usr/bin/systemctl', '/bin/systemctl'));
+		$settings = $this->settings();
+		$dirs = waf_list_parse($settings['waf_bin_dirs']);
+		$service = escapeshellarg($settings['waf_nginx_service']);
 		switch ($name) {
 			case 'rules_check':
-				$found = glob('/usr/lib/*/libexec/modsec-rules-check');
-				$tool = $this->binary(array_merge(is_array($found) ? $found : array(),
-					array('/usr/bin/modsec-rules-check', '/usr/local/bin/modsec-rules-check')));
+				$found = glob($settings['waf_rules_check']);
+				$tool = $this->binary(is_array($found) ? $found : array());
+				if ($tool === '') {
+					$tool = $this->program('modsec-rules-check', $dirs);
+				}
 				if ($tool === '') {
 					return array(0, 'modsec-rules-check fehlt, nginx -t entscheidet.');
 				}
 				$command = escapeshellarg($tool) . ' ' . escapeshellarg($argument);
 				break;
 			case 'nginx_test':
-				$command = escapeshellarg($this->binary(array('/usr/sbin/nginx', '/usr/bin/nginx'))) . ' -t';
+				$nginx = $this->program('nginx', $dirs);
+				if ($nginx === '') {
+					return array(127, $this->missing_program('nginx', $dirs));
+				}
+				$command = escapeshellarg($nginx) . ' -t';
 				break;
 			case 'nginx_reload':
-				$command = escapeshellarg($systemctl) . ' reload nginx';
-				break;
 			case 'nginx_active':
-				$command = escapeshellarg($systemctl) . ' is-active --quiet nginx';
-				break;
 			case 'nginx_start':
-				$command = escapeshellarg($systemctl) . ' start nginx';
+				$systemctl = $this->program('systemctl', $dirs);
+				if ($systemctl === '') {
+					return array(127, $this->missing_program('systemctl', $dirs));
+				}
+				$verbs = array('nginx_reload' => 'reload', 'nginx_active' => 'is-active --quiet', 'nginx_start' => 'start');
+				$command = escapeshellarg($systemctl) . ' ' . $verbs[$name] . ' ' . $service;
 				break;
 			case 'f2b_status':
 			case 'f2b_banned':
 			case 'f2b_unban':
 			case 'f2b_ban':
-				$f2b = $this->binary(array('/usr/bin/fail2ban-client', '/usr/local/bin/fail2ban-client'));
+				$f2b = $this->program('fail2ban-client', $dirs);
 				if ($f2b === '') {
 					return array(127, 'fail2ban-client fehlt auf diesem Server.');
 				}
@@ -325,8 +333,11 @@ class malwatch_waf
 				}
 				break;
 			case 'logrotate_check':
-				$command = escapeshellarg($this->binary(array('/usr/sbin/logrotate', '/usr/bin/logrotate')))
-					. ' -d ' . escapeshellarg($argument);
+				$logrotate = $this->program('logrotate', $dirs);
+				if ($logrotate === '') {
+					return array(127, $this->missing_program('logrotate', $dirs));
+				}
+				$command = escapeshellarg($logrotate) . ' -d ' . escapeshellarg($argument);
 				break;
 			default:
 				return array(1, 'Unbekannter Befehl: ' . $name);
@@ -576,16 +587,25 @@ class malwatch_waf
 	}
 
 	/**
-	 * One WAF worker at a time: the cron, waf-switch and waf-guard share this
-	 * lock. $wait true waits as long as it takes, false gives up at once, or
-	 * after $within seconds of trying again.
+	 * The file of the lock every WAF worker shares; waf/install.sh holds it
+	 * with flock while it moves places.
+	 */
+	public function lock_file()
+	{
+		return $this->ensure_dirs() . '/lock';
+	}
+
+	/**
+	 * One WAF worker at a time: the cron, waf-switch, waf-guard and
+	 * waf/install.sh share this lock. $wait true waits as long as it takes,
+	 * false gives up at once, or after $within seconds of trying again.
 	 */
 	private function lock($wait, $within = 0)
 	{
 		if ($this->lock !== null) {
 			return true;
 		}
-		$handle = @fopen($this->ensure_dirs() . '/lock', 'c');
+		$handle = @fopen($this->lock_file(), 'c');
 		if ($handle === false) {
 			return false;
 		}
@@ -654,6 +674,23 @@ class malwatch_waf
 			}
 		}
 		return '';
+	}
+
+	/** A program by its name from the program directories, in their order; '' when none holds it. */
+	private function program($name, $dirs)
+	{
+		$candidates = array();
+		foreach ($dirs as $dir) {
+			$candidates[] = rtrim((string) $dir, '/') . '/' . $name;
+		}
+		return $this->binary($candidates);
+	}
+
+	/** What the job log says when a program is missing: where it was looked for and where that changes. */
+	private function missing_program($name, $dirs)
+	{
+		return $name . ' fehlt in den Programmverzeichnissen (' . implode(', ', $dirs) . '). Die Verzeichnisse stehen unter '
+			. 'Abwehr > Einstellungen > Stand auf dem Server und ändern sich mit MALWATCH_WAF_BIN_DIRS=… waf/install.sh.';
 	}
 
 	private function rows($result)
@@ -1629,7 +1666,8 @@ class malwatch_waf
 	{
 		global $app, $conf;
 
-		$file = $this->ban_log;
+		$settings = $this->settings();
+		$file = $settings['waf_blocked_log'];
 		if (!is_file($file)) {
 			return 0;
 		}
@@ -1654,7 +1692,6 @@ class malwatch_waf
 		}
 		$seen = array();
 		$lines = 0;
-		$settings = $this->settings();
 		while (($line = fgets($handle)) !== false && $lines < (int) $settings['waf_blocked_lines']) {
 			$lines++;
 			$one = waf_ban_log_line($line);
@@ -2152,8 +2189,9 @@ class malwatch_waf
 		if ($test[0] !== 0) {
 			$this->guard_repair($test[1]);
 		}
+		$settings = $this->settings();
 		$this->finish($job, false, 'Der Auftrag wurde unterbrochen. '
-			. ($test[0] === 0 ? 'nginx -t ist in Ordnung.' : 'nginx -t meldete einen Fehler, siehe ' . $this->paths['guard_log'] . '.'));
+			. ($test[0] === 0 ? 'nginx -t ist in Ordnung.' : 'nginx -t meldete einen Fehler, siehe ' . $settings['waf_guard_log'] . '.'));
 	}
 
 	private function running_count()
@@ -2165,20 +2203,15 @@ class malwatch_waf
 		return is_array($row) ? (int) $row['n'] : 0;
 	}
 
-	/** Where the include of the block list sits, beside the include of the rules. */
-	private function blocked_include()
-	{
-		return dirname($this->paths['conf_include']) . '/waf-blocked.conf';
-	}
-
 	/** Phase one: back up and write the field of every website, then look once at the vhosts. */
 	private function start_set_state($job, $options, $mode)
 	{
 		global $app, $conf;
 
 		$settings = $this->settings();
-		// nginx knows the format mw_block only with the include of waf/install.sh.
-		$settings['waf_ban_log'] = is_file($this->blocked_include()) ? 'y' : '';
+		// nginx knows the format mw_block only with the include of the block list
+		// that waf/install.sh lays out; the field then names the second log.
+		$settings['waf_ban_log'] = is_file($settings['waf_blocked_include']) ? $settings['waf_blocked_log'] : '';
 		$target = isset($options['state']) ? (string) $options['state'] : '';
 		$ids = isset($options['domain_ids']) && is_array($options['domain_ids']) ? $options['domain_ids'] : array();
 		$now = $this->db_value('SELECT NOW() AS value');
@@ -2343,7 +2376,7 @@ class malwatch_waf
 		$mode = waf_response_body_mode((string) @file_get_contents($settings['waf_conf_dir'] . '/response-body.conf'));
 		$app->dbmaster->query('UPDATE malwatch_config SET waf_response_body = ? WHERE config_id = 1', $mode);
 		$emergency = waf_state_file_is_emergency((string) @file_get_contents($settings['waf_conf_dir'] . '/state.conf'))
-			|| is_file($this->paths['conf_include'] . '.off');
+			|| is_file($settings['waf_rules_include'] . '.off');
 		if ($emergency !== ($settings['waf_emergency'] === 'y')) {
 			$app->dbmaster->query('UPDATE malwatch_config SET waf_emergency = ?, waf_emergency_since = '
 				. ($emergency ? 'NOW()' : 'NULL') . ' WHERE config_id = 1', $emergency ? 'y' : 'n');
@@ -2432,7 +2465,8 @@ class malwatch_waf
 			return $this->run_hard_stop($job);
 		}
 		$on = !empty($options['on']);
-		if (!$on && is_file($this->paths['conf_include'] . '.off')) {
+		$settings = $this->settings();
+		if (!$on && is_file($settings['waf_rules_include'] . '.off')) {
 			return $this->finish($job, false, 'Der harte Notaus ist aktiv. Wieder eingeschaltet wird über waf/install.sh.');
 		}
 		$result = $this->apply(array('state.conf' => waf_state_file_text($on)), $job);
@@ -2455,11 +2489,11 @@ class malwatch_waf
 
 	/**
 	 * The hard emergency stop, for an nginx that lost the module: the include
-	 * goes to waf.conf.off, every vhost file loses its modsecurity lines,
-	 * every field its block, then one nginx -t and one reload. The vhost files
-	 * are edited directly because ISPConfig tests nginx before it keeps a
-	 * vhost, and that test fails while any file still names the module.
-	 * waf/install.sh switches the rules back on.
+	 * of the rules gets the ending .off, every vhost file loses its
+	 * modsecurity lines, every field its block, then one nginx -t and one
+	 * reload. The vhost files are edited directly because ISPConfig tests
+	 * nginx before it keeps a vhost, and that test fails while any file still
+	 * names the module. waf/install.sh switches the rules back on.
 	 */
 	private function run_hard_stop($job)
 	{
@@ -2469,7 +2503,8 @@ class malwatch_waf
 		$backup = $this->backup_dir($job);
 		@mkdir($backup, 0700, true);
 
-		$include = $this->paths['conf_include'];
+		$settings = $this->settings();
+		$include = $settings['waf_rules_include'];
 		if (is_file($include)) {
 			@copy($include, $backup . '/' . basename($include));
 			$lines[] = @rename($include, $include . '.off')
@@ -2547,28 +2582,65 @@ class malwatch_waf
 			. '. ' . $this->apply_text($result));
 	}
 
-	/** Writes the logrotate file from the settings; the other settings act without a file. */
+	/**
+	 * Writes the files that follow the settings, each only when its text
+	 * changed: the logrotate file after logrotate -d, settings.conf of
+	 * ModSecurity through apply() (rule check, nginx -t, reload, the old file
+	 * back on a failure) and the cron file of the Abwehr. A missing cron file
+	 * stays missing: waf/install.sh lays it out together with the tools it
+	 * starts. The other settings act without a file.
+	 */
 	private function run_apply_settings($job)
 	{
 		$settings = $this->settings();
-		$file = $this->paths['logrotate'];
-		$text = waf_logrotate_text($settings['waf_log_keep_days'], $settings['waf_audit_log']);
+		$ok = true;
+		$lines = array();
+
+		$file = $settings['waf_logrotate_file'];
+		$text = waf_logrotate_text($settings['waf_log_keep_days'], $settings['waf_audit_log'], $settings['waf_blocked_log']);
 		if (is_file($file) && (string) file_get_contents($file) === $text) {
-			return $this->finish($job, true, 'Einstellungen übernommen, logrotate unverändert.');
+			$lines[] = 'logrotate unverändert.';
+		} else {
+			$check = $this->ensure_dirs() . '/staging/' . (int) $job['job_id'] . '-logrotate';
+			file_put_contents($check, $text);
+			@chmod($check, 0644);
+			$result = $this->run_command('logrotate_check', $check);
+			@unlink($check);
+			if ($result[0] !== 0) {
+				$ok = false;
+				$lines[] = 'logrotate lehnt die Datei ab, nichts geändert: ' . waf_cut($result[1], 500);
+			} elseif (!waf_write_atomic($file, $text)) {
+				$ok = false;
+				$lines[] = $file . ' ließ sich nicht schreiben.';
+			} else {
+				$lines[] = 'logrotate behält ' . $settings['waf_log_keep_days'] . ' Stände.';
+			}
 		}
-		$check = $this->ensure_dirs() . '/staging/' . (int) $job['job_id'] . '-logrotate';
-		file_put_contents($check, $text);
-		@chmod($check, 0644);
-		$result = $this->run_command('logrotate_check', $check);
-		@unlink($check);
-		if ($result[0] !== 0) {
-			return $this->finish($job, false, 'logrotate lehnt die Datei ab, nichts geändert: ' . waf_cut($result[1], 500));
+
+		$text = waf_settings_conf_text($settings);
+		if ((string) @file_get_contents($settings['waf_conf_dir'] . '/settings.conf') === $text) {
+			$lines[] = 'settings.conf unverändert.';
+		} else {
+			$result = $this->apply(array('settings.conf' => $text), $job);
+			$ok = $ok && $result['ok'];
+			$lines[] = ($result['ok'] ? 'settings.conf neu geschrieben: ' : 'settings.conf nicht umgestellt: ')
+				. $this->apply_text($result);
 		}
-		if (!waf_write_atomic($file, $text)) {
-			return $this->finish($job, false, $file . ' ließ sich nicht schreiben.');
+
+		$file = $settings['waf_cron_file'];
+		$text = waf_cron_text($settings);
+		if (!is_file($file)) {
+			$lines[] = 'Die Cron-Datei ' . $file . ' fehlt; waf/install.sh legt sie mit den Werkzeugen an.';
+		} elseif ((string) file_get_contents($file) === $text) {
+			$lines[] = 'Cron-Datei unverändert.';
+		} elseif (!waf_write_atomic($file, $text)) {
+			$ok = false;
+			$lines[] = $file . ' ließ sich nicht schreiben.';
+		} else {
+			$lines[] = 'Cron-Datei neu geschrieben: Wache zur Minute ' . $settings['waf_guard_minute']
+				. ', Stundenlauf zur Minute ' . $settings['waf_hourly_minute'] . '.';
 		}
-		return $this->finish($job, true, 'Einstellungen übernommen, logrotate behält '
-			. $settings['waf_log_keep_days'] . ' Stände.');
+		return $this->finish($job, $ok, 'Einstellungen übernommen. ' . implode(' ', $lines));
 	}
 
 	/** Takes the WAF out of a failing nginx -t as far as the output points at it. The caller holds the lock. */
@@ -2602,7 +2674,45 @@ class malwatch_waf
 
 	private function guard_log($text)
 	{
-		@file_put_contents($this->paths['guard_log'], date('Y-m-d H:i:s') . ' ' . $text . "\n", FILE_APPEND);
+		$settings = $this->settings();
+		@file_put_contents($settings['waf_guard_log'], date('Y-m-d H:i:s') . ' ' . $text . "\n", FILE_APPEND);
+	}
+
+	/**
+	 * Stores places and names that waf/install.sh has laid out and nginx has
+	 * accepted, with one line in the action log. Only places of
+	 * waf_path_settings() that pass their check are written; returns the keys
+	 * that changed.
+	 */
+	public function save_places($values, $user)
+	{
+		global $app;
+		$stored = $this->settings();
+		$catalog = waf_path_settings();
+		$lines = array();
+		$changed = array();
+		foreach ($values as $key => $value) {
+			if (!isset($catalog[$key])) {
+				continue;
+			}
+			$check = waf_path_check($catalog[$key]['kind'], $value);
+			if ($check[1] !== '' || $check[0] === (string) $stored[$key]) {
+				continue;
+			}
+			if (count($changed) === 0 && !is_array($app->dbmaster->queryOneRecord(
+				'SELECT config_id FROM malwatch_config WHERE config_id = 1'))) {
+				$app->dbmaster->query('INSERT INTO malwatch_config (config_id, sys_userid, sys_groupid, sys_perm_user, '
+					. "sys_perm_group, sys_perm_other) VALUES (1, 1, 1, 'riud', 'riud', '')");
+			}
+			// The key is one of waf_path_settings(), each a column of malwatch_config.
+			$app->dbmaster->query('UPDATE malwatch_config SET `' . $key . '` = ? WHERE config_id = 1', $check[0]);
+			$lines[] = $key . ': ' . $stored[$key] . ' -> ' . $check[0];
+			$changed[] = $key;
+		}
+		if (count($changed) > 0) {
+			$this->log_action($user . ': Orte der Abwehr geändert' . "\n" . implode("\n", $lines));
+		}
+		return $changed;
 	}
 
 	// --- Job helpers ---------------------------------------------------------
@@ -2610,17 +2720,24 @@ class malwatch_waf
 	/** Ends a job and leaves one line in the action log: person, action, result. */
 	private function finish($job, $ok, $log)
 	{
-		global $app, $conf;
+		global $app;
 		$app->dbmaster->query('UPDATE malwatch_job SET job_status = ?, finished_at = NOW(), job_log = ? WHERE job_id = ?',
 			$ok ? 'done' : 'error', waf_cut($log, 60000), (int) $job['job_id']);
+		$this->log_action($this->job_user($job) . ': ' . $this->job_action($job) . ' '
+			. ($ok ? 'erledigt' : 'gescheitert') . "\n" . $log);
+		return $ok;
+	}
+
+	/** One line in the action log of malwatch, of the kind waf. */
+	private function log_action($detail)
+	{
+		global $app, $conf;
 		$app->dbmaster->query(
 			'INSERT INTO malwatch_action_log (sys_userid, sys_groupid, sys_perm_user, sys_perm_group, sys_perm_other, '
 			. 'server_id, parent_domain_id, domain, scan_id, action_type, trigger_severity, trigger_findings, '
 			. 'recipient, detail, created_at) '
 			. "VALUES (1, 1, 'riud', 'r', '', ?, 0, '', 0, 'waf', '', 0, '', ?, NOW())",
-			$conf['server_id'], waf_cut($this->job_user($job) . ': ' . $this->job_action($job) . ' '
-				. ($ok ? 'erledigt' : 'gescheitert') . "\n" . $log, 60000));
-		return $ok;
+			$conf['server_id'], waf_cut($detail, 60000));
 	}
 
 	private function apply($changes, $job)
@@ -2718,7 +2835,8 @@ class malwatch_waf
 
 	private function backup_dir($job)
 	{
-		return rtrim($this->paths['backup_dir'], '/') . '/'
+		$settings = $this->settings();
+		return $settings['waf_backup_dir'] . '/'
 			. $this->db_value("SELECT DATE_FORMAT(NOW(), '%Y%m%d-%H%i%s') AS value") . '-job' . (int) $job['job_id'];
 	}
 

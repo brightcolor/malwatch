@@ -28,6 +28,8 @@
  *   waf-switch migrate
  *   waf-switch snapshot
  *   waf-switch guard
+ *   waf-switch paths [get <name>]
+ *   waf-switch paths shell|render <file>|save   (for waf/install.sh)
  *
  * The emergency stop and the response body run at once; set leaves its job
  * to the cron unless --wait is given.
@@ -151,17 +153,60 @@ function waf_cli_response_mode($waf)
 	return waf_response_body_mode((string) @file_get_contents($settings['waf_conf_dir'] . '/response-body.conf'));
 }
 
+/** The variables of the environment; getenv() without a name needs PHP 7.1, before that the places are asked one by one. */
+function waf_cli_env()
+{
+	if (PHP_VERSION_ID >= 70100) {
+		return getenv();
+	}
+	$env = array();
+	foreach (array_keys(waf_path_settings()) as $key) {
+		$value = getenv(waf_path_env($key));
+		if ($value !== false) {
+			$env[waf_path_env($key)] = $value;
+		}
+	}
+	return $env;
+}
+
+/** The German words of the settings page for the names of the places; without them the keys stand in. */
+function waf_cli_words()
+{
+	$wb = array();
+	$file = dirname(malwatch_waf::LIB) . '/lang/de_malwatch_waf_config.lng';
+	if (is_file($file)) {
+		include $file;
+	}
+	return $wb;
+}
+
+/** A text padded to a width in characters, umlauts counted once. */
+function waf_cli_pad($text, $width)
+{
+	$length = function_exists('mb_strlen') ? mb_strlen($text, 'UTF-8') : strlen($text);
+	return $text . str_repeat(' ', max(1, $width - $length));
+}
+
+/** The number of websites of this server whose field carries a block of the Abwehr. */
+function waf_cli_site_count()
+{
+	global $app, $conf;
+	$row = $app->dbmaster->queryOneRecord("SELECT COUNT(*) AS n FROM web_domain WHERE server_id = ? AND type = 'vhost' "
+		. 'AND nginx_directives LIKE ?', $conf['server_id'], '%# WAF-%');
+	return is_array($row) ? (int) $row['n'] : 0;
+}
+
 $args = array_slice($argv, 1);
 $command = (string) array_shift($args);
 
 switch ($command) {
 	case 'tick':
-		// The minute pass of the Abwehr on its own clock, see conf/cron-malwatch-waf.
+		// The minute pass of the Abwehr on its own clock, see waf_cron_text().
 		// Exit 1 only when the pass itself failed; a pass that runs elsewhere right
 		// now is no failure. While another worker holds the lock - every hour at
-		// minute 05 waf-guard for its nginx -t - the pass waits up to
-		// waf_tick_wait_seconds. The hourly part follows at minute 07, as in ISPConfig;
-		// the minute counts from the start, because waiting and the pass can reach
+		// waf_guard_minute waf-guard for its nginx -t - the pass waits up to
+		// waf_tick_wait_seconds. The hourly part follows at waf_hourly_minute; the
+		// minute counts from the start, because waiting and the pass can reach
 		// into the next minute.
 		$settings = $waf->settings();
 		$within = (int) $settings['waf_tick_wait_seconds'];
@@ -170,7 +215,7 @@ switch ($command) {
 		if ($ran === true) {
 			$waf->mark_tick();
 		}
-		if ($minute === 7) {
+		if ($minute === (int) $settings['waf_hourly_minute']) {
 			$waf->cron_hourly($within);
 		}
 		if ($ran === false) {
@@ -508,10 +553,82 @@ switch ($command) {
 
 	case 'guard':
 		exit($waf->guard());
+
+	case 'paths':
+		// The places and names on the server. get gives one stored value to a
+		// script; shell, render and save serve waf/install.sh and take the changes
+		// of the environment (MALWATCH_WAF_*) into account.
+		$sub = isset($args[0]) ? (string) $args[0] : '';
+		$stored = $waf->settings();
+		$catalog = waf_path_settings();
+		if ($sub === 'get') {
+			$key = isset($args[1]) ? (string) $args[1] : '';
+			if (!isset($catalog[$key])) {
+				fwrite(STDERR, 'Unbekannter Ort: ' . $key . ". waf-switch paths zeigt alle Namen.\n");
+				exit(2);
+			}
+			echo $stored[$key], "\n";
+			exit(0);
+		}
+		if ($sub === '') {
+			$words = waf_cli_words();
+			echo "Orte und Namen der Abwehr. Zum Ändern steht die Variable mit dem neuen Wert vor waf/install.sh,\n"
+				. "etwa MALWATCH_WAF_CONF_DIR=/pfad waf/install.sh; mit --check zeigt das Skript vorher, was sich ändert.\n";
+			$group = '';
+			foreach ($catalog as $key => $entry) {
+				if ($entry['group'] !== $group) {
+					$group = $entry['group'];
+					echo "\n", isset($words['places_' . $group . '_txt']) ? $words['places_' . $group . '_txt'] : $group, "\n";
+				}
+				$value = (string) $stored[$key];
+				if ($value === '') {
+					$value = '(' . (isset($words['place_empty_txt']) ? $words['place_empty_txt'] : '') . ')';
+				}
+				echo '  ', waf_cli_pad(isset($words[$key . '_txt']) ? $words[$key . '_txt'] : $key, 36),
+					waf_cli_pad($value, 44), waf_path_env($key), "\n";
+			}
+			exit(0);
+		}
+		if (!in_array($sub, array('shell', 'render', 'save'), true)) {
+			fwrite(STDERR, "paths kennt: paths | paths get <name> | paths shell | paths render <datei> | paths save\n");
+			exit(2);
+		}
+		$overlay = waf_path_overlay($stored, waf_cli_env());
+		if (count($overlay['problems']) > 0) {
+			foreach ($overlay['problems'] as $problem) {
+				fwrite(STDERR, waf_path_problem_text($problem) . "\n");
+			}
+			exit(1);
+		}
+		if ($sub === 'shell') {
+			echo waf_path_shell_text($stored, $overlay, $waf->lock_file(), waf_cli_site_count());
+			exit(0);
+		}
+		if ($sub === 'render') {
+			$file = isset($args[1]) ? (string) $args[1] : '';
+			$text = waf_path_render_text($file, array_merge($stored, $overlay['values']));
+			if ($text === null) {
+				fwrite(STDERR, 'Unbekannte Datei: ' . $file
+					. ". Möglich sind main.conf, settings.conf, rules-include, blocked-include, logrotate und cron.\n");
+				exit(2);
+			}
+			echo $text;
+			exit(0);
+		}
+		// save: waf/install.sh stores the places once they stand and nginx accepted them.
+		$changed = $waf->save_places($overlay['values'], $user);
+		if (count($changed) === 0) {
+			echo "Die Orte bleiben, wie sie sind.\n";
+			exit(0);
+		}
+		foreach ($changed as $key) {
+			echo 'Gespeichert: ', $key, ': ', $stored[$key], ' -> ', $overlay['values'][$key], "\n";
+		}
+		exit(0);
 }
 
 fwrite(STDERR, "Befehle: tick | status | set <off|detect|enforce> <domain…|--wordpress|--all> [--wait] | probe … | "
 	. "emergency on|off [--hard] | response-body [full|lean|status] | restore <ordner> | jobs | "
 	. "exception list|add|remove | ban status|off|propose|on|list|add|lift|allow|url|origin|everywhere|f2b | "
-	. "ingest [--dry-run] [--file=<log>] | migrate | snapshot | guard\n");
+	. "ingest [--dry-run] [--file=<log>] | migrate | snapshot | guard | paths [get <name>]\n");
 exit(2);

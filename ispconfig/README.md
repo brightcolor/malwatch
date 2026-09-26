@@ -155,8 +155,11 @@ sich, sobald `waf/install.sh` ModSecurity im nginx eingerichtet hat
   stehen ein Eintrag je Zeile. Vor dem Speichern listet das Fenster „Änderungen
   prüfen“ jede geänderte Einstellung mit bisherigem und neuem Wert. Der Abschnitt
   „Technik“ führt die Adressen und Grenzen der Herkunftsquellen, die Zeitlimits
-  der Downloads, die Anfragen an proxycheck.io und die Stapelgrößen der Arbeit im
-  Hintergrund.
+  der Downloads, die Anfragen an proxycheck.io, die Grenzen von ModSecurity für
+  den Anfragekörper und die Stapelgrößen der Arbeit im Hintergrund; „Takt und
+  Hintergrund“ die Minuten der Wache und des Stundenlaufs. „Stand auf dem Server“
+  zeigt alle Orte und Namen der Abwehr, jeden mit der Variablen, die ihn über
+  `waf/install.sh` ändert ([waf/README.md](../waf/README.md#orte)).
 
 Jeder Knopf legt einen Auftrag in `malwatch_job` mit `job_kind = 'waf'` an. Die
 Cron-Klasse ruft jede Minute `malwatch_waf` auf: Sie liest höchstens so viele Zeilen
@@ -167,7 +170,7 @@ wartet auf den vhost von ISPConfig, prüft `nginx -t` und bestätigt den Zustand
 der Frist nimmt er seine Änderung zurück, sofern niemand das Feld inzwischen geändert
 hat.
 
-Dateien unter `/etc/nginx/waf` ändern sich nur über eine Kopie,
+Dateien im Regelverzeichnis (Vorgabe `/etc/nginx/waf`) ändern sich nur über eine Kopie,
 `modsec-rules-check`, `nginx -t` und einen Reload; der letzte geprüfte Stand liegt
 unter `/var/lib/malwatch/waf/last-good/`. Der stündliche Wächter `waf-guard` legt ihn
 zurück, wenn `nginx -t` eine Datei der WAF nennt, und schaltet auf den harten Notaus,
@@ -210,16 +213,17 @@ Aus Treffern werden Sperren: Sammelt eine Adresse im Zeitfenster mehr
 Anomalie-Punkte, als die Website erlaubt (Vorgabe 50 Punkte in 10 Minuten, je
 Website einstellbar), legt der Cron eine Sperre an — im Zustand „vorschlagen"
 nur zur Ansicht, im Zustand „sperren" wirksam. Die aktiven Sperren stehen als
-`deny`-Zeilen in `/etc/nginx/waf/blocked.conf`, eingebunden über
-`/etc/nginx/conf.d/waf-blocked.conf`; geschrieben wird die Datei nur von der
+`deny`-Zeilen in `blocked.conf` im Regelverzeichnis, eingebunden über die
+Einbindung der Sperrliste (Vorgabe `/etc/nginx/conf.d/waf-blocked.conf`);
+geschrieben wird die Datei nur von der
 Serverklasse, und nginx wird erst geprüft und dann neu geladen. Die erste Sperre
 dauert eine Stunde, die zweite 24, ab der dritten sieben Tage. Nie gesperrt
 werden die eigenen Netze (Vorgabe `127.0.0.0/8`, `::1/128`, `10.50.0.0/24`), die
 Ausnahmeliste und die Adressbereiche von Google und Bing. Treffer aus angemeldeten
 Sitzungen zählen auf den Backend-Pfaden (Vorgabe `/wp-admin/`, `/wp-json/`) nur
 zum eingestellten Anteil; `wp-login.php` und `xmlrpc.php` zählen immer voll. Alle
-Listen stehen unter Abwehr > Einstellungen. `/var/log/waf/blocked.log` zählt, was
-seither abgeprallt ist.
+Listen stehen unter Abwehr > Einstellungen. Das Sperrprotokoll (Vorgabe
+`/var/log/waf/blocked.log`) zählt, was seither abgeprallt ist.
 `waf-switch ban off` macht ohne Panel wieder auf.
 
 ## Aktionen

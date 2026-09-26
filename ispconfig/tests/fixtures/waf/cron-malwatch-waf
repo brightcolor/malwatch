@@ -1,0 +1,10 @@
+# Managed by malwatch (waf/install.sh, Abwehr > Einstellungen). Every change here is overwritten.
+# The minute clock of the Abwehr and its hourly guard, apart from the cron of
+# ISPConfig: that one runs all its jobs one after another under one lock, and a
+# long run - AWStats at night - held the Abwehr up for half an hour.
+# hc-run reports each run to healthchecks once its address stands in
+# /etc/hc-run.d/waf-tick.url and /etc/hc-run.d/waf-guard.url.
+SHELL=/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+* * * * * root if [ -x /usr/local/sbin/hc-run ]; then /usr/local/sbin/hc-run waf-tick -- /usr/local/sbin/waf-switch tick; else /usr/local/sbin/waf-switch tick; fi > /dev/null 2>&1
+5 * * * * root if [ -x /usr/local/sbin/hc-run ]; then /usr/local/sbin/hc-run waf-guard -- /usr/local/sbin/waf-guard; else /usr/local/sbin/waf-guard; fi > /dev/null 2>&1

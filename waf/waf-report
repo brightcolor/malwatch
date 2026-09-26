@@ -5,8 +5,9 @@
  *
  *   waf-report [audit log]
  *
- * MALWATCH_WAF_LIB points at another copy of the shared functions, for a
- * check outside the server.
+ * Without a file it reads the audit log of the settings, asked from waf-switch
+ * next to this script. MALWATCH_WAF_LIB points at another copy of the shared
+ * functions, for a check outside the server.
  */
 $lib = getenv('MALWATCH_WAF_LIB') ?: '/usr/local/ispconfig/interface/web/security/lib/malwatch_waf_lib.inc.php';
 require $lib;
@@ -20,9 +21,18 @@ function waf_report_lines($file)
 	fclose($handle);
 }
 
-$file = isset($argv[1]) ? $argv[1] : '/var/log/waf/audit.log';
+if (isset($argv[1])) {
+	$file = $argv[1];
+} else {
+	$file = trim((string) shell_exec(escapeshellarg(__DIR__ . '/waf-switch') . ' paths get waf_audit_log 2>/dev/null'));
+	if ($file === '') {
+		fwrite(STDERR, "Das Audit-Log ließ sich nicht aus den Einstellungen lesen (waf-switch paths get waf_audit_log). "
+			. "Bitte die Datei angeben: waf-report <audit-log>\n");
+		exit(2);
+	}
+}
 if (!is_readable($file)) {
-	fwrite(STDERR, "Audit-Log nicht lesbar: $file\n");
+	fwrite(STDERR, "Audit-Log nicht lesbar: $file. Bitte als root aufrufen oder eine lesbare Datei angeben.\n");
 	exit(2);
 }
 $report = waf_audit_summarize(waf_report_lines($file));

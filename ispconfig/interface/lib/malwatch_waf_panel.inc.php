@@ -1845,3 +1845,61 @@ function waf_config_lists($wb, $record)
 	}
 	return array('record' => $record, 'errors' => $errors);
 }
+
+/**
+ * The message when a request without files would get more room than one with
+ * files, or ''. A number outside its range is left to the check of the form,
+ * so nobody reads two messages about one field.
+ */
+function waf_config_body_limits($wb, $record)
+{
+	$limits = waf_settings_limits();
+	$values = array();
+	foreach (array('waf_body_limit_kb', 'waf_body_nofiles_limit_kb') as $key) {
+		$value = is_array($record) && isset($record[$key]) ? trim((string) $record[$key]) : '';
+		if (!preg_match('/^[0-9]+$/', $value) || (int) $value < $limits[$key][0] || (int) $value > $limits[$key][1]) {
+			return '';
+		}
+		$values[$key] = (int) $value;
+	}
+	if ($values['waf_body_nofiles_limit_kb'] <= $values['waf_body_limit_kb']) {
+		return '';
+	}
+	return sprintf(waf_panel_text($wb, 'body_limits_error_txt', '%1$s (%2$s KB) > %3$s (%4$s KB)'),
+		waf_panel_text($wb, 'waf_body_nofiles_limit_kb_txt', 'waf_body_nofiles_limit_kb'),
+		number_format($values['waf_body_nofiles_limit_kb'], 0, ',', '.'),
+		waf_panel_text($wb, 'waf_body_limit_kb_txt', 'waf_body_limit_kb'),
+		number_format($values['waf_body_limit_kb'], 0, ',', '.'));
+}
+
+/**
+ * The places and names on the server for the section "Stand auf dem Server",
+ * in the groups of waf_path_settings(): each with its word, its value and the
+ * variable that changes it through waf/install.sh. An empty hc-run says what
+ * happens instead.
+ */
+function waf_config_places($wb, $settings)
+{
+	$groups = array();
+	foreach (waf_path_settings() as $key => $entry) {
+		$group = $entry['group'];
+		if (!isset($groups[$group])) {
+			$groups[$group] = array(
+				'place_group' => $group,
+				'place_head' => waf_panel_text($wb, 'places_' . $group . '_txt', $group),
+				'place_rows' => array(),
+			);
+		}
+		$value = (string) $settings[$key];
+		if ($entry['kind'] === 'dirs') {
+			$value = implode(', ', waf_list_parse($value));
+		}
+		$groups[$group]['place_rows'][] = array(
+			'place_label' => waf_panel_text($wb, $key . '_txt', $key),
+			'place_value' => $value === '' ? waf_panel_text($wb, 'place_empty_txt', '') : $value,
+			'place_env' => waf_path_env($key),
+			'place_empty' => $value === '' ? 1 : 0,
+		);
+	}
+	return array_values($groups);
+}

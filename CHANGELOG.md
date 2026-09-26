@@ -2,6 +2,55 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.35.0] – 2026-09-27
+
+### Hinzugefügt
+
+**Die Orte und Namen der Abwehr sind Einstellungen.** Jeder Pfad, den die Abwehr
+auf dem Server anlegt oder liest, steht in den Einstellungen; Vorgabe ist der
+bisherige Wert. Mit den Vorgaben schreibt der Installer jede Datei Byte für Byte
+wie bisher.
+
+- nginx: Regelverzeichnis, Einbindung der Regeln und der Sperrliste, Name des
+  Dienstes.
+- ModSecurity und CRS: Grundkonfiguration, Einstellungen und Regeln der CRS,
+  Regelprüfung, Zwischenspeicher.
+- Protokolle und Sicherungen: Audit-Log, Sperrprotokoll, Protokoll der Wache,
+  Sicherungen, logrotate-Datei.
+- Werkzeuge und Takt: Ordner der Werkzeuge, Cron-Datei, hc-run (leer: die Läufe
+  starten direkt), die Namen der beiden Checks in Healthchecks und die
+  Programmverzeichnisse.
+
+Ein Ort ändert sich über den Installer, mit der Variablen und dem neuen Wert vor
+dem Aufruf, etwa `MALWATCH_WAF_CONF_DIR=/pfad waf/install.sh`. Er legt den neuen
+Ort an, prüft mit Regelprüfung, `nginx -t` und `nginx -T` und speichert erst
+danach; scheitert ein Schritt, legt er jede Datei zurück, und die Einstellungen
+behalten ihren Wert. `--check` zeigt vorher, was sich ändert. Vor einem neuen
+Sperrprotokoll fragt er nach, weil dann jede Website mit Abwehr neu geschrieben
+wird; ohne Terminal bestätigt `--yes`. `waf-switch paths` listet alle Orte mit
+ihrer Variablen, und Security > Abwehr > Einstellungen zeigt sie unter „Stand auf
+dem Server“.
+
+**Neu im Panel.** Unter „Takt und Hintergrund“ die Minute der Wache (Vorgabe 5)
+und die Minute des Stundenlaufs (Vorgabe 7). Unter „Technik“ die Gruppe
+ModSecurity: Anfragekörper bis 12.800 KB, ohne Dateien bis 128 KB, größere
+Anfragen „Anfang prüfen“ oder „Ablehnen“. `settings.conf` entsteht aus diesen
+Werten; der Auftrag nach dem Speichern übernimmt sie mit Regelprüfung,
+`nginx -t` und Reload und schreibt die Cron-Datei der Abwehr neu.
+
+### Geändert
+
+- Die Wache läuft aus der Cron-Datei der Abwehr; der Installer nimmt ihre Zeile
+  aus der crontab von root.
+- `waf-guard` und `waf-report` finden `waf-switch` neben sich und nehmen
+  Protokoll und Audit-Log aus den Einstellungen.
+- nginx, systemctl, logrotate, fail2ban-client und modsec-rules-check sucht die
+  Abwehr in den Programmverzeichnissen; fehlt eines, nennt der Auftrag die
+  durchsuchten Verzeichnisse.
+- Fällt der eigene Takt aus, startet der Cron von ISPConfig den Stundenlauf der
+  Abwehr zur Minute aus den Einstellungen.
+- Der Installer erkennt das nginx-Modul an `nginx -T`.
+
 ## [0.34.0] – 2026-09-26
 
 ### Hinzugefügt

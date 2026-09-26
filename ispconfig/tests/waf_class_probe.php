@@ -72,16 +72,25 @@ waf_remove_dir($tmp);
 foreach (array('state', 'vhosts', 'backups', 'conf.d', 'waf') as $sub) {
 	mkdir($tmp . '/' . $sub, 0700, true);
 }
-// The WAF directory as waf/install.sh leaves it, with main.conf pointing here.
-foreach (glob(dirname($stage) . '/waf/conf/*.conf') as $file) {
-	$text = str_replace('/etc/nginx/waf/', $tmp . '/waf/', (string) file_get_contents($file));
-	file_put_contents($tmp . '/waf/' . basename($file), $text);
-}
-file_put_contents($tmp . '/conf.d/waf.conf', "modsecurity_rules_file $tmp/waf/main.conf;\n");
 copy($stage . '/tests/waf_audit_sample.log', $tmp . '/audit.log');
 
-$db->query('UPDATE malwatch_config SET waf_audit_log = ?, waf_conf_dir = ?, state_dir = ? WHERE config_id = 1',
-	$tmp . '/audit.log', $tmp . '/waf', $tmp . '/state');
+// Every place of the Abwehr points into the scratch directory, under other
+// names than the defaults: the class takes them from the settings.
+$db->query('UPDATE malwatch_config SET waf_audit_log = ?, waf_conf_dir = ?, state_dir = ?, waf_rules_include = ?, '
+	. 'waf_blocked_include = ?, waf_blocked_log = ?, waf_guard_log = ?, waf_backup_dir = ?, waf_logrotate_file = ?, '
+	. 'waf_cron_file = ?, waf_cache_dir = ?, waf_tools_dir = ? WHERE config_id = 1',
+	$tmp . '/audit.log', $tmp . '/waf', $tmp . '/state', $tmp . '/conf.d/rules.conf', $tmp . '/conf.d/block-list.conf',
+	$tmp . '/denied.log', $tmp . '/guard.log', $tmp . '/backups', $tmp . '/logrotate-waf', $tmp . '/cron-waf',
+	$tmp . '/cache', $tmp . '/sbin');
+$probe_places = waf_settings($db->queryOneRecord('SELECT * FROM malwatch_config WHERE config_id = 1'));
+// The WAF directory as waf/install.sh leaves it, with main.conf pointing here.
+foreach (glob(dirname($stage) . '/waf/conf/*.conf') as $file) {
+	copy($file, $tmp . '/waf/' . basename($file));
+}
+foreach (array('main.conf', 'settings.conf') as $name) {
+	file_put_contents($tmp . '/waf/' . $name, waf_path_render_text($name, $probe_places));
+}
+file_put_contents($tmp . '/conf.d/rules.conf', waf_rules_include_text($probe_places));
 $db->query('DELETE FROM web_domain');
 $db->query('DELETE FROM sys_datalog');
 foreach (array(
@@ -101,10 +110,6 @@ $waf = new malwatch_waf();
 $waf->paths = array(
 	'vhost_dir' => $tmp . '/vhosts',
 	'state_dir' => $tmp . '/state',
-	'backup_dir' => $tmp . '/backups',
-	'guard_log' => $tmp . '/guard.log',
-	'conf_include' => $tmp . '/conf.d/waf.conf',
-	'logrotate' => $tmp . '/logrotate-waf',
 );
 $waf->runner = function ($name, $argument) use (&$calls, &$answers) {
 	$calls[] = $name;
@@ -433,6 +438,70 @@ $job = $waf->queue('apply_settings', array(), 'probe');
 $waf->pass();
 expect_same('logrotate refuses', array(job_row($job)['job_status'], strpos(file_get_contents($tmp . '/logrotate-waf'), "\trotate 14\n") !== false), array('error', true));
 
+// From 0.35.0 the settings also write settings.conf of ModSecurity, through the
+// checked way of apply(), and the cron file of the Abwehr; each only when its
+// text changed.
+$db->query('UPDATE malwatch_config SET waf_log_keep_days = 14, waf_body_limit_kb = 2048, waf_guard_minute = 17 WHERE config_id = 1');
+file_put_contents($tmp . '/cron-waf', "# old\n");
+$answers = array();
+$calls = array();
+$job = $waf->queue('apply_settings', array(), 'probe');
+$waf->pass();
+$now_places = waf_settings($db->queryOneRecord('SELECT * FROM malwatch_config WHERE config_id = 1'));
+expect_same('settings.conf and the cron file follow the settings', array(job_row($job)['job_status'], $calls,
+	strpos((string) file_get_contents($tmp . '/waf/settings.conf'), "SecRequestBodyLimit 2097152\n") !== false,
+	file_get_contents($tmp . '/cron-waf') === waf_cron_text($now_places),
+	strpos((string) file_get_contents($tmp . '/cron-waf'), "\n17 * * * * root ") !== false),
+	array('done', array('rules_check', 'nginx_test', 'nginx_reload', 'nginx_active'), true, true, true));
+$calls = array();
+$job = $waf->queue('apply_settings', array(), 'probe');
+$waf->pass();
+expect_same('files that match the settings stay as they are', array(job_row($job)['job_status'], $calls), array('done', array()));
+$db->query('UPDATE malwatch_config SET waf_body_limit_kb = 4096 WHERE config_id = 1');
+$answers = array('rules_check' => array(array(1, 'Rules error')));
+$job = $waf->queue('apply_settings', array(), 'probe');
+$waf->pass();
+expect_same('a settings.conf the rule check refuses stays out', array(job_row($job)['job_status'],
+	strpos((string) file_get_contents($tmp . '/waf/settings.conf'), "SecRequestBodyLimit 2097152\n") !== false), array('error', true));
+unlink($tmp . '/cron-waf');
+$db->query('UPDATE malwatch_config SET waf_body_limit_kb = 12800, waf_guard_minute = 5 WHERE config_id = 1');
+$answers = array();
+$job = $waf->queue('apply_settings', array(), 'probe');
+$waf->pass();
+expect_same('without a cron file the job leaves it to waf/install.sh', array(job_row($job)['job_status'],
+	is_file($tmp . '/cron-waf'), strpos((string) job_row($job)['job_log'], 'waf/install.sh legt sie') !== false), array('done', false, true));
+
+// The programs come from the program directories of the settings, the service by its name.
+mkdir($tmp . '/bin', 0700);
+file_put_contents($tmp . '/bin/nginx', "#!/bin/sh\necho probe-nginx \"\$@\"\n");
+file_put_contents($tmp . '/bin/systemctl', "#!/bin/sh\necho \"\$@\"\n");
+chmod($tmp . '/bin/nginx', 0700);
+chmod($tmp . '/bin/systemctl', 0700);
+$db->query("UPDATE malwatch_config SET waf_bin_dirs = ?, waf_nginx_service = 'nginx-probe' WHERE config_id = 1", $tmp . '/bin');
+$runner = $waf->runner;
+$waf->runner = null;
+$test = $waf->run_command('nginx_test', '');
+$reload = $waf->run_command('nginx_reload', '');
+$missing = $waf->run_command('logrotate_check', $tmp . '/logrotate-waf');
+$waf->runner = $runner;
+$db->query("UPDATE malwatch_config SET waf_bin_dirs = ?, waf_nginx_service = 'nginx' WHERE config_id = 1",
+	waf_settings_defaults()['waf_bin_dirs']);
+expect_same('programs from the program directories, the service by its name', array($test, $reload[1], $missing[0],
+	strpos($missing[1], 'logrotate fehlt in den Programmverzeichnissen (' . $tmp . '/bin)') === 0),
+	array(array(0, 'probe-nginx -t'), 'reload nginx-probe', 127, true));
+
+// waf/install.sh stores places once they stand; a refused value and a setting
+// of the panel stay out, the change goes into the action log.
+$saved = $waf->save_places(array('waf_guard_log' => $tmp . '/guard2.log', 'waf_conf_dir' => 'relative',
+	'waf_ban_mode' => 'block', 'waf_blocked_log' => $tmp . '/denied.log'), 'probe');
+$row = $db->queryOneRecord('SELECT waf_guard_log, waf_conf_dir, waf_ban_mode FROM malwatch_config WHERE config_id = 1');
+expect_same('save_places stores the changed places and names them in the action log', array($saved, $row['waf_guard_log'],
+	$row['waf_conf_dir'], count_rows("SELECT action_id FROM malwatch_action_log WHERE detail LIKE 'probe: Orte der Abwehr%'")),
+	array(array('waf_guard_log'), $tmp . '/guard2.log', $tmp . '/waf', 1));
+expect_same('the lock of every worker', $waf->lock_file(), $tmp . '/state/waf/lock');
+$waf->save_places(array('waf_guard_log' => $tmp . '/guard.log'), 'probe');
+$calls = array();
+
 // Old markers become new ones; states and files are read back.
 $db->query('UPDATE web_domain SET nginx_directives = ? WHERE domain_id = 12',
 	"# WAF-Anfang (mitschreiben) \xE2\x80\x93 verwaltet von waf-schalter\nmodsecurity on;\n# WAF-Ende\n");
@@ -454,7 +523,7 @@ $calls = array();
 $job = $waf->queue('emergency', array('on' => true, 'hard' => true), 'probe');
 $waf->pass();
 expect_same('hard stop done', array(job_row($job)['job_status'], $calls), array('done', array('nginx_test', 'nginx_reload')));
-expect_same('include renamed', array(is_file($tmp . '/conf.d/waf.conf'), is_file($tmp . '/conf.d/waf.conf.off')), array(false, true));
+expect_same('include renamed', array(is_file($tmp . '/conf.d/rules.conf'), is_file($tmp . '/conf.d/rules.conf.off')), array(false, true));
 expect_same('vhosts stripped', array(waf_vhost_state(file_get_contents($tmp . '/vhosts/beispiel.test.vhost')),
 	waf_vhost_state(file_get_contents($tmp . '/vhosts/zweite.test.vhost'))), array('off', 'off'));
 expect_same('fields cleared', array(field(11), field(12)), array($own, ''));
@@ -476,10 +545,10 @@ expect_same('guard repairs', $waf->guard(), 1);
 expect_same('guard put the file back', file_get_contents($tmp . '/waf/exclusions-panel-before.conf'),
 	file_get_contents($tmp . '/state/waf/last-good/exclusions-panel-before.conf'));
 expect_same('guard reloads after the repair', $calls, array('nginx_test', 'nginx_test', 'nginx_reload'));
-rename($tmp . '/conf.d/waf.conf.off', $tmp . '/conf.d/waf.conf');
+rename($tmp . '/conf.d/rules.conf.off', $tmp . '/conf.d/rules.conf');
 $answers = array('nginx_test' => array(array(1, 'nginx: [emerg] unknown directive "modsecurity" in /etc/nginx/sites-enabled/100-x.vhost:3')));
 expect_same('guard stops hard', $waf->guard(), 1);
-expect_same('guard renamed the include', is_file($tmp . '/conf.d/waf.conf.off'), true);
+expect_same('guard renamed the include', is_file($tmp . '/conf.d/rules.conf.off'), true);
 $answers = array('nginx_test' => array(array(1, 'nginx: [emerg] host not found in upstream "x"')));
 $calls = array();
 expect_same('guard leaves other errors', array($waf->guard(), $calls), array(1, array('nginx_test')));
@@ -629,7 +698,6 @@ expect_same('its marks left the addresses',
 
 // --- D: Sperren ---------------------------------------------------------------
 
-$waf->ban_log = $tmp . '/blocked.log';
 $db->query('DELETE FROM malwatch_waf_ban');
 $db->query('DELETE FROM malwatch_waf_allow');
 $db->query("UPDATE malwatch_config SET waf_ban_mode = 'block', waf_ban_score = 50, "
@@ -700,7 +768,7 @@ $stamp = strtotime($blocked_at);
 $before = date('Y-m-d', $stamp - 60) . 'T' . date('H:i:s', $stamp - 60) . '+02:00';
 $after_one = date('Y-m-d', $stamp + 5) . 'T' . date('H:i:s', $stamp + 5) . '+02:00';
 $after_two = date('Y-m-d', $stamp + 6) . 'T' . date('H:i:s', $stamp + 6) . '+02:00';
-file_put_contents($tmp . '/blocked.log',
+file_put_contents($tmp . '/denied.log',
 	$before . " 192.0.2.50 403 beispiel.test \"GET /vor-der-sperre HTTP/1.1\"\n"
 	. $after_one . " 192.0.2.50 403 beispiel.test \"GET /wp-login.php HTTP/1.1\"\n"
 	. $after_two . " 192.0.2.50 403 beispiel.test \"GET /.env HTTP/1.1\"\n"
@@ -1233,14 +1301,14 @@ expect_same('the list is empty while nothing is blocked',
 $db->query("UPDATE malwatch_config SET waf_ban_mode = 'block' WHERE config_id = 1");
 
 // Steht die Einbindung der Sperrliste, schreibt das Feld auch das zweite Zugriffslog.
-file_put_contents($tmp . '/conf.d/waf-blocked.conf', 'include ' . $tmp . "/waf/blocked.conf;\n");
+file_put_contents($tmp . '/conf.d/block-list.conf', 'include ' . $tmp . "/waf/blocked.conf;\n");
 $db->query('UPDATE web_domain SET nginx_directives = ? WHERE domain_id = 11', $own);
 $db->query("UPDATE malwatch_site SET waf_state = '', waf_pending_state = '' WHERE parent_domain_id = 11");
 $waf->queue('set_state', array('domain_ids' => array(11), 'state' => 'detect'), 'probe');
 $waf->pass();
-expect_same('with the include the field also writes the second access log',
-	field(11), $own . waf_block_text('detect', true));
-unlink($tmp . '/conf.d/waf-blocked.conf');
+expect_same('with the include the field also writes the second access log, the one of the settings',
+	field(11), $own . waf_block_text('detect', $tmp . '/denied.log'));
+unlink($tmp . '/conf.d/block-list.conf');
 
 $db->query("DELETE FROM malwatch_waf_hit WHERE unique_id = 'probe-origin'");
 $waf->cleanup();
