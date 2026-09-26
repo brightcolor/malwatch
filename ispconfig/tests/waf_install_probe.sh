@@ -73,8 +73,13 @@ foreach ($overlay['changed'] as $key) {
 }
 file_put_contents($dir . '/settings.json', json_encode($row));
 PHP
-switch_php=$(native "$state/switch.php")
-printf '#!/bin/bash\nexec php %s "$@"\n' "$switch_php" > "$pkg/waf-switch"
+if command -v cygpath > /dev/null; then
+	# Git Bash hands PHP no path it could open, so a shell wrapper names the stand-in natively.
+	printf '#!/bin/bash\nexec php %s "$@"\n' "$(native "$state/switch.php")" > "$pkg/waf-switch"
+else
+	# A PHP script like the real one, so the installer may also start it through php.
+	printf "#!/usr/bin/env php\n<?php\nrequire '%s';\n" "$state/switch.php" > "$pkg/waf-switch"
+fi
 
 cat > "$stubs/nginx" <<'SH'
 #!/bin/bash
@@ -254,6 +259,16 @@ grep -q 'Ohne Terminal bitte mit --yes bestätigen' <<< "$out" || fail "new bloc
 if ! out=$(MALWATCH_WAF_BLOCKED_LOG="$root/var/log/waf/denied.log" install_waf --yes); then fail "new block log with --yes: $out"; fi
 grep -qF "$root/var/log/waf/denied.log {" "$root/etc/logrotate.d/waf" || fail "new block log: logrotate keeps the old one"
 [ -f "$root/var/log/waf/denied.log" ] || fail "new block log: the file is missing"
+
+# --- 8. a folder whose scripts lost their mode, as an archive may leave them --------
+# Git Bash counts every file with #! as executable, so this runs where chmod counts.
+if ! command -v cygpath > /dev/null; then
+	chmod -x "$pkg/waf-switch" "$pkg/install.sh"
+	before=$(fingerprint)
+	if ! out=$(install_waf); then fail "a waf-switch without its mode: $out"; fi
+	[ "$(fingerprint)" = "$before" ] || fail "a run through php changed files"
+	chmod +x "$pkg/waf-switch" "$pkg/install.sh"
+fi
 
 if [ "$failures" -gt 0 ]; then
 	echo "$failures Fehler" >&2

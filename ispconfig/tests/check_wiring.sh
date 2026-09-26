@@ -2002,13 +2002,28 @@ if [ -f "$class" ] && grep -qE "'(backup_dir|guard_log|conf_include|logrotate)' 
 	fail "malwatch_waf.inc.php führt wieder eigene Orte neben den Einstellungen"
 fi
 if [ -f "$waf_dir/install.sh" ]; then
-	grep -qF 'places=$("$SWITCH" paths shell)' "$waf_dir/install.sh" \
+	grep -qF 'places=$(run_switch paths shell)' "$waf_dir/install.sh" \
 		|| fail "waf/install.sh nimmt die Orte nicht aus den Einstellungen (waf-switch paths shell)"
-	grep -qF '"$SWITCH" paths save' "$waf_dir/install.sh" \
+	grep -qF 'run_switch paths save' "$waf_dir/install.sh" \
 		|| fail "waf/install.sh speichert neue Orte nicht"
 	grep -qF 'readlink -f "$0"' "$waf_dir/waf-guard" \
 		|| fail "waf-guard findet waf-switch nicht neben sich"
 fi
+
+# 97. The scripts under waf/ carry the mode 755 in git, so a checkout or a
+#     git archive can start them; 0.35.0 went out with 644 and its installer
+#     stopped at "Permission denied". The installer starts waf-switch of its
+#     folder through php when the mode got lost anyway.
+if command -v git > /dev/null 2>&1 && git -C "$root/.." rev-parse --git-dir > /dev/null 2>&1; then
+	for f in waf/install.sh waf/waf-switch waf/waf-guard waf/waf-report; do
+		mode=$(git -C "$root/.." ls-files -s -- "$f" | cut -c1-6)
+		if [ -n "$mode" ] && [ "$mode" != 100755 ]; then
+			fail "$f steht im Git ohne Ausführrecht ($mode); git update-index --chmod=+x $f"
+		fi
+	done
+fi
+grep -qF 'else php "$SWITCH" "$@"; fi' "$waf_dir/install.sh" \
+	|| fail "waf/install.sh startet waf-switch ohne Ausführrecht nicht über php"
 
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'

@@ -2,6 +2,17 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.35.1] – 2026-09-27
+
+### Behoben
+
+**`waf/install.sh` läuft auch aus einem Ordner, dessen Skripte kein
+Ausführrecht haben.** In 0.35.0 standen `install.sh`, `waf-switch`, `waf-guard`
+und `waf-report` im Repository ohne Ausführrecht, und ein Ordner aus
+`git archive` brach beim ersten Aufruf von `waf-switch` mit „Permission denied“
+ab, bevor er etwas änderte. Die vier Skripte tragen jetzt das Ausführrecht, und
+der Installer startet `waf-switch` seines Ordners notfalls über `php`.
+
 ## [0.35.0] – 2026-09-27
 
 ### Hinzugefügt

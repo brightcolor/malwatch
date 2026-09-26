@@ -38,6 +38,11 @@ done
 LIB=${MALWATCH_WAF_LIB:-/usr/local/ispconfig/interface/web/security/lib/malwatch_waf_lib.inc.php}
 SWITCH="$here/waf-switch"
 
+# waf-switch of this folder, through php when an archive lost its mode.
+run_switch() {
+	if [ -x "$SWITCH" ]; then "$SWITCH" "$@"; else php "$SWITCH" "$@"; fi
+}
+
 say() { echo "waf/install.sh: $*"; }
 
 # Writes a text the shared functions produce: render <function> [arguments]
@@ -56,7 +61,7 @@ fi
 
 # The places: the wanted ones with the changes of the environment, the stored
 # ones as OLD_*. waf-switch refuses a bad value with its reason.
-if ! places=$("$SWITCH" paths shell); then
+if ! places=$(run_switch paths shell); then
 	echo "Nichts geändert. Bitte die Werte korrigieren und das Skript erneut aufrufen." >&2
 	exit 1
 fi
@@ -70,7 +75,7 @@ changed() {
 }
 
 if [ -n "$check_only" ]; then
-	"$SWITCH" paths
+	run_switch paths
 	echo
 	if [ -z "$WAF_CHANGED" ]; then
 		say "Mit dieser Umgebung bleiben alle Orte, wie sie sind."
@@ -135,7 +140,7 @@ fi
 
 # The audit log is read up to now before it moves.
 if changed waf_audit_log; then
-	"$SWITCH" ingest > /dev/null || true
+	run_switch ingest > /dev/null || true
 fi
 
 BACKUP="$WAF_BACKUP_DIR/install-$(date +%Y%m%d-%H%M%S)"
@@ -240,7 +245,7 @@ fi
 for file in crs-extra.conf exclusions-before.conf exclusions-after.conf; do
 	put "$WAF_CONF_DIR/$file" 644 < "conf/$file"
 done
-put_text "$WAF_CONF_DIR/settings.conf" 644 "$SWITCH" paths render settings.conf
+put_text "$WAF_CONF_DIR/settings.conf" 644 run_switch paths render settings.conf
 if [ ! -f "$WAF_CONF_DIR/state.conf" ]; then
 	emergency=
 	if [ -f "$WAF_CONF_DIR/zustand.conf" ] && grep -qE '^[[:space:]]*SecRuleEngine[[:space:]]+Off' "$WAF_CONF_DIR/zustand.conf"; then
@@ -263,12 +268,12 @@ done
 if [ ! -f "$WAF_CONF_DIR/blocked.conf" ]; then
 	put_text "$WAF_CONF_DIR/blocked.conf" 644 printf '# von malwatch erzeugt, leer\n'
 fi
-put_text "$WAF_CONF_DIR/main.conf" 644 "$SWITCH" paths render main.conf
+put_text "$WAF_CONF_DIR/main.conf" 644 run_switch paths render main.conf
 
 # 2. The two includes. After a hard emergency stop this switches the rules
 #    back on; the include of an old place goes.
-put_text "$WAF_RULES_INCLUDE" 644 "$SWITCH" paths render rules-include
-put_text "$WAF_BLOCKED_INCLUDE" 644 "$SWITCH" paths render blocked-include
+put_text "$WAF_RULES_INCLUDE" 644 run_switch paths render rules-include
+put_text "$WAF_BLOCKED_INCLUDE" 644 run_switch paths render blocked-include
 drop "$WAF_RULES_INCLUDE.off"
 if changed waf_rules_include; then
 	drop "$OLD_WAF_RULES_INCLUDE"
@@ -288,7 +293,7 @@ chmod 600 "$WAF_AUDIT_LOG"
 if [ ! -f "$WAF_BLOCKED_LOG" ]; then install -o www-data -g adm -m 640 /dev/null "$WAF_BLOCKED_LOG"; fi
 chown www-data:adm "$WAF_BLOCKED_LOG"
 chmod 640 "$WAF_BLOCKED_LOG"
-put_text "$WAF_LOGROTATE_FILE" 644 "$SWITCH" paths render logrotate
+put_text "$WAF_LOGROTATE_FILE" 644 run_switch paths render logrotate
 if changed waf_logrotate_file; then drop "$OLD_WAF_LOGROTATE_FILE"; fi
 
 # 4. The tools and the clock: the cron file starts the minute clock and the
@@ -297,7 +302,7 @@ make_dir "$WAF_TOOLS_DIR" root root 755
 for tool in waf-switch waf-guard waf-report; do
 	put "$WAF_TOOLS_DIR/$tool" 755 < "$tool"
 done
-put_text "$WAF_CRON_FILE" 644 "$SWITCH" paths render cron
+put_text "$WAF_CRON_FILE" 644 run_switch paths render cron
 if changed waf_cron_file; then drop "$OLD_WAF_CRON_FILE"; fi
 if changed waf_tools_dir; then
 	for tool in waf-switch waf-guard waf-report; do drop "$OLD_WAF_TOOLS_DIR/$tool"; done
@@ -339,7 +344,7 @@ esac
 
 # 6. The places are stored once they stand and nginx accepted them. From
 #    here on the files stay, whatever follows.
-"$SWITCH" paths save
+run_switch paths save
 trap - ERR
 
 # 7. The old names go once nothing includes them any more.
