@@ -118,3 +118,25 @@ $wb['btn_cancel_txt'] = 'Abbrechen';
 $wb['wp_cli_path_txt'] = 'WP-CLI';
 $wb['wp_cli_path_hint_txt'] = 'Pfad zu WP-CLI auf dem Server. Updates exportieren und heben damit die Datenbank an, wenn ein Kern-Update das verlangt. Ein leeres Feld steht für /usr/local/bin/wp.';
 $wb['wp_cli_path_error_regex'] = 'Der Pfad zu WP-CLI muss ein absoluter Pfad sein.';
+
+// The dialog "Änderungen prüfen" on saving (malwatch_modal.htm).
+$wb['btn_close_txt'] = 'Schließen';
+$wb['review_title_txt'] = 'Änderungen prüfen';
+$wb['review_one_txt'] = 'Diese Änderung wird gespeichert:';
+$wb['review_many_txt'] = 'Diese %s Änderungen werden gespeichert:';
+$wb['review_save_txt'] = 'Speichern';
+$wb['review_anyway_txt'] = 'Trotzdem speichern';
+$wb['review_back_txt'] = 'Weiter bearbeiten';
+$wb['review_close_txt'] = 'Schließen';
+$wb['review_was_txt'] = 'bisher';
+$wb['review_now_txt'] = 'neu';
+$wb['review_empty_txt'] = 'leer';
+$wb['review_on_txt'] = 'an';
+$wb['review_off_txt'] = 'aus';
+$wb['review_added_txt'] = 'kommt dazu';
+$wb['review_removed_txt'] = 'fällt weg';
+$wb['review_danger_txt'] = 'Schutz fällt weg';
+$wb['review_secret_new_txt'] = 'neuer Schlüssel, endet auf %s';
+$wb['review_secret_clear_txt'] = 'wird entfernt';
+$wb['review_none_txt'] = 'Nichts geändert. „Trotzdem speichern“ schreibt die Einstellungen noch einmal.';
+$wb['review_auto_txt'] = 'Automatische Aktion';

@@ -303,3 +303,25 @@ $wb['sum_cron_txt'] = '%1$s Zeilen je Lauf · wartet bis %2$s Sekunden · Ausfal
 $wb['sum_facts_txt'] = 'Notaus %1$s · Seitenantwort %2$s';
 $wb['sum_emergency_on_txt'] = 'aktiv';
 $wb['sum_emergency_off_txt'] = 'aus';
+
+// The dialog "Änderungen prüfen" on saving (malwatch_modal.htm).
+$wb['btn_cancel_txt'] = 'Abbrechen';
+$wb['btn_close_txt'] = 'Schließen';
+$wb['review_title_txt'] = 'Änderungen prüfen';
+$wb['review_one_txt'] = 'Diese Änderung wird gespeichert:';
+$wb['review_many_txt'] = 'Diese %s Änderungen werden gespeichert:';
+$wb['review_save_txt'] = 'Speichern';
+$wb['review_anyway_txt'] = 'Trotzdem speichern';
+$wb['review_back_txt'] = 'Weiter bearbeiten';
+$wb['review_close_txt'] = 'Schließen';
+$wb['review_was_txt'] = 'bisher';
+$wb['review_now_txt'] = 'neu';
+$wb['review_empty_txt'] = 'leer';
+$wb['review_on_txt'] = 'an';
+$wb['review_off_txt'] = 'aus';
+$wb['review_added_txt'] = 'kommt dazu';
+$wb['review_removed_txt'] = 'fällt weg';
+$wb['review_danger_txt'] = 'Schutz fällt weg';
+$wb['review_secret_new_txt'] = 'neuer Schlüssel, endet auf %s';
+$wb['review_secret_clear_txt'] = 'wird entfernt';
+$wb['review_none_txt'] = 'Nichts geändert. „Trotzdem speichern“ schreibt die Einstellungen noch einmal und stößt ihre Übernahme auf den Servern an.';

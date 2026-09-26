@@ -241,6 +241,7 @@
 <div class="mw-savebar-final">
 	<button class="btn btn-default formbutton-success" type="button"
 		onclick="document.getElementById('mw-action').value='';"
+		data-mw-review="{tmpl_var name='review_data'}"
 		data-submit-form="pageForm" data-form-action="security/malwatch_config_edit.php">{tmpl_var name='btn_apply_txt'}</button>
 	<span class="help-block" style="margin:0">{tmpl_var name='apply_hint_txt'}</span>
 </div>
@@ -249,6 +250,7 @@
 
 <div class="clear"><div class="right">
 	<button class="btn btn-default formbutton-success" type="button" value="{tmpl_var name='btn_save_txt'}"
+		data-mw-review="{tmpl_var name='review_data'}"
 		data-submit-form="pageForm" data-form-action="security/malwatch_config_edit.php">{tmpl_var name='btn_save_txt'}</button>
 	<button class="btn btn-default formbutton-default" type="button" value="{tmpl_var name='btn_cancel_txt'}"
 		data-load-content="security/status.php">{tmpl_var name='btn_cancel_txt'}</button>

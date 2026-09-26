@@ -63,6 +63,106 @@ function malwatch_poll_ms($config)
 }
 
 /**
+ * The stored value of every field of a form definition, as text. A column the
+ * row lacks, or NULL, shows the default of the field, as the form does.
+ */
+function malwatch_form_values($fields, $stored)
+{
+	$values = array();
+	foreach ((array) $fields as $name => $field) {
+		if (is_array($stored) && isset($stored[$name]) && is_scalar($stored[$name])) {
+			$values[$name] = (string) $stored[$name];
+		} else {
+			$values[$name] = is_array($field) && isset($field['default']) ? (string) $field['default'] : '';
+		}
+	}
+	return $values;
+}
+
+/** A key as the pages show it: four characters to recognise it by, the rest stays on the server. */
+function malwatch_key_mask($key)
+{
+	$key = is_string($key) ? trim($key) : '';
+	return $key === '' ? '' : '••••' . substr($key, -4);
+}
+
+/**
+ * The choice of the automatic action that the scanner settings check: none,
+ * safe, critical, preset_<id> for a saved selection, preset_new for a
+ * selection without a saved one, '' for a stored value the page does not know.
+ * $preset_ids are the ids of the saved selections.
+ */
+function malwatch_auto_choice($auto_action, $preset_id, $preset_ids)
+{
+	$auto_action = (string) $auto_action;
+	if ($auto_action === '' || $auto_action === 'none') {
+		return 'none';
+	}
+	if ($auto_action === 'safe' || $auto_action === 'critical') {
+		return $auto_action;
+	}
+	if ($auto_action === 'preset') {
+		$preset_id = (int) $preset_id;
+		return $preset_id > 0 && in_array($preset_id, array_map('intval', (array) $preset_ids), true)
+			? 'preset_' . $preset_id : 'preset_new';
+	}
+	return '';
+}
+
+/** The texts of the dialog "Änderungen prüfen" from the word list of a page (review_*_txt). */
+function malwatch_review_words($wb)
+{
+	$words = array();
+	foreach (array('title', 'one', 'many', 'none', 'save', 'anyway', 'back', 'close', 'was', 'now', 'empty', 'on',
+		'off', 'added', 'removed', 'danger', 'secret_new', 'secret_clear') as $key) {
+		$words[$key] = isset($wb['review_' . $key . '_txt']) ? (string) $wb['review_' . $key . '_txt'] : '';
+	}
+	return $words;
+}
+
+/**
+ * What the dialog "Änderungen prüfen" of a settings page compares the form
+ * with, as JSON for the attribute data-mw-review of its save button. $values
+ * holds the stored value of every field the dialog looks at, lists one entry
+ * per line. $options: secrets (field => mask and the name of its remove
+ * checkbox; the stored key itself never goes in), danger (lists whose removed
+ * entries weaken the protection), labels (field => name, for a field without
+ * a label of its own), words (malwatch_review_words()). <, >, & and quotes go
+ * out as \u escapes, so the text is safe in any attribute and script.
+ */
+function malwatch_review_json($values, $options)
+{
+	$options = is_array($options) ? $options : array();
+	$secrets = isset($options['secrets']) && is_array($options['secrets']) ? $options['secrets'] : array();
+	$data = array('values' => array(), 'secrets' => array(), 'danger' => array(), 'labels' => array(), 'words' => array());
+	foreach ((array) $values as $name => $value) {
+		if (!isset($secrets[$name])) {
+			$data['values'][(string) $name] = is_scalar($value) ? (string) $value : '';
+		}
+	}
+	foreach ($secrets as $name => $secret) {
+		$data['secrets'][(string) $name] = array(
+			'mask' => isset($secret['mask']) ? (string) $secret['mask'] : '',
+			'clear' => isset($secret['clear']) ? (string) $secret['clear'] : '',
+		);
+	}
+	foreach (array('danger', 'labels', 'words') as $part) {
+		if (isset($options[$part]) && is_array($options[$part])) {
+			foreach ($options[$part] as $key => $text) {
+				if ($part === 'danger') {
+					$data[$part][] = (string) $text;
+				} else {
+					$data[$part][(string) $key] = (string) $text;
+				}
+			}
+		}
+	}
+	// A value that is no UTF-8 goes out as null; the dialog shows it as empty.
+	$json = json_encode($data, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_PARTIAL_OUTPUT_ON_ERROR);
+	return $json === false ? '{}' : $json;
+}
+
+/**
  * Queues a scan for one website.
  *
  * Returns true, or a German message explaining why nothing was queued.

@@ -303,3 +303,25 @@ $wb['sum_cron_txt'] = '%1$s lines per pass · waits up to %2$s seconds · stoppe
 $wb['sum_facts_txt'] = 'emergency stop %1$s · page response %2$s';
 $wb['sum_emergency_on_txt'] = 'active';
 $wb['sum_emergency_off_txt'] = 'off';
+
+// The dialog "Review changes" on saving (malwatch_modal.htm).
+$wb['btn_cancel_txt'] = 'Cancel';
+$wb['btn_close_txt'] = 'Close';
+$wb['review_title_txt'] = 'Review changes';
+$wb['review_one_txt'] = 'This change will be saved:';
+$wb['review_many_txt'] = 'These %s changes will be saved:';
+$wb['review_save_txt'] = 'Save';
+$wb['review_anyway_txt'] = 'Save anyway';
+$wb['review_back_txt'] = 'Keep editing';
+$wb['review_close_txt'] = 'Close';
+$wb['review_was_txt'] = 'before';
+$wb['review_now_txt'] = 'new';
+$wb['review_empty_txt'] = 'empty';
+$wb['review_on_txt'] = 'on';
+$wb['review_off_txt'] = 'off';
+$wb['review_added_txt'] = 'added';
+$wb['review_removed_txt'] = 'removed';
+$wb['review_danger_txt'] = 'protection removed';
+$wb['review_secret_new_txt'] = 'new key, ends in %s';
+$wb['review_secret_clear_txt'] = 'will be removed';
+$wb['review_none_txt'] = 'Nothing changed. "Save anyway" writes the settings again and has the servers apply them.';

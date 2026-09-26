@@ -34,6 +34,9 @@ class page_action extends tform_actions
 	/** The $wb loaded in onLoad(), reused in onShowEnd() without loading it twice. */
 	private $malwatch_wb = array();
 
+	/** The choice of the automatic action the page checks (malwatch_auto_choice()), set by show_auto_action(). */
+	private $malwatch_auto_choice = '';
+
 	/** Set by onLoad() for "Zusammenstellung speichern"; read in onUpdate(). */
 	private $malwatch_preset_only = false;
 
@@ -356,6 +359,21 @@ class page_action extends tform_actions
 
 		$this->show_auto_action($config);
 
+		// The dialog "Änderungen prüfen" compares the form with the stored row:
+		// the automatic action as the choice the page checks, the token only as
+		// its mask.
+		$stored_values = malwatch_form_values($app->tform->formDef['tabs']['settings']['fields'], $config);
+		unset($stored_values['auto_action'], $stored_values['auto_preset_id']);
+		$stored_values['auto_choice'] = $this->malwatch_auto_choice;
+		$app->tpl->setVar('review_data', $app->functions->htmlentities(malwatch_review_json($stored_values, array(
+			'secrets' => array('wpscan_token' => array(
+				'mask' => malwatch_key_mask(isset($config['wpscan_token']) ? (string) $config['wpscan_token'] : ''),
+				'clear' => 'wpscan_token_remove')),
+			'labels' => array('auto_choice' => isset($this->malwatch_wb['review_auto_txt'])
+				? $this->malwatch_wb['review_auto_txt'] : ''),
+			'words' => malwatch_review_words($this->malwatch_wb),
+		))));
+
 		// The page's own messages. The variable error belongs to tform:
 		// tform_actions::onError() puts the validator messages there, and
 		// tabbed_form.tpl.htm prints them above the form.
@@ -389,11 +407,21 @@ class page_action extends tform_actions
 		$active_mode = (string) $config['auto_action'];
 		$active_preset_id = $app->functions->intval($config['auto_preset_id']);
 
+		// Which choice is checked; the dialog "Änderungen prüfen" compares with
+		// the same one.
+		$presets = $app->db->queryAllRecords('SELECT * FROM malwatch_auto_preset ORDER BY preset_name ASC, preset_id ASC');
+		$preset_ids = array();
+		foreach ((array) $presets as $preset) {
+			$preset_ids[] = $app->functions->intval($preset['preset_id']);
+		}
+		$choice = malwatch_auto_choice($active_mode, $active_preset_id, $preset_ids);
+		$this->malwatch_auto_choice = $choice;
+
 		$app->tpl->setVar('auto_action', $app->functions->htmlentities($active_mode !== '' ? $active_mode : 'none'));
 		$app->tpl->setVar('auto_preset_id', $active_preset_id);
-		$app->tpl->setVar('auto_none_checked', ($active_mode === 'none' || $active_mode === '') ? 1 : 0);
-		$app->tpl->setVar('auto_safe_checked', $active_mode === 'safe' ? 1 : 0);
-		$app->tpl->setVar('auto_critical_checked', $active_mode === 'critical' ? 1 : 0);
+		$app->tpl->setVar('auto_none_checked', $choice === 'none' ? 1 : 0);
+		$app->tpl->setVar('auto_safe_checked', $choice === 'safe' ? 1 : 0);
+		$app->tpl->setVar('auto_critical_checked', $choice === 'critical' ? 1 : 0);
 
 		$rule_total_row = $app->db->queryOneRecord('SELECT COUNT(*) AS n FROM malwatch_rule');
 		$rule_total = is_array($rule_total_row) ? $app->functions->intval($rule_total_row['n']) : 0;
@@ -411,9 +439,7 @@ class page_action extends tform_actions
 			number_format(malwatch_auto_mode_finding_count($app, 'critical'), 0, ',', '.'))));
 
 		// --- Saved presets, each its own "Möglichkeit" ------------------------
-		$presets = $app->db->queryAllRecords('SELECT * FROM malwatch_auto_preset ORDER BY preset_name ASC, preset_id ASC');
 		$preset_rows = array();
-		$matched_active_preset = false;
 		foreach ((array) $presets as $preset) {
 			$preset_id = $app->functions->intval($preset['preset_id']);
 			$rule_ids = array();
@@ -435,10 +461,7 @@ class page_action extends tform_actions
 				$live_rule_count = is_array($live_row) ? $app->functions->intval($live_row['n']) : 0;
 			}
 
-			$is_checked = ($active_mode === 'preset' && $preset_id === $active_preset_id);
-			if ($is_checked) {
-				$matched_active_preset = true;
-			}
+			$is_checked = $choice === 'preset_' . $preset_id;
 
 			$preset_rows[] = array(
 				'preset_id' => $preset_id,
@@ -457,7 +480,7 @@ class page_action extends tform_actions
 		// (0, or one meanwhile deleted) means the ad-hoc editor itself is
 		// what is active - the same state malwatch_auto_mode_paths_by_domain()
 		// already treats as "preset with nothing to go by".
-		$app->tpl->setVar('preset_new_checked', ($active_mode === 'preset' && !$matched_active_preset) ? 1 : 0);
+		$app->tpl->setVar('preset_new_checked', $choice === 'preset_new' ? 1 : 0);
 
 		// --- Full rule catalogue for the "eigene Auswahl" checklist -----------
 		// Ordered by how many open findings a rule has right now, not

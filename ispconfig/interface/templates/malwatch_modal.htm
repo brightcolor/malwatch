@@ -15,6 +15,14 @@
 	data-mw-detail below it and a single close button, and nothing goes to the
 	panel.
 
+	A save button with data-mw-review opens "Änderungen prüfen": the attribute
+	holds what is stored (malwatch_review_json()), and the dialog lists every
+	field of the form whose value differs, by section, with the stored and the
+	new value. Lists show the entries that come and go; a removed entry of a
+	list named in danger is marked. Keys appear only as their mask and the last
+	four characters of a new one. Without a change the dialog says so and still
+	offers to save.
+
 	The page escapes the language lines it puts there (malwatch_attr_texts());
 	the labels of the dialog's own buttons come from its language file
 	(btn_cancel_txt, and btn_close_txt on a page with hints).
@@ -29,6 +37,7 @@
 			<div class="mw-modal-body">
 				<p class="mw-modal-text" id="mw-modal-text"></p>
 				<p class="mw-modal-detail" hidden></p>
+				<div class="mw-modal-review" hidden></div>
 			</div>
 			<div class="modal-footer">
 				<button type="button" class="btn btn-default formbutton-default mw-modal-cancel" data-dismiss="modal">{tmpl_var name='btn_cancel_txt'}</button>
@@ -52,6 +61,24 @@
 	word-break:break-all;opacity:.8;
 }
 .mw-modal .modal-footer .btn{white-space:normal}
+/* "Änderungen prüfen": one row per changed setting, grouped by the sections
+   of the page; a long list scrolls inside the dialog. */
+.mw-modal .mw-modal-review{margin-top:12px;max-height:60vh;overflow:auto;overflow-wrap:anywhere}
+.mw-modal .mw-review-sec{margin:14px 0 4px;font-size:11px;font-weight:700;letter-spacing:.06em;
+	text-transform:uppercase;opacity:.72}
+.mw-modal .mw-review-sec:first-child{margin-top:0}
+.mw-modal .mw-review-row{padding:7px 0;border-top:1px solid var(--cic-line-soft,rgba(128,128,128,.35))}
+.mw-modal .mw-review-label{font-weight:600;margin:0 0 2px}
+.mw-modal .mw-review-was{opacity:.75}
+.mw-modal .mw-review-now{font-weight:600}
+.mw-modal .mw-review-list{margin:0;padding:0;list-style:none}
+.mw-modal .mw-review-list li{margin:1px 0}
+.mw-modal .mw-review-sign{display:inline-block;min-width:1.2em;font-weight:700}
+.mw-modal .mw-review-danger{font-weight:600}
+/* White on the strong warning colour, as the chips of the scanner overview:
+   the text colours of the themes are too light on the surface of a dialog. */
+.mw-modal .mw-review-note{margin-left:.5em;padding:1px 7px;border-radius:9px;font-size:11px;font-weight:700;
+	white-space:nowrap;background:var(--cic-bad-deep,#b13116);color:#fff}
 /* .btn setzt display:inline-block und gewaenne sonst gegen [hidden]. */
 .mw-modal .modal-footer [hidden]{display:none!important}
 </style>
@@ -123,6 +150,19 @@
 		modal.querySelector('.mw-modal-cancel').hidden = hint;
 		modal.querySelector('.mw-modal-ok').hidden = hint;
 		modal.querySelector('.mw-modal-close').hidden = !hint;
+		var box = modal.querySelector('.mw-modal-review');
+		if (box) {
+			box.hidden = true;
+			while (box.firstChild) { box.removeChild(box.firstChild); }
+		}
+		cancelText(modal, '');
+	}
+
+	// The cancel button keeps its label from the page unless a mode names it.
+	function cancelText(modal, text) {
+		var cancel = modal.querySelector('.mw-modal-cancel');
+		if (!cancel.hasAttribute('data-mw-text')) { cancel.setAttribute('data-mw-text', cancel.textContent); }
+		cancel.textContent = text || cancel.getAttribute('data-mw-text');
 	}
 
 	function ask(button) {
@@ -138,6 +178,243 @@
 			? 'btn btn-danger mw-modal-ok'
 			: 'btn btn-default formbutton-success mw-modal-ok';
 		$(modal).modal('show');
+	}
+
+	// --- "Änderungen prüfen" ---------------------------------------------------
+
+	function reviewData(button) {
+		try {
+			var data = JSON.parse(button.getAttribute('data-mw-review') || '');
+			return data && typeof data === 'object' && data.values && data.words ? data : null;
+		} catch (e) {
+			return null;
+		}
+	}
+
+	function flat(text) {
+		return String(text === null || text === undefined ? '' : text).replace(/\s+/g, ' ').trim();
+	}
+
+	// The entries of a list, one per line, without blanks and doubles.
+	function entries(text) {
+		var out = [];
+		String(text === null || text === undefined ? '' : text).split(/\r?\n/).forEach(function (one) {
+			one = one.trim();
+			if (one !== '' && out.indexOf(one) < 0) { out.push(one); }
+		});
+		return out;
+	}
+
+	function fmt(text, value) {
+		return String(text || '').replace('%s', value);
+	}
+
+	function labelFor(field) {
+		return field.id ? document.querySelector('label[for="' + field.id + '"]') : null;
+	}
+
+	// The name of a field as its page shows it.
+	function reviewLabel(field, data) {
+		if (data.labels && data.labels[field.name]) { return data.labels[field.name]; }
+		var own = field.type === 'radio' ? null : labelFor(field);
+		if (own) { return flat(own.textContent); }
+		var group = field.closest('[role="radiogroup"]');
+		var title = group && group.getAttribute('aria-labelledby')
+			? document.getElementById(group.getAttribute('aria-labelledby')) : null;
+		if (title) { return flat(title.textContent); }
+		var row = field.closest('.form-group, .mw-cfg-field');
+		var head = row ? row.querySelector('.control-label, .mw-cfg-label, label') : null;
+		return head ? flat(head.textContent) : field.name;
+	}
+
+	// The heading of the section a field stands in: the last one before it.
+	function reviewSection(field, heads) {
+		var found = '';
+		for (var i = 0; i < heads.length; i++) {
+			if (heads[i].compareDocumentPosition(field) & 4) { found = flat(heads[i].textContent); }
+		}
+		return found;
+	}
+
+	function reviewUnit(field) {
+		var group = field.closest('.input-group');
+		var addon = group ? group.querySelector('.input-group-addon') : null;
+		return addon ? flat(addon.textContent) : '';
+	}
+
+	function reviewShown(text, unit, words) {
+		text = flat(text);
+		return text === '' ? words.empty : (unit ? text + ' ' + unit : text);
+	}
+
+	// The text of a choice: its label, or the name of a choice card.
+	function choiceText(fields, value, words) {
+		for (var i = 0; i < fields.length; i++) {
+			if (fields[i].value === value) {
+				var label = fields[i].closest('label') || labelFor(fields[i]);
+				if (!label) { return value; }
+				var name = label.querySelector('.mw-name');
+				return flat((name || label).textContent);
+			}
+		}
+		return value === '' ? words.empty : value;
+	}
+
+	function optionText(select, value, words) {
+		for (var i = 0; i < select.options.length; i++) {
+			if (select.options[i].value === value) { return flat(select.options[i].text); }
+		}
+		return value === '' ? words.empty : value;
+	}
+
+	function fieldChange(fields, stored, protective, words) {
+		var first = fields[0];
+		var i;
+		if (first.type === 'radio') {
+			var chosen = '';
+			for (i = 0; i < fields.length; i++) {
+				if (fields[i].checked) { chosen = fields[i].value; }
+			}
+			return chosen === stored ? null
+				: { was: choiceText(fields, stored, words), now: choiceText(fields, chosen, words) };
+		}
+		if (first.type === 'checkbox') {
+			var was = stored === first.value;
+			return first.checked === was ? null
+				: { was: was ? words.on : words.off, now: first.checked ? words.on : words.off };
+		}
+		if (first.tagName === 'SELECT') {
+			return first.value === stored ? null
+				: { was: optionText(first, stored, words), now: optionText(first, first.value, words) };
+		}
+		if (first.tagName === 'TEXTAREA') {
+			var before = entries(stored);
+			var after = entries(first.value);
+			var added = after.filter(function (one) { return before.indexOf(one) < 0; });
+			var removed = before.filter(function (one) { return after.indexOf(one) < 0; });
+			return added.length || removed.length
+				? { added: added, removed: removed, danger: protective && removed.length > 0 } : null;
+		}
+		var a = flat(stored);
+		var b = flat(first.value);
+		// 5 and 05 are the same number for the form.
+		if (a === b || (/^-?\d+$/.test(a) && /^-?\d+$/.test(b) && Number(a) === Number(b))) { return null; }
+		var unit = reviewUnit(first);
+		return { was: reviewShown(a, unit, words), now: reviewShown(b, unit, words) };
+	}
+
+	// A key: empty or its mask keeps it, the remove checkbox removes it.
+	function secretChange(form, field, secret, words) {
+		var clear = secret.clear ? form.querySelector('[name="' + secret.clear + '"]') : null;
+		var was = secret.mask || words.empty;
+		if (clear && clear.checked) { return { was: was, now: words.secret_clear }; }
+		var typed = flat(field.value);
+		if (typed === '' || typed === secret.mask) { return null; }
+		return { was: was, now: fmt(words.secret_new, typed.slice(-4)) };
+	}
+
+	function reviewChanges(form, data) {
+		var own = Object.prototype.hasOwnProperty;
+		var values = data.values;
+		var secrets = data.secrets && !Array.isArray(data.secrets) ? data.secrets : {};
+		var danger = Array.isArray(data.danger) ? data.danger : [];
+		var heads = form.querySelectorAll('.mw-cfg-title, .mw-sec');
+		var groups = {};
+		var order = [];
+		for (var i = 0; i < form.elements.length; i++) {
+			var el = form.elements[i];
+			if (!el.name || el.disabled) { continue; }
+			if (!own.call(values, el.name) && !own.call(secrets, el.name)) { continue; }
+			if (!own.call(groups, el.name)) {
+				groups[el.name] = [];
+				order.push(el.name);
+			}
+			groups[el.name].push(el);
+		}
+		var changes = [];
+		order.forEach(function (name) {
+			var fields = groups[name];
+			var change = own.call(secrets, name)
+				? secretChange(form, fields[0], secrets[name], data.words)
+				: fieldChange(fields, values[name] === null ? '' : String(values[name]),
+					danger.indexOf(name) >= 0, data.words);
+			if (change) {
+				change.label = reviewLabel(fields[0], data);
+				change.section = reviewSection(fields[0], heads);
+				changes.push(change);
+			}
+		});
+		return changes;
+	}
+
+	function make(parent, tag, className, text) {
+		var node = document.createElement(tag);
+		if (className) { node.className = className; }
+		if (text) { node.textContent = text; }
+		parent.appendChild(node);
+		return node;
+	}
+
+	// Words for screen readers: what the signs and the arrow say.
+	function spoken(parent, text) {
+		if (text) { make(parent, 'span', 'sr-only', text); }
+	}
+
+	function reviewEntry(list, sign, said, text, danger, note) {
+		var item = make(list, 'li', danger ? 'mw-review-danger' : '', '');
+		make(item, 'span', 'mw-review-sign', sign).setAttribute('aria-hidden', 'true');
+		spoken(item, said + ': ');
+		make(item, 'span', '', text);
+		if (danger && note) { make(item, 'span', 'mw-review-note', note); }
+	}
+
+	function renderReview(box, changes, words) {
+		var section = null;
+		changes.forEach(function (change) {
+			if (change.section !== section) {
+				section = change.section;
+				if (section) { make(box, 'h5', 'mw-review-sec', section); }
+			}
+			var row = make(box, 'div', 'mw-review-row', '');
+			make(row, 'div', 'mw-review-label', change.label);
+			if (change.added) {
+				var list = make(row, 'ul', 'mw-review-list', '');
+				change.added.forEach(function (one) { reviewEntry(list, '+', words.added, one, false, ''); });
+				change.removed.forEach(function (one) {
+					reviewEntry(list, '\u2212', words.removed, one, change.danger, words.danger);
+				});
+				return;
+			}
+			var line = make(row, 'div', 'mw-review-change', '');
+			spoken(line, words.was + ': ');
+			make(line, 'span', 'mw-review-was', change.was);
+			make(line, 'span', 'mw-review-arrow', ' \u2192 ').setAttribute('aria-hidden', 'true');
+			spoken(line, ', ' + words.now + ': ');
+			make(line, 'span', 'mw-review-now', change.now);
+		});
+	}
+
+	function review(button, data) {
+		var modal = dialog();
+		var form = button.closest('form') || document.getElementById('pageForm');
+		if (!modal || !form || !$ || !$.fn.modal) { return false; }
+		var words = data.words;
+		var changes = reviewChanges(form, data);
+		pending = button;
+		confirmed = false;
+		fill(modal, button, words.title, changes.length === 0 ? words.none
+			: (changes.length === 1 ? words.one : fmt(words.many, changes.length)), false);
+		var box = modal.querySelector('.mw-modal-review');
+		renderReview(box, changes, words);
+		box.hidden = changes.length === 0;
+		var ok = modal.querySelector('.mw-modal-ok');
+		ok.textContent = changes.length === 0 ? words.anyway : words.save;
+		ok.className = changes.length === 0
+			? 'btn btn-default formbutton-default mw-modal-ok'
+			: 'btn btn-default formbutton-success mw-modal-ok';
+		cancelText(modal, changes.length === 0 ? words.close : words.back);
+		$(modal).modal('show');
+		return true;
 	}
 
 	function tell(button) {
@@ -167,6 +444,15 @@
 
 		var button = target.closest('a[data-submit-form], button[data-submit-form]');
 		if (!button) { return; }
+		// Without its data or the dialog a save button saves as before.
+		if (button !== passing && button.hasAttribute('data-mw-review')) {
+			var data = reviewData(button);
+			if (data && review(button, data)) {
+				event.preventDefault();
+				event.stopPropagation();
+				return;
+			}
+		}
 		if (button !== passing && button.hasAttribute('data-mw-empty')) {
 			event.preventDefault();
 			event.stopPropagation();

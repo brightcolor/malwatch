@@ -1874,6 +1874,42 @@ for page in status malwatch_site_show; do
 done
 
 
+# 95. "Änderungen prüfen": every button that saves a settings page carries the
+#     stored values (malwatch_review_json()), both pages include the dialog,
+#     keys leave only as their mask, and both word lists hold every text of
+#     the dialog (malwatch_review_words()).
+lib="$root/interface/lib/malwatch_lib.inc.php"
+words=$(sed -n '/^function malwatch_review_words/,/^}/p' "$lib" | grep -o "'[a-z_]*'" | tr -d "'" | grep -v '^review_$\|^_txt$')
+[ -n "$words" ] || fail "malwatch_review_words() nennt keine Wörter mehr"
+for page in malwatch_waf_config_edit malwatch_config_edit; do
+	tpl="$root/interface/templates/$page.htm"
+	saves=$(grep -c "data-form-action=\"security/$page.php\">{tmpl_var name='btn_\(save\|apply\)_txt'}" "$tpl" || true)
+	reviews=$(grep -c "data-mw-review=\"{tmpl_var name='review_data'}\"" "$tpl" || true)
+	[ "$saves" -gt 0 ] && [ "$saves" = "$reviews" ] \
+		|| fail "$page.htm: $saves Knöpfe speichern, $reviews davon zeigen vorher die Änderungen (data-mw-review)"
+	grep -q '<tmpl_include file="templates/malwatch_modal.htm">' "$tpl" \
+		|| fail "$page.htm bindet den Dialog „Änderungen prüfen“ nicht ein"
+	grep -q "setVar('review_data', \$app->functions->htmlentities(malwatch_review_json(" "$root/interface/$page.php" \
+		|| fail "$page.php gibt dem Dialog die gespeicherten Werte nicht escaped mit"
+	lng=$(printf '%s' "$page" | sed 's/_edit$//')
+	for lang in de en; do
+		for word in $words; do
+			grep -q "\$wb\['review_${word}_txt'\]" "$root/interface/lang/${lang}_${lng}.lng" \
+				|| fail "${lang}_${lng}.lng: review_${word}_txt fehlt"
+		done
+		grep -q "\$wb\['btn_cancel_txt'\]" "$root/interface/lang/${lang}_${lng}.lng" \
+			|| fail "${lang}_${lng}.lng: btn_cancel_txt fehlt; der Dialog braucht es"
+	done
+done
+grep -q 'class="mw-modal-review"' "$root/interface/templates/malwatch_modal.htm" \
+	|| fail "malwatch_modal.htm hat keinen Platz für die Liste der Änderungen"
+grep -q "'mask' => malwatch_key_mask(" "$root/interface/malwatch_config_edit.php" \
+	|| fail "malwatch_config_edit.php gibt dem Dialog den WPScan-Schlüssel ohne Maske"
+grep -q "'mask' => waf_panel_key_mask(\$this->waf_stored_key)" "$root/interface/malwatch_waf_config_edit.php" \
+	|| fail "malwatch_waf_config_edit.php gibt dem Dialog den MaxMind-Schlüssel ohne Maske"
+grep -q "'mask' => waf_panel_key_mask(\$this->waf_stored_proxycheck)" "$root/interface/malwatch_waf_config_edit.php" \
+	|| fail "malwatch_waf_config_edit.php gibt dem Dialog den proxycheck-Schlüssel ohne Maske"
+
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'
 fi

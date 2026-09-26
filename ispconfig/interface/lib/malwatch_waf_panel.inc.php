@@ -12,6 +12,7 @@
 require_once __DIR__ . '/malwatch_waf_lib.inc.php';
 require_once __DIR__ . '/malwatch_waf_ban.inc.php';
 require_once __DIR__ . '/malwatch_waf_origin.inc.php';
+require_once __DIR__ . '/malwatch_lib.inc.php';
 
 /** A language line, or $fallback when the file lacks it. */
 function waf_panel_text($wb, $key, $fallback)
@@ -548,11 +549,10 @@ function waf_panel_ip_filter($get)
 	return filter_var($ip, FILTER_VALIDATE_IP) !== false ? $ip : '';
 }
 
-/** A stored key as the page shows it: four dots and its last four characters. */
+/** A stored key as the page shows it: four dots and its last four characters (malwatch_key_mask()). */
 function waf_panel_key_mask($key)
 {
-	$key = is_string($key) ? trim($key) : '';
-	return $key === '' ? '' : '••••' . substr($key, -4);
+	return malwatch_key_mask($key);
 }
 
 /**

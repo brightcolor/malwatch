@@ -2,6 +2,26 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.33.0] – 2026-09-26
+
+### Hinzugefügt
+
+**Vor dem Speichern zeigt ein Fenster, was sich ändert.** Auf Security > Abwehr >
+Einstellungen und Security > Scanner > Einstellungen öffnet jeder Knopf, der die
+Einstellungen speichert, das Fenster „Änderungen prüfen“. Es listet jede
+geänderte Einstellung nach Abschnitt, mit bisherigem und neuem Wert: Zahlen mit
+Einheit, Auswahlfelder und Automatik-Karten mit ihrer Beschriftung, Schalter als
+an und aus, bei Listen die Einträge, die dazukommen (+) und wegfallen (−). Ein
+entferntes eigenes Netz trägt den roten Hinweis „Schutz fällt weg“. Schlüssel
+erscheinen nur als Maske, ein neuer mit seinen letzten vier Zeichen. „Speichern“
+speichert, „Weiter bearbeiten“ führt zurück ins Formular. Ohne Änderung meldet
+das Fenster „Nichts geändert“ und bietet „Trotzdem speichern“ an; auf der Seite
+der Abwehr stößt das die Übernahme auf den Servern erneut an.
+
+Das Fenster vergleicht mit dem gespeicherten Stand aus der Datenbank. Nach einem
+abgelehnten Speichern zeigt es deshalb alle Änderungen, die noch offen sind,
+auch die aus dem ersten Versuch.
+
 ## [0.32.0] – 2026-09-26
 
 ### Geändert

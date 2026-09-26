@@ -156,6 +156,27 @@ class page_action extends tform_actions
 			$app->functions->htmlentities(waf_panel_key_mask($this->waf_stored_proxycheck)));
 		$app->tpl->setVar('origin_proxycheck_stored', $this->waf_stored_proxycheck === '' ? 0 : 1);
 
+		// The dialog "Änderungen prüfen" compares the form with the stored row:
+		// lists one entry per line, keys only as their mask. A removed own
+		// network weakens the protection, so the dialog marks it.
+		$stored_values = malwatch_form_values($app->tform->formDef['tabs']['waf']['fields'],
+			$app->db->queryOneRecord('SELECT * FROM malwatch_config WHERE config_id = 1'));
+		foreach (waf_settings_lists() as $key => $kind) {
+			if (isset($stored_values[$key])) {
+				$stored_values[$key] = waf_list_lines($stored_values[$key]);
+			}
+		}
+		$app->tpl->setVar('review_data', $app->functions->htmlentities(malwatch_review_json($stored_values, array(
+			'secrets' => array(
+				'waf_origin_maxmind_key' => array('mask' => waf_panel_key_mask($this->waf_stored_key),
+					'clear' => 'waf_origin_key_clear'),
+				'waf_origin_proxycheck_key' => array('mask' => waf_panel_key_mask($this->waf_stored_proxycheck),
+					'clear' => 'waf_origin_proxycheck_clear'),
+			),
+			'danger' => array('waf_own_networks'),
+			'words' => malwatch_review_words($wb),
+		))));
+
 		$clock = waf_panel_clock($app);
 		$states = array();
 		foreach (waf_panel_rows($app->db->queryAllRecords('SELECT * FROM malwatch_waf_origin_source')) as $row) {

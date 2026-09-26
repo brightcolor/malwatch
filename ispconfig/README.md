@@ -43,7 +43,8 @@ Die Cron-Klasse läuft jede Minute. Eine von Hand angestoßene Prüfung startet
 also innerhalb einer Minute, das Ergebnis erscheint, sobald der Lauf fertig ist.
 Solange sie läuft, fragen die Übersicht und die Seite der Website ihren
 Fortschritt ab, in dem Abstand aus **Security > Scanner > Einstellungen**
-(Vorgabe 2 Sekunden).
+(Vorgabe 2 Sekunden). Auch diese Seite zeigt vor dem Speichern im Fenster
+„Änderungen prüfen“, was sich ändert.
 
 ## Schwachstellen
 
@@ -151,7 +152,8 @@ sich, sobald `waf/install.sh` ModSecurity im nginx eingerichtet hat
   einer Zeile, wie der Abschnitt gerade eingestellt ist; die Suche filtert Felder
   und Abschnitte. Ein Wert, der von der Vorgabe abweicht, trägt einen Punkt und den
   Knopf „Vorgabe übernehmen“. Listen (Pfade, Cookies, eigene Netze, Zeiträume)
-  stehen ein Eintrag je Zeile.
+  stehen ein Eintrag je Zeile. Vor dem Speichern listet das Fenster „Änderungen
+  prüfen“ jede geänderte Einstellung mit bisherigem und neuem Wert.
 
 Jeder Knopf legt einen Auftrag in `malwatch_job` mit `job_kind = 'waf'` an. Die
 Cron-Klasse ruft jede Minute `malwatch_waf` auf: Sie liest höchstens so viele Zeilen

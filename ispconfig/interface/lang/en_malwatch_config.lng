@@ -117,3 +117,25 @@ $wb['btn_cancel_txt'] = 'Cancel';
 $wb['wp_cli_path_txt'] = 'WP-CLI';
 $wb['wp_cli_path_hint_txt'] = 'Path to WP-CLI on the server. Updates use it to export and raise the database when a core update asks for it. An empty field stands for /usr/local/bin/wp.';
 $wb['wp_cli_path_error_regex'] = 'The path to WP-CLI must be an absolute path.';
+
+// The dialog "Review changes" on saving (malwatch_modal.htm).
+$wb['btn_close_txt'] = 'Close';
+$wb['review_title_txt'] = 'Review changes';
+$wb['review_one_txt'] = 'This change will be saved:';
+$wb['review_many_txt'] = 'These %s changes will be saved:';
+$wb['review_save_txt'] = 'Save';
+$wb['review_anyway_txt'] = 'Save anyway';
+$wb['review_back_txt'] = 'Keep editing';
+$wb['review_close_txt'] = 'Close';
+$wb['review_was_txt'] = 'before';
+$wb['review_now_txt'] = 'new';
+$wb['review_empty_txt'] = 'empty';
+$wb['review_on_txt'] = 'on';
+$wb['review_off_txt'] = 'off';
+$wb['review_added_txt'] = 'added';
+$wb['review_removed_txt'] = 'removed';
+$wb['review_danger_txt'] = 'protection removed';
+$wb['review_secret_new_txt'] = 'new key, ends in %s';
+$wb['review_secret_clear_txt'] = 'will be removed';
+$wb['review_none_txt'] = 'Nothing changed. "Save anyway" writes the settings again.';
+$wb['review_auto_txt'] = 'Automatic action';
