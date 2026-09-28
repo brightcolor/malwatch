@@ -16,7 +16,7 @@ Hintergrund. malwatch 0.35.1 erkannte davon nichts. Neu:
 | `php.dropper.cron` | kritisch, eindeutig | PHP macht eine Datei ausführbar und trägt sie über einen Shell-Aufruf in die Crontab ein |
 | `php.exec.crontab` | hoch | PHP ändert die Crontab über einen Shell-Aufruf |
 | `php.exec.background` | mittel | PHP startet einen Prozess im Hintergrund |
-| `shell.fetch_exec` | kritisch, eindeutig | ein Shell-Skript lädt ein Programm aus dem Netz, macht es ausführbar und startet es im Hintergrund, oder gibt einen Download direkt an eine Shell |
+| `shell.fetch_exec` | kritisch, eindeutig | ein Shell-Skript lädt ein Programm aus dem Netz, macht es ausführbar und startet es im Hintergrund |
 | `shell.in_uploads` | hoch | ein Shell-Skript in einem Upload-Ordner |
 | `binary.elf_in_uploads` | kritisch | ein Linux-Programm in einem Upload-Ordner |
 | `binary.elf` | mittel | ein Linux-Programm anderswo im Webverzeichnis |

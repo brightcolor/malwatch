@@ -25,8 +25,6 @@ const (
 	// backgroundStart starts a command detached from the one that ran it:
 	// nohup, setsid, or output thrown away and the command sent off with &.
 	backgroundStart = `\b(?:nohup|setsid)\b|>[ \t]*/dev/null[ \t]+2>&1[ \t]*&(?:[^&]|$)`
-	// pipeToShell hands what came before to a shell.
-	pipeToShell = `\|[ \t]*(?:sudo[ \t]+)?(?:/(?:usr/)?bin/)?(?:ba|da|z|k)?sh\b`
 	// elfMagic opens every Linux program.
 	elfMagic = `\A\x7fELF`
 )
@@ -503,16 +501,18 @@ var catalog = []*Rule{
 		ID:          "shell.fetch_exec",
 		Severity:    report.SeverityCritical,
 		AutoSafe:    true,
-		Description: "Shell-Skript lädt ein Programm aus dem Netz und startet es",
+		Description: "Shell-Skript lädt ein Programm aus dem Netz, macht es ausführbar und startet es im Hintergrund",
 		Exts:        shellExts,
 		RawOnly:     true,
-		// A download, and then either the download handed to a shell, or a
-		// file made executable and started in the background. Fetching a tool,
-		// making it executable and running it in the foreground is what an
-		// honest install script does, and stays quiet.
+		// A download, a file made executable and a start in the background:
+		// the start script of AzimutAV. Fetching a tool, making it executable
+		// and running it in the foreground is what an honest install script
+		// does, and stays quiet. So does a download piped into a shell: over
+		// 58 live websites it came up six times, every one of them in a test or
+		// CI script of a Composer package (twig, FOSHttpCache).
 		Match:        rx(`(?m)\b(?:curl|wget)\b[^\n]*`),
-		Requires:     rx(pipeToShell + `|\bchmod\b`),
-		AlsoRequires: rx(pipeToShell + `|` + backgroundStart + `|(?m:[^&>]&[ \t]*$)`),
+		Requires:     rx(`\bchmod\b`),
+		AlsoRequires: rx(backgroundStart + `|(?m:[^&>]&[ \t]*$)`),
 	},
 	{
 		ID:          "shell.in_uploads",
