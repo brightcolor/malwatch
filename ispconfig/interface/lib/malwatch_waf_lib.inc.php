@@ -955,12 +955,20 @@ function waf_settings_defaults()
 		'waf_hc_run' => '/usr/local/sbin/hc-run',
 		'waf_hc_tick_name' => 'waf-tick',
 		'waf_hc_guard_name' => 'waf-guard',
+		'waf_hc_watch_name' => 'malwatch-wache',
 		'waf_bin_dirs' => '/usr/local/sbin,/usr/local/bin,/usr/sbin,/usr/bin,/sbin,/bin',
 		'waf_body_limit_kb' => 12800,
 		'waf_body_nofiles_limit_kb' => 128,
 		'waf_body_limit_action' => 'ProcessPartial',
 		'waf_guard_minute' => 5,
 		'waf_hourly_minute' => 7,
+		// From 0.36.0: the watch over the scanner (waf-switch watch).
+		'waf_watch_minutes' => 5,
+		'waf_watch_stale_minutes' => 15,
+		'waf_watch_pending_minutes' => 180,
+		'waf_watch_overdue_hours' => 12,
+		'waf_watch_remind_hours' => 24,
+		'waf_watch_crash_pause' => 10,
 	);
 }
 
@@ -1054,6 +1062,12 @@ function waf_settings_limits()
 		'waf_hourly_minute' => array(0, 59),
 		'waf_body_limit_kb' => array(1, 1048576),
 		'waf_body_nofiles_limit_kb' => array(1, 1048576),
+		'waf_watch_minutes' => array(1, 60),
+		'waf_watch_stale_minutes' => array(5, 1440),
+		'waf_watch_pending_minutes' => array(15, 10080),
+		'waf_watch_overdue_hours' => array(1, 720),
+		'waf_watch_remind_hours' => array(1, 720),
+		'waf_watch_crash_pause' => array(1, 1440),
 	);
 }
 
@@ -1252,6 +1266,7 @@ function waf_path_settings()
 		'waf_hc_run' => array('kind' => 'program', 'group' => 'tools'),
 		'waf_hc_tick_name' => array('kind' => 'name', 'group' => 'tools'),
 		'waf_hc_guard_name' => array('kind' => 'name', 'group' => 'tools'),
+		'waf_hc_watch_name' => array('kind' => 'name', 'group' => 'tools'),
 		'waf_bin_dirs' => array('kind' => 'dirs', 'group' => 'tools'),
 	);
 }
@@ -1730,18 +1745,195 @@ function waf_cron_text($settings)
 	$text = "# Managed by malwatch (waf/install.sh, Abwehr > Einstellungen). Every change here is overwritten.\n"
 		. "# The minute clock of the Abwehr and its hourly guard, apart from the cron of\n"
 		. "# ISPConfig: that one runs all its jobs one after another under one lock, and a\n"
-		. "# long run - AWStats at night - held the Abwehr up for half an hour.\n";
+		. "# long run - AWStats at night - held the Abwehr up for half an hour.\n"
+		. "# The watch over the scanner checks the cron job of malwatch in ISPConfig from\n"
+		. "# here, so it also notices when the cron of ISPConfig itself stands.\n";
 	if ($hc !== '') {
 		$text .= "# hc-run reports each run to healthchecks once its address stands in\n"
-			. '# /etc/hc-run.d/' . $settings['waf_hc_tick_name'] . '.url and /etc/hc-run.d/'
-			. $settings['waf_hc_guard_name'] . ".url.\n";
+			. '# /etc/hc-run.d/' . $settings['waf_hc_tick_name'] . '.url, /etc/hc-run.d/'
+			. $settings['waf_hc_guard_name'] . ".url and\n"
+			. '# /etc/hc-run.d/' . $settings['waf_hc_watch_name'] . ".url.\n";
 	}
+	$every = (int) $settings['waf_watch_minutes'];
 	return $text
 		. "SHELL=/bin/sh\n"
 		. 'PATH=' . implode(':', waf_list_parse($settings['waf_bin_dirs'])) . "\n"
 		. '* * * * * root ' . $run($settings['waf_hc_tick_name'], $tools . '/waf-switch tick') . " > /dev/null 2>&1\n"
 		. (int) $settings['waf_guard_minute'] . ' * * * * root '
-		. $run($settings['waf_hc_guard_name'], $tools . '/waf-guard') . " > /dev/null 2>&1\n";
+		. $run($settings['waf_hc_guard_name'], $tools . '/waf-guard') . " > /dev/null 2>&1\n"
+		. ($every <= 1 ? '*' : '*/' . $every) . ' * * * * root '
+		. $run($settings['waf_hc_watch_name'], $tools . '/waf-switch watch') . " > /dev/null 2>&1\n";
+}
+
+if (!defined('WAF_WATCH_EXAMPLES')) {
+	/** How many late websites a message of the watch names; the rest it counts. */
+	define('WAF_WATCH_EXAMPLES', 3);
+}
+
+/** A point in time in the messages of the watch, in the clock of the server. */
+function waf_watch_time($time)
+{
+	return date('d.m.Y H:i', (int) $time);
+}
+
+/** How long a scan schedule waits between two runs, as malwatch_helper::next_run() plans them; 0 for off. */
+function waf_watch_schedule_seconds($schedule)
+{
+	switch ((string) $schedule) {
+		case 'daily':
+			return 86400;
+		case 'weekly':
+			return 7 * 86400;
+		case 'monthly':
+			return 30 * 86400;
+	}
+	return 0;
+}
+
+/**
+ * What the watch over the scanner (waf-switch watch, from 0.36.0) makes of the
+ * state it read. $facts:
+ *
+ *   now          Unix time
+ *   cron         running, last_run, next_run of cronjob_malwatch in sys_cron
+ *                (Unix times), or null without a row
+ *   cron_alive   a cron.php of ISPConfig holds its lock right now
+ *   crash        time, text, pause_until the guard of 560-malwatch left after a
+ *                crash no catch reached, or null
+ *   crash_new    the watch has not reported that crash yet; a crash counts
+ *                as a problem while it is new or its pause lasts, so the
+ *                all-clear waits for the first run after the pause
+ *   pending      count and oldest (Unix time or null) of the waiting jobs
+ *   sites        domain, schedule, last_run of the active websites
+ *
+ * Returns release (clear the running flag), the kinds and the problems in a
+ * fixed order, and the lines waf-switch prints: the problems, or one line that
+ * says all is well.
+ */
+function waf_watch_assess(array $facts, array $settings)
+{
+	$now = (int) $facts['now'];
+	$stale = (int) $settings['waf_watch_stale_minutes'] * 60;
+	$kinds = array();
+	$problems = array();
+	$release = false;
+
+	$cron = isset($facts['cron']) && is_array($facts['cron']) ? $facts['cron'] : null;
+	$last = null;
+	if ($cron === null) {
+		$kinds[] = 'no_row';
+		$problems[] = 'ISPConfig kennt den Cron-Job von malwatch nicht, sys_cron hat keine Zeile dafür. '
+			. 'Bitte das Paket von malwatch erneut einspielen.';
+	} else {
+		$last = $cron['last_run'] === null ? null : (int) $cron['last_run'];
+		$next = $cron['next_run'] === null ? null : (int) $cron['next_run'];
+		if (!empty($cron['running']) && $last !== null && $now - $last >= $stale) {
+			if (empty($facts['cron_alive'])) {
+				$release = true;
+				$kinds[] = 'stale';
+				$problems[] = 'Der Cron-Job von malwatch galt seit ' . waf_watch_time($last) . ' als laufend, obwohl der '
+					. 'Cron von ISPConfig nicht mehr lief. Die Wache hat die Sperre gelöst, damit der Job wieder startet.';
+			} else {
+				$kinds[] = 'busy';
+				$problems[] = 'Der Cron-Job von malwatch läuft seit ' . waf_watch_time($last) . '. Die Wache wartet, '
+					. 'solange der Cron von ISPConfig noch arbeitet.';
+			}
+		} elseif (empty($cron['running']) && $last !== null && $now - $last >= $stale && ($next === null || $next <= $now)) {
+			$kinds[] = 'silent';
+			$problems[] = 'Der Cron-Job von malwatch lief zuletzt ' . waf_watch_time($last) . '. Bitte prüfen, ob der Cron '
+				. 'von ISPConfig (cron.sh in der crontab von root) läuft.';
+		}
+	}
+
+	$crash = isset($facts['crash']) && is_array($facts['crash']) ? $facts['crash'] : null;
+	if ($crash !== null && (!empty($facts['crash_new']) || (int) $crash['pause_until'] > $now)) {
+		$kinds[] = 'crash';
+		$text = 'Der Cron-Job von malwatch ist ' . waf_watch_time((int) $crash['time']) . ' abgestürzt: '
+			. rtrim((string) $crash['text'], '. ') . '.';
+		if (!empty($crash['pause_until']) && (int) $crash['pause_until'] > $now) {
+			$text .= ' Er pausiert bis ' . waf_watch_time((int) $crash['pause_until']) . ' und startet dann neu.';
+		}
+		$problems[] = $text;
+	}
+
+	$pending = isset($facts['pending']) && is_array($facts['pending']) ? $facts['pending'] : array();
+	$count = isset($pending['count']) ? (int) $pending['count'] : 0;
+	$oldest = isset($pending['oldest']) && $pending['oldest'] !== null ? (int) $pending['oldest'] : null;
+	if ($oldest !== null && $now - $oldest >= (int) $settings['waf_watch_pending_minutes'] * 60) {
+		$kinds[] = 'pending';
+		$problems[] = ($count === 1 ? '1 Auftrag wartet seit ' : $count . ' Aufträge warten, der älteste seit ')
+			. waf_watch_time($oldest) . '. Bitte unter Security > Scanner nachsehen, ob ein Lauf hängt.';
+	}
+
+	$grace = (int) $settings['waf_watch_overdue_hours'] * 3600;
+	$late = array();
+	foreach (isset($facts['sites']) && is_array($facts['sites']) ? $facts['sites'] : array() as $site) {
+		$interval = waf_watch_schedule_seconds($site['schedule']);
+		if ($interval === 0 || $site['last_run'] === null) {
+			continue;
+		}
+		if ($now - (int) $site['last_run'] >= $interval + $grace) {
+			$late[] = $site;
+		}
+	}
+	if (count($late) > 0) {
+		$kinds[] = 'overdue';
+		$shown = array();
+		foreach (array_slice($late, 0, WAF_WATCH_EXAMPLES) as $site) {
+			$shown[] = $site['domain'] . ' (zuletzt ' . waf_watch_time((int) $site['last_run']) . ')';
+		}
+		$problems[] = (count($late) === 1 ? '1 Website wurde' : count($late) . ' Websites wurden')
+			. ' länger nicht geprüft als geplant: ' . implode(', ', $shown)
+			. (count($late) > count($shown) ? ' und weitere' : '') . '.';
+	}
+
+	if (count($problems) > 0) {
+		$lines = $problems;
+	} else {
+		$lines = array('Alles in Ordnung: Der Cron-Job lief zuletzt ' . ($last === null ? 'noch nie' : waf_watch_time($last))
+			. ', ' . ($count === 1 ? '1 Auftrag wartet' : $count . ' Aufträge warten') . '.');
+	}
+	return array('release' => $release, 'kinds' => $kinds, 'problems' => $problems, 'lines' => $lines);
+}
+
+/**
+ * Whether the watch writes a mail now: 'problem' for a kind it has not
+ * mailed yet or when waf_watch_remind_hours passed since the last mail,
+ * 'clear' when the problems it mailed are gone, '' otherwise. $state holds
+ * the kinds of the last run and mailed_at.
+ */
+function waf_watch_mail_due(array $state, array $kinds, $now, array $settings)
+{
+	$before = isset($state['kinds']) && is_array($state['kinds']) ? $state['kinds'] : array();
+	if (count($kinds) === 0) {
+		return count($before) > 0 ? 'clear' : '';
+	}
+	if (count(array_diff($kinds, $before)) > 0) {
+		return 'problem';
+	}
+	$mailed = isset($state['mailed_at']) ? (int) $state['mailed_at'] : 0;
+	return (int) $now - $mailed >= (int) $settings['waf_watch_remind_hours'] * 3600 ? 'problem' : '';
+}
+
+/** Subject and body of the mail about the problems the watch found since $since. */
+function waf_watch_mail_text(array $problems, $host, $since)
+{
+	$count = count($problems);
+	return array(
+		'subject' => 'malwatch auf ' . $host . ': ' . ($count === 1 ? '1 Problem' : $count . ' Probleme') . ' mit dem Scanner',
+		'body' => 'Die Wache von malwatch meldet seit ' . waf_watch_time($since) . ":\n\n- " . implode("\n- ", $problems)
+			. "\n\nDie Wache prüft weiter und schreibt wieder, sobald alles in Ordnung ist. Ihre Einstellungen stehen unter "
+			. "Abwehr > Einstellungen > Takt und Hintergrund.\n",
+	);
+}
+
+/** Subject and body of the mail that the problems since $since are gone. */
+function waf_watch_clear_text($host, $since)
+{
+	return array(
+		'subject' => 'malwatch auf ' . $host . ': Scanner wieder in Ordnung',
+		'body' => 'Die Probleme, die die Wache seit ' . waf_watch_time($since) . " gemeldet hat, bestehen nicht mehr.\n",
+	);
 }
 
 /**

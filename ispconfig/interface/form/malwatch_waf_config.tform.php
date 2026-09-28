@@ -1183,6 +1183,73 @@ $form['tabs']['waf'] = array(
 				'ProcessPartial' => 'body_action_partial_txt',
 				'Reject' => 'body_action_reject_txt'
 			)
+		),
+		// From 0.36.0: the watch over the scanner (waf-switch watch).
+		'waf_watch_minutes' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '5',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '1:60', 'errmsg' => 'waf_watch_minutes_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '2'
+		),
+		'waf_watch_stale_minutes' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '15',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '5:1440', 'errmsg' => 'waf_watch_stale_minutes_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '4'
+		),
+		'waf_watch_pending_minutes' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '180',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '15:10080', 'errmsg' => 'waf_watch_pending_minutes_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '5'
+		),
+		'waf_watch_overdue_hours' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '12',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '1:720', 'errmsg' => 'waf_watch_overdue_hours_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '3'
+		),
+		'waf_watch_remind_hours' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '24',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '1:720', 'errmsg' => 'waf_watch_remind_hours_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '3'
+		),
+		'waf_watch_crash_pause' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '10',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '1:1440', 'errmsg' => 'waf_watch_crash_pause_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '4'
 		)
 	)
 );

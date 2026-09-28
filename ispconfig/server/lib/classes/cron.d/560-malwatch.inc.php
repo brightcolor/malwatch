@@ -14,6 +14,9 @@ class cronjob_malwatch extends cronjob
 	protected $_schedule = '* * * * *';
 	protected $_run_at_new = true;
 
+	/** True once onRunJob() got to its end; after_crash() looks at it. */
+	private $finished = false;
+
 	public function onRunJob()
 	{
 		global $app, $conf;
@@ -32,6 +35,17 @@ class cronjob_malwatch extends cronjob
 			parent::onRunJob();
 			return;
 		}
+
+		// The guard for a crash no catch reaches, see after_crash(). Its pause
+		// comes from the settings; without them it only reports.
+		$pause = 0;
+		try {
+			$guard_settings = $app->malwatch_waf->settings();
+			$pause = (int) $guard_settings['waf_watch_crash_pause'];
+		} catch (Throwable $e) {
+			$pause = 0;
+		}
+		register_shutdown_function(array($this, 'after_crash'), $pause);
 
 		try {
 			$this->collect_finished($config);
@@ -89,6 +103,43 @@ class cronjob_malwatch extends cronjob
 		}
 
 		parent::onRunJob();
+		$this->finished = true;
+	}
+
+	/**
+	 * Runs when PHP ends. After a run that got to its end it does nothing. A run
+	 * that ended before - memory, a compile error in an included file, anything
+	 * no catch reaches - would stay marked as running in sys_cron for 24 hours,
+	 * and no scan would start. The guard clears the mark and sets the next run
+	 * after the pause of the settings (waf_watch_crash_pause): the job neither
+	 * stops for a day nor ends the cron of ISPConfig every minute, and the watch
+	 * over the scanner reports the crash. Without a pause it only reports and
+	 * leaves the mark to the watch.
+	 */
+	public function after_crash($pause)
+	{
+		global $app;
+
+		if ($this->finished) {
+			return;
+		}
+		$error = error_get_last();
+		$text = is_array($error)
+			? basename((string) $error['file']) . ':' . (int) $error['line'] . ': ' . (string) $error['message']
+			: 'Der Lauf endete vorzeitig ohne Fehlermeldung.';
+		try {
+			if ((int) $pause > 0) {
+				$app->db->query('UPDATE sys_cron SET running = 0, next_run = DATE_ADD(NOW(), INTERVAL ? MINUTE) WHERE name = ?',
+					(int) $pause, get_class($this));
+			}
+			$app->malwatch_waf->record_cron_crash($text, (int) $pause);
+		} catch (Throwable $e) {
+			// Nothing more to do from here; the log line below says what happened.
+		}
+		$app->log('malwatch: Der Cron-Job ist abgestürzt (' . $text . '). '
+			. ((int) $pause > 0 ? 'Er gibt sich frei und startet nach der Pause von ' . (int) $pause . ' Minuten neu. '
+				: 'Die Markierung „läuft“ bleibt, bis die Wache über den Scanner sie löst. ')
+			. 'Die Wache meldet den Absturz.', LOGLEVEL_WARN);
 	}
 
 	/** Kind, place and message of a failure, for the ISPConfig log. */

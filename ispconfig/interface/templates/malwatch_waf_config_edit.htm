@@ -514,6 +514,50 @@
 				<p class="mw-cfg-hint">{tmpl_var name='waf_ban_rule_hits_hint_txt'}</p>
 			</div>
 		</div>
+		<h3 class="mw-cfg-group">{tmpl_var name='watch_head_txt'}</h3>
+		<p class="mw-cfg-hint mw-cfg-group-intro">{tmpl_var name='watch_intro_txt'}</p>
+		<div class="mw-cfg-field">
+			<label for="waf_watch_minutes">{tmpl_var name='waf_watch_minutes_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_watch_minutes'}" max="{tmpl_var name='max_waf_watch_minutes'}" step="1" name="waf_watch_minutes" id="waf_watch_minutes" value="{tmpl_var name='waf_watch_minutes'}" data-default="{tmpl_var name='default_waf_watch_minutes'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_minutes_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_watch_minutes_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_watch_stale_minutes">{tmpl_var name='waf_watch_stale_minutes_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_watch_stale_minutes'}" max="{tmpl_var name='max_waf_watch_stale_minutes'}" step="1" name="waf_watch_stale_minutes" id="waf_watch_stale_minutes" value="{tmpl_var name='waf_watch_stale_minutes'}" data-default="{tmpl_var name='default_waf_watch_stale_minutes'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_minutes_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_watch_stale_minutes_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_watch_crash_pause">{tmpl_var name='waf_watch_crash_pause_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_watch_crash_pause'}" max="{tmpl_var name='max_waf_watch_crash_pause'}" step="1" name="waf_watch_crash_pause" id="waf_watch_crash_pause" value="{tmpl_var name='waf_watch_crash_pause'}" data-default="{tmpl_var name='default_waf_watch_crash_pause'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_minutes_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_watch_crash_pause_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_watch_pending_minutes">{tmpl_var name='waf_watch_pending_minutes_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_watch_pending_minutes'}" max="{tmpl_var name='max_waf_watch_pending_minutes'}" step="1" name="waf_watch_pending_minutes" id="waf_watch_pending_minutes" value="{tmpl_var name='waf_watch_pending_minutes'}" data-default="{tmpl_var name='default_waf_watch_pending_minutes'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_minutes_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_watch_pending_minutes_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_watch_overdue_hours">{tmpl_var name='waf_watch_overdue_hours_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_watch_overdue_hours'}" max="{tmpl_var name='max_waf_watch_overdue_hours'}" step="1" name="waf_watch_overdue_hours" id="waf_watch_overdue_hours" value="{tmpl_var name='waf_watch_overdue_hours'}" data-default="{tmpl_var name='default_waf_watch_overdue_hours'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_hours_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_watch_overdue_hours_hint_txt'}</p>
+			</div>
+		</div>
+		<div class="mw-cfg-field">
+			<label for="waf_watch_remind_hours">{tmpl_var name='waf_watch_remind_hours_txt'}</label>
+			<div class="mw-cfg-control">
+				<div class="input-group"><input type="number" min="{tmpl_var name='min_waf_watch_remind_hours'}" max="{tmpl_var name='max_waf_watch_remind_hours'}" step="1" name="waf_watch_remind_hours" id="waf_watch_remind_hours" value="{tmpl_var name='waf_watch_remind_hours'}" data-default="{tmpl_var name='default_waf_watch_remind_hours'}" class="form-control" /><span class="input-group-addon">{tmpl_var name='unit_hours_txt'}</span></div>
+				<p class="mw-cfg-hint">{tmpl_var name='waf_watch_remind_hours_hint_txt'}</p>
+			</div>
+		</div>
 	</div>
 </details>
 

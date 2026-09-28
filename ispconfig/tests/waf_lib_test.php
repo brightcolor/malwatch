@@ -705,7 +705,7 @@ expect_same('rule messages per hit follow the setting', array(count(waf_audit_pa
 
 // With the defaults every file comes out byte for byte as it stands on the
 // server, so an update changes nothing on disk. The cron file gained the
-// hourly guard in 0.35.0.
+// hourly guard in 0.35.0 and the watch over the scanner in 0.36.0.
 $fixtures = __DIR__ . '/fixtures/waf';
 $places = waf_settings(array());
 expect_same('main.conf from the settings', waf_main_conf_text($places), file_get_contents($fixtures . '/main.conf'));
@@ -883,6 +883,137 @@ foreach (array('empty', 'relative', 'chars', 'dots', 'root', 'trailing', 'long',
 	expect_same("problem $code has a sentence", array(strpos($text, 'MALWATCH_WAF_CONF_DIR') === 0, strpos($text, '%'),
 		substr($text, -1)), array(true, false, '.'));
 }
+
+// --- 0.36.0: the watch over the scanner ----------------------------------------
+
+date_default_timezone_set('UTC');
+$watch = waf_settings(array());
+expect_same('the settings of the watch and their defaults', array($watch['waf_watch_minutes'],
+	$watch['waf_watch_stale_minutes'], $watch['waf_watch_pending_minutes'], $watch['waf_watch_overdue_hours'],
+	$watch['waf_watch_remind_hours'], $watch['waf_watch_crash_pause'], $watch['waf_hc_watch_name']),
+	array(5, 15, 180, 12, 24, 10, 'malwatch-wache'));
+expect_same('the name of the watch is a place', $catalog['waf_hc_watch_name'], array('kind' => 'name', 'group' => 'tools'));
+
+// The cron file starts the watch every waf_watch_minutes, under its own name.
+expect_same('the cron file runs the watch every five minutes', strpos(waf_cron_text($moved),
+	"\n*/5 * * * * root /opt/waf/bin/waf-switch watch > /dev/null 2>&1\n") !== false, true);
+expect_same('every minute is a plain star', strpos(waf_cron_text(array_merge($moved, array('waf_watch_minutes' => 1))),
+	"\n* * * * * root /opt/waf/bin/waf-switch watch > /dev/null 2>&1\n") !== false, true);
+$watch_cron = waf_cron_text(array_merge($moved, array('waf_hc_run' => '/opt/hc/hc-run', 'waf_hc_watch_name' => 'watch-a',
+	'waf_watch_minutes' => 10)));
+expect_same('with hc-run the watch reports under its name', array(
+	strpos($watch_cron, "\n*/10 * * * * root if [ -x /opt/hc/hc-run ]; then /opt/hc/hc-run watch-a -- /opt/waf/bin/waf-switch watch; "
+		. "else /opt/waf/bin/waf-switch watch; fi > /dev/null 2>&1\n") !== false,
+	strpos($watch_cron, '/etc/hc-run.d/watch-a.url') !== false), array(true, true));
+
+// What the watch makes of the state. A fixed clock; the facts of a healthy scanner.
+$now = gmmktime(13, 53, 20, 9, 22, 2026);
+$facts = array(
+	'now' => $now,
+	'cron' => array('running' => false, 'last_run' => $now - 60, 'next_run' => $now),
+	'cron_alive' => false,
+	'crash' => null,
+	'crash_new' => false,
+	'pending' => array('count' => 3, 'oldest' => $now - 600),
+	'sites' => array(
+		array('domain' => 'a.test', 'schedule' => 'daily', 'last_run' => $now - 3600),
+		array('domain' => 'b.test', 'schedule' => 'weekly', 'last_run' => $now - 3 * 86400),
+	),
+);
+$healthy = waf_watch_assess($facts, $watch);
+expect_same('a healthy scanner', array($healthy['release'], $healthy['kinds'], $healthy['problems'], $healthy['lines']),
+	array(false, array(), array(), array('Alles in Ordnung: Der Cron-Job lief zuletzt 22.09.2026 13:52, 3 Aufträge warten.')));
+
+$stale_cron = array('running' => true, 'last_run' => $now - 20 * 60, 'next_run' => $now - 19 * 60);
+$stale = waf_watch_assess(array_merge($facts, array('cron' => $stale_cron)), $watch);
+expect_same('a job marked as running without the cron of ISPConfig gets freed', array($stale['release'], $stale['kinds'],
+	$stale['problems']), array(true, array('stale'), array('Der Cron-Job von malwatch galt seit 22.09.2026 13:33 als laufend, '
+	. 'obwohl der Cron von ISPConfig nicht mehr lief. Die Wache hat die Sperre gelöst, damit der Job wieder startet.')));
+expect_same('within the limit the running job is left alone', waf_watch_assess(array_merge($facts, array('cron' =>
+	array('running' => true, 'last_run' => $now - 5 * 60, 'next_run' => $now - 4 * 60))), $watch)['kinds'], array());
+$busy = waf_watch_assess(array_merge($facts, array('cron' => $stale_cron, 'cron_alive' => true)), $watch);
+expect_same('while the cron of ISPConfig still works the watch only reports', array($busy['release'], $busy['kinds']),
+	array(false, array('busy')));
+expect_same('another limit from the settings', waf_watch_assess(array_merge($facts, array('cron' => $stale_cron)),
+	array_merge($watch, array('waf_watch_stale_minutes' => 30)))['kinds'], array());
+$silent = waf_watch_assess(array_merge($facts, array('cron' => array('running' => false, 'last_run' => $now - 40 * 60,
+	'next_run' => $now - 39 * 60))), $watch);
+expect_same('a job that stopped running', array($silent['release'], $silent['kinds'], $silent['problems']), array(false,
+	array('silent'), array('Der Cron-Job von malwatch lief zuletzt 22.09.2026 13:13. Bitte prüfen, ob der Cron von ISPConfig '
+	. '(cron.sh in der crontab von root) läuft.')));
+expect_same('a pause after a crash is no silence', waf_watch_assess(array_merge($facts, array('cron' => array('running' => false,
+	'last_run' => $now - 40 * 60, 'next_run' => $now + 5 * 60))), $watch)['kinds'], array());
+expect_same('without a row in sys_cron', waf_watch_assess(array_merge($facts, array('cron' => null)), $watch)['kinds'],
+	array('no_row'));
+
+$crash = array('time' => $now - 120, 'text' => 'malwatch_waf.inc.php:80: Allowed memory size of 134217728 bytes exhausted.',
+	'pause_until' => $now + 480);
+$crashed = waf_watch_assess(array_merge($facts, array('crash' => $crash, 'crash_new' => true)), $watch);
+expect_same('a crash the watch has not reported yet', array($crashed['kinds'], $crashed['problems']), array(array('crash'),
+	array('Der Cron-Job von malwatch ist 22.09.2026 13:51 abgestürzt: malwatch_waf.inc.php:80: Allowed memory size of '
+	. '134217728 bytes exhausted. Er pausiert bis 22.09.2026 14:01 und startet dann neu.')));
+expect_same('during its pause a reported crash stays a problem', waf_watch_assess(array_merge($facts,
+	array('crash' => $crash)), $watch)['kinds'], array('crash'));
+expect_same('after the pause a reported crash stays quiet', waf_watch_assess(array_merge($facts, array('crash' =>
+	array_merge($crash, array('pause_until' => $now - 60)))), $watch)['kinds'], array());
+
+$waiting = waf_watch_assess(array_merge($facts, array('pending' => array('count' => 59, 'oldest' => $now - 4 * 3600))), $watch);
+expect_same('jobs waiting too long', array($waiting['kinds'], $waiting['problems']), array(array('pending'),
+	array('59 Aufträge warten, der älteste seit 22.09.2026 09:53. Bitte unter Security > Scanner nachsehen, ob ein Lauf hängt.')));
+expect_same('one job waiting', waf_watch_assess(array_merge($facts, array('pending' => array('count' => 1,
+	'oldest' => $now - 4 * 3600))), $watch)['problems'], array('1 Auftrag wartet seit 22.09.2026 09:53. Bitte unter '
+	. 'Security > Scanner nachsehen, ob ein Lauf hängt.'));
+expect_same('another waiting limit from the settings', waf_watch_assess(array_merge($facts, array('pending' =>
+	array('count' => 59, 'oldest' => $now - 4 * 3600))), array_merge($watch, array('waf_watch_pending_minutes' => 300)))['kinds'],
+	array());
+
+$sites = array(
+	array('domain' => 'a.test', 'schedule' => 'daily', 'last_run' => $now - 37 * 3600),
+	array('domain' => 'b.test', 'schedule' => 'weekly', 'last_run' => $now - 3 * 86400),
+	array('domain' => 'c.test', 'schedule' => 'monthly', 'last_run' => $now - 40 * 86400),
+	array('domain' => 'd.test', 'schedule' => 'daily', 'last_run' => null),
+	array('domain' => 'e.test', 'schedule' => 'off', 'last_run' => $now - 400 * 86400),
+);
+$late = waf_watch_assess(array_merge($facts, array('sites' => $sites)), $watch);
+expect_same('websites checked later than planned', array($late['kinds'], $late['problems']), array(array('overdue'),
+	array('2 Websites wurden länger nicht geprüft als geplant: a.test (zuletzt 21.09.2026 00:53), c.test (zuletzt 13.08.2026 '
+	. '13:53).')));
+expect_same('another grace from the settings', waf_watch_assess(array_merge($facts, array('sites' => array($sites[0]))),
+	array_merge($watch, array('waf_watch_overdue_hours' => 48)))['kinds'], array());
+$many = array();
+for ($i = 1; $i <= 5; $i++) {
+	$many[] = array('domain' => 'w' . $i . '.test', 'schedule' => 'daily', 'last_run' => $now - 50 * 3600);
+}
+expect_same('five late websites show three and the rest', waf_watch_assess(array_merge($facts, array('sites' => $many)),
+	$watch)['problems'], array('5 Websites wurden länger nicht geprüft als geplant: w1.test (zuletzt 20.09.2026 11:53), w2.test '
+	. '(zuletzt 20.09.2026 11:53), w3.test (zuletzt 20.09.2026 11:53) und weitere.'));
+$all = waf_watch_assess(array_merge($facts, array('cron' => $stale_cron, 'crash' => $crash, 'crash_new' => true,
+	'pending' => array('count' => 59, 'oldest' => $now - 4 * 3600), 'sites' => $sites)), $watch);
+expect_same('the problems in a fixed order', array($all['kinds'], $all['lines'] === $all['problems']),
+	array(array('stale', 'crash', 'pending', 'overdue'), true));
+
+// When the watch writes a mail: a new kind of problem, a reminder, the all-clear.
+expect_same('a new problem mails', waf_watch_mail_due(array(), array('stale'), $now, $watch), 'problem');
+expect_same('the same problem waits for the reminder', waf_watch_mail_due(array('kinds' => array('stale'),
+	'mailed_at' => $now - 3600), array('stale'), $now, $watch), '');
+expect_same('the reminder after waf_watch_remind_hours', waf_watch_mail_due(array('kinds' => array('stale'),
+	'mailed_at' => $now - 25 * 3600), array('stale'), $now, $watch), 'problem');
+expect_same('another reminder time from the settings', waf_watch_mail_due(array('kinds' => array('stale'),
+	'mailed_at' => $now - 25 * 3600), array('stale'), $now, array_merge($watch, array('waf_watch_remind_hours' => 48))), '');
+expect_same('another kind of problem mails at once', waf_watch_mail_due(array('kinds' => array('stale'),
+	'mailed_at' => $now - 3600), array('stale', 'pending'), $now, $watch), 'problem');
+expect_same('the all-clear', waf_watch_mail_due(array('kinds' => array('stale'), 'mailed_at' => $now - 3600), array(), $now,
+	$watch), 'clear');
+expect_same('nothing to say', waf_watch_mail_due(array(), array(), $now, $watch), '');
+$mail = waf_watch_mail_text(array('Erstes Problem.', 'Zweites Problem.'), 'web.test', $now - 600);
+expect_same('the problem mail', array($mail['subject'], strpos($mail['body'], "seit 22.09.2026 13:43:\n\n- Erstes Problem.\n"
+	. "- Zweites Problem.\n") !== false, strpos($mail['body'], 'Abwehr > Einstellungen > Takt und Hintergrund') !== false),
+	array('malwatch auf web.test: 2 Probleme mit dem Scanner', true, true));
+expect_same('one problem', waf_watch_mail_text(array('Ein Problem.'), 'web.test', $now)['subject'],
+	'malwatch auf web.test: 1 Problem mit dem Scanner');
+$clear = waf_watch_clear_text('web.test', $now - 3600);
+expect_same('the all-clear mail', array($clear['subject'], strpos($clear['body'], 'seit 22.09.2026 12:53') !== false),
+	array('malwatch auf web.test: Scanner wieder in Ordnung', true));
 
 // --- summary -----------------------------------------------------------------
 if ($failures > 0) {

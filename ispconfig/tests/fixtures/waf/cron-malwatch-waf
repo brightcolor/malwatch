@@ -2,9 +2,13 @@
 # The minute clock of the Abwehr and its hourly guard, apart from the cron of
 # ISPConfig: that one runs all its jobs one after another under one lock, and a
 # long run - AWStats at night - held the Abwehr up for half an hour.
+# The watch over the scanner checks the cron job of malwatch in ISPConfig from
+# here, so it also notices when the cron of ISPConfig itself stands.
 # hc-run reports each run to healthchecks once its address stands in
-# /etc/hc-run.d/waf-tick.url and /etc/hc-run.d/waf-guard.url.
+# /etc/hc-run.d/waf-tick.url, /etc/hc-run.d/waf-guard.url and
+# /etc/hc-run.d/malwatch-wache.url.
 SHELL=/bin/sh
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 * * * * * root if [ -x /usr/local/sbin/hc-run ]; then /usr/local/sbin/hc-run waf-tick -- /usr/local/sbin/waf-switch tick; else /usr/local/sbin/waf-switch tick; fi > /dev/null 2>&1
 5 * * * * root if [ -x /usr/local/sbin/hc-run ]; then /usr/local/sbin/hc-run waf-guard -- /usr/local/sbin/waf-guard; else /usr/local/sbin/waf-guard; fi > /dev/null 2>&1
+*/5 * * * * root if [ -x /usr/local/sbin/hc-run ]; then /usr/local/sbin/hc-run malwatch-wache -- /usr/local/sbin/waf-switch watch; else /usr/local/sbin/waf-switch watch; fi > /dev/null 2>&1

@@ -80,6 +80,7 @@ MALWATCH_WAF_CONF_DIR=/etc/nginx/waf2 bash /root/waf-einspielen/install.sh
 | `MALWATCH_WAF_HC_RUN` | `/usr/local/sbin/hc-run` | hc-run; leer: die Läufe starten direkt |
 | `MALWATCH_WAF_HC_TICK_NAME` | `waf-tick` | Check des Minutentakts in healthchecks |
 | `MALWATCH_WAF_HC_GUARD_NAME` | `waf-guard` | Check der Wache in healthchecks |
+| `MALWATCH_WAF_HC_WATCH_NAME` | `malwatch-wache` | Check der Wache über den Scanner in healthchecks |
 | `MALWATCH_WAF_BIN_DIRS` | `/usr/local/sbin,/usr/local/bin,/usr/sbin,/usr/bin,/sbin,/bin` | Programmverzeichnisse |
 
 Der Installer legt den neuen Ort an, prüft mit der Regelprüfung, `nginx -t` und `nginx -T`
@@ -168,6 +169,30 @@ Ping-Adresse enthält. Besteht `nginx -t`, arbeitet er
 hängende Aufträge ab. Fehlt das Modul, folgt der harte Notaus; nennt der Fehler eine
 Datei der WAF, legt er den letzten geprüften Stand zurück. Protokoll: das Protokoll der
 Wache (Vorgabe `/var/log/waf/guard.log`); `waf-guard` findet `waf-switch` neben sich.
+
+## Wache über den Scanner
+
+Seit 0.36.0 startet die Cron-Datei der Abwehr alle „Abstand der Wache“ Minuten (Vorgabe 5)
+`waf-switch watch`, über `hc-run malwatch-wache`. Die Wache läuft so neben dem Cron von
+ISPConfig und bemerkt auch, wenn der selbst steht. Sie prüft:
+
+- ob ISPConfig den Cron-Job von malwatch länger als „Sperre hängt nach“ (15 Minuten) als
+  laufend führt; läuft dabei kein `cron.php` von ISPConfig mehr, löst sie die Sperre,
+- ob der Cron-Job überhaupt noch läuft und ob er abgestürzt ist,
+- ob Aufträge länger als „Aufträge warten höchstens“ (180 Minuten) warten,
+- ob der letzte Scan einer Website länger zurückliegt als ihr Zeitplan plus „Spielraum für
+  Scans“ (12 Stunden).
+
+Findet sie etwas, schreibt sie es ins Protokoll von ISPConfig, endet mit Rückgabewert 1 (der
+Check in healthchecks wird rot, OpsKnight bekommt einen Vorfall) und mailt an die
+Admin-Adresse aus Scanner > Einstellungen: beim ersten Mal, als Erinnerung nach „Erinnerung
+nach“ (24 Stunden) und als Entwarnung. Stirbt ein Lauf des Cron-Jobs an einem Fehler, den
+kein Abfangen erreicht, gibt er sich selbst frei und startet nach der „Pause nach einem
+Absturz“ (10 Minuten) neu; die Wache meldet den Absturz. Alle Werte stehen unter Abwehr >
+Einstellungen > Takt und Hintergrund. healthchecks meldet die Wache, sobald
+`/etc/hc-run.d/malwatch-wache.url` die Ping-Adresse enthält.
+
+    waf-switch watch   # einmal von Hand prüfen
 
 ## Logs
 

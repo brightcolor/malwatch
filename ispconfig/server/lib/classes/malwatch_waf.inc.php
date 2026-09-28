@@ -55,6 +55,9 @@ class malwatch_waf
 	/** Takes the place of the real commands when set: function ($name, $argument) returning array(code, output). */
 	public $runner = null;
 
+	/** Takes the place of the mail of the watch when set: function ($to, $subject, $body). */
+	public $mailer = null;
+
 	/** The handle of the lock file while this process holds it. */
 	private $lock = null;
 
@@ -772,6 +775,139 @@ class malwatch_waf
 		$time = is_file($file) ? @filemtime($file) : false;
 		$settings = $this->settings();
 		return $time !== false && time() - (int) $time < (int) $settings['waf_tick_fresh_seconds'];
+	}
+
+	/**
+	 * The watch over the scanner (waf-switch watch, from 0.36.0). Reads the state
+	 * of the ISPConfig cron job, the queue and the schedules, frees a lock no
+	 * cron.php holds any more, writes the problems to the ISPConfig log and mails
+	 * the admin address of the scanner when a problem starts, as a reminder and
+	 * at the all-clear. Returns waf_watch_assess() and mail ('problem', 'clear'
+	 * or '').
+	 */
+	public function watch()
+	{
+		global $app, $conf;
+
+		$settings = $this->settings();
+		$now = time();
+		$state_file = $this->ensure_dirs() . '/watch.json';
+		$state = json_decode((string) @file_get_contents($state_file), true);
+		if (!is_array($state)) {
+			$state = array();
+		}
+		$before = isset($state['kinds']) && is_array($state['kinds']) ? $state['kinds'] : array();
+		$reported = isset($state['crash_reported']) ? (int) $state['crash_reported'] : 0;
+
+		$cron = $app->db->queryOneRecord('SELECT running, UNIX_TIMESTAMP(last_run) AS last_run, '
+			. 'UNIX_TIMESTAMP(next_run) AS next_run FROM sys_cron WHERE name = ?', 'cronjob_malwatch');
+		$pending = $app->dbmaster->queryOneRecord('SELECT COUNT(*) AS count, UNIX_TIMESTAMP(MIN(created_at)) AS oldest '
+			. "FROM malwatch_job WHERE server_id = ? AND job_status = 'pending'", $conf['server_id']);
+		$sites = $app->dbmaster->queryAllRecords('SELECT s.domain, s.schedule, UNIX_TIMESTAMP(s.last_run) AS last_run '
+			. 'FROM malwatch_site s JOIN web_domain w ON w.domain_id = s.parent_domain_id '
+			. "WHERE s.server_id = ? AND s.schedule != 'off' AND w.active = 'y' ORDER BY s.domain", $conf['server_id']);
+		$crash = $this->cron_crash();
+		$facts = array(
+			'now' => $now,
+			'cron' => is_array($cron) ? array(
+				'running' => (int) $cron['running'] === 1,
+				'last_run' => $cron['last_run'] === null ? null : (int) $cron['last_run'],
+				'next_run' => $cron['next_run'] === null ? null : (int) $cron['next_run'],
+			) : null,
+			'cron_alive' => $this->cron_alive(),
+			'crash' => $crash,
+			'crash_new' => is_array($crash) && $crash['time'] > $reported,
+			'pending' => array(
+				'count' => is_array($pending) ? (int) $pending['count'] : 0,
+				'oldest' => is_array($pending) && $pending['oldest'] !== null ? (int) $pending['oldest'] : null,
+			),
+			'sites' => is_array($sites) ? $sites : array(),
+		);
+		$result = waf_watch_assess($facts, $settings);
+
+		if ($result['release']) {
+			$app->db->query('UPDATE sys_cron SET running = 0 WHERE name = ? AND running = 1', 'cronjob_malwatch');
+		}
+		foreach ($result['problems'] as $problem) {
+			$app->log('malwatch-Wache: ' . $problem, LOGLEVEL_WARN);
+		}
+
+		$since = count($before) > 0 && isset($state['since']) && (int) $state['since'] > 0 ? (int) $state['since'] : $now;
+		$mailed_at = isset($state['mailed_at']) ? (int) $state['mailed_at'] : 0;
+		$due = waf_watch_mail_due($state, $result['kinds'], $now, $settings);
+		$mail = '';
+		if ($due !== '') {
+			$config = $app->malwatch_helper->get_config();
+			$to = trim((string) $config['admin_email']);
+			if ($to !== '') {
+				$text = $due === 'problem' ? waf_watch_mail_text($result['problems'], php_uname('n'), $since)
+					: waf_watch_clear_text(php_uname('n'), $since);
+				$this->send_mail($to, $text['subject'], $text['body'], (string) $config['sender_email']);
+				$mail = $due;
+				if ($due === 'problem') {
+					$mailed_at = $now;
+				}
+			}
+		}
+
+		@file_put_contents($state_file, waf_json(array(
+			'kinds' => $result['kinds'],
+			'since' => count($result['kinds']) > 0 ? $since : 0,
+			'mailed_at' => $mailed_at,
+			'crash_reported' => $facts['crash_new'] ? $crash['time'] : $reported,
+		)), LOCK_EX);
+		$result['mail'] = $mail;
+		return $result;
+	}
+
+	/**
+	 * Notes a crash of the cron job for the watch. The guard of 560-malwatch
+	 * calls it from its shutdown function; $pause_minutes is 0 when the guard
+	 * could not read the pause.
+	 */
+	public function record_cron_crash($text, $pause_minutes)
+	{
+		$now = time();
+		$note = array(
+			'time' => $now,
+			'text' => waf_cut((string) $text, 500),
+			'pause_until' => (int) $pause_minutes > 0 ? $now + (int) $pause_minutes * 60 : 0,
+		);
+		return @file_put_contents($this->ensure_dirs() . '/cron-crash.json', waf_json($note), LOCK_EX) !== false;
+	}
+
+	/** The last crash the guard noted (time, text, pause_until), or null. */
+	public function cron_crash()
+	{
+		$note = json_decode((string) @file_get_contents($this->ensure_dirs() . '/cron-crash.json'), true);
+		if (!is_array($note) || !isset($note['time'], $note['text'])) {
+			return null;
+		}
+		return array(
+			'time' => (int) $note['time'],
+			'text' => (string) $note['text'],
+			'pause_until' => isset($note['pause_until']) ? (int) $note['pause_until'] : 0,
+		);
+	}
+
+	/** True while a cron.php of ISPConfig holds its lock: the lock file names a running process. */
+	private function cron_alive()
+	{
+		global $conf;
+		$pid = (int) trim((string) @file_get_contents($conf['temppath'] . $conf['fs_div'] . '.ispconfig_cron_lock'));
+		return $pid > 0 && is_dir('/proc/' . $pid);
+	}
+
+	/** Sends a mail of the watch through ISPConfig, or to the stand-in of a probe. */
+	private function send_mail($to, $subject, $body, $sender)
+	{
+		global $app;
+		if ($this->mailer !== null) {
+			call_user_func($this->mailer, $to, $subject, $body);
+			return;
+		}
+		$app->uses('functions');
+		$app->functions->mail($to, $subject, $body, $sender);
 	}
 
 	/**
@@ -2654,7 +2790,8 @@ class malwatch_waf
 			$lines[] = $file . ' ließ sich nicht schreiben.';
 		} else {
 			$lines[] = 'Cron-Datei neu geschrieben: Wache zur Minute ' . $settings['waf_guard_minute']
-				. ', Stundenlauf zur Minute ' . $settings['waf_hourly_minute'] . '.';
+				. ', Stundenlauf zur Minute ' . $settings['waf_hourly_minute'] . ', Wache über den Scanner alle '
+				. $settings['waf_watch_minutes'] . ' Minuten.';
 		}
 		return $this->finish($job, $ok, 'Einstellungen übernommen. ' . implode(' ', $lines));
 	}

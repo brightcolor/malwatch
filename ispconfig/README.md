@@ -38,8 +38,15 @@ Pfad unter **Security > Scanner > Einstellungen** prüfen.
 | Server-Plugin | startet den Scanner abgekoppelt, wartet nicht auf ihn |
 | Cron-Klasse `560-malwatch` | plant Zeitpläne ein, liest Berichte ein, führt Aktionen aus, räumt auf |
 | Klasse `malwatch_waf` | liest aus der Cron-Klasse das Audit-Log der WAF ein, führt WAF-Aufträge aus, räumt auf |
+| `waf-switch watch` | Wache über den Scanner: prüft aus der Cron-Datei der Abwehr, ob die Cron-Klasse läuft und die Scans vorankommen |
 
-Die Cron-Klasse läuft jede Minute. Eine von Hand angestoßene Prüfung startet
+Die Cron-Klasse läuft jede Minute. Jeder ihrer Abschnitte fängt Fehler ab, so laufen die
+übrigen weiter, wenn einer scheitert. Stirbt ein Lauf trotzdem, etwa am Speicher, gibt
+sich die Cron-Klasse selbst frei und startet nach einer Pause neu; sonst hielte ISPConfig
+sie 24 Stunden lang für laufend. Die Wache über den Scanner (seit 0.36.0) meldet einen
+Absturz, eine hängende Sperre, wartende Aufträge und überfällige Scans per Mail an die
+Admin-Adresse, an healthchecks und an OpsKnight; Einzelheiten und Einstellungen in
+`waf/README.md`, Abschnitt „Wache über den Scanner“. Eine von Hand angestoßene Prüfung startet
 also innerhalb einer Minute, das Ergebnis erscheint, sobald der Lauf fertig ist.
 Solange sie läuft, fragen die Übersicht und die Seite der Website ihren
 Fortschritt ab, in dem Abstand aus **Security > Scanner > Einstellungen**

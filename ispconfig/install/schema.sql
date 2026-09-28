@@ -1139,6 +1139,16 @@ SET @mw := (SELECT IF(COUNT(*) = 0,
   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_config' AND COLUMN_NAME = 'waf_rules_include');
 PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
+-- From 0.36.0 the watch over the scanner (waf-switch watch from the cron file
+-- of the Abwehr): its name at healthchecks among the places, ASCII like them,
+-- and its limits.
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_config` ADD COLUMN `waf_hc_watch_name` varchar(64) CHARACTER SET ascii NOT NULL DEFAULT ''malwatch-wache'', ADD COLUMN `waf_watch_minutes` int(11) unsigned NOT NULL DEFAULT ''5'', ADD COLUMN `waf_watch_stale_minutes` int(11) unsigned NOT NULL DEFAULT ''15'', ADD COLUMN `waf_watch_pending_minutes` int(11) unsigned NOT NULL DEFAULT ''180'', ADD COLUMN `waf_watch_overdue_hours` int(11) unsigned NOT NULL DEFAULT ''12'', ADD COLUMN `waf_watch_remind_hours` int(11) unsigned NOT NULL DEFAULT ''24'', ADD COLUMN `waf_watch_crash_pause` int(11) unsigned NOT NULL DEFAULT ''10''',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_config' AND COLUMN_NAME = 'waf_hc_watch_name');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
 -- Die Herkunft senkt die Schwelle, ab 0.25.0. Alles beginnt ausgeschaltet.
 SET @mw := (SELECT IF(COUNT(*) = 0,
   'ALTER TABLE `malwatch_config` ADD COLUMN `waf_ban_origin` enum(''off'',''on'') NOT NULL DEFAULT ''off'', ADD COLUMN `waf_ban_origin_score` int(11) unsigned NOT NULL DEFAULT ''20'', ADD COLUMN `waf_ban_origin_factor` int(11) unsigned NOT NULL DEFAULT ''200'', ADD COLUMN `waf_ban_origin_now` enum(''off'',''on'') NOT NULL DEFAULT ''off'', ADD COLUMN `waf_ban_origin_hosting` enum(''off'',''on'') NOT NULL DEFAULT ''off'', ADD COLUMN `waf_ban_origin_vpn` enum(''off'',''on'') NOT NULL DEFAULT ''off'', ADD COLUMN `waf_ban_origin_tor` enum(''off'',''on'') NOT NULL DEFAULT ''off'', ADD COLUMN `waf_ban_origin_countries` varchar(255) NOT NULL DEFAULT '''', ADD COLUMN `waf_ban_origin_asn` varchar(255) NOT NULL DEFAULT ''''',

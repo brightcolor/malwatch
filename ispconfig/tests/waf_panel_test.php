@@ -934,13 +934,16 @@ expect_same('the places are no field of the form', array_values(array_intersect(
 $places = waf_config_places($config_words['de'], waf_settings(array('waf_hc_run' => '')));
 expect_same('the places in their four groups', array_map(function ($group) {
 	return array($group['place_group'], count($group['place_rows']));
-}, $places), array(array('nginx', 4), array('modsec', 5), array('logs', 5), array('tools', 6)));
+}, $places), array(array('nginx', 4), array('modsec', 5), array('logs', 5), array('tools', 7)));
 expect_same('a place with its word, its value and its variable', $places[0]['place_rows'][0], array(
 	'place_label' => $config_words['de']['waf_conf_dir_txt'], 'place_value' => '/etc/nginx/waf',
 	'place_env' => 'MALWATCH_WAF_CONF_DIR', 'place_empty' => 0));
 expect_same('an empty hc-run says what happens', array($places[3]['place_rows'][2]['place_value'],
 	$places[3]['place_rows'][2]['place_empty']), array($config_words['de']['place_empty_txt'], 1));
-expect_same('the directories of programs one after another', $places[3]['place_rows'][5]['place_value'],
+expect_same('the check of the watch over the scanner (0.36.0)', array($places[3]['place_rows'][5]['place_label'],
+	$places[3]['place_rows'][5]['place_value'], $places[3]['place_rows'][5]['place_env']),
+	array($config_words['de']['waf_hc_watch_name_txt'], 'malwatch-wache', 'MALWATCH_WAF_HC_WATCH_NAME'));
+expect_same('the directories of programs one after another', $places[3]['place_rows'][6]['place_value'],
 	'/usr/local/sbin, /usr/local/bin, /usr/sbin, /usr/bin, /sbin, /bin');
 foreach (array('nginx', 'modsec', 'logs', 'tools') as $group) {
 	expect_same("heading of the places $group", array($places[array_search($group, array('nginx', 'modsec', 'logs', 'tools'))]['place_head'],

@@ -1641,7 +1641,8 @@ for col in waf_ban_proposal_days waf_ban_page_rows waf_ban_page_step waf_ban_pag
 	waf_proxycheck_retry_minutes waf_proxycheck_tries waf_origin_lookup_batch waf_cleanup_batch \
 	waf_cleanup_rounds waf_response_grace_minutes waf_blocked_lines waf_hit_rules_max waf_show_paths \
 	waf_preview_delay_ms waf_cli_jobs waf_cli_wait_margin_minutes waf_guard_minute waf_hourly_minute \
-	waf_body_limit_kb waf_body_nofiles_limit_kb waf_body_limit_action; do
+	waf_body_limit_kb waf_body_nofiles_limit_kb waf_body_limit_action waf_watch_minutes waf_watch_stale_minutes \
+	waf_watch_pending_minutes waf_watch_overdue_hours waf_watch_remind_hours waf_watch_crash_pause; do
 	grep -q "ADD COLUMN \`$col\`" "$root/install/schema.sql" \
 		|| fail "malwatch_config bekommt keine Spalte $col"
 	grep -q "'$col' =>" "$root/interface/lib/malwatch_waf_lib.inc.php" \
@@ -2046,6 +2047,24 @@ if grep -n 'catch (Exception ' "$cron_job" > "$tmpdir/catch99"; then
 fi
 awk '/function onRunJob\(/ { inside = 1 } inside && /try \{/ && !tried { tried = 1 } inside && /\$app->uses\(/ { uses_in_try = tried } inside && /^\t}/ { inside = 0 } END { exit uses_in_try ? 0 : 1 }' "$cron_job" \
 	|| fail "560-malwatch.inc.php lädt seine Helfer außerhalb eines try-Blocks"
+
+# 100. The watch over the scanner (0.36.0) runs from the cron file of the
+#      Abwehr, apart from the cron of ISPConfig, every waf_watch_minutes and
+#      under its own name at healthchecks. The ISPConfig job frees itself after
+#      a crash no catch reaches, so it neither stops for a day nor ends the cron
+#      of ISPConfig every minute.
+sed -n '/^function waf_cron_text/,/^}/p' "$waf_lib" | grep -qF "'/waf-switch watch'" \
+	|| fail "waf_cron_text() startet die Wache über den Scanner nicht"
+sed -n '/^function waf_cron_text/,/^}/p' "$waf_lib" | grep -qF "\$settings['waf_hc_watch_name']" \
+	|| fail "waf_cron_text() meldet die Wache nicht unter dem Namen aus den Einstellungen an healthchecks"
+sed -n '/^function waf_cron_text/,/^}/p' "$waf_lib" | grep -qF "\$settings['waf_watch_minutes']" \
+	|| fail "waf_cron_text() nimmt den Abstand der Wache nicht aus den Einstellungen"
+grep -q "case 'watch':" "$waf_dir/waf-switch" \
+	|| fail "waf-switch kennt den Befehl watch nicht"
+grep -q 'public function watch(' "$root/server/lib/classes/malwatch_waf.inc.php" \
+	|| fail "malwatch_waf hat keine Wache über den Scanner"
+grep -qF 'register_shutdown_function(array($this, ' "$cron_job" \
+	|| fail "560-malwatch.inc.php gibt sich nach einem Absturz nicht selbst frei"
 
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'

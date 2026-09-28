@@ -2,6 +2,50 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.36.0] – 2026-09-28
+
+### Hinzugefügt
+
+**Wache über den Scanner.** `waf-switch watch` läuft aus der Cron-Datei der Abwehr
+alle fünf Minuten über `hc-run malwatch-wache`, neben dem Cron von ISPConfig. Sie meldet:
+
+- eine Sperre, die ISPConfig länger als 15 Minuten als „läuft“ führt; läuft dabei kein
+  `cron.php` von ISPConfig mehr, löst sie die Sperre,
+- einen Cron-Job, der nicht mehr läuft, und einen Absturz,
+- Aufträge, die länger als 180 Minuten warten,
+- Websites, deren letzter Scan länger zurückliegt als ihr Zeitplan plus 12 Stunden.
+
+Probleme stehen im Protokoll von ISPConfig, der Check in healthchecks wird rot, OpsKnight
+bekommt über `hc-run` einen Vorfall, und die Admin-Adresse aus Scanner > Einstellungen
+bekommt eine Mail: beim ersten Mal, nach 24 Stunden als Erinnerung und als Entwarnung.
+
+**Selbstfreigabe nach einem Absturz.** Stirbt ein Lauf des Cron-Jobs an einem Fehler, den
+kein Abfangen erreicht, etwa am Speicher, gibt er sich frei und startet nach zehn Minuten
+neu. ISPConfig hielte ihn sonst 24 Stunden lang für laufend, und der Cron von ISPConfig
+verlöre bei jedem Lauf die Jobs, die nach malwatch an der Reihe sind.
+
+**Einstellungen** unter Abwehr > Einstellungen > Takt und Hintergrund: Abstand der Wache
+(5 Minuten), Sperre hängt nach (15 Minuten), Pause nach einem Absturz (10 Minuten),
+Aufträge warten höchstens (180 Minuten), Spielraum für Scans (12 Stunden), Erinnerung nach
+(24 Stunden). Der Name des Checks steht bei den Orten (`MALWATCH_WAF_HC_WATCH_NAME`,
+Vorgabe `malwatch-wache`).
+
+### Einspielen
+
+`waf/install.sh` erneut ausführen: Es legt `waf-switch` mit dem Befehl `watch` ab und
+schreibt die Cron-Datei mit der dritten Zeile. Für healthchecks einen Check anlegen und
+seine Ping-Adresse in `/etc/hc-run.d/malwatch-wache.url` schreiben.
+
+### Tests
+
+- `waf_lib_test.php`: die Regeln der Wache mit den Vorgaben und mit anderen Werten, die
+  Mails und die Zeile der Cron-Datei; die Vorlage `fixtures/waf/cron-malwatch-waf` hat die
+  dritte Zeile.
+- `tests/watch_probe.php` und `tests/cron_guard_probe.php` laufen als root auf dem Server:
+  die Wache gegen eine Wegwerf-Datenbank, und ein Lauf des Cron-Jobs, der am Speicher stirbt.
+- `check_wiring.sh` Prüfung 85 kennt die sechs Zahlen, Prüfung 100 die Zeile der Wache, den
+  Befehl `watch` und die Selbstfreigabe.
+
 ## [0.35.2] – 2026-09-28
 
 ### Behoben
