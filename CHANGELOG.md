@@ -44,6 +44,10 @@ hält keine Prüfung auf: Es gelten seine brauchbaren Namen, sonst die Vorgabe.
 Das Schema legt `malwatch_config.upload_dirs` an. Scanner und Addon gehören zusammen: Das
 Addon gibt ab 0.38.0 `--upload-dirs` mit, und das kennt erst der Scanner 0.38.0.
 
+Den Regelkatalog liest der Cron-Job einmal am Tag in `malwatch_rule`; erst dann kennt das
+Addon die Titel der neuen Regeln und welche davon eindeutig sind. Nach dem Einspielen
+`<state_dir>/state/rules.json` löschen, dann liest er ihn im nächsten Lauf.
+
 ### Tests
 
 - `internal/rules/persistence_test.go`: Treffer und Nicht-Treffer für jede neue Regel,
