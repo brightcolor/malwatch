@@ -18,25 +18,40 @@ class cronjob_malwatch extends cronjob
 	{
 		global $app, $conf;
 
-		$app->uses('malwatch_helper,malwatch_runner,malwatch_ingest,malwatch_actions,malwatch_waf,getconf');
-		$config = $app->malwatch_helper->get_config();
+		// Every section catches Throwable, not only Exception. An Error that
+		// escapes ends cron.php: ISPConfig never clears the running flag of this
+		// job and skips it for 24 hours, and the ISPConfig jobs after it lose
+		// that run. From 2026-09-26 to 2026-09-28 an undefined function in the
+		// WAF part did exactly that, and no website was scanned.
+		try {
+			$app->uses('malwatch_helper,malwatch_runner,malwatch_ingest,malwatch_actions,malwatch_waf,getconf');
+			$config = $app->malwatch_helper->get_config();
+		} catch (Throwable $e) {
+			$app->log('malwatch: Die Helfer von malwatch ließen sich nicht laden (' . $this->failure_text($e)
+				. '). malwatch ist vermutlich unvollständig installiert; bitte das Paket erneut einspielen.', LOGLEVEL_WARN);
+			parent::onRunJob();
+			return;
+		}
 
 		try {
 			$this->collect_finished($config);
-		} catch (Exception $e) {
-			$app->log('malwatch: collecting results failed: ' . $e->getMessage(), LOGLEVEL_WARN);
+		} catch (Throwable $e) {
+			$app->log('malwatch: Fertige Prüfläufe ließen sich nicht einlesen (' . $this->failure_text($e)
+				. '). Der nächste Lauf versucht es erneut.', LOGLEVEL_WARN);
 		}
 
 		try {
 			$this->queue_due_scans($config);
-		} catch (Exception $e) {
-			$app->log('malwatch: scheduling failed: ' . $e->getMessage(), LOGLEVEL_WARN);
+		} catch (Throwable $e) {
+			$app->log('malwatch: Fällige Prüfungen ließen sich nicht einplanen (' . $this->failure_text($e)
+				. '). Der nächste Lauf versucht es erneut.', LOGLEVEL_WARN);
 		}
 
 		try {
 			$this->queue_due_vulnchecks($config);
-		} catch (Exception $e) {
-			$app->log('malwatch: scheduling the vulnerability check failed: ' . $e->getMessage(), LOGLEVEL_WARN);
+		} catch (Throwable $e) {
+			$app->log('malwatch: Der Schwachstellenabgleich ließ sich nicht einplanen (' . $this->failure_text($e)
+				. '). Der nächste Lauf versucht es erneut.', LOGLEVEL_WARN);
 		}
 
 		// The WAF part reads its log and works on its own jobs, under its own
@@ -54,23 +69,32 @@ class cronjob_malwatch extends cronjob
 					$app->malwatch_waf->cron_hourly();
 				}
 			}
-		} catch (Exception $e) {
-			$app->log('malwatch: the WAF pass failed: ' . $e->getMessage(), LOGLEVEL_WARN);
+		} catch (Throwable $e) {
+			$app->log('malwatch: Der WAF-Teil ist gescheitert (' . $this->failure_text($e)
+				. '). Die übrigen Aufgaben laufen weiter, der nächste Lauf versucht es erneut.', LOGLEVEL_WARN);
 		}
 
 		try {
 			$this->start_pending($config);
-		} catch (Exception $e) {
-			$app->log('malwatch: starting a queued scan failed: ' . $e->getMessage(), LOGLEVEL_WARN);
+		} catch (Throwable $e) {
+			$app->log('malwatch: Ein wartender Auftrag ließ sich nicht starten (' . $this->failure_text($e)
+				. '). Der nächste Lauf versucht es erneut.', LOGLEVEL_WARN);
 		}
 
 		try {
 			$this->housekeeping($config);
-		} catch (Exception $e) {
-			$app->log('malwatch: housekeeping failed: ' . $e->getMessage(), LOGLEVEL_WARN);
+		} catch (Throwable $e) {
+			$app->log('malwatch: Die Aufräumarbeiten sind gescheitert (' . $this->failure_text($e)
+				. '). Der nächste Lauf versucht es erneut.', LOGLEVEL_WARN);
 		}
 
 		parent::onRunJob();
+	}
+
+	/** Kind, place and message of a failure, for the ISPConfig log. */
+	private function failure_text($e)
+	{
+		return get_class($e) . ' in ' . basename($e->getFile()) . ':' . $e->getLine() . ': ' . $e->getMessage();
 	}
 
 	/** Reads the reports of scans whose process has ended. */

@@ -2025,6 +2025,28 @@ fi
 grep -qF 'else php "$SWITCH" "$@"; fi' "$waf_dir/install.sh" \
 	|| fail "waf/install.sh startet waf-switch ohne Ausführrecht nicht über php"
 
+# 98. malwatch_waf loads its libraries when it is created. The cron job builds
+#     the class through $app->uses() and asks tick_is_fresh() first; from
+#     2026-09-26 on that call ended every run with "Call to undefined function
+#     waf_settings()", because only some methods called ready() before a
+#     library function. settings() names the missing library instead of dying.
+waf_class="$root/server/lib/classes/malwatch_waf.inc.php"
+awk '/function __construct\(/ { inside = 1 } inside && /\$this->ready\(\)/ { found = 1 } inside && /^\t}/ { inside = 0 } END { exit found ? 0 : 1 }' "$waf_class" \
+	|| fail "malwatch_waf lädt seine Bibliothek nicht beim Anlegen (__construct ohne \$this->ready())"
+grep -qF "function_exists('waf_settings')" "$waf_class" \
+	|| fail "malwatch_waf::settings() prüft nicht, ob waf_settings() geladen ist"
+
+# 99. Every section of the malwatch cron job catches Throwable. An Error that
+#     escapes ends cron.php, so ISPConfig never clears the job's running flag
+#     and skips the job for 24 hours; the ISPConfig jobs after it lose that
+#     run as well. The loading of the helpers sits in its own section.
+cron_job="$root/server/lib/classes/cron.d/560-malwatch.inc.php"
+if grep -n 'catch (Exception ' "$cron_job" > "$tmpdir/catch99"; then
+	fail "560-malwatch.inc.php fängt nur Exception ab, Zeile $(cut -d: -f1 "$tmpdir/catch99" | tr '\n' ' ')"
+fi
+awk '/function onRunJob\(/ { inside = 1 } inside && /try \{/ && !tried { tried = 1 } inside && /\$app->uses\(/ { uses_in_try = tried } inside && /^\t}/ { inside = 0 } END { exit uses_in_try ? 0 : 1 }' "$cron_job" \
+	|| fail "560-malwatch.inc.php lädt seine Helfer außerhalb eines try-Blocks"
+
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'
 fi

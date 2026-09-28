@@ -2,6 +2,37 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.35.2] – 2026-09-28
+
+### Behoben
+
+**Der Cron-Job von malwatch läuft wieder und startet Scans.** Seit 0.32.0 las
+`tick_is_fresh()` die Frist des Minutentakts aus den Einstellungen, ohne die
+Bibliothek der Abwehr zu laden. Jeder Lauf des ISPConfig-Cron-Jobs endete
+deshalb mit „Call to undefined function waf_settings()“, und ISPConfig ließ den
+Job danach jeweils 24 Stunden als „läuft“ stehen. Auf web.herkules startete vom
+26.09. um 13:21 Uhr bis zum Rollout dieser Version kein Scan und kein
+Schwachstellenabgleich. Die Abwehr lief weiter, ihr Minutentakt hat eine eigene
+Cron-Datei.
+
+- `malwatch_waf` lädt seine Bibliotheken beim Anlegen. Fehlt eine, nennt
+  `settings()` sie und bittet darum, das Paket erneut einzuspielen.
+- Jeder Abschnitt des Cron-Jobs fängt auch PHP-Fehler (`Throwable`) ab, das
+  Laden der Helfer eingeschlossen. Ein Fehler steht mit Art, Datei und Zeile im
+  ISPConfig-Protokoll, die übrigen Abschnitte laufen weiter, und ISPConfig gibt
+  den Job am Ende des Laufs frei.
+- Die Meldungen dieser Abschnitte sind deutsch und sagen, wie es weitergeht.
+
+### Tests
+
+- `check_wiring.sh` Prüfung 98: Die Klasse der Abwehr lädt ihre Bibliothek beim
+  Anlegen, und `settings()` prüft sie. Prüfung 99: Jeder Abschnitt des
+  Cron-Jobs fängt `Throwable`, auch das Laden der Helfer.
+- `tests/waf_fresh_probe.php` lädt die Klasse wie der Cron-Job in einem frischen
+  PHP-Prozess. `tests/cron_section_probe.php` lässt den Cron-Job mit einem
+  WAF-Teil laufen, der einen Error wirft, und prüft, dass Protokolleintrag und
+  Aufräumarbeiten folgen. Beide laufen als root auf dem Server.
+
 ## [0.35.1] – 2026-09-27
 
 ### Behoben

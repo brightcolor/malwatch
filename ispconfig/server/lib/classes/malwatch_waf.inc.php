@@ -58,6 +58,18 @@ class malwatch_waf
 	/** The handle of the lock file while this process holds it. */
 	private $lock = null;
 
+	/**
+	 * Loads the shared functions right away. The cron job builds this class
+	 * through $app->uses() and asks tick_is_fresh() before anything else; from
+	 * 2026-09-26 to 2026-09-28 that call ended every run with "Call to
+	 * undefined function waf_settings()", because only some methods called
+	 * ready() before they used the library.
+	 */
+	public function __construct()
+	{
+		$this->ready();
+	}
+
 	/** Loads the shared functions; false when malwatch is not installed completely. */
 	public function ready()
 	{
@@ -77,6 +89,10 @@ class malwatch_waf
 	public function settings()
 	{
 		global $app;
+		if (!function_exists('waf_settings')) {
+			throw new Exception('Die Bibliothek der Abwehr fehlt (' . basename(self::LIB)
+				. '), malwatch ist unvollständig installiert. Bitte das Paket erneut einspielen.');
+		}
 		return waf_settings($app->dbmaster->queryOneRecord('SELECT * FROM malwatch_config WHERE config_id = 1'));
 	}
 
