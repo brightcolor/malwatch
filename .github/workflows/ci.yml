@@ -36,6 +36,15 @@ jobs:
           cache: true
       - name: Build the release binaries
         run: make dist
+      # The scanner of this commit, for a read-only run over live websites
+      # before a release is tagged. Kept before the next step, which builds
+      # into the same folder again.
+      - name: Keep the scanner for checks before a release
+        uses: actions/upload-artifact@v4
+        with:
+          name: malwatch-linux-amd64
+          path: dist/malwatch-linux-amd64
+          retention-days: 7
       - name: The check refuses a binary built with cgo
         # An empty CGO_ENABLED leaves the choice to Go, as the Makefile did up
         # to v0.30.0: cgo for the native amd64 build.
@@ -73,6 +82,8 @@ jobs:
         run: php ispconfig/tests/panel_helpers_test.php
       - name: Scan schedule in days
         run: php ispconfig/tests/scan_days_test.php
+      - name: Upload directories
+        run: php ispconfig/tests/upload_dirs_test.php
       - name: WAF functions
         run: php ispconfig/tests/waf_lib_test.php
       - name: WAF page helpers

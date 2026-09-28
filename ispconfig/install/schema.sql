@@ -1177,6 +1177,17 @@ SET @mw := IF(@mw_default_days_new, 'UPDATE `malwatch_config` SET `default_scan_
   'DO 0');
 PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
+-- From 0.38.0 the directories that hold nothing but uploads are a setting
+-- (malwatch_upload_dirs_limits(): 16 names of 30 characters, commas between
+-- them, so 512 characters hold them). ASCII, the only characters its check
+-- allows, so the row keeps its room below 64 KB.
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_config` ADD COLUMN `upload_dirs` varchar(512) CHARACTER SET ascii NOT NULL DEFAULT ''uploads,attachments,avatars,thumbs,userfiles,user_uploads,file_uploads'' AFTER `scan_max_age`',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_config' AND COLUMN_NAME = 'upload_dirs');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
 -- Die Herkunft senkt die Schwelle, ab 0.25.0. Alles beginnt ausgeschaltet.
 SET @mw := (SELECT IF(COUNT(*) = 0,
   'ALTER TABLE `malwatch_config` ADD COLUMN `waf_ban_origin` enum(''off'',''on'') NOT NULL DEFAULT ''off'', ADD COLUMN `waf_ban_origin_score` int(11) unsigned NOT NULL DEFAULT ''20'', ADD COLUMN `waf_ban_origin_factor` int(11) unsigned NOT NULL DEFAULT ''200'', ADD COLUMN `waf_ban_origin_now` enum(''off'',''on'') NOT NULL DEFAULT ''off'', ADD COLUMN `waf_ban_origin_hosting` enum(''off'',''on'') NOT NULL DEFAULT ''off'', ADD COLUMN `waf_ban_origin_vpn` enum(''off'',''on'') NOT NULL DEFAULT ''off'', ADD COLUMN `waf_ban_origin_tor` enum(''off'',''on'') NOT NULL DEFAULT ''off'', ADD COLUMN `waf_ban_origin_countries` varchar(255) NOT NULL DEFAULT '''', ADD COLUMN `waf_ban_origin_asn` varchar(255) NOT NULL DEFAULT ''''',

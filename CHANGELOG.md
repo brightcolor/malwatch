@@ -2,6 +2,62 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.38.0] – 2026-09-28
+
+### Hinzugefügt
+
+**Regeln gegen Einnistung auf dem Server.** Anlass war das Schad-Plugin AzimutAV vom
+28.09.2026 auf esport-mv.de: Es legte ein Startskript in `wp-content/uploads`, trug es in
+die Crontab des Webbenutzers ein, lud damit ein Linux-Programm nach und startete es im
+Hintergrund. malwatch 0.35.1 erkannte davon nichts. Neu:
+
+| Regel | Stufe | Was sie meldet |
+|---|---|---|
+| `php.dropper.cron` | kritisch, eindeutig | PHP macht eine Datei ausführbar und trägt sie über einen Shell-Aufruf in die Crontab ein |
+| `php.exec.crontab` | hoch | PHP ändert die Crontab über einen Shell-Aufruf |
+| `php.exec.background` | mittel | PHP startet einen Prozess im Hintergrund |
+| `shell.fetch_exec` | kritisch, eindeutig | ein Shell-Skript lädt ein Programm aus dem Netz, macht es ausführbar und startet es im Hintergrund, oder gibt einen Download direkt an eine Shell |
+| `shell.in_uploads` | hoch | ein Shell-Skript in einem Upload-Ordner |
+| `binary.elf_in_uploads` | kritisch | ein Linux-Programm in einem Upload-Ordner |
+| `binary.elf` | mittel | ein Linux-Programm anderswo im Webverzeichnis |
+
+„Eindeutig“ heißt: Die automatische Aktion „Eindeutige Schädlinge entfernen“ verschiebt
+solche Dateien nach einer geplanten Prüfung in die Quarantäne. Shell-Skripte erkennt der
+Scanner an `.sh` und `.bash` oder an der ersten Zeile (`#!/bin/sh`, `#!/usr/bin/env bash`
+und ähnliche), auch ohne Endung.
+
+**Große Dateien.** Dateien über der Größengrenze (`--max-size`, Vorgabe 32 MiB) liest der
+Scanner weiter nicht ganz, prüft aber ihren Anfang: Ein aufgeblähtes Programm fällt so
+trotzdem auf.
+
+**Upload-Ordner als Einstellung.** Die Liste der Upload-Ordner stand fest im Scanner. Sie
+steht jetzt unter Scanner > Einstellungen („Ordner für hochgeladene Dateien“, bis zu 16
+Namen mit je höchstens 30 Zeichen) und geht als `--upload-dirs` an den Scanner;
+`php.in_uploads` nutzt dieselbe Liste. Ein gespeicherter Wert, den die Seite abweisen würde,
+hält keine Prüfung auf: Es gelten seine brauchbaren Namen, sonst die Vorgabe.
+
+**CI.** Der gebaute Scanner jedes Commits liegt sieben Tage als Artefakt
+`malwatch-linux-amd64` bereit, für einen Lauf über echte Websites vor dem Tag.
+
+### Einspielen
+
+Das Schema legt `malwatch_config.upload_dirs` an. Scanner und Addon gehören zusammen: Das
+Addon gibt ab 0.38.0 `--upload-dirs` mit, und das kennt erst der Scanner 0.38.0.
+
+### Tests
+
+- `internal/rules/persistence_test.go`: Treffer und Nicht-Treffer für jede neue Regel,
+  andere Upload-Ordner, der Anfang großer Dateien, die Erkennung von Shell-Skripten. Die
+  Beispiele sind aus Stücken zusammengesetzt und enthalten kein Webshell-Muster, weil der
+  Virenschutz auf dem Arbeitsrechner solche Testdateien löscht.
+- `internal/scanner/programs_test.go`, `internal/walk/large_test.go` und
+  `cmd/malwatch/upload_dirs_test.go`: große Programme samt Freigabeliste, die Upload-Ordner
+  bis in den Cache und auf der Kommandozeile.
+- `ispconfig/tests/upload_dirs_test.php` (neu, in der CI): Vorgabe, Grenzen, das Muster der
+  Seite, das Aufräumen der Eingabe und die Namen für den Scanner.
+- `check_wiring.sh` Prüfung 102: dieselbe Vorgabe und dieselben Grenzen in Scanner, Panel
+  und Server, Feld, Texte, Runner, und kein Upload-Muster mehr im Katalog.
+
 ## [0.37.0] – 2026-09-28
 
 ### Geändert

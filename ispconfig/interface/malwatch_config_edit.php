@@ -314,10 +314,14 @@ class page_action extends tform_actions
 
 		// tform_actions::onLoad() copied $_POST into dataRecord before this
 		// method runs, and saves from that copy. Both values set above have to
-		// reach it.
+		// reach it. The upload directories go in without the spaces around
+		// their commas; tform checks them afterwards.
 		if (is_array($this->dataRecord)) {
 			$this->dataRecord['auto_preset_id'] = $_POST['auto_preset_id'];
 			$this->dataRecord['wpscan_token'] = $token;
+			if (isset($this->dataRecord['upload_dirs'])) {
+				$this->dataRecord['upload_dirs'] = malwatch_upload_dirs_tidy($this->dataRecord['upload_dirs']);
+			}
 		}
 
 		parent::onBeforeUpdate();

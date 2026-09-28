@@ -25,7 +25,11 @@ Prüfumfang:
                            * bleibt in einer Ebene, ** geht über Ebenen hinweg
   --exclude-from=DATEI     Muster zeilenweise aus einer Datei lesen
   --max-age=TAGE           nur Dateien der letzten TAGE Tage prüfen
-  --max-size=BYTES         Dateien über dieser Größe auslassen
+  --max-size=BYTES         Dateien über dieser Größe nur am Anfang prüfen,
+                           ob sie ein Programm sind (Vorgabe: 32 MiB)
+  --upload-dirs=NAMEN      Ordner nur für hochgeladene Dateien, durch Komma
+                           getrennt (Vorgabe: uploads, attachments, avatars,
+                           thumbs, userfiles, user_uploads, file_uploads)
   --ignore-chmod0          Dateien mit Rechten 000 auslassen
   --threads=N              Anzahl paralleler Arbeiter (Vorgabe: Kerne)
 

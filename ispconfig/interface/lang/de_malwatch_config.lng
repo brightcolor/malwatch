@@ -20,6 +20,8 @@ $wb['default_excludes_txt'] = 'Global auszulassende Pfade';
 $wb['default_excludes_hint_txt'] = 'Ein Muster je Zeile. Gilt zusätzlich zu den Mustern der einzelnen Website.';
 $wb['scan_max_age_txt'] = 'Nur Dateien der letzten Tage';
 $wb['scan_max_age_hint_txt'] = '0 prüft alle Dateien. Gilt nur für Websites ohne eigenen Wert.';
+$wb['upload_dirs_txt'] = 'Ordner für hochgeladene Dateien';
+$wb['upload_dirs_hint_txt'] = 'Ordnernamen, durch Komma getrennt; Groß- und Kleinschreibung zählt. Liegt unterhalb eines dieser Ordner eine PHP-Datei, ein Shell-Skript oder ein Linux-Programm, meldet der Scanner das eigens. Hierher gehören nur Ordner, in die ein CMS ausschließlich Hochgeladenes legt.';
 
 $wb['limits_head_txt'] = 'Grenzen';
 $wb['max_parallel_txt'] = 'Gleichzeitige Prüfungen';
@@ -109,6 +111,7 @@ $wb['admin_email_error_isemail'] = 'Die Empfängeradresse ist keine gültige E-M
 $wb['sender_email_error_isemail'] = 'Die Absenderadresse ist keine gültige E-Mail-Adresse.';
 $wb['default_scan_days_error_range'] = 'Abstand der Prüfungen für neue Websites: Erlaubt sind ganze Zahlen von 0 bis 365 Tagen. Bitte den Wert anpassen und erneut speichern.';
 $wb['scan_max_age_error_range'] = 'Die Zahl der Tage muss zwischen 0 und 3650 liegen.';
+$wb['upload_dirs_error_regex'] = 'Ordner für hochgeladene Dateien: Erlaubt sind 1 bis 16 Namen mit je höchstens 30 Zeichen aus Buchstaben, Ziffern, Punkt, Unterstrich und Bindestrich, durch Komma getrennt; ein Name beginnt nicht mit einem Punkt. Bitte die Liste anpassen und erneut speichern.';
 $wb['max_parallel_error_range'] = 'Die Zahl gleichzeitiger Prüfungen muss zwischen 1 und 16 liegen.';
 $wb['job_timeout_error_range'] = 'Die Abbruchzeit muss zwischen 1 und 168 Stunden liegen.';
 $wb['keep_scans_error_range'] = 'Die Zahl aufbewahrter Prüfläufe muss zwischen 1 und 1000 liegen.';

@@ -2,6 +2,8 @@ package rules
 
 import (
 	"bytes"
+	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/brightcolor/malwatch/internal/report"
@@ -11,10 +13,14 @@ import (
 type Engine struct {
 	rules   []*Rule
 	ignored map[string]bool
+	// uploadDirs are the directories the location rules call upload
+	// directories, uploads the pattern built from them.
+	uploadDirs []string
+	uploads    *regexp.Regexp
 }
 
 // NewEngine returns an engine over the full catalog, minus the rule IDs in
-// ignore (case insensitive, as on the command line).
+// ignore (case insensitive, as on the command line), with DefaultUploadDirs.
 func NewEngine(ignore []string) *Engine {
 	ig := make(map[string]bool, len(ignore))
 	for _, id := range ignore {
@@ -27,11 +33,61 @@ func NewEngine(ignore []string) *Engine {
 		}
 		e.rules = append(e.rules, r)
 	}
+	e.uploadDirs = append([]string(nil), DefaultUploadDirs...)
+	e.uploads = uploadPattern(e.uploadDirs)
 	return e
+}
+
+// SetUploadDirs replaces the directories the rules with Where call upload
+// directories. A list CheckUploadDirs refuses leaves the engine as it was.
+func (e *Engine) SetUploadDirs(dirs []string) error {
+	if err := CheckUploadDirs(dirs); err != nil {
+		return err
+	}
+	e.uploadDirs = append([]string(nil), dirs...)
+	e.uploads = uploadPattern(e.uploadDirs)
+	return nil
 }
 
 // RuleCount returns how many rules are active.
 func (e *Engine) RuleCount() int { return len(e.rules) }
+
+// Fingerprint identifies what the engine reports on a file: the active rules
+// and the upload directories. A clean file stays clean only under the same
+// fingerprint.
+func (e *Engine) Fingerprint() string {
+	return fmt.Sprintf("%d|%s", len(e.rules), strings.Join(e.uploadDirs, ","))
+}
+
+// fits reports whether rel lies where the rule looks.
+func (e *Engine) fits(r *Rule, rel string) bool {
+	switch r.Where {
+	case InUploads:
+		return e.uploads.MatchString(rel)
+	case OutsideUploads:
+		return !e.uploads.MatchString(rel)
+	}
+	return true
+}
+
+// ScanHead applies the HeadOnly rules to the start of a file the scanner does
+// not read as a whole, see HeadSize. path and rel mean what they mean in Scan.
+func (e *Engine) ScanHead(path, rel, ext string, head []byte) []report.Finding {
+	if rel == "" {
+		rel = path
+	}
+	looks := look(head)
+	var out []report.Finding
+	for _, r := range e.rules {
+		if !r.HeadOnly || !r.AppliesTo(rel, ext, looks) || !e.fits(r, rel) {
+			continue
+		}
+		if f, ok := e.apply(r, path, head, head, nil); ok {
+			out = append(out, f)
+		}
+	}
+	return out
+}
 
 // maxExcerpt caps how much of a match ends up in the report. A webshell can
 // be one very long line; the report must stay readable and the row must fit
@@ -64,7 +120,7 @@ func (e *Engine) Scan(path, rel, ext string, content []byte) []report.Finding {
 
 	var out []report.Finding
 	for _, r := range e.rules {
-		if !r.AppliesTo(rel, ext, looks) {
+		if !r.AppliesTo(rel, ext, looks) || !e.fits(r, rel) {
 			continue
 		}
 		if f, ok := e.apply(r, path, content, content, nil); ok {

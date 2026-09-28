@@ -19,9 +19,20 @@ liest seinen Bericht und zeigt die Ergebnisse an.
 
 **Schadcode** in drei Stufen. Signaturen aus der frei verfügbaren Sammlung von
 Linux Malware Detect, Hashes und Bytemuster. Eine Heuristik mit Regeln für PHP,
-JavaScript, HTML und `.htaccess`: Verschleierung, Ausführung von Anfragedaten,
-Webshell-Merkmale, eingeschleuste Rahmen und Weiterleitungen, PHP an Orten, wo
-nur Uploads liegen dürfen. ClamAV zusätzlich, wenn es installiert ist.
+JavaScript, HTML, `.htaccess`, Shell-Skripte und Linux-Programme: Verschleierung,
+Ausführung von Anfragedaten, Webshell-Merkmale, eingeschleuste Rahmen und
+Weiterleitungen, PHP, Shell-Skripte und Programme an Orten, wo nur Uploads
+liegen dürfen. ClamAV zusätzlich, wenn es installiert ist.
+
+**Einnistung auf dem Server.** Seit 0.38.0 erkennt die Heuristik die Form, in der
+sich ein Schad-Plugin im September 2026 auf einer Website festsetzte: PHP, das
+eine Datei ausführbar macht und über einen Shell-Aufruf in die Crontab einträgt,
+ein Shell-Skript, das ein Programm aus dem Netz lädt und im Hintergrund startet,
+und das Programm selbst in einem Upload-Ordner. Welche Ordner als Upload-Ordner
+gelten, legt `--upload-dirs` fest (Vorgabe: uploads, attachments, avatars,
+thumbs, userfiles, user_uploads, file_uploads). Dateien über der Größengrenze
+(`--max-size`, Vorgabe 32 MiB) liest der Scanner nur am Anfang, wo ein Programm
+sich zu erkennen gibt.
 
 Geprüft wird jede Datei, und was eine Datei ist, entscheiden ihre ersten Bytes,
 nicht ihre Endung. So findet der Scanner PHP, das als `.css`, `.txt` oder

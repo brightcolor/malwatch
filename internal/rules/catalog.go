@@ -10,6 +10,27 @@ import (
 // so it fails loudly instead of silently never matching.
 func rx(pattern string) *regexp.Regexp { return regexp.MustCompile(pattern) }
 
+// Patterns the rules for droppers share.
+const (
+	// execCall is a PHP function that runs a shell command.
+	execCall = `\b(?:system|exec|shell_exec|passthru|popen|proc_open|pcntl_exec)\s*\(`
+	// crontabChange installs or clears a crontab: a table piped into crontab,
+	// "crontab -" or "crontab -r". Reading it (-l) and prose about it are no
+	// change.
+	crontabChange = `\|[ \t]*crontab\b|\bcrontab[ \t]+-(?:r\b|[ \t'")]|$)`
+	// makeExecutable gives a file the execute bit: chmod() in PHP with an
+	// octal mode whose owner digit has it, or chmod +x or 755 in a command.
+	makeExecutable = `(?i)\bchmod\s*\([^;]{1,200}?,\s*(?:0o?)?[0-7]?[1357][0-7]{2}\s*\)|` +
+		`\bchmod[ \t]+(?:-[a-z]+[ \t]+)*(?:[ugoa]*\+[rwxX]*x|[0-7]?[1357][0-7]{2})\b`
+	// backgroundStart starts a command detached from the one that ran it:
+	// nohup, setsid, or output thrown away and the command sent off with &.
+	backgroundStart = `\b(?:nohup|setsid)\b|>[ \t]*/dev/null[ \t]+2>&1[ \t]*&(?:[^&]|$)`
+	// pipeToShell hands what came before to a shell.
+	pipeToShell = `\|[ \t]*(?:sudo[ \t]+)?(?:/(?:usr/)?bin/)?(?:ba|da|z|k)?sh\b`
+	// elfMagic opens every Linux program.
+	elfMagic = `\A\x7fELF`
+)
+
 // catalog is the heuristic rule set.
 //
 // Two principles keep the false positive rate down:
@@ -438,6 +459,71 @@ var catalog = []*Rule{
 		Description: "schreibt dekodierten oder übermittelten Inhalt in eine Datei",
 		Exts:        phpExts,
 		Match:       rx(`(?is)\b(?:file_put_contents|fwrite|fputs)\s*\(\s*[^;)]{0,160}(?:base64_decode|gzinflate|\$(?:_GET|_POST|_REQUEST|_COOKIE))`),
+	},
+	// -------------------------------------------------------- persistence
+	// A dropper that settles on the server: the crontab of the website's user
+	// runs a script, the script fetches a program and starts it in the
+	// background, and the program keeps running whatever happens to the
+	// website. Seen on 2026-09-28 in a WordPress plugin called AzimutAV that
+	// scanned the network from a customer's website.
+	{
+		ID:          "php.dropper.cron",
+		Severity:    report.SeverityCritical,
+		AutoSafe:    true,
+		Description: "macht eine Datei ausführbar und trägt sie per Shell in die Crontab ein",
+		Exts:        phpExts,
+		// Three facts, none of them a finding alone: the crontab gets a new
+		// table, a shell runs, a file becomes executable. Together they are a
+		// website installing a program for the server to run. AzimutAV kept
+		// the crontab command in a variable, so they are facts about the file
+		// and not about one call.
+		Match:        rx(crontabChange),
+		Requires:     rx(execCall),
+		AlsoRequires: rx(makeExecutable),
+	},
+	{
+		ID:          "php.exec.crontab",
+		Severity:    report.SeverityHigh,
+		Description: "ändert die Crontab über einen Shell-Aufruf",
+		Exts:        phpExts,
+		Match:       rx(crontabChange),
+		Requires:    rx(execCall),
+	},
+	{
+		ID:          "php.exec.background",
+		Severity:    report.SeverityMedium,
+		Description: "startet einen Prozess im Hintergrund",
+		Exts:        phpExts,
+		// Honest software does this as well - malwatch starts its own scans
+		// with setsid - so it is a hint to look, never a reason to move a file.
+		Match:    rx(backgroundStart),
+		Requires: rx(execCall),
+	},
+	{
+		ID:          "shell.fetch_exec",
+		Severity:    report.SeverityCritical,
+		AutoSafe:    true,
+		Description: "Shell-Skript lädt ein Programm aus dem Netz und startet es",
+		Exts:        shellExts,
+		RawOnly:     true,
+		// A download, and then either the download handed to a shell, or a
+		// file made executable and started in the background. Fetching a tool,
+		// making it executable and running it in the foreground is what an
+		// honest install script does, and stays quiet.
+		Match:        rx(`(?m)\b(?:curl|wget)\b[^\n]*`),
+		Requires:     rx(pipeToShell + `|\bchmod\b`),
+		AlsoRequires: rx(pipeToShell + `|` + backgroundStart + `|(?m:[^&>]&[ \t]*$)`),
+	},
+	{
+		ID:          "shell.in_uploads",
+		Severity:    report.SeverityHigh,
+		Description: "Shell-Skript in einem Verzeichnis für hochgeladene Dateien",
+		Exts:        shellExts,
+		// Where a script lies is the finding, whatever it does: the crontab
+		// entry of AzimutAV ran a script from wp-content/uploads.
+		RawOnly: true,
+		Where:   InUploads,
+		Match:   rx(`\A[^\n]*`),
 	},
 	{
 		ID:          "php.include.assembled_path",
@@ -889,13 +975,8 @@ var catalog = []*Rule{
 		// goes by the name. PHP in a .txt file here is served as text; the
 		// rules that read code still see it.
 		ExtOnly: true,
-		// Only directories that hold nothing but user uploads. The list once
-		// included media, assets, files and cache; Joomla ships thousands of
-		// legitimate PHP files below media alone, which drowned every real
-		// finding. What stays is where a CMS never puts code of its own.
-		// Plural and lower case only. Joomla keeps its own update code under
-		// "src/View/Upload" and "tmpl/upload"; the singular form would flag
-		// all of it.
+		// Only directories that hold nothing but user uploads, see
+		// DefaultUploadDirs; the operator can name others (--upload-dirs).
 		// A welded tag does not execute: this asks what the web server would
 		// do with the file as it lies on disk, which is a question about the
 		// raw bytes.
@@ -903,8 +984,8 @@ var catalog = []*Rule{
 		// A file here needs no PHP in it to be a problem. One carried nothing
 		// but an upload form in plain HTML, which is the visible half of a
 		// shell and one appended line away from being the whole of it.
-		PathMatch: rx(`/(?:uploads|attachments|avatars|thumbs|userfiles|user_uploads|file_uploads)/`),
-		Match:     rx(`(?i)<\?(?:php|=|\s)|enctype\s*=\s*["']?multipart/form-data`),
+		Where: InUploads,
+		Match: rx(`(?i)<\?(?:php|=|\s)|enctype\s*=\s*["']?multipart/form-data`),
 	},
 	{
 		ID:          "php.disguised_as_image",
@@ -952,5 +1033,28 @@ var catalog = []*Rule{
 		Description: "leitet Besucher auf eine fremde Adresse um",
 		PathMatch:   rx(`(?:^|/)\.htaccess$`),
 		Match:       rx(`(?im)^\s*RewriteRule\s+[^\n]{0,120}https?://[^\n]{0,120}\[[^\]\n]*R=?3?0?[12]?`),
+	},
+	// ----------------------------------------------------------- programs
+	// A Linux program in the web directory. Image optimisers bring their own,
+	// so elsewhere it is a hint; below an upload directory, where AzimutAV put
+	// its scanner, a program has no business. Where a file lies is never
+	// grounds to move it on its own, so neither rule is AutoSafe.
+	{
+		ID:          "binary.elf_in_uploads",
+		Severity:    report.SeverityCritical,
+		Description: "Linux-Programm in einem Verzeichnis für hochgeladene Dateien",
+		RawOnly:     true,
+		HeadOnly:    true,
+		Where:       InUploads,
+		Match:       rx(elfMagic),
+	},
+	{
+		ID:          "binary.elf",
+		Severity:    report.SeverityMedium,
+		Description: "Linux-Programm im Webverzeichnis",
+		RawOnly:     true,
+		HeadOnly:    true,
+		Where:       OutsideUploads,
+		Match:       rx(elfMagic),
 	},
 }

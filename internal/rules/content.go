@@ -13,11 +13,44 @@ type Looks struct {
 	PHP bool
 	// Image means the file starts with the magic bytes of an image format.
 	Image bool
+	// Shell means the file opens with the #! line of a shell. A script the
+	// crontab starts needs no extension, and droppers rarely give it one.
+	Shell bool
 }
 
 // look inspects the start of content.
 func look(content []byte) Looks {
-	return Looks{PHP: startsLikePHP(content), Image: startsLikeImage(content)}
+	return Looks{PHP: startsLikePHP(content), Image: startsLikeImage(content), Shell: startsLikeShell(content)}
+}
+
+// startsLikeShell reports whether the file opens with the #! line of a shell,
+// also behind env or busybox.
+func startsLikeShell(b []byte) bool {
+	if !bytes.HasPrefix(b, []byte("#!")) {
+		return false
+	}
+	line := b[2:]
+	if nl := bytes.IndexByte(line, '\n'); nl >= 0 {
+		line = line[:nl]
+	}
+	for i, field := range bytes.Fields(line) {
+		name := field
+		if slash := bytes.LastIndexByte(name, '/'); slash >= 0 {
+			name = name[slash+1:]
+		}
+		switch string(name) {
+		case "sh", "bash", "dash", "ash", "zsh", "ksh", "mksh":
+			return true
+		case "env", "busybox":
+			continue
+		}
+		if i > 0 && bytes.HasPrefix(field, []byte("-")) {
+			// An option of env, such as -S.
+			continue
+		}
+		return false
+	}
+	return false
 }
 
 // startsLikePHP reports whether the file opens with a PHP tag.

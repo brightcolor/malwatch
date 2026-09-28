@@ -15,6 +15,9 @@
  * default_scan_days: every how many days a website without a row of its own
  * gets scanned, 0 for never; the server side (malwatch_helper::get_config())
  * uses the same value.
+ * upload_dirs: the directories that hold nothing but uploads, for the rules
+ * that judge a file by lying below one; the scanner has the same list
+ * (DefaultUploadDirs in internal/rules/uploads.go), the server side as well.
  */
 function malwatch_config_defaults()
 {
@@ -24,7 +27,43 @@ function malwatch_config_defaults()
 		'default_scan_days' => 7,
 		'default_excludes' => '',
 		'poll_seconds' => 2,
+		'upload_dirs' => 'uploads,attachments,avatars,thumbs,userfiles,user_uploads,file_uploads',
 	);
+}
+
+/**
+ * The limits of upload_dirs: so many names, each so long. The scanner and the
+ * server side have the same (MaxUploadDirs and MaxUploadDirLength in
+ * internal/rules/uploads.go, malwatch_helper::UPLOAD_DIRS_MAX and
+ * UPLOAD_DIR_LENGTH_MAX).
+ */
+function malwatch_upload_dirs_limits()
+{
+	return array('max_count' => 16, 'max_length' => 30);
+}
+
+/**
+ * The pattern the settings page checks upload_dirs with: 1 to $max_count
+ * names separated by commas, each 1 to $max_length letters, digits, dots,
+ * underscores and hyphens, and not starting with a dot. Without arguments
+ * the limits of malwatch_upload_dirs_limits().
+ */
+function malwatch_upload_dirs_regex($max_count = null, $max_length = null)
+{
+	$limits = malwatch_upload_dirs_limits();
+	$count = $max_count === null ? $limits['max_count'] : (int) $max_count;
+	$length = $max_length === null ? $limits['max_length'] : (int) $max_length;
+	$name = '[A-Za-z0-9_-][A-Za-z0-9._-]{0,' . ($length - 1) . '}';
+	return '/^\s*' . $name . '(?:\s*,\s*' . $name . '){0,' . ($count - 1) . '}\s*$/';
+}
+
+/**
+ * upload_dirs as the page stores it: the names without the spaces around
+ * them. An empty entry stays, so the check of the field refuses it.
+ */
+function malwatch_upload_dirs_tidy($text)
+{
+	return implode(',', array_map('trim', explode(',', trim((string) $text))));
 }
 
 /**

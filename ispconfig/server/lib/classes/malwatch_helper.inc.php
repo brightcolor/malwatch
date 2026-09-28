@@ -16,6 +16,13 @@ class malwatch_helper
 	 */
 	const VULNCHECK_PARALLEL = 3;
 
+	/**
+	 * The limits of the setting upload_dirs, as malwatch_upload_dirs_limits()
+	 * in the panel and MaxUploadDirs and MaxUploadDirLength in the scanner.
+	 */
+	const UPLOAD_DIRS_MAX = 16;
+	const UPLOAD_DIR_LENGTH_MAX = 30;
+
 	private $config = null;
 
 	/** Returns the global settings, with defaults for a missing row. */
@@ -30,7 +37,22 @@ class malwatch_helper
 		if (!is_array($row)) {
 			$row = array();
 		}
-		$defaults = array(
+		foreach ($this->config_defaults() as $key => $value) {
+			if (!isset($row[$key]) || $row[$key] === '' || $row[$key] === null) {
+				$row[$key] = $value;
+			}
+		}
+		$this->config = $row;
+		return $row;
+	}
+
+	/**
+	 * The values the settings fall back to while the row or one of its columns
+	 * is missing. The panel has the same (malwatch_config_defaults()).
+	 */
+	public function config_defaults()
+	{
+		return array(
 			'binary_path' => '/usr/local/bin/malwatch',
 			'state_dir' => '/var/lib/malwatch',
 			'admin_email' => '',
@@ -43,14 +65,31 @@ class malwatch_helper
 			'scan_max_age' => 0,
 			'use_clamav' => 'y',
 			'auto_update_signatures' => 'y',
+			'upload_dirs' => 'uploads,attachments,avatars,thumbs,userfiles,user_uploads,file_uploads',
 		);
-		foreach ($defaults as $key => $value) {
-			if (!isset($row[$key]) || $row[$key] === '' || $row[$key] === null) {
-				$row[$key] = $value;
+	}
+
+	/**
+	 * The names of the setting upload_dirs as the scanner takes them
+	 * (--upload-dirs). A stored value the settings page would refuse, edited in
+	 * the database, say, must not stop every scan: its usable names count, at
+	 * most UPLOAD_DIRS_MAX of them, and the default when none is left.
+	 */
+	public function upload_dirs($value)
+	{
+		$names = array();
+		foreach (explode(',', (string) $value) as $name) {
+			$name = trim($name);
+			if (count($names) < self::UPLOAD_DIRS_MAX && strlen($name) <= self::UPLOAD_DIR_LENGTH_MAX
+				&& preg_match('/^[A-Za-z0-9_-][A-Za-z0-9._-]*$/', $name)) {
+				$names[] = $name;
 			}
 		}
-		$this->config = $row;
-		return $row;
+		if (count($names) === 0) {
+			$defaults = $this->config_defaults();
+			return explode(',', $defaults['upload_dirs']);
+		}
+		return $names;
 	}
 
 	/**

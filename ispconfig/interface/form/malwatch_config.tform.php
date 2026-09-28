@@ -127,6 +127,25 @@ $form['tabs']['settings'] = array(
 			'width' => '10',
 			'maxlength' => '4'
 		),
+		// The directories that hold nothing but uploads, for the rules that
+		// judge a file by lying below one; the runner hands them to the scanner
+		// (--upload-dirs). Default and limits: malwatch_config_defaults() and
+		// malwatch_upload_dirs_limits().
+		'upload_dirs' => array(
+			'datatype' => 'VARCHAR',
+			'formtype' => 'TEXT',
+			'default' => malwatch_config_defaults()['upload_dirs'],
+			'validators' => array(
+				array(
+					'type' => 'REGEX',
+					'regex' => malwatch_upload_dirs_regex(),
+					'errmsg' => 'upload_dirs_error_regex'
+				)
+			),
+			'value' => '',
+			'width' => '60',
+			'maxlength' => '512'
+		),
 		'max_parallel' => array(
 			'datatype' => 'INTEGER',
 			'formtype' => 'TEXT',

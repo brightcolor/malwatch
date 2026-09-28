@@ -60,7 +60,33 @@ type Rule struct {
 	// It is applied to the path below the scanned root, never to the
 	// absolute path - see walk.File.Rel for why.
 	PathMatch *regexp.Regexp
+	// Where limits the rule to files below one of the upload directories
+	// (InUploads) or to files outside of them (OutsideUploads). The engine
+	// knows the directories, see Engine.SetUploadDirs.
+	Where Place
+	// HeadOnly marks a rule that decides from the first HeadSize bytes of a
+	// file. The scanner asks such rules about files over its size limit as
+	// well, with just their start, so a program padded past the limit still
+	// shows up.
+	HeadOnly bool
 }
+
+// Place is where below the scanned root a rule looks.
+type Place int
+
+const (
+	// Anywhere is every location.
+	Anywhere Place = iota
+	// InUploads is below one of the upload directories.
+	InUploads
+	// OutsideUploads is every location that is not.
+	OutsideUploads
+)
+
+// HeadSize is how much of a file over the size limit the scanner reads for
+// the HeadOnly rules: the formats they look for say what they are in their
+// first bytes.
+const HeadSize = 64
 
 // AppliesTo reports whether the rule wants to look at this file. path is the
 // location below the scanned root, ext the extension of its name and looks
@@ -76,9 +102,13 @@ func (r *Rule) AppliesTo(path, ext string, looks Looks) bool {
 }
 
 // readsContent reports whether the rule reads a file of this kind whatever
-// it is called: a rule for PHP reads PHP code, a rule for images reads images.
+// it is called: a rule for PHP reads PHP code, a rule for images reads images,
+// a rule for shell scripts reads a file that opens with the line of a shell.
 func (r *Rule) readsContent(looks Looks) bool {
 	if looks.PHP && contains(r.Exts, "php") {
+		return true
+	}
+	if looks.Shell && contains(r.Exts, "sh") {
 		return true
 	}
 	if looks.Image {
@@ -105,6 +135,7 @@ var (
 	phpExts   = []string{"php", "php3", "php4", "php5", "php7", "php8", "phtml", "phps", "inc", "module", "tpl"}
 	webExts   = []string{"php", "php3", "php4", "php5", "php7", "php8", "phtml", "inc", "js", "html", "htm", "tpl"}
 	imageExts = []string{"jpg", "jpeg", "png", "gif", "bmp", "webp", "ico", "svg"}
+	shellExts = []string{"sh", "bash"}
 )
 
 // All returns every rule in the catalog.

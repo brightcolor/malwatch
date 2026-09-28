@@ -34,6 +34,9 @@ type Options struct {
 	MaxAge time.Duration
 	// MaxSize skips files larger than this. Zero means no size limit.
 	MaxSize int64
+	// Large, when set, gets every file MaxSize skips. The file stays skipped;
+	// the caller may still look at its start, where a program says what it is.
+	Large func(File)
 	// IgnoreChmod0 skips files with mode 000.
 	IgnoreChmod0 bool
 	// FollowSymlinks is deliberately absent: a symlinked path could point
@@ -150,22 +153,26 @@ func (w *Walker) candidate(root, path string, info fs.FileInfo) (File, bool) {
 		w.counters.Skipped.Add(1)
 		return File{}, false
 	}
-	if w.opts.MaxSize > 0 && info.Size() > w.opts.MaxSize {
-		w.counters.Skipped.Add(1)
-		return File{}, false
-	}
 	ext := filepath.Ext(path)
 	if len(ext) > 0 {
 		ext = lower(ext[1:])
 	}
-	return File{
+	f := File{
 		Path:  path,
 		Size:  info.Size(),
 		Mode:  info.Mode(),
 		MTime: info.ModTime(),
 		Ext:   ext,
 		Rel:   relPath(root, path),
-	}, true
+	}
+	if w.opts.MaxSize > 0 && info.Size() > w.opts.MaxSize {
+		w.counters.Skipped.Add(1)
+		if w.opts.Large != nil {
+			w.opts.Large(f)
+		}
+		return File{}, false
+	}
+	return f, true
 }
 
 // relPath returns the slash separated path below root, always with a leading

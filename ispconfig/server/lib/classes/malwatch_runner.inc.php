@@ -345,7 +345,11 @@ class malwatch_runner
 			$args[] = '--exclude=' . $pattern;
 		}
 
-		$max_age = isset($options['max_age']) ? intval($options['max_age']) : intval($config['scan_max_age']);
+		// The directories that hold nothing but uploads (Scanner > Einstellungen),
+		// for the rules that judge a file by lying below one.
+		$args[] = '--upload-dirs=' . implode(',', $app->malwatch_helper->upload_dirs($config['upload_dirs']));
+
+		$max_age =isset($options['max_age']) ? intval($options['max_age']) : intval($config['scan_max_age']);
 		if ($max_age > 0) {
 			$args[] = '--max-age=' . $max_age;
 		}

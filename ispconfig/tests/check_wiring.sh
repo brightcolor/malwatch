@@ -2114,6 +2114,54 @@ if grep -rnE "schedule (!=|=) 'off'|\['schedule'\]|default_schedule|waf_watch_sc
 	fail "Code fragt noch den Zeitplan von vor 0.37.0: $(cut -d: -f1,2 "$tmpdir/enum101" | sed "s|$root/||" | tr '\n' ' ')"
 fi
 
+# 102. The upload directories are a setting (0.38.0): the scanner, the panel
+#      and the server know the same default and the same limits, the settings
+#      page checks the field with the pattern of the library and stores it
+#      tidied, the runner hands it to the scanner, and the catalog keeps no
+#      list of its own.
+go_uploads="$root/../internal/rules/uploads.go"
+go_default=$(sed -n 's/^var DefaultUploadDirs = \[\]string{\(.*\)}$/\1/p' "$go_uploads" | tr -d '" ')
+for place in "$root/interface/lib/malwatch_lib.inc.php" "$root/server/lib/classes/malwatch_helper.inc.php"; do
+	grep -qF "'upload_dirs' => '$go_default'," "$place" \
+		|| fail "$(basename "$place"): die Vorgabe von upload_dirs weicht von DefaultUploadDirs im Scanner ab ($go_default)"
+done
+go_max=$(sed -n 's/^\tMaxUploadDirs *= \([0-9]*\)$/\1/p' "$go_uploads")
+go_len=$(sed -n 's/^\tMaxUploadDirLength *= \([0-9]*\)$/\1/p' "$go_uploads")
+grep -qF "return array('max_count' => $go_max, 'max_length' => $go_len);" "$root/interface/lib/malwatch_lib.inc.php" \
+	|| fail "malwatch_upload_dirs_limits() weicht von MaxUploadDirs ($go_max) und MaxUploadDirLength ($go_len) ab"
+grep -qF "const UPLOAD_DIRS_MAX = $go_max;" "$root/server/lib/classes/malwatch_helper.inc.php" \
+	&& grep -qF "const UPLOAD_DIR_LENGTH_MAX = $go_len;" "$root/server/lib/classes/malwatch_helper.inc.php" \
+	|| fail "malwatch_helper kennt andere Grenzen für upload_dirs als der Scanner"
+grep -q "ADD COLUMN \`upload_dirs\` varchar(512) CHARACTER SET ascii NOT NULL DEFAULT ''$go_default''" "$schema" \
+	|| fail "schema.sql legt upload_dirs nicht mit der Vorgabe des Scanners an"
+sed -n "/'upload_dirs' => array(/,/'maxlength'/p" "$root/interface/form/malwatch_config.tform.php" > "$tmpdir/field102"
+grep -qF "'regex' => malwatch_upload_dirs_regex()," "$tmpdir/field102" \
+	&& grep -qF "'errmsg' => 'upload_dirs_error_regex'" "$tmpdir/field102" \
+	&& grep -qF "'maxlength' => '512'" "$tmpdir/field102" \
+	|| fail "malwatch_config.tform.php: das Feld upload_dirs prüft nicht mit malwatch_upload_dirs_regex()"
+grep -qF "malwatch_upload_dirs_tidy(" "$root/interface/malwatch_config_edit.php" \
+	|| fail "malwatch_config_edit.php speichert upload_dirs ungeglättet"
+grep -q 'name="upload_dirs"' "$root/interface/templates/malwatch_config_edit.htm" \
+	&& grep -q "name='upload_dirs_hint_txt'" "$root/interface/templates/malwatch_config_edit.htm" \
+	|| fail "malwatch_config_edit.htm zeigt das Feld upload_dirs oder seinen Hinweis nicht"
+for lang in de en; do
+	for key in upload_dirs_txt upload_dirs_hint_txt upload_dirs_error_regex; do
+		grep -q "\$wb\['$key'\]" "$root/interface/lang/${lang}_malwatch_config.lng" \
+			|| fail "${lang}_malwatch_config.lng: $key fehlt"
+	done
+done
+grep -q "Erlaubt sind 1 bis $go_max Namen mit je höchstens $go_len Zeichen" "$root/interface/lang/de_malwatch_config.lng" \
+	&& grep -q "1 to $go_max names of at most $go_len characters" "$root/interface/lang/en_malwatch_config.lng" \
+	|| fail "die Fehlermeldungen zu upload_dirs nennen andere Grenzen als der Scanner"
+grep -qF "'--upload-dirs=' . implode(',', \$app->malwatch_helper->upload_dirs(\$config['upload_dirs']))" \
+	"$root/server/lib/classes/malwatch_runner.inc.php" \
+	|| fail "der Runner gibt dem Scanner die Upload-Ordner nicht mit"
+if grep -n 'uploads|attachments' "$root/../internal/rules/catalog.go" > "$tmpdir/list102"; then
+	fail "catalog.go führt die Upload-Ordner noch selbst: Zeile $(cut -d: -f1 "$tmpdir/list102" | tr '\n' ' ')"
+fi
+grep -q -- '--upload-dirs=NAMEN' "$root/../cmd/malwatch/usage.go" \
+	|| fail "die Hilfe des Scanners nennt --upload-dirs nicht"
+
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'
 fi

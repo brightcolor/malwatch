@@ -63,6 +63,15 @@ Steht die Vorgabe auf 0, prüft malwatch solche Websites nur auf Anstoß. Die Cr
 reiht fällige Prüfungen jede Minute ein und startet höchstens so viele gleichzeitig, wie
 „Gleichzeitige Prüfungen“ erlaubt.
 
+## Upload-Ordner
+
+**Security > Scanner > Einstellungen > Ordner für hochgeladene Dateien** nennt die Ordner,
+in die ein CMS ausschließlich Hochgeladenes legt (Vorgabe: uploads, attachments, avatars,
+thumbs, userfiles, user_uploads, file_uploads; bis zu 16 Namen mit je höchstens 30
+Zeichen). Liegt darunter eine PHP-Datei, ein Shell-Skript oder ein Linux-Programm, meldet
+der Scanner das eigens, ein Programm dort als „kritisch“. Das Addon gibt die Liste bei
+jeder Prüfung als `--upload-dirs` an den Scanner.
+
 ## Schwachstellen
 
 **Security > Scanner > Schwachstellen** gliedert nach Websites: je Website ihre

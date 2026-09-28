@@ -11,6 +11,7 @@ import (
 	"github.com/brightcolor/malwatch/internal/mail"
 	"github.com/brightcolor/malwatch/internal/progress"
 	"github.com/brightcolor/malwatch/internal/report"
+	"github.com/brightcolor/malwatch/internal/rules"
 	"github.com/brightcolor/malwatch/internal/scanner"
 )
 
@@ -35,12 +36,13 @@ func cmdScan(args []string) int {
 	fs.SetOutput(os.Stderr)
 	fs.Usage = func() { usage(os.Stderr) }
 
-	var paths, excludes, excludeFrom, ignore, email stringList
+	var paths, excludes, excludeFrom, ignore, email, uploadDirs stringList
 	fs.Var(&paths, "path", "")
 	fs.Var(&excludes, "exclude", "")
 	fs.Var(&excludeFrom, "exclude-from", "")
 	fs.Var(&ignore, "ignore", "")
 	fs.Var(&email, "email", "")
+	fs.Var(&uploadDirs, "upload-dirs", "")
 
 	maxAge := fs.Int("max-age", 0, "")
 	maxSize := fs.Int64("max-size", 0, "")
@@ -93,6 +95,14 @@ func cmdScan(args []string) int {
 		return report.ExitError
 	}
 
+	uploads := rules.ParseUploadDirs(uploadDirs)
+	if len(uploadDirs) > 0 {
+		if err := rules.CheckUploadDirs(uploads); err != nil {
+			fmt.Fprintf(os.Stderr, "--upload-dirs: %v. Beispiel: --upload-dirs=uploads,attachments\n", err)
+			return report.ExitError
+		}
+	}
+
 	for _, file := range excludeFrom {
 		loaded, err := readPatternFile(file)
 		if err != nil {
@@ -132,6 +142,7 @@ func cmdScan(args []string) int {
 		Offline:         *offline,
 		IgnoreRules:     ignore,
 		Whitelist:       whitelist,
+		UploadDirs:      uploads,
 		SignatureDir:    *sigDir,
 		StateDir:        *stateDir,
 		CacheFile:       *cacheFile,
