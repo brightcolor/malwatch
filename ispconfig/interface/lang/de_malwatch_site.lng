@@ -1,7 +1,8 @@
 <?php
 $wb['edit_desc_txt'] = 'Zeitplan und Aktionen für diese Website. Aktionen greifen nur bei Funden, die seit dem letzten Lauf neu dazugekommen sind.';
 $wb['scan_path_txt'] = 'Geprüfter Pfad';
-$wb['schedule_txt'] = 'Zeitplan';
+$wb['scan_days_txt'] = 'Abstand der Prüfungen (Tage)';
+$wb['scan_days_hint_txt'] = 'Alle so viele Tage prüft malwatch diese Website von selbst, 0 schaltet den Zeitplan aus. Ein kürzerer Abstand zieht die nächste Prüfung vor, ein längerer gilt ab der nächsten.';
 $wb['max_age_txt'] = 'Nur Dateien der letzten Tage';
 $wb['max_age_hint_txt'] = '0 prüft alle Dateien. Ein Wert wie 2 prüft nur, was in den letzten zwei Tagen geändert wurde – schnell, aber Änderungszeiten lassen sich fälschen. Mindestens einmal im Monat vollständig prüfen.';
 $wb['version_scan_txt'] = 'Veraltete Software suchen';
@@ -19,6 +20,7 @@ $wb['disable_site_txt'] = 'Website abschalten';
 $wb['disable_site_hint_txt'] = 'Die Website wird abgeschaltet wie bei einer Traffic-Sperre. Das Wiedereinschalten geschieht immer von Hand – ein sauberer Lauf hebt die Sperre nicht auf.';
 $wb['disable_severity_txt'] = 'ab Stufe';
 
+$wb['scan_days_error_range'] = 'Abstand der Prüfungen: Erlaubt sind ganze Zahlen von 0 bis 365 Tagen. Bitte den Wert anpassen und erneut speichern.';
 $wb['max_age_error_range'] = 'Die Zahl der Tage muss zwischen 0 und 3650 liegen.';
 $wb['btn_save_txt'] = 'Speichern';
 $wb['btn_cancel_txt'] = 'Abbrechen';

@@ -290,13 +290,21 @@ class cronjob_malwatch extends cronjob
 		$this->create_job($site, $web, 'schedule', 'vulncheck');
 	}
 
-	/** Creates jobs for websites whose schedule has come round. */
+	/**
+	 * Creates jobs for websites whose interval has come round. A website
+	 * without a settings row gets one first, with the interval for new
+	 * websites, as long as that is not 0.
+	 */
 	private function queue_due_scans($config)
 	{
 		global $app, $conf;
 
+		if ((int) $config['default_scan_days'] > 0) {
+			$this->add_missing_sites();
+		}
+
 		$sites = $app->dbmaster->queryAllRecords(
-			"SELECT * FROM malwatch_site WHERE server_id = ? AND schedule != 'off' "
+			'SELECT * FROM malwatch_site WHERE server_id = ? AND scan_days > 0 '
 			. 'AND (next_run IS NULL OR next_run <= NOW()) ORDER BY next_run ASC LIMIT 20',
 			$conf['server_id']);
 
@@ -324,15 +332,35 @@ class cronjob_malwatch extends cronjob
 			if (!is_array($web) || $web['active'] !== 'y') {
 				// Push the schedule forward so a disabled site does not get
 				// looked at every single minute.
-				$app->dbmaster->query('UPDATE malwatch_site SET next_run = ? WHERE site_id = ?',
-					$app->malwatch_helper->next_run($site['schedule']), intval($site['site_id']));
+				$app->dbmaster->query('UPDATE malwatch_site SET next_run = FROM_UNIXTIME(?) WHERE site_id = ?',
+					$app->malwatch_helper->next_run($site['scan_days']), intval($site['site_id']));
 				continue;
 			}
 
 			$this->create_job($site, $web, 'schedule');
 
-			$app->dbmaster->query('UPDATE malwatch_site SET next_run = ? WHERE site_id = ?',
-				$app->malwatch_helper->next_run($site['schedule']), intval($site['site_id']));
+			$app->dbmaster->query('UPDATE malwatch_site SET next_run = FROM_UNIXTIME(?) WHERE site_id = ?',
+				$app->malwatch_helper->next_run($site['scan_days']), intval($site['site_id']));
+		}
+	}
+
+	/**
+	 * Gives every active website of this server that has no settings row one,
+	 * see malwatch_helper::ensure_site_row(). The same types as the daily
+	 * vulnerability check and the overview.
+	 */
+	private function add_missing_sites()
+	{
+		global $app, $conf;
+
+		$webs = $app->dbmaster->queryAllRecords(
+			'SELECT w.domain_id, w.domain, w.server_id, w.sys_groupid FROM web_domain w '
+			. 'LEFT JOIN malwatch_site s ON s.parent_domain_id = w.domain_id '
+			. "WHERE w.server_id = ? AND w.type IN ('vhost','vhostsubdomain','vhostalias') AND w.active = 'y' "
+			. 'AND s.site_id IS NULL',
+			$conf['server_id']);
+		foreach ((array) $webs as $web) {
+			$app->malwatch_helper->ensure_site_row($web);
 		}
 	}
 
@@ -405,7 +433,9 @@ class cronjob_malwatch extends cronjob
 
 		$path = $app->malwatch_helper->scan_path($web);
 		if ($path === '' || !is_dir($path)) {
-			$app->log('malwatch: no scan path for ' . $web['domain'], LOGLEVEL_WARN);
+			$app->log('malwatch: ' . $web['domain'] . ' wurde nicht geprüft, das Webverzeichnis '
+				. ($path === '' ? 'ist in ISPConfig nicht eingetragen' : $path . ' fehlt')
+				. '. Bitte die Website in ISPConfig prüfen; der nächste geplante Lauf versucht es erneut.', LOGLEVEL_WARN);
 			return;
 		}
 

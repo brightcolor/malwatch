@@ -47,7 +47,11 @@ require_once $stage . '/interface/lib/malwatch_waf_lib.inc.php';
 require_once $stage . '/interface/lib/malwatch_waf_origin.inc.php';
 require_once $stage . '/interface/lib/malwatch_waf_ban.inc.php';
 require_once $stage . '/server/lib/classes/malwatch_waf.inc.php';
-$app->uses('malwatch_helper');
+// The helper of the stage, as the other probes load it: $app->uses() would
+// take the installed one, which lacks what the stage adds (ensure_site_row()
+// in 0.37.0). A later uses() keeps this object.
+require_once $stage . '/server/lib/classes/malwatch_helper.inc.php';
+$app->malwatch_helper = new malwatch_helper();
 
 $failures = 0;
 

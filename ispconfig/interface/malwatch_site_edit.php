@@ -26,6 +26,8 @@ class page_action extends tform_actions
 {
 	private $domain_id = 0;
 	private $web = null;
+	/** The stored row before an update: interval, last and planned scan. */
+	private $before = null;
 
 	public function onLoad()
 	{
@@ -68,10 +70,23 @@ class page_action extends tform_actions
 		parent::onLoad();
 	}
 
-	// onShowNew() is deliberately not overridden. The base class already
-	// renders an empty form from the defaults in the form definition; an
-	// override that jumps straight to onShowEnd() skips the field generation
-	// and renders the page twice, once empty from here and once from onShow().
+	/**
+	 * A website without settings starts from the interval for new websites.
+	 *
+	 * The base class renders the empty form from the defaults in the form
+	 * definition, so this only sets that default and hands over. An override
+	 * that jumps straight to onShowEnd() skips the field generation and renders
+	 * the page twice, once empty from here and once from onShow().
+	 */
+	public function onShowNew()
+	{
+		global $app;
+
+		$config = malwatch_get_config($app);
+		$app->tform->formDef['tabs']['settings']['fields']['scan_days']['default'] =
+			(string) $app->functions->intval($config['default_scan_days']);
+		parent::onShowNew();
+	}
 
 	public function onShowEnd()
 	{
@@ -115,6 +130,30 @@ class page_action extends tform_actions
 		parent::onAfterInsert();
 	}
 
+	/**
+	 * Keeps the interval and the scans as they were, for scheduleNextRun().
+	 *
+	 * Two clocks: last_run is the end of a scan as PHP wrote it, in the zone
+	 * of ISPConfig, so strtotime() reads it back here; next_run comes from
+	 * FROM_UNIXTIME(), so MySQL reads it back.
+	 */
+	public function onBeforeUpdate()
+	{
+		global $app;
+
+		$row = $app->db->queryOneRecord('SELECT scan_days, last_run, UNIX_TIMESTAMP(next_run) AS next_run '
+			. 'FROM malwatch_site WHERE parent_domain_id = ?', $this->domain_id);
+		if (is_array($row)) {
+			$last = $row['last_run'] === null ? false : strtotime((string) $row['last_run']);
+			$this->before = array(
+				'scan_days' => $row['scan_days'],
+				'last_run' => $last === false ? null : $last,
+				'next_run' => $row['next_run'] === null ? null : (int) $row['next_run'],
+			);
+		}
+		parent::onBeforeUpdate();
+	}
+
 	public function onAfterUpdate()
 	{
 		// The website reference is not in the form, so no request can change
@@ -124,31 +163,26 @@ class page_action extends tform_actions
 	}
 
 	/**
-	 * Sets the next run after a schedule change.
+	 * Plans the next scan after a save, see malwatch_plan_next_run().
 	 *
-	 * Switching a site from off to daily must produce a due date, otherwise
-	 * the cron class would never pick it up and the setting would look active
-	 * while nothing ever happens.
+	 * Switching a website on must produce a due date, otherwise the cron class
+	 * would never pick it up and the setting would look active while nothing
+	 * ever happens. Saving other settings leaves a planned scan where it is.
 	 */
 	private function scheduleNextRun()
 	{
 		global $app;
 
-		$row = $app->db->queryOneRecord('SELECT site_id, schedule, next_run FROM malwatch_site WHERE parent_domain_id = ?',
+		$row = $app->db->queryOneRecord('SELECT site_id, scan_days FROM malwatch_site WHERE parent_domain_id = ?',
 			$this->domain_id);
 		if (!is_array($row)) {
 			return;
 		}
 
-		if ($row['schedule'] === 'off') {
-			$app->db->query('UPDATE malwatch_site SET next_run = NULL WHERE site_id = ?',
-				$app->functions->intval($row['site_id']));
-			return;
-		}
-		if ($row['next_run'] === null || $row['next_run'] === '' || $row['next_run'] === '0000-00-00 00:00:00') {
-			$app->db->query('UPDATE malwatch_site SET next_run = NOW() WHERE site_id = ?',
-				$app->functions->intval($row['site_id']));
-		}
+		$before = is_array($this->before) ? $this->before : array('scan_days' => null, 'last_run' => null, 'next_run' => null);
+		$next = malwatch_plan_next_run($row['scan_days'], $before['scan_days'], $before['last_run'], $before['next_run'], time());
+		$app->db->query('UPDATE malwatch_site SET next_run = FROM_UNIXTIME(?) WHERE site_id = ?',
+			$next, $app->functions->intval($row['site_id']));
 	}
 }
 

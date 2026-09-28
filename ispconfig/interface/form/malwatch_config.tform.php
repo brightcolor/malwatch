@@ -88,16 +88,22 @@ $form['tabs']['settings'] = array(
 			'width' => '40',
 			'maxlength' => '255'
 		),
-		'default_schedule' => array(
-			'datatype' => 'VARCHAR',
-			'formtype' => 'SELECT',
-			'default' => 'weekly',
-			'value' => array(
-				'off' => 'kein Zeitplan',
-				'daily' => 'täglich',
-				'weekly' => 'wöchentlich',
-				'monthly' => 'monatlich'
-			)
+		// The interval of websites without a row of their own, in days; the
+		// scheduler gives them a row with it (560-malwatch.inc.php).
+		'default_scan_days' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '7',
+			'validators' => array(
+				array(
+					'type' => 'RANGE',
+					'range' => '0:365',
+					'errmsg' => 'default_scan_days_error_range'
+				)
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '3'
 		),
 		'default_excludes' => array(
 			'datatype' => 'TEXT',

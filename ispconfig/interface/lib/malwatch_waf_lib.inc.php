@@ -1776,18 +1776,29 @@ function waf_watch_time($time)
 	return date('d.m.Y H:i', (int) $time);
 }
 
-/** How long a scan schedule waits between two runs, as malwatch_helper::next_run() plans them; 0 for off. */
-function waf_watch_schedule_seconds($schedule)
+/**
+ * A time as text ('Y-m-d H:i:s') that PHP wrote in $zone, as a Unix time; null
+ * without one. ISPConfig writes the end of a scan in its own zone
+ * ($conf['timezone']), which need not be the zone of MySQL or of the server.
+ * An unknown zone reads the text in the zone PHP runs in.
+ */
+function waf_time_in_zone($text, $zone)
 {
-	switch ((string) $schedule) {
-		case 'daily':
-			return 86400;
-		case 'weekly':
-			return 7 * 86400;
-		case 'monthly':
-			return 30 * 86400;
+	$text = trim((string) $text);
+	if ($text === '' || strpos($text, '0000-00-00') === 0) {
+		return null;
 	}
-	return 0;
+	try {
+		$tz = new DateTimeZone((string) $zone);
+	} catch (Exception $e) {
+		$tz = new DateTimeZone(date_default_timezone_get());
+	}
+	try {
+		$time = new DateTime($text, $tz);
+	} catch (Exception $e) {
+		return null;
+	}
+	return $time->getTimestamp();
 }
 
 /**
@@ -1804,11 +1815,19 @@ function waf_watch_schedule_seconds($schedule)
  *                as a problem while it is new or its pause lasts, so the
  *                all-clear waits for the first run after the pause
  *   pending      count and oldest (Unix time or null) of the waiting jobs
- *   sites        domain, schedule, last_run of the active websites
+ *   sites        domain, days (scan_days) and last_run of the active websites
+ *                with an interval
+ *   plans        from the previous run: domain => days and since, the moment
+ *                the watch first saw that interval
+ *
+ * A website is late once the later of its last scan and the start of its plan
+ * lies further back than its interval plus waf_watch_overdue_hours. A new or
+ * changed interval so gets its full time: switching every website to a short
+ * interval with the first scans spread over it raises no alarm.
  *
  * Returns release (clear the running flag), the kinds and the problems in a
- * fixed order, and the lines waf-switch prints: the problems, or one line that
- * says all is well.
+ * fixed order, the lines waf-switch prints (the problems, or one line that
+ * says all is well) and the plans for the next run.
  */
 function waf_watch_assess(array $facts, array $settings)
 {
@@ -1866,13 +1885,20 @@ function waf_watch_assess(array $facts, array $settings)
 	}
 
 	$grace = (int) $settings['waf_watch_overdue_hours'] * 3600;
+	$before = isset($facts['plans']) && is_array($facts['plans']) ? $facts['plans'] : array();
+	$plans = array();
 	$late = array();
 	foreach (isset($facts['sites']) && is_array($facts['sites']) ? $facts['sites'] : array() as $site) {
-		$interval = waf_watch_schedule_seconds($site['schedule']);
-		if ($interval === 0 || $site['last_run'] === null) {
+		$days = (int) $site['days'];
+		if ($days < 1) {
 			continue;
 		}
-		if ($now - (int) $site['last_run'] >= $interval + $grace) {
+		$domain = (string) $site['domain'];
+		$seen = isset($before[$domain]) && is_array($before[$domain]) ? $before[$domain] : array();
+		$since = isset($seen['days'], $seen['since']) && (int) $seen['days'] === $days ? (int) $seen['since'] : $now;
+		$plans[$domain] = array('days' => $days, 'since' => $since);
+		$scanned = max(0, (int) $site['last_run']);
+		if ($now - max($since, $scanned) >= $days * 86400 + $grace) {
 			$late[] = $site;
 		}
 	}
@@ -1880,7 +1906,8 @@ function waf_watch_assess(array $facts, array $settings)
 		$kinds[] = 'overdue';
 		$shown = array();
 		foreach (array_slice($late, 0, WAF_WATCH_EXAMPLES) as $site) {
-			$shown[] = $site['domain'] . ' (zuletzt ' . waf_watch_time((int) $site['last_run']) . ')';
+			$shown[] = $site['domain'] . ((int) $site['last_run'] > 0 ? ' (zuletzt ' . waf_watch_time((int) $site['last_run']) . ')'
+				: ' (noch nie geprüft)');
 		}
 		$problems[] = (count($late) === 1 ? '1 Website wurde' : count($late) . ' Websites wurden')
 			. ' länger nicht geprüft als geplant: ' . implode(', ', $shown)
@@ -1893,7 +1920,7 @@ function waf_watch_assess(array $facts, array $settings)
 		$lines = array('Alles in Ordnung: Der Cron-Job lief zuletzt ' . ($last === null ? 'noch nie' : waf_watch_time($last))
 			. ', ' . ($count === 1 ? '1 Auftrag wartet' : $count . ' Aufträge warten') . '.');
 	}
-	return array('release' => $release, 'kinds' => $kinds, 'problems' => $problems, 'lines' => $lines);
+	return array('release' => $release, 'kinds' => $kinds, 'problems' => $problems, 'lines' => $lines, 'plans' => $plans);
 }
 
 /**

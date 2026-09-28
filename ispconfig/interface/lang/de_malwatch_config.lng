@@ -14,7 +14,8 @@ $wb['admin_email_hint_txt'] = 'Leer lassen, um die Administrator-Adresse aus den
 $wb['sender_email_txt'] = 'Absender';
 
 $wb['defaults_head_txt'] = 'Vorgaben';
-$wb['default_schedule_txt'] = 'Vorgabe für neue Websites';
+$wb['default_scan_days_txt'] = 'Abstand der Prüfungen für neue Websites (Tage)';
+$wb['default_scan_days_hint_txt'] = 'Websites ohne eigene Einstellungen bekommen diesen Abstand, sobald der Scanner sie findet; ihre erste Prüfung liegt zufällig innerhalb des Abstands, so verteilen sich viele neue Websites über diese Zeit. Websites mit eigenen Einstellungen behalten ihren Abstand. Bei 0 bekommen neue Websites keinen Zeitplan.';
 $wb['default_excludes_txt'] = 'Global auszulassende Pfade';
 $wb['default_excludes_hint_txt'] = 'Ein Muster je Zeile. Gilt zusätzlich zu den Mustern der einzelnen Website.';
 $wb['scan_max_age_txt'] = 'Nur Dateien der letzten Tage';
@@ -45,7 +46,7 @@ $wb['count_scans_txt'] = 'Prüfläufe';
 $wb['count_findings_txt'] = 'Offene Funde';
 $wb['last_signature_update_txt'] = 'Signaturen';
 
-$wb['auto_head_txt'] = 'Was soll bei den nächtlichen Prüfungen automatisch passieren?';
+$wb['auto_head_txt'] = 'Was soll bei den geplanten Prüfungen automatisch passieren?';
 // Frueher stand hier unbedingt "Sie bekommen eine E-Mail mit der Liste.".
 // Verschickt wird sie nur, wenn die Website auf Benachrichtigung steht UND
 // der schlimmste neue Fund deren Stufe erreicht (Vorgabe: hoch) - siehe
@@ -79,7 +80,7 @@ $wb['auto_preset_desc_txt'] = 'Sie legen fest, welche Prüfungen automatisch han
 
 $wb['rule_count_txt'] = '%s von %s Prüfungen · träfe zurzeit %s offene Funddateien';
 $wb['ownlist_head_txt'] = 'Welche Prüfungen dürfen automatisch handeln?';
-$wb['preset_new_hint_txt'] = 'Speichern Sie die Auswahl unter einem Namen — erst dann kann eine nächtliche Prüfung sie verwenden.';
+$wb['preset_new_hint_txt'] = 'Speichern Sie die Auswahl unter einem Namen — erst dann kann eine geplante Prüfung sie verwenden.';
 $wb['rule_finding_count_txt'] = '%s Funde';
 $wb['show_all_rules_txt'] = 'Alle %s anzeigen';
 $wb['preset_name_label_txt'] = 'Name der Zusammenstellung';
@@ -88,7 +89,7 @@ $wb['preset_name_label_txt'] = 'Name der Zusammenstellung';
 // Beide hiessen "Speichern".
 $wb['btn_save_preset_txt'] = 'Zusammenstellung speichern';
 $wb['btn_apply_txt'] = 'Übernehmen';
-$wb['apply_hint_txt'] = 'Gilt ab dem nächsten nächtlichen Lauf.';
+$wb['apply_hint_txt'] = 'Gilt ab der nächsten geplanten Prüfung.';
 $wb['err_preset_name_empty_txt'] = 'Bitte geben Sie einen Namen für die Zusammenstellung an.';
 $wb['err_preset_no_rules_txt'] = 'Bitte wählen Sie mindestens eine Prüfung aus.';
 $wb['msg_preset_saved_txt'] = 'Die Zusammenstellung „%s" wurde gespeichert und erscheint jetzt als eigene Möglichkeit.';
@@ -106,6 +107,7 @@ $wb['state_dir_error_empty'] = 'Das Arbeitsverzeichnis darf nicht leer sein.';
 $wb['state_dir_error_regex'] = 'Das Arbeitsverzeichnis muss ein absoluter Pfad sein.';
 $wb['admin_email_error_isemail'] = 'Die Empfängeradresse ist keine gültige E-Mail-Adresse.';
 $wb['sender_email_error_isemail'] = 'Die Absenderadresse ist keine gültige E-Mail-Adresse.';
+$wb['default_scan_days_error_range'] = 'Abstand der Prüfungen für neue Websites: Erlaubt sind ganze Zahlen von 0 bis 365 Tagen. Bitte den Wert anpassen und erneut speichern.';
 $wb['scan_max_age_error_range'] = 'Die Zahl der Tage muss zwischen 0 und 3650 liegen.';
 $wb['max_parallel_error_range'] = 'Die Zahl gleichzeitiger Prüfungen muss zwischen 1 und 16 liegen.';
 $wb['job_timeout_error_range'] = 'Die Abbruchzeit muss zwischen 1 und 168 Stunden liegen.';

@@ -2066,6 +2066,54 @@ grep -q 'public function watch(' "$root/server/lib/classes/malwatch_waf.inc.php"
 grep -qF 'register_shutdown_function(array($this, ' "$cron_job" \
 	|| fail "560-malwatch.inc.php gibt sich nach einem Absturz nicht selbst frei"
 
+# 101. A website is scanned every scan_days days (0.37.0), new websites get
+#      default_scan_days: the columns and their one-time fill from the fixed
+#      steps of before, both fields with limits, error and hint in both
+#      languages, a scheduler and a watch that count in days, rows for
+#      websites without one, and no code left that asks the steps of before.
+schema="$root/install/schema.sql"
+for column in scan_days default_scan_days; do
+	grep -q "ADD COLUMN \`$column\` int(11) unsigned NOT NULL" "$schema" \
+		|| fail "schema.sql legt die Spalte $column nicht an"
+done
+grep -q "WHEN ''daily'' THEN 1 WHEN ''weekly'' THEN 7 WHEN ''monthly'' THEN 30" "$schema" \
+	|| fail "schema.sql überträgt den Zeitplan von vor 0.37.0 nicht in Tage"
+grep -q "SET @mw := IF(@mw_scan_days_new, 'UPDATE" "$schema" \
+	|| fail "schema.sql füllt scan_days nicht nur beim Anlegen der Spalte"
+grep -q "'default_scan_days' => 7," "$root/interface/lib/malwatch_lib.inc.php" \
+	|| fail "malwatch_config_defaults() kennt default_scan_days nicht"
+grep -q "'default_scan_days' => 7," "$root/server/lib/classes/malwatch_helper.inc.php" \
+	|| fail "malwatch_helper::get_config() kennt default_scan_days nicht"
+for pair in malwatch_site:scan_days malwatch_config:default_scan_days; do
+	form="${pair%%:*}"
+	field="${pair#*:}"
+	sed -n "/'$field' => array(/,/'maxlength'/p" "$root/interface/form/$form.tform.php" > "$tmpdir/field101"
+	grep -qF "'range' => '0:365'," "$tmpdir/field101" && grep -qF "'errmsg' => '${field}_error_range'" "$tmpdir/field101" \
+		|| fail "$form.tform.php: dem Feld $field fehlen die Grenzen 0 bis 365 oder ihre Fehlermeldung"
+	grep -q "name=\"$field\"" "$root/interface/templates/${form}_edit.htm" \
+		|| fail "${form}_edit.htm hat kein Feld $field"
+	grep -q "name='${field}_hint_txt'" "$root/interface/templates/${form}_edit.htm" \
+		|| fail "${form}_edit.htm zeigt den Hinweis zu $field nicht"
+	for lang in de en; do
+		for key in "${field}_txt" "${field}_hint_txt" "${field}_error_range"; do
+			grep -q "\$wb\['$key'\]" "$root/interface/lang/${lang}_$form.lng" \
+				|| fail "${lang}_$form.lng: $key fehlt"
+		done
+	done
+done
+grep -q "scan_days > 0" "$cron_job" \
+	|| fail "560-malwatch.inc.php plant nicht nach scan_days"
+grep -q "ensure_site_row(" "$cron_job" \
+	|| fail "560-malwatch.inc.php gibt Websites ohne Einstellungen keine Zeile mit der Vorgabe"
+grep -q "s.scan_days > 0" "$root/server/lib/classes/malwatch_waf.inc.php" \
+	|| fail "die Wache liest die Abstände nicht aus scan_days"
+grep -q "s.scan_days > 0" "$root/interface/lib/malwatch_lib.inc.php" \
+	|| fail "die Übersicht kündigt die nächste Prüfung nicht nach scan_days an"
+if grep -rnE "schedule (!=|=) 'off'|\['schedule'\]|default_schedule|waf_watch_schedule_seconds" "$root/interface" "$root/server" \
+	--include=*.php --include=*.htm > "$tmpdir/enum101"; then
+	fail "Code fragt noch den Zeitplan von vor 0.37.0: $(cut -d: -f1,2 "$tmpdir/enum101" | sed "s|$root/||" | tr '\n' ' ')"
+fi
+
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'
 fi

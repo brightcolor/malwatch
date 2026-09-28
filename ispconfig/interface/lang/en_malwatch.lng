@@ -38,11 +38,6 @@ $wb['severity_medium_txt'] = 'medium';
 $wb['severity_high_txt'] = 'high';
 $wb['severity_critical_txt'] = 'critical';
 
-$wb['schedule_off_txt'] = 'no schedule';
-$wb['schedule_daily_txt'] = 'daily';
-$wb['schedule_weekly_txt'] = 'weekly';
-$wb['schedule_monthly_txt'] = 'monthly';
-
 $wb['action_admin_txt'] = 'Operator';
 $wb['action_client_txt'] = 'Client';
 $wb['action_disable_txt'] = 'Disable';

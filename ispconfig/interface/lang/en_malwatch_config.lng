@@ -14,7 +14,8 @@ $wb['admin_email_hint_txt'] = 'Leave empty to use the administrator address from
 $wb['sender_email_txt'] = 'Sender';
 
 $wb['defaults_head_txt'] = 'Defaults';
-$wb['default_schedule_txt'] = 'Default for new websites';
+$wb['default_scan_days_txt'] = 'Days between scans for new websites';
+$wb['default_scan_days_hint_txt'] = 'Websites without settings of their own get this interval as soon as the scanner finds them; their first scan falls at a random moment within it, so many new websites spread over that time. Websites with settings of their own keep their interval. With 0, new websites get no schedule.';
 $wb['default_excludes_txt'] = 'Paths skipped everywhere';
 $wb['default_excludes_hint_txt'] = 'One pattern per line, applied on top of the patterns of each website.';
 $wb['scan_max_age_txt'] = 'Only files from the last days';
@@ -45,7 +46,7 @@ $wb['count_scans_txt'] = 'Scans';
 $wb['count_findings_txt'] = 'Open findings';
 $wb['last_signature_update_txt'] = 'Signatures';
 
-$wb['auto_head_txt'] = 'What should the nightly scans do on their own?';
+$wb['auto_head_txt'] = 'What should the scheduled scans do on their own?';
 // Used to say "You get an email with the list." unconditionally. It is only
 // sent when the website is set to notify AND the worst new finding reaches
 // that website's severity level (default: high) - see
@@ -78,7 +79,7 @@ $wb['auto_preset_desc_txt'] = 'You decide which checks are allowed to act on the
 
 $wb['rule_count_txt'] = '%s of %s checks · would currently affect %s open found files';
 $wb['ownlist_head_txt'] = 'Which checks may act on their own?';
-$wb['preset_new_hint_txt'] = 'Save the selection under a name first - only then can a nightly scan use it.';
+$wb['preset_new_hint_txt'] = 'Save the selection under a name first - only then can a scheduled scan use it.';
 $wb['rule_finding_count_txt'] = '%s findings';
 $wb['show_all_rules_txt'] = 'Show all %s';
 $wb['preset_name_label_txt'] = 'Name of the selection';
@@ -87,7 +88,7 @@ $wb['preset_name_label_txt'] = 'Name of the selection';
 // "Save".
 $wb['btn_save_preset_txt'] = 'Save this selection';
 $wb['btn_apply_txt'] = 'Apply';
-$wb['apply_hint_txt'] = 'Takes effect from the next nightly run onward.';
+$wb['apply_hint_txt'] = 'Takes effect from the next scheduled scan onward.';
 $wb['err_preset_name_empty_txt'] = 'Please give the selection a name.';
 $wb['err_preset_no_rules_txt'] = 'Please choose at least one check.';
 $wb['msg_preset_saved_txt'] = 'The selection "%s" was saved and now appears as its own choice.';
@@ -105,6 +106,7 @@ $wb['state_dir_error_empty'] = 'The working directory may not be empty.';
 $wb['state_dir_error_regex'] = 'The working directory must be an absolute path.';
 $wb['admin_email_error_isemail'] = 'The recipient is not a valid email address.';
 $wb['sender_email_error_isemail'] = 'The sender is not a valid email address.';
+$wb['default_scan_days_error_range'] = 'Days between scans for new websites: whole numbers from 0 to 365 are allowed. Please adjust the value and save again.';
 $wb['scan_max_age_error_range'] = 'The number of days must be between 0 and 3650.';
 $wb['max_parallel_error_range'] = 'The number of concurrent scans must be between 1 and 16.';
 $wb['job_timeout_error_range'] = 'The abort time must be between 1 and 168 hours.';

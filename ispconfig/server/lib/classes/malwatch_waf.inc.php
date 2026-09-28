@@ -779,11 +779,12 @@ class malwatch_waf
 
 	/**
 	 * The watch over the scanner (waf-switch watch, from 0.36.0). Reads the state
-	 * of the ISPConfig cron job, the queue and the schedules, frees a lock no
-	 * cron.php holds any more, writes the problems to the ISPConfig log and mails
-	 * the admin address of the scanner when a problem starts, as a reminder and
-	 * at the all-clear. Returns waf_watch_assess() and mail ('problem', 'clear'
-	 * or '').
+	 * of the ISPConfig cron job, the queue and the intervals of the websites,
+	 * keeps in its state file when it first saw each interval (plans), frees
+	 * a lock no cron.php holds any more, writes the problems to the ISPConfig
+	 * log and mails the admin address of the scanner when a problem starts, as
+	 * a reminder and at the all-clear. Returns waf_watch_assess() and mail
+	 * ('problem', 'clear' or '').
 	 */
 	public function watch()
 	{
@@ -803,9 +804,16 @@ class malwatch_waf
 			. 'UNIX_TIMESTAMP(next_run) AS next_run FROM sys_cron WHERE name = ?', 'cronjob_malwatch');
 		$pending = $app->dbmaster->queryOneRecord('SELECT COUNT(*) AS count, UNIX_TIMESTAMP(MIN(created_at)) AS oldest '
 			. "FROM malwatch_job WHERE server_id = ? AND job_status = 'pending'", $conf['server_id']);
-		$sites = $app->dbmaster->queryAllRecords('SELECT s.domain, s.schedule, UNIX_TIMESTAMP(s.last_run) AS last_run '
+		// last_run is the end of a scan as PHP wrote it, in the zone of ISPConfig
+		// ($conf['timezone']); waf-switch runs in the zone of the server.
+		$zone = isset($conf['timezone']) && (string) $conf['timezone'] !== '' ? (string) $conf['timezone'] : date_default_timezone_get();
+		$sites = array();
+		foreach ((array) $app->dbmaster->queryAllRecords('SELECT s.domain, s.scan_days AS days, s.last_run '
 			. 'FROM malwatch_site s JOIN web_domain w ON w.domain_id = s.parent_domain_id '
-			. "WHERE s.server_id = ? AND s.schedule != 'off' AND w.active = 'y' ORDER BY s.domain", $conf['server_id']);
+			. "WHERE s.server_id = ? AND s.scan_days > 0 AND w.active = 'y' ORDER BY s.domain", $conf['server_id']) as $site) {
+			$site['last_run'] = waf_time_in_zone($site['last_run'], $zone);
+			$sites[] = $site;
+		}
 		$crash = $this->cron_crash();
 		$facts = array(
 			'now' => $now,
@@ -821,7 +829,8 @@ class malwatch_waf
 				'count' => is_array($pending) ? (int) $pending['count'] : 0,
 				'oldest' => is_array($pending) && $pending['oldest'] !== null ? (int) $pending['oldest'] : null,
 			),
-			'sites' => is_array($sites) ? $sites : array(),
+			'sites' => $sites,
+			'plans' => isset($state['plans']) && is_array($state['plans']) ? $state['plans'] : array(),
 		);
 		$result = waf_watch_assess($facts, $settings);
 
@@ -855,6 +864,7 @@ class malwatch_waf
 			'since' => count($result['kinds']) > 0 ? $since : 0,
 			'mailed_at' => $mailed_at,
 			'crash_reported' => $facts['crash_new'] ? $crash['time'] : $reported,
+			'plans' => $result['plans'],
 		)), LOCK_EX);
 		$result['mail'] = $mail;
 		return $result;
@@ -2963,13 +2973,12 @@ class malwatch_waf
 		return $state . ' wartet auf ISPConfig';
 	}
 
+	/** A website without settings row gets one with the interval for new websites. */
 	private function ensure_site_row($web)
 	{
 		global $app;
-		$app->dbmaster->query(
-			'INSERT IGNORE INTO malwatch_site (sys_userid, sys_groupid, sys_perm_user, sys_perm_group, sys_perm_other, '
-			. "server_id, parent_domain_id, domain) VALUES (1, ?, 'riud', 'riud', '', ?, ?, ?)",
-			(int) $web['sys_groupid'], (int) $web['server_id'], (int) $web['domain_id'], (string) $web['domain']);
+		$app->uses('malwatch_helper');
+		$app->malwatch_helper->ensure_site_row($web);
 	}
 
 	/** Saves the field of one website below the job's backup directory; returns the file or ''. */

@@ -71,6 +71,8 @@ jobs:
         run: php ispconfig/tests/upgrade_offers_test.php
       - name: Panel helpers
         run: php ispconfig/tests/panel_helpers_test.php
+      - name: Scan schedule in days
+        run: php ispconfig/tests/scan_days_test.php
       - name: WAF functions
         run: php ispconfig/tests/waf_lib_test.php
       - name: WAF page helpers

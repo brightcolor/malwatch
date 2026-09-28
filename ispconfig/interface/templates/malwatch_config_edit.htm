@@ -56,10 +56,11 @@
 <p class="mw-sec">{tmpl_var name='defaults_head_txt'}</p>
 
 <div class="form-group">
-	<label for="default_schedule" class="col-sm-3 control-label">{tmpl_var name='default_schedule_txt'}</label>
-	<div class="col-sm-9"><select name="default_schedule" id="default_schedule" class="form-control">
-		{tmpl_var name='default_schedule'}
-	</select></div>
+	<label for="default_scan_days" class="col-sm-3 control-label">{tmpl_var name='default_scan_days_txt'}</label>
+	<div class="col-sm-9">
+		<input type="text" name="default_scan_days" id="default_scan_days" value="{tmpl_var name='default_scan_days'}" class="form-control" />
+		<span class="help-block">{tmpl_var name='default_scan_days_hint_txt'}</span>
+	</div>
 </div>
 <div class="form-group">
 	<label for="default_excludes" class="col-sm-3 control-label">{tmpl_var name='default_excludes_txt'}</label>

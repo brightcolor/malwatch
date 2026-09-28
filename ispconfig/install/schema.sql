@@ -34,8 +34,10 @@ CREATE TABLE IF NOT EXISTS `malwatch_config` (
 ) DEFAULT CHARSET=utf8mb4 AUTO_INCREMENT=1 ;
 
 --
--- Per website settings. A website without a row here uses the
--- global defaults and is never acted upon automatically.
+-- Per website settings. From 0.37.0 the scheduler gives an active
+-- website without a row here one with the interval for new websites
+-- (default_scan_days); with 0 there, such a website is never acted
+-- upon automatically.
 --
 CREATE TABLE IF NOT EXISTS `malwatch_site` (
   `site_id` int(11) unsigned NOT NULL AUTO_INCREMENT,
@@ -1147,6 +1149,32 @@ SET @mw := (SELECT IF(COUNT(*) = 0,
   'DO 0')
   FROM information_schema.COLUMNS
   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_config' AND COLUMN_NAME = 'waf_hc_watch_name');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- From 0.37.0 a website is scanned every scan_days days, 0 turns its schedule
+-- off; websites without a row of their own get default_scan_days. The fixed
+-- steps of before carry over once, when the column is new: daily 1, weekly 7,
+-- monthly 30, off 0. A later update leaves the days alone, so a website set to
+-- 0 stays off. The old columns schedule and default_schedule stay for the way
+-- back to 0.36; nothing reads them any more.
+SET @mw_scan_days_new := (SELECT COUNT(*) = 0 FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_site' AND COLUMN_NAME = 'scan_days');
+SET @mw := IF(@mw_scan_days_new,
+  'ALTER TABLE `malwatch_site` ADD COLUMN `scan_days` int(11) unsigned NOT NULL DEFAULT ''0'' AFTER `schedule`',
+  'DO 0');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @mw := IF(@mw_scan_days_new, 'UPDATE `malwatch_site` SET `scan_days` = CASE `schedule` WHEN ''daily'' THEN 1 WHEN ''weekly'' THEN 7 WHEN ''monthly'' THEN 30 ELSE 0 END',
+  'DO 0');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @mw_default_days_new := (SELECT COUNT(*) = 0 FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_config' AND COLUMN_NAME = 'default_scan_days');
+SET @mw := IF(@mw_default_days_new,
+  'ALTER TABLE `malwatch_config` ADD COLUMN `default_scan_days` int(11) unsigned NOT NULL DEFAULT ''7'' AFTER `default_schedule`',
+  'DO 0');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @mw := IF(@mw_default_days_new, 'UPDATE `malwatch_config` SET `default_scan_days` = CASE `default_schedule` WHEN ''daily'' THEN 1 WHEN ''weekly'' THEN 7 WHEN ''monthly'' THEN 30 ELSE 0 END',
+  'DO 0');
 PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 -- Die Herkunft senkt die Schwelle, ab 0.25.0. Alles beginnt ausgeschaltet.

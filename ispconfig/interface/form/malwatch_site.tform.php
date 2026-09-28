@@ -33,16 +33,23 @@ $form['tabs']['settings'] = array(
 	'width' => 100,
 	'template' => 'templates/malwatch_site_edit.htm',
 	'fields' => array(
-		'schedule' => array(
-			'datatype' => 'VARCHAR',
-			'formtype' => 'SELECT',
-			'default' => 'off',
-			'value' => array(
-				'off' => 'kein Zeitplan',
-				'daily' => 'täglich',
-				'weekly' => 'wöchentlich',
-				'monthly' => 'monatlich'
-			)
+		// Every how many days the scanner checks the website on its own, 0 for
+		// never. A new row starts from default_scan_days (see onShowNew() in
+		// malwatch_site_edit.php).
+		'scan_days' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '0',
+			'validators' => array(
+				array(
+					'type' => 'RANGE',
+					'range' => '0:365',
+					'errmsg' => 'scan_days_error_range'
+				)
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '3'
 		),
 		'max_age' => array(
 			'datatype' => 'INTEGER',

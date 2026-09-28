@@ -35,7 +35,7 @@ class malwatch_helper
 			'state_dir' => '/var/lib/malwatch',
 			'admin_email' => '',
 			'sender_email' => '',
-			'default_schedule' => 'weekly',
+			'default_scan_days' => 7,
 			'default_excludes' => '',
 			'max_parallel' => 1,
 			'job_timeout_hours' => 6,
@@ -169,21 +169,60 @@ class malwatch_helper
 		return hash('sha256', (string) $path);
 	}
 
-	/** Computes the next run time for a schedule, or null when off. */
-	public function next_run($schedule, $from = null)
+	/**
+	 * When a website scanned every $days days is due next, counted from $from
+	 * (default now), as a Unix time; null for 0 days.
+	 *
+	 * Store it with FROM_UNIXTIME(?): the scheduler compares next_run with
+	 * NOW(), and ISPConfig may run PHP in another zone than MySQL (web.herkules:
+	 * PHP in Etc/UTC, MySQL in Europe/Berlin). A text from date() made every
+	 * scan due two hours early there.
+	 */
+	public function next_run($days, $from = null)
 	{
+		$days = (int) $days;
+		if ($days < 1) {
+			return null;
+		}
 		if ($from === null) {
 			$from = time();
 		}
-		switch ($schedule) {
-			case 'daily':
-				return date('Y-m-d H:i:s', $from + 86400);
-			case 'weekly':
-				return date('Y-m-d H:i:s', $from + 7 * 86400);
-			case 'monthly':
-				return date('Y-m-d H:i:s', $from + 30 * 86400);
+		return (int) $from + $days * 86400;
+	}
+
+	/**
+	 * The first scan of a website that gets its settings row now: a random
+	 * moment within its interval, so websites that arrive together spread over
+	 * it. A Unix time like next_run(), null for 0 days.
+	 */
+	public function first_run($days, $now = null)
+	{
+		$days = (int) $days;
+		if ($days < 1) {
+			return null;
 		}
-		return null;
+		if ($now === null) {
+			$now = time();
+		}
+		return (int) $now + mt_rand(0, $days * 86400 - 1);
+	}
+
+	/**
+	 * Gives a website without a settings row one, with the interval for new
+	 * websites (default_scan_days) and its first scan from first_run(). A row
+	 * that exists stays as it is. $web is the web_domain row.
+	 */
+	public function ensure_site_row($web)
+	{
+		global $app;
+
+		$config = $this->get_config();
+		$days = max(0, (int) $config['default_scan_days']);
+		$app->dbmaster->query(
+			'INSERT IGNORE INTO malwatch_site (sys_userid, sys_groupid, sys_perm_user, sys_perm_group, sys_perm_other, '
+			. "server_id, parent_domain_id, domain, scan_days, next_run) VALUES (1, ?, 'riud', 'riud', '', ?, ?, ?, ?, FROM_UNIXTIME(?))",
+			(int) $web['sys_groupid'], (int) $web['server_id'], (int) $web['domain_id'], (string) $web['domain'],
+			$days, $this->first_run($days));
 	}
 
 	/**

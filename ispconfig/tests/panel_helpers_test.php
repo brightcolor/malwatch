@@ -110,6 +110,41 @@ expect_same('refresh', malwatch_poll_ms(array('poll_seconds' => '7')), 7000);
 expect_same('refresh of zero', malwatch_poll_ms(array('poll_seconds' => '0')), 2000);
 expect_same('refresh without the key', malwatch_poll_ms(array()), 2000);
 
+// --- The schedule in days (0.37.0) -------------------------------------------
+
+// New websites get the interval of default_scan_days.
+$stub->db->row = null;
+expect_same('no row: interval for new websites', malwatch_get_config($stub)['default_scan_days'], 7);
+$stub->db->row = array('config_id' => '1', 'default_scan_days' => '2');
+expect_same('row: interval for new websites kept', malwatch_get_config($stub)['default_scan_days'], '2');
+expect_same('the enum of before 0.37.0 is gone from the defaults', array_key_exists('default_schedule',
+	malwatch_config_defaults()), false);
+
+// When a website scans next once its settings are saved: the new interval,
+// the one before (null for a new row), the last scan and the planned one.
+$t = gmmktime(12, 0, 0, 9, 28, 2026);
+$day = 86400;
+expect_same('0 days: no plan', malwatch_plan_next_run(0, 2, $t - $day, $t + $day, $t), null);
+expect_same('a new row with 2 days: at once', malwatch_plan_next_run(2, null, null, null, $t), $t);
+expect_same('the same interval keeps the plan', malwatch_plan_next_run(2, 2, $t - $day, $t + 5 * 3600, $t), $t + 5 * 3600);
+expect_same('the same interval without a plan: from the last scan', malwatch_plan_next_run(2, 2, $t - $day, null, $t),
+	$t + $day);
+expect_same('switched on a day after a scan: two days after it', malwatch_plan_next_run(2, 0, $t - $day, null, $t),
+	$t + $day);
+expect_same('switched on long after the last scan: at once', malwatch_plan_next_run(2, 0, $t - 30 * $day, null, $t), $t);
+expect_same('a plan left from before the switch-off counts for nothing',
+	malwatch_plan_next_run(2, 0, $t - $day, $t + 9 * $day, $t), $t + $day);
+expect_same('a shorter interval pulls the plan in', malwatch_plan_next_run(2, 7, $t - $day, $t + 6 * $day, $t), $t + $day);
+expect_same('a shorter interval, already due by it: at once', malwatch_plan_next_run(2, 7, $t - 3 * $day, $t + 4 * $day, $t),
+	$t);
+expect_same('a longer interval keeps the earlier plan', malwatch_plan_next_run(7, 2, $t - $day, $t + $day, $t), $t + $day);
+expect_same('another interval: 5 days after a scan 2 days ago', malwatch_plan_next_run(5, 30, $t - 2 * $day,
+	$t + 28 * $day, $t), $t + 3 * $day);
+expect_same('numbers as text, as the database returns them', malwatch_plan_next_run('2', '7', (string) ($t - $day),
+	(string) ($t + 6 * $day), $t), $t + $day);
+expect_same('a zero date counts as no date', array(malwatch_plan_next_run(2, 2, $t - $day, 0, $t),
+	malwatch_plan_next_run(2, 2, 0, null, $t)), array($t + $day, $t));
+
 // --- The dialog "Änderungen prüfen" (0.33.0) ---------------------------------
 
 // The stored value of every field of a form; a column the row lacks, or NULL,

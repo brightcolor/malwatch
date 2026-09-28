@@ -141,20 +141,22 @@ class malwatch_actions
 		}
 
 		$app->uses('malwatch_helper');
-		$next = $app->malwatch_helper->next_run($site['schedule']);
+		$next = $app->malwatch_helper->next_run($site['scan_days']);
 
 		$app->dbmaster->query(
-			'UPDATE malwatch_site SET last_scan_id = ?, last_run = ?, next_run = ?, open_findings = ?, '
+			'UPDATE malwatch_site SET last_scan_id = ?, last_run = ?, next_run = FROM_UNIXTIME(?), open_findings = ?, '
 			. 'worst_severity = ?, last_state = ? WHERE site_id = ?',
 			intval($scan['scan_id']), $scan['finished_at'], $next, $count, $worst, $state, intval($site['site_id']));
 	}
 
 	/**
-	 * Creates the settings row of a website with the defaults from the schema.
+	 * Creates the settings row of a website with the defaults, the interval
+	 * for new websites among them (malwatch_helper::ensure_site_row()).
 	 *
-	 * Every column below the identity has a default, so the row is the plain
-	 * "not configured, but scanned" state - which is exactly what a website
-	 * is after a scan that nobody set up beforehand.
+	 * Every other column below the identity has a default, so the row is the
+	 * plain "not configured, but scanned" state - which is exactly what a
+	 * website is after a scan that nobody set up beforehand. A website that
+	 * is gone by now gets no row.
 	 */
 	private function create_site_row($scan)
 	{
@@ -164,11 +166,12 @@ class malwatch_actions
 		if ($domain_id < 1) {
 			return null;
 		}
-		$app->dbmaster->query(
-			'INSERT INTO malwatch_site (sys_userid, sys_groupid, sys_perm_user, sys_perm_group, '
-			. 'sys_perm_other, server_id, parent_domain_id, domain) '
-			. "VALUES (1, 1, 'riud', 'riud', '', ?, ?, ?)",
-			intval($scan['server_id']), $domain_id, (string) $scan['domain']);
+		$app->uses('malwatch_helper');
+		$web = $app->malwatch_helper->get_web($domain_id);
+		if (!is_array($web)) {
+			return null;
+		}
+		$app->malwatch_helper->ensure_site_row($web);
 
 		return $app->dbmaster->queryOneRecord(
 			'SELECT * FROM malwatch_site WHERE parent_domain_id = ?', $domain_id);

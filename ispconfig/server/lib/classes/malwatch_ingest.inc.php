@@ -615,7 +615,7 @@ class malwatch_ingest
 	 * Moving a file to quarantine marks its finding 'fixed' and leaves the
 	 * website "sauber" in the overview. Putting the same file back makes both
 	 * statements untrue, and nothing else in the extension notices: the state
-	 * is only ever recalculated from a scan, so on the monthly schedule the
+	 * is only ever recalculated from a scan, so with a scan every 30 days the
 	 * panel would call an active backdoor a solved problem for up to a month.
 	 *
 	 * An entry still in the index after the sync was not restored - the binary

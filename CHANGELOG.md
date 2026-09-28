@@ -2,6 +2,66 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.37.0] – 2026-09-28
+
+### Geändert
+
+**Zeitplan in Tagen.** Die Einstellungen einer Website haben das Feld „Abstand der
+Prüfungen (Tage)“: Alle so viele Tage prüft malwatch die Website von selbst, 0 schaltet den
+Zeitplan aus, erlaubt sind 0 bis 365. Die festen Stufen von vorher gehen beim Einspielen
+einmal in Tage über: täglich 1, wöchentlich 7, monatlich 30, aus 0. Ein kürzerer Abstand
+zieht die nächste Prüfung vor, ein längerer gilt ab der nächsten. Wer andere Einstellungen
+der Website speichert, lässt die geplante Prüfung, wo sie ist.
+
+**Die Wache rechnet mit Tagen.** Einen neuen oder geänderten Abstand zählt sie ab dem
+Zeitpunkt, an dem sie ihn zuerst sah; sie merkt ihn sich in `watch.json` unter `plans`.
+Wer alle Websites auf einen kurzen Abstand stellt und die ersten Prüfungen darüber
+verteilt, bekommt so keinen Alarm für Websites, die noch an die Reihe kommen. Eine Website,
+die noch nie geprüft wurde, meldet sie, sobald Abstand und Spielraum vorbei sind („noch nie
+geprüft“).
+
+**Texte.** Aus den „nächtlichen Prüfungen“ auf Scanner > Einstellungen werden „geplante
+Prüfungen“: Die Prüfungen verteilen sich über den ganzen Tag. Fehlt das Webverzeichnis
+einer Website, nennt das Protokoll von ISPConfig Website und Verzeichnis und was zu tun ist.
+
+### Behoben
+
+**Die Vorgabe für neue Websites wirkt.** Bis 0.36.0 zeigte Scanner > Einstellungen eine
+Vorgabe („wöchentlich“), die keine Website erreichte: Neue Websites bekamen ihre Zeile ohne
+Zeitplan, auf web.herkules stand er bei 60 von 61 Websites auf „aus“. Das Feld heißt jetzt
+„Abstand der Prüfungen für neue Websites (Tage)“ (Vorgabe 7). Jede aktive Website ohne
+eigene Einstellungen bekommt innerhalb einer Minute eine Zeile mit diesem Abstand, ihre erste
+Prüfung liegt zufällig innerhalb des Abstands. Bei 0 prüft malwatch Websites ohne eigene
+Einstellungen nur auf Anstoß, wie bisher.
+
+**Geplante Prüfungen zur geplanten Zeit.** Den Zeitpunkt der nächsten Prüfung schreibt jetzt
+MySQL selbst (`FROM_UNIXTIME`). Bis 0.36.0 schrieb ihn PHP in der Zeitzone von ISPConfig;
+auf web.herkules ist das `Etc/UTC`, MySQL vergleicht mit `NOW()` in Europe/Berlin, und jede
+Prüfung wurde zwei Stunden zu früh fällig. Die Wache liest das Ende eines Scans in der
+Zeitzone von ISPConfig und nennt es in der Uhrzeit des Servers; bisher stand in ihren
+Meldungen eine um zwei Stunden verschobene Zeit.
+
+### Einspielen
+
+Das Schema legt `malwatch_site.scan_days` und `malwatch_config.default_scan_days` an und
+füllt sie einmal aus `schedule` und `default_schedule`. Die alten Spalten bleiben für den
+Rückweg zu 0.36 stehen. `waf/install.sh` braucht keinen neuen Lauf.
+
+### Tests
+
+- `panel_helpers_test.php`: die Planung beim Speichern (`malwatch_plan_next_run()`) mit
+  2 Tagen und anderen Abständen, die Vorgabe `default_scan_days`.
+- `scan_days_test.php` (neu, in der CI): die nächste Prüfung nach Tagen und die erste
+  Prüfung einer neuen Website, zufällig innerhalb des Abstands.
+- `waf_lib_test.php`: die Wache mit Tagen, der Beginn eines neuen Abstands, Websites ohne
+  Prüfung, Zeiten aus einer anderen Zeitzone (`waf_time_in_zone()`).
+- `tests/schedule_probe.php` (neu, als root auf dem Server): die Übertragung der Stufen, ein
+  zweites Update, Zeilen für Websites ohne Einstellungen, die Planung nach Tagen gegen
+  `NOW()`, das fehlende Webverzeichnis. `tests/watch_probe.php` rechnet mit Tagen und mit den
+  Zeitzonen wie `waf-switch`; `tests/waf_class_probe.php` lädt den Helfer aus dem Prüfstand.
+- `check_wiring.sh` Prüfung 101: Spalten, Felder mit Grenzen und Texten, Planung und Wache
+  nach `scan_days`, kein Code mehr mit den alten Stufen.
+
 ## [0.36.0] – 2026-09-28
 
 ### Hinzugefügt

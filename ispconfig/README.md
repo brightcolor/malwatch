@@ -53,6 +53,16 @@ Fortschritt ab, in dem Abstand aus **Security > Scanner > Einstellungen**
 (Vorgabe 2 Sekunden). Auch diese Seite zeigt vor dem Speichern im Fenster
 „Änderungen prüfen“, was sich ändert.
 
+## Zeitplan
+
+Jede Website wird alle „Abstand der Prüfungen“ Tage geprüft, einstellbar in den
+Einstellungen der Website von 0 bis 365; 0 schaltet den Zeitplan aus. Websites ohne eigene
+Einstellungen bekommen innerhalb einer Minute den Abstand aus **Security > Scanner >
+Einstellungen** (Vorgabe 7 Tage), ihre erste Prüfung liegt zufällig innerhalb des Abstands.
+Steht die Vorgabe auf 0, prüft malwatch solche Websites nur auf Anstoß. Die Cron-Klasse
+reiht fällige Prüfungen jede Minute ein und startet höchstens so viele gleichzeitig, wie
+„Gleichzeitige Prüfungen“ erlaubt.
+
 ## Schwachstellen
 
 **Security > Scanner > Schwachstellen** gliedert nach Websites: je Website ihre

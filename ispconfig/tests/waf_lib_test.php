@@ -916,13 +916,16 @@ $facts = array(
 	'crash_new' => false,
 	'pending' => array('count' => 3, 'oldest' => $now - 600),
 	'sites' => array(
-		array('domain' => 'a.test', 'schedule' => 'daily', 'last_run' => $now - 3600),
-		array('domain' => 'b.test', 'schedule' => 'weekly', 'last_run' => $now - 3 * 86400),
+		array('domain' => 'a.test', 'days' => 1, 'last_run' => $now - 3600),
+		array('domain' => 'b.test', 'days' => 7, 'last_run' => $now - 3 * 86400),
 	),
+	'plans' => array(),
 );
 $healthy = waf_watch_assess($facts, $watch);
 expect_same('a healthy scanner', array($healthy['release'], $healthy['kinds'], $healthy['problems'], $healthy['lines']),
 	array(false, array(), array(), array('Alles in Ordnung: Der Cron-Job lief zuletzt 22.09.2026 13:52, 3 Aufträge warten.')));
+expect_same('the watch notes when it first saw each interval', $healthy['plans'], array(
+	'a.test' => array('days' => 1, 'since' => $now), 'b.test' => array('days' => 7, 'since' => $now)));
 
 $stale_cron = array('running' => true, 'last_run' => $now - 20 * 60, 'next_run' => $now - 19 * 60);
 $stale = waf_watch_assess(array_merge($facts, array('cron' => $stale_cron)), $watch);
@@ -967,30 +970,103 @@ expect_same('another waiting limit from the settings', waf_watch_assess(array_me
 	array('count' => 59, 'oldest' => $now - 4 * 3600))), array_merge($watch, array('waf_watch_pending_minutes' => 300)))['kinds'],
 	array());
 
+// A website is late once its last scan lies further back than its interval in
+// days plus the grace. The watch counts from the last scan, or from the moment
+// it first saw the interval of the website, whichever came later ($plans from
+// its previous run).
+$long_ago = $now - 100 * 86400;
 $sites = array(
-	array('domain' => 'a.test', 'schedule' => 'daily', 'last_run' => $now - 37 * 3600),
-	array('domain' => 'b.test', 'schedule' => 'weekly', 'last_run' => $now - 3 * 86400),
-	array('domain' => 'c.test', 'schedule' => 'monthly', 'last_run' => $now - 40 * 86400),
-	array('domain' => 'd.test', 'schedule' => 'daily', 'last_run' => null),
-	array('domain' => 'e.test', 'schedule' => 'off', 'last_run' => $now - 400 * 86400),
+	array('domain' => 'a.test', 'days' => 1, 'last_run' => $now - 37 * 3600),
+	array('domain' => 'b.test', 'days' => 7, 'last_run' => $now - 3 * 86400),
+	array('domain' => 'c.test', 'days' => 30, 'last_run' => $now - 40 * 86400),
+	array('domain' => 'd.test', 'days' => 1, 'last_run' => null),
+	array('domain' => 'e.test', 'days' => 0, 'last_run' => $now - 400 * 86400),
 );
-$late = waf_watch_assess(array_merge($facts, array('sites' => $sites)), $watch);
-expect_same('websites checked later than planned', array($late['kinds'], $late['problems']), array(array('overdue'),
-	array('2 Websites wurden länger nicht geprüft als geplant: a.test (zuletzt 21.09.2026 00:53), c.test (zuletzt 13.08.2026 '
-	. '13:53).')));
-expect_same('another grace from the settings', waf_watch_assess(array_merge($facts, array('sites' => array($sites[0]))),
-	array_merge($watch, array('waf_watch_overdue_hours' => 48)))['kinds'], array());
-$many = array();
-for ($i = 1; $i <= 5; $i++) {
-	$many[] = array('domain' => 'w' . $i . '.test', 'schedule' => 'daily', 'last_run' => $now - 50 * 3600);
+$plans = array();
+foreach ($sites as $site) {
+	$plans[$site['domain']] = array('days' => $site['days'], 'since' => $long_ago);
 }
-expect_same('five late websites show three and the rest', waf_watch_assess(array_merge($facts, array('sites' => $many)),
-	$watch)['problems'], array('5 Websites wurden länger nicht geprüft als geplant: w1.test (zuletzt 20.09.2026 11:53), w2.test '
-	. '(zuletzt 20.09.2026 11:53), w3.test (zuletzt 20.09.2026 11:53) und weitere.'));
+$late = waf_watch_assess(array_merge($facts, array('sites' => $sites, 'plans' => $plans)), $watch);
+expect_same('websites checked later than planned', array($late['kinds'], $late['problems']), array(array('overdue'),
+	array('3 Websites wurden länger nicht geprüft als geplant: a.test (zuletzt 21.09.2026 00:53), c.test (zuletzt 13.08.2026 '
+	. '13:53), d.test (noch nie geprüft).')));
+expect_same('a website without an interval drops out of the plans', array_keys($late['plans']),
+	array('a.test', 'b.test', 'c.test', 'd.test'));
+expect_same('another grace from the settings', waf_watch_assess(array_merge($facts, array('sites' => array($sites[0]),
+	'plans' => $plans)), array_merge($watch, array('waf_watch_overdue_hours' => 48)))['kinds'], array());
+
+// Every 2 days: late after 2 days and 12 hours of grace, not before.
+$two = array(
+	array('domain' => 'f.test', 'days' => 2, 'last_run' => $now - 61 * 3600),
+	array('domain' => 'g.test', 'days' => 2, 'last_run' => $now - 59 * 3600),
+);
+expect_same('every 2 days: late after 60 hours', waf_watch_assess(array_merge($facts, array('sites' => $two,
+	'plans' => array('f.test' => array('days' => 2, 'since' => $long_ago), 'g.test' => array('days' => 2, 'since' => $long_ago)))),
+	$watch)['problems'], array('1 Website wurde länger nicht geprüft als geplant: f.test (zuletzt 20.09.2026 00:53).'));
+
+// A new or changed interval gets its full time from the moment the watch saw
+// it: switching every website to 2 days with the first scans spread over the
+// two days raises no alarm while their turn lies ahead.
+$switched = array(array('domain' => 'h.test', 'days' => 2, 'last_run' => $now - 20 * 86400));
+$first_look = waf_watch_assess(array_merge($facts, array('sites' => $switched, 'plans' => array())), $watch);
+expect_same('an interval the watch has not seen yet', array($first_look['kinds'], $first_look['plans']),
+	array(array(), array('h.test' => array('days' => 2, 'since' => $now))));
+/** The facts of a healthy scanner at a later time. */
+function watch_facts_at($facts, $time)
+{
+	return array_merge($facts, array('now' => $time, 'cron' => array('running' => false, 'last_run' => $time - 60,
+		'next_run' => $time), 'pending' => array('count' => 0, 'oldest' => null)));
+}
+expect_same('59 hours after the switch it is not late yet', waf_watch_assess(array_merge(watch_facts_at($facts,
+	$now + 59 * 3600), array('sites' => $switched, 'plans' => $first_look['plans'])), $watch)['kinds'], array());
+expect_same('61 hours after the switch without a scan it is late', waf_watch_assess(array_merge(watch_facts_at($facts,
+	$now + 61 * 3600), array('sites' => $switched, 'plans' => $first_look['plans'])), $watch)['kinds'], array('overdue'));
+$changed = waf_watch_assess(array_merge($facts, array('sites' => array($sites[0]),
+	'plans' => array('a.test' => array('days' => 7, 'since' => $long_ago)))), $watch);
+expect_same('a changed interval starts anew', array($changed['kinds'], $changed['plans']),
+	array(array(), array('a.test' => array('days' => 1, 'since' => $now))));
+expect_same('an unchanged interval keeps its start', waf_watch_assess(array_merge($facts, array('sites' => array($sites[0]),
+	'plans' => $plans)), $watch)['plans'], array('a.test' => array('days' => 1, 'since' => $long_ago)));
+expect_same('a website never scanned is late once its plan is older than interval and grace', array(
+	waf_watch_assess(array_merge($facts, array('sites' => array($sites[3]),
+		'plans' => array('d.test' => array('days' => 1, 'since' => $now - 35 * 3600)))), $watch)['kinds'],
+	waf_watch_assess(array_merge($facts, array('sites' => array($sites[3]),
+		'plans' => array('d.test' => array('days' => 1, 'since' => $now - 37 * 3600)))), $watch)['kinds']),
+	array(array(), array('overdue')));
+expect_same('a zero date counts as never scanned', waf_watch_assess(array_merge($facts, array('sites' => array(
+	array('domain' => 'z.test', 'days' => 1, 'last_run' => 0)), 'plans' => array('z.test' => array('days' => 1,
+	'since' => $long_ago)))), $watch)['problems'], array('1 Website wurde länger nicht geprüft als geplant: z.test (noch nie '
+	. 'geprüft).'));
+expect_same('plans from a damaged state file count as unseen', waf_watch_assess(array_merge($facts, array(
+	'sites' => array($sites[0]), 'plans' => array('a.test' => 'kaputt'))), $watch)['plans'],
+	array('a.test' => array('days' => 1, 'since' => $now)));
+
+$many = array();
+$many_plans = array();
+for ($i = 1; $i <= 5; $i++) {
+	$many[] = array('domain' => 'w' . $i . '.test', 'days' => 1, 'last_run' => $now - 50 * 3600);
+	$many_plans['w' . $i . '.test'] = array('days' => 1, 'since' => $long_ago);
+}
+expect_same('five late websites show three and the rest', waf_watch_assess(array_merge($facts, array('sites' => $many,
+	'plans' => $many_plans)), $watch)['problems'], array('5 Websites wurden länger nicht geprüft als geplant: w1.test (zuletzt '
+	. '20.09.2026 11:53), w2.test (zuletzt 20.09.2026 11:53), w3.test (zuletzt 20.09.2026 11:53) und weitere.'));
 $all = waf_watch_assess(array_merge($facts, array('cron' => $stale_cron, 'crash' => $crash, 'crash_new' => true,
-	'pending' => array('count' => 59, 'oldest' => $now - 4 * 3600), 'sites' => $sites)), $watch);
+	'pending' => array('count' => 59, 'oldest' => $now - 4 * 3600), 'sites' => $sites, 'plans' => $plans)), $watch);
 expect_same('the problems in a fixed order', array($all['kinds'], $all['lines'] === $all['problems']),
 	array(array('stale', 'crash', 'pending', 'overdue'), true));
+
+// The end of a scan as PHP wrote it, read back in the zone it was written in:
+// ISPConfig writes in its own zone ($conf['timezone']), waf-switch runs in the
+// zone of the server, and MySQL may run in a third.
+$scan_end = gmmktime(8, 31, 19, 9, 28, 2026);
+expect_same('a time written in UTC', waf_time_in_zone('2026-09-28 08:31:19', 'Etc/UTC'), $scan_end);
+expect_same('the same moment written in Berlin summer time', waf_time_in_zone('2026-09-28 10:31:19', 'Europe/Berlin'),
+	$scan_end);
+expect_same('no time, an empty text and a zero date', array(waf_time_in_zone(null, 'Etc/UTC'), waf_time_in_zone('', 'Etc/UTC'),
+	waf_time_in_zone('0000-00-00 00:00:00', 'Etc/UTC')), array(null, null, null));
+expect_same('an unknown zone reads the text in the zone of PHP', waf_time_in_zone('2026-09-28 08:31:19', 'Mond/Basis'),
+	$scan_end);
+expect_same('a text that is no time', waf_time_in_zone('kein Datum', 'Etc/UTC'), null);
 
 // When the watch writes a mail: a new kind of problem, a reminder, the all-clear.
 expect_same('a new problem mails', waf_watch_mail_due(array(), array('stale'), $now, $watch), 'problem');

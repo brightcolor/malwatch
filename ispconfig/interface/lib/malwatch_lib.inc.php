@@ -12,16 +12,46 @@
  * The values the scanner settings fall back to while the row or one of its
  * columns is missing, e.g. between an update of the files and of the database.
  * poll_seconds: how often the scanner pages ask for a running scan.
+ * default_scan_days: every how many days a website without a row of its own
+ * gets scanned, 0 for never; the server side (malwatch_helper::get_config())
+ * uses the same value.
  */
 function malwatch_config_defaults()
 {
 	return array(
 		'binary_path' => '/usr/local/bin/malwatch',
 		'state_dir' => '/var/lib/malwatch',
-		'default_schedule' => 'weekly',
+		'default_scan_days' => 7,
 		'default_excludes' => '',
 		'poll_seconds' => 2,
 	);
+}
+
+/**
+ * When a website scans next once its settings are saved, as a Unix time, or
+ * null without a schedule. $days is the saved interval, $old_days the one
+ * before (null for a new row), $last_run and $next_run are the last and the
+ * planned scan (Unix times or null; 0 and less, from a zero date, count as
+ * null), $now the clock.
+ *
+ * The same interval keeps the plan, so saving other settings never moves a
+ * scan. A new interval counts from the last scan, never into the past, and
+ * never later than the plan that was already there: a shorter interval pulls
+ * the next scan in, a longer one takes effect after it.
+ */
+function malwatch_plan_next_run($days, $old_days, $last_run, $next_run, $now)
+{
+	$days = (int) $days;
+	if ($days < 1) {
+		return null;
+	}
+	$was_on = $old_days !== null && (int) $old_days > 0;
+	$planned = $was_on && (int) $next_run > 0 ? (int) $next_run : null;
+	if ($planned !== null && (int) $old_days === $days) {
+		return $planned;
+	}
+	$due = (int) $last_run > 0 ? max((int) $now, (int) $last_run + $days * 86400) : (int) $now;
+	return $planned === null ? $due : min($planned, $due);
 }
 
 /** Returns the global settings plus whether the scanner is actually there. */
@@ -1178,15 +1208,6 @@ function malwatch_state_label($wb, $state)
 	return isset($wb[$key]) ? $wb[$key] : (string) $state;
 }
 
-function malwatch_schedule_label($wb, $schedule)
-{
-	if ($schedule === null || $schedule === '') {
-		$schedule = 'off';
-	}
-	$key = 'schedule_' . (string) $schedule . '_txt';
-	return isset($wb[$key]) ? $wb[$key] : (string) $schedule;
-}
-
 /** How a quarantine entry got there: manual, auto or repair. */
 function malwatch_origin_label($wb, $origin)
 {
@@ -1899,10 +1920,10 @@ function malwatch_when($stamp)
  * es keinen gibt.
  *
  * Es gibt keine feste Uhrzeit: next_run gehoert der einzelnen Website
- * (malwatch_site.next_run), jede hat ihren eigenen schedule, und der Cron
+ * (malwatch_site.next_run), jede hat ihren eigenen Abstand (scan_days), und der Cron
  * (server/lib/classes/cron.d/560-malwatch.inc.php, '* * * * *') greift jede
  * Minute auf, was faellig ist. Der richtige Wert ist deshalb das Minimum von
- * next_run ueber alle Websites, deren schedule nicht 'off' ist - aber nur
+ * next_run ueber alle Websites, deren scan_days groesser als 0 ist - aber nur
  * unter denen, die tatsaechlich noch in der Zukunft liegen.
  *
  * Liefert ein Array mit 'state' und 'when':
@@ -1917,7 +1938,7 @@ function malwatch_when($stamp)
  *     ("gestern 03:00 Uhr" fuer etwas, das die Seite als kuenftig
  *     ankuendigt); 'due' behauptet nur, dass eine Pruefung ansteht, nicht
  *     wann - keine Diagnose, nur eine ehrliche Aussage ueber die Tabelle.
- *   - 'none': keine Website hat ueberhaupt einen Zeitplan (alle 'off', oder
+ *   - 'none': keine Website hat ueberhaupt einen Zeitplan (alle mit scan_days 0, oder
  *     die Tabelle ist leer). Anders als 'due' behauptet das nicht, dass
  *     gleich etwas passiert.
  *
@@ -1949,7 +1970,7 @@ function malwatch_next_run($app)
 	// mitzaehlt - und die Seite behauptete, gleich passiere etwas.
 	$scope = ' FROM malwatch_site s'
 		. ' JOIN web_domain w ON w.domain_id = s.parent_domain_id'
-		. " WHERE s.schedule != 'off'"
+		. ' WHERE s.scan_days > 0'
 		. " AND w.active = 'y'"
 		. " AND w.type IN ('vhost','vhostsubdomain','vhostalias')"
 		. ' AND s.server_id = w.server_id';

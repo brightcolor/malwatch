@@ -180,8 +180,9 @@ ISPConfig und bemerkt auch, wenn der selbst steht. Sie prüft:
   laufend führt; läuft dabei kein `cron.php` von ISPConfig mehr, löst sie die Sperre,
 - ob der Cron-Job überhaupt noch läuft und ob er abgestürzt ist,
 - ob Aufträge länger als „Aufträge warten höchstens“ (180 Minuten) warten,
-- ob der letzte Scan einer Website länger zurückliegt als ihr Zeitplan plus „Spielraum für
-  Scans“ (12 Stunden).
+- ob der letzte Scan einer Website länger zurückliegt als ihr „Abstand der Prüfungen“ plus
+  „Spielraum für Scans“ (12 Stunden). Einen neuen Abstand zählt sie ab dem Zeitpunkt, an dem
+  sie ihn zuerst sah, und merkt ihn sich im Zustand der Wache (`watch.json`).
 
 Findet sie etwas, schreibt sie es ins Protokoll von ISPConfig, endet mit Rückgabewert 1 (der
 Check in healthchecks wird rot, OpsKnight bekommt einen Vorfall) und mailt an die
