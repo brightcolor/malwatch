@@ -75,11 +75,15 @@ func TestReportCarriesMarksTraitsAndCode(t *testing.T) {
 }
 
 func TestViewBudgetKeepsTraitsAndDropsCode(t *testing.T) {
+	// Two files of 600 lines with 1,000 bytes each are shown whole: one view
+	// weighs about 600 KB, so the first fits the budget of 1 MiB and the
+	// second one does not, whichever of them a worker finishes first.
 	opt := fileview.Default
 	opt.BudgetMiB = 1
-	big := strings.Repeat("// filler line to weigh the view down\n", 30000) + viewSample()
-	opt.MaxLines = 5000
-	opt.Context = 50
+	opt.MaxLines = 2000
+	opt.LineLength = 2000
+	filler := "// " + strings.Repeat("w", 997) + "\n"
+	big := strings.Repeat(filler, 600) + viewSample()
 	rep := scanDir(t, map[string]string{"a/one.php": big, "b/two.php": big + "// other\n"}, opt)
 	if len(rep.Files) != 2 {
 		t.Fatalf("views = %d, want 2", len(rep.Files))
