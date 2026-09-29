@@ -29,6 +29,29 @@ func TestAutoSafeRulesHaveATitle(t *testing.T) {
 	}
 }
 
+// TestLibraryLookalikesLeaveTheMoveToAHuman pins rules whose pattern honest
+// library code also has. On 2026-09-29 php.remote.fetch_eval_indirect moved
+// SeedProd's XML-RPC library (infusionsoft/xmlrpc-2.0/lib/xmlrpc.inc) into
+// quarantine on four websites by itself. Such a rule reports at its severity;
+// whether the file goes, a human decides.
+func TestLibraryLookalikesLeaveTheMoveToAHuman(t *testing.T) {
+	for _, id := range []string{"php.remote.fetch_eval_indirect"} {
+		found := false
+		for _, r := range All() {
+			if r.ID != id {
+				continue
+			}
+			found = true
+			if r.AutoSafe {
+				t.Errorf("rule %s is AutoSafe, but it also matches honest library code", id)
+			}
+		}
+		if !found {
+			t.Errorf("rule %s is missing from the catalog", id)
+		}
+	}
+}
+
 // TestSomeRulesAreAutoSafe keeps the catalog from silently losing every
 // AutoSafe mark in some future edit - the automatic move has nothing to act
 // on without at least one.

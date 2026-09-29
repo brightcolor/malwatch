@@ -617,9 +617,14 @@ var catalog = []*Rule{
 		// und das ist keine Hintertür. Verlangt wird ein Abruf, der nur nach
 		// außen gehen kann - curl, ein Netzsocket, oder eine Adresse mit
 		// http davor.
+		//
+		// Kein AutoSafe: Alte XML-RPC-Bibliotheken holen per curl und führen
+		// eine Variable aus. Am 29.09.2026 hat die Regel SeedProds
+		// infusionsoft/xmlrpc-2.0/lib/xmlrpc.inc auf vier Websites selbst in
+		// die Quarantäne gelegt. Sie meldet weiter kritisch, verschieben
+		// entscheidet ein Mensch.
 		ID:          "php.remote.fetch_eval_indirect",
 		Severity:    report.SeverityCritical,
-		AutoSafe:    true,
 		Description: "lädt von einer fremden Adresse und führt es danach aus",
 		Exts:        phpExts,
 		Match:       rx(`(?is)\b(?:eval|assert)\s*\(\s*(?:@\s*)?\$[a-zA-Z_]\w{0,40}\s*[;)]`),

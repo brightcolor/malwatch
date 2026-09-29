@@ -31,6 +31,11 @@ SMTP-Servers prüfen“ (Vorgabe an).
 
 ### Geändert
 
+**`php.remote.fetch_eval_indirect` ohne selbsttätige Quarantäne:** Alte XML-RPC-Bibliotheken
+holen per curl und führen danach eine Variable aus. Am 29.09.2026 hat die Regel so SeedProds
+`infusionsoft/xmlrpc-2.0/lib/xmlrpc.inc` auf vier Websites selbst in die Quarantäne gelegt.
+Sie meldet weiter mit „kritisch“; ob die Datei verschoben wird, entscheidet ein Mensch.
+
 **Rückweg bei Fehlern:** Scheitert die HTML-Mail (Scanner fehlt, SMTP lehnt ab), geht
 dieselbe Mail als Text über ISPConfig, und das Protokoll der Aktionen nennt den Grund. Fehlt
 ein Bild, das die Vorlage einbetten will, steht das im Protokoll von ISPConfig.
@@ -70,6 +75,7 @@ das erst der Scanner 0.40.0 kennt; mit einem älteren Scanner geht die Mail als 
   breitem Balken, Fähigkeiten ohne Rahmen mit schmalem Balken.
 - `ispconfig/tests/render_pages.php`: rendert die Seite eines Funds, dessen Datei eine
   Ansicht hat, und verlangt dann Codezeilen.
+- `internal/rules/catalog_test.go`: `php.remote.fetch_eval_indirect` trägt kein AutoSafe.
 
 ## [0.39.0] – 2026-09-29
 
