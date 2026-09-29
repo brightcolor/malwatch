@@ -88,6 +88,8 @@ jobs:
         run: php ispconfig/tests/finding_view_test.php
       - name: HTML mail
         run: php ispconfig/tests/mail_html_test.php
+      - name: Quarantine jobs
+        run: php ispconfig/tests/quarantine_jobs_test.php
       - name: WAF functions
         run: php ispconfig/tests/waf_lib_test.php
       - name: WAF page helpers

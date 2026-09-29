@@ -45,6 +45,13 @@ ein Bild, das die Vorlage einbetten will, steht das im Protokoll von ISPConfig.
 
 ### Behoben
 
+**Wiederherstellen, Löschen und Herunterladen in der Quarantäne:** Das Panel legt diese
+Aufträge ohne Webordner an, weil sie mit den Kennungen der Einträge arbeiten. Der Runner
+verlangte für jeden Auftrag einen vorhandenen Ordner und lehnte sie mit „Der zu prüfende Pfad
+existiert nicht.“ ab; seit es die drei Knöpfe gibt (07.09.2026), erreichten sie den Scanner
+nie. Jetzt brauchen nur Aufträge auf einer Website einen Ordner, und ihre Meldung nennt
+Website, Ordner und den nächsten Schritt.
+
 **Legende der Fundseite:** „Treffer einer Regel“ stand immer in Pink, der Farbe von
 „kritisch“, auch wenn die Treffer im Code die Farbe ihrer Stufe trugen, etwa Bernstein bei
 „mittel“. Die Legende nimmt jetzt die Farbe der schwersten Stufe auf der Seite. Weil Stufen
@@ -76,6 +83,9 @@ das erst der Scanner 0.40.0 kennt; mit einem älteren Scanner geht die Mail als 
 - `ispconfig/tests/render_pages.php`: rendert die Seite eines Funds, dessen Datei eine
   Ansicht hat, und verlangt dann Codezeilen.
 - `internal/rules/catalog_test.go`: `php.remote.fetch_eval_indirect` trägt kein AutoSafe.
+- `ispconfig/tests/quarantine_jobs_test.php` (neu, in der CI): Wiederherstellen, Löschen und
+  Herunterladen starten ohne Webordner; Prüfung und Verschieben in die Quarantäne verlangen ihn
+  weiter und nennen in der Meldung Website und Ordner.
 
 ## [0.39.0] – 2026-09-29
 

@@ -28,9 +28,17 @@ class malwatch_runner
 		}
 
 		$path = (string) $job['scan_path'];
-		if ($path === '' || !is_dir($path)) {
-			$helper->fail_job($job['job_id'], 'Der zu prüfende Pfad ' . $path . ' existiert nicht.');
-			return false;
+		if ($this->needs_folder($job)) {
+			if ($path === '') {
+				$helper->fail_job($job['job_id'], 'Für die Website ' . $job['domain'] . ' ist kein Webordner hinterlegt. '
+					. 'In ISPConfig prüfen, ob sie ein Verzeichnis hat, danach den Auftrag im Panel neu starten.');
+				return false;
+			}
+			if (!is_dir($path)) {
+				$helper->fail_job($job['job_id'], 'Der Webordner ' . $path . ' der Website ' . $job['domain'] . ' fehlt auf dem Server. '
+					. 'In ISPConfig prüfen, ob die Website noch hier liegt, danach den Auftrag im Panel neu starten.');
+				return false;
+			}
 		}
 
 		$state_dir = rtrim((string) $config['state_dir'], '/');
@@ -98,6 +106,23 @@ class malwatch_runner
 
 		$helper->log('scan started for ' . $job['domain'] . ' (job ' . $job['job_id'] . ', pid ' . $pid . ')', LOGLEVEL_DEBUG);
 		return true;
+	}
+
+	/**
+	 * Whether a job works in a website's folder. Restore, delete and export act
+	 * on entries of the quarantine store, named by the id it gave them; the
+	 * panel queues them without a folder (malwatch_insert_quarantine_job()).
+	 * The action defaults to 'add', as in build_arguments().
+	 */
+	private function needs_folder($job)
+	{
+		if ((isset($job['job_kind']) ? (string) $job['job_kind'] : 'scan') !== 'quarantine') {
+			return true;
+		}
+		$options = json_decode((string) $job['options'], true);
+		$action = is_array($options) && isset($options['action']) && $options['action'] !== ''
+			? (string) $options['action'] : 'add';
+		return $action === 'add';
 	}
 
 	/**
