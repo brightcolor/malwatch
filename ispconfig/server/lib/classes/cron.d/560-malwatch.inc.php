@@ -588,6 +588,27 @@ class cronjob_malwatch extends cronjob
 		$app->dbmaster->query(
 			"DELETE FROM malwatch_finding WHERE finding_state = 'fixed' "
 			. 'AND last_seen < DATE_SUB(NOW(), INTERVAL 90 DAY)');
+
+		$this->clean_views($config);
+	}
+
+	/**
+	 * Drops the views (malwatch_file) no open or released finding points to
+	 * any more, once they are older than view_keep_days. A fixed finding keeps
+	 * its view that long, so the page of a file that was just moved to the
+	 * quarantine still shows what it was.
+	 */
+	private function clean_views($config)
+	{
+		global $app;
+
+		$app->uses('malwatch_helper');
+		$days = $app->malwatch_helper->view_keep_days($config);
+		$app->dbmaster->query(
+			'DELETE FROM malwatch_file WHERE last_seen < DATE_SUB(NOW(), INTERVAL ? DAY) '
+			. 'AND file_sha256 NOT IN (SELECT file_sha256 FROM malwatch_finding '
+			. "WHERE finding_state IN ('open','ignored') AND file_sha256 <> '')",
+			$days);
 	}
 
 	/**
@@ -1002,7 +1023,10 @@ class cronjob_malwatch extends cronjob
 		}
 
 		$out = rtrim((string) $config['state_dir'], '/') . '/state/rules.json';
-		if (is_file($out) && filemtime($out) > time() - 82800) {
+		// Once a day, and at once after the scanner was replaced: a new
+		// version brings new rules and new explanations, and the pages should
+		// not name a rule they cannot explain for up to a day.
+		if (is_file($out) && filemtime($out) > time() - 82800 && filemtime($out) >= filemtime($binary)) {
 			return;
 		}
 
@@ -1026,20 +1050,27 @@ class cronjob_malwatch extends cronjob
 
 		$doc = json_decode((string) @file_get_contents($out), true);
 		$rules = is_array($doc) && isset($doc['rules']) && is_array($doc['rules']) ? $doc['rules'] : array();
+		// The sources outside the catalogue (vendor checksums, signature
+		// engines) come as extras since 0.39.0; they explain findings too.
+		$extras = is_array($doc) && isset($doc['extras']) && is_array($doc['extras']) ? $doc['extras'] : array();
 		$now = date('Y-m-d H:i:s');
 
-		foreach ($rules as $rule) {
+		foreach (array_merge($rules, $extras) as $rule) {
 			$rule_id = isset($rule['id']) ? (string) $rule['id'] : '';
 			if ($rule_id === '') {
 				continue;
 			}
 			$app->dbmaster->query(
-				'INSERT INTO malwatch_rule (rule_id, title, severity, auto_safe, last_seen) VALUES (?, ?, ?, ?, ?) '
+				'INSERT INTO malwatch_rule (rule_id, title, severity, auto_safe, explanation, advice, last_seen) '
+				. 'VALUES (?, ?, ?, ?, ?, ?, ?) '
 				. 'ON DUPLICATE KEY UPDATE title = VALUES(title), severity = VALUES(severity), '
-				. 'auto_safe = VALUES(auto_safe), last_seen = VALUES(last_seen)',
+				. 'auto_safe = VALUES(auto_safe), explanation = VALUES(explanation), advice = VALUES(advice), '
+				. 'last_seen = VALUES(last_seen)',
 				$rule_id, substr((string) (isset($rule['title']) ? $rule['title'] : ''), 0, 255),
 				substr((string) (isset($rule['severity']) ? $rule['severity'] : ''), 0, 10),
-				!empty($rule['auto_safe']) ? 'y' : 'n', $now);
+				!empty($rule['auto_safe']) ? 'y' : 'n',
+				(string) (isset($rule['explain']) ? $rule['explain'] : ''),
+				(string) (isset($rule['advice']) ? $rule['advice'] : ''), $now);
 		}
 
 		$app->log('malwatch: rule catalogue refreshed (' . count($rules) . ').', LOGLEVEL_DEBUG);

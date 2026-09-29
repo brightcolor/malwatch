@@ -160,3 +160,4 @@ $wb['upgrade_outcome_rolled_back_txt'] = 'zurückgeholt';
 $wb['upgrade_outcome_failed_txt'] = 'gescheitert';
 $wb['upgrade_outcome_rollback_failed_txt'] = 'Website fehlerhaft';
 $wb['upgrade_outcome_skipped_txt'] = 'übersprungen';
+$wb['show_finding_txt'] = 'Ansehen';

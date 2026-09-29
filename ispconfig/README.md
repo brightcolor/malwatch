@@ -72,6 +72,31 @@ Zeichen). Liegt darunter eine PHP-Datei, ein Shell-Skript oder ein Linux-Program
 der Scanner das eigens, ein Programm dort als „kritisch“. Das Addon gibt die Liste bei
 jeder Prüfung als `--upload-dirs` an den Scanner.
 
+## Fundansicht
+
+Jede gemeldete Datei hat eine eigene Seite, erreichbar aus der Liste der Funde
+und von der Seite der Website („Ansehen“). Sie zeigt:
+
+- **Warum gemeldet:** je Regel die Stufe, eine Erklärung in einfachen Worten
+  und was zu tun ist, dazu die Zeilen, an denen die Regel greift.
+- **Was die Datei tut:** ihre Fähigkeiten laut Quelltext, von „gefährlich“
+  (führt Shell-Befehle aus) bis „Schutz“ (verlangt eine Anmeldung), jeweils mit
+  Zeilennummern.
+- **Code:** die ganze Datei oder Ausschnitte, die auffälligen Stellen farbig
+  markiert; ein Klick auf eine Zeilennummer springt dorthin. Der Code ist
+  Text einer Kundenseite und wird immer maskiert angezeigt.
+- Die Knöpfe „Kein Befund“, „Wieder melden“ und „In Quarantäne verschieben“.
+
+Die Grenzen stehen unter **Security > Scanner > Einstellungen > Fundansicht**:
+ganze Datei bis 400 Zeilen, 5 Zeilen um jede Stelle, 300 Zeichen je Zeile, 20
+Stellen je Regel, 32 MiB Code je Bericht; Ansichten ohne offenen Fund bleiben
+30 Tage gespeichert. Die Werte gehen bei jeder Prüfung an den Scanner.
+
+In den Mails steht je Datei der Grund und was sie tut, dazu ein Link
+„Ansehen“, sobald unter **Scanner > Einstellungen > Mail** die Adresse des
+Panels eingetragen ist. Der Link öffnet die Seite des Fundes, wenn das Panel
+angemeldet ist; das Skript dafür legt das Addon nach `js/js.d/`.
+
 ## Schwachstellen
 
 **Security > Scanner > Schwachstellen** gliedert nach Websites: je Website ihre
@@ -284,7 +309,11 @@ malwatch_client_notification_de.txt   an den Kunden
 Eine Kopie unter `/usr/local/ispconfig/server/conf-custom/mail/` wird
 bevorzugt und übersteht ein Update. Verfügbare Platzhalter: `{domain}`,
 `{hostname}`, `{scan_time}`, `{scan_path}`, `{count}`, `{worst}`,
-`{files_scanned}`, `{outdated}`, `{findings}`.
+`{files_scanned}`, `{outdated}`, `{findings}` (je Datei Stufe, Regeln, Grund,
+Fähigkeiten und Link), `{panel_url}`. Ein Abschnitt zwischen
+`{panel_block}` und `{/panel_block}` erscheint nur mit eingetragener Adresse
+des Panels, einer zwischen `{quarantine_block}` und `{/quarantine_block}` nur,
+wenn der Lauf Dateien in die Quarantäne gab.
 
 ## Entfernen
 

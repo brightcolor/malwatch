@@ -363,6 +363,10 @@ class page_action extends tform_actions
 
 		$this->show_auto_action($config);
 
+		// The address this page was opened at, as a suggestion for panel_url:
+		// the mails are written by the cron, which has no request to ask.
+		$app->tpl->setVar('panel_url_guess', $app->functions->htmlentities(malwatch_panel_url_guess($_SERVER)));
+
 		// The dialog "Änderungen prüfen" compares the form with the stored row:
 		// the automatic action as the choice the page checks, the token only as
 		// its mask.

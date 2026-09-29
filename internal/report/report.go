@@ -74,6 +74,73 @@ type Finding struct {
 	Excerpt  string   `json:"excerpt,omitempty"`
 	Size     int64    `json:"size,omitempty"`
 	MTime    string   `json:"mtime,omitempty"`
+	// Marks are the places the rule matched on, so a reader can see them
+	// highlighted instead of hunting for the line. Empty for findings about
+	// the whole file (a signature over the file, a file the vendor does not
+	// ship).
+	Marks []Mark `json:"marks,omitempty"`
+}
+
+// Mark is one place in a file: a line and a byte range inside it. Col counts
+// bytes from the start of the line, starting at 0; Len 0 means the whole line.
+type Mark struct {
+	Line int `json:"line"`
+	Col  int `json:"col"`
+	Len  int `json:"len"`
+}
+
+// Trait is something a file does, as far as its source shows: runs shell
+// commands, decodes hidden text, checks the login. It answers "what does this
+// file do" for a reader who has to decide about it.
+type Trait struct {
+	// ID is the stable name, e.g. "exec.shell".
+	ID string `json:"id"`
+	// Label is a short German description for the report.
+	Label string `json:"label"`
+	// Kind rates the trait: "risk" is what attackers are after, "caution"
+	// is often part of an attack and often honest, "info" describes, and
+	// "guard" is a protection honest code has and a shell usually lacks.
+	Kind  string `json:"kind"`
+	Marks []Mark `json:"marks,omitempty"`
+}
+
+// Trait kinds.
+const (
+	TraitRisk    = "risk"
+	TraitCaution = "caution"
+	TraitInfo    = "info"
+	TraitGuard   = "guard"
+)
+
+// ViewLine is one line of a file view, or the part of it that was kept.
+type ViewLine struct {
+	// N is the line number, starting at 1.
+	N int `json:"n"`
+	// Text is the line, cut down to the part around its marks when it was
+	// longer than the view allows. Bytes that are no valid UTF-8 become '?'
+	// and control characters '.', one byte each, so a mark's Col still counts
+	// the same bytes.
+	Text string `json:"t"`
+	// Off is where Text starts in the line, in bytes.
+	Off int `json:"o,omitempty"`
+	// Cut is set when the line goes on after Text.
+	Cut bool `json:"c,omitempty"`
+}
+
+// FileView is what a reader gets to see of a file with findings: its traits
+// and the lines around every mark, or the whole file when it is short.
+type FileView struct {
+	// Kind is "text" or "binary". A binary file has no lines to show.
+	Kind string `json:"kind"`
+	// Lines is the number of lines in the file.
+	Lines int `json:"lines"`
+	// Whole is set when Show holds every line of the file.
+	Whole bool `json:"whole"`
+	// Omitted is set when the lines were left out because the report had
+	// reached its budget for code (see fileview.Options.BudgetMiB).
+	Omitted bool       `json:"omitted,omitempty"`
+	Show    []ViewLine `json:"show,omitempty"`
+	Traits  []Trait    `json:"traits,omitempty"`
 }
 
 // Software is one detected web application install.
@@ -165,8 +232,11 @@ type Report struct {
 	Engines    map[string]string `json:"engines"`
 	Stats      Stats             `json:"stats"`
 	Findings   []Finding         `json:"findings"`
-	Software   []Software        `json:"software"`
-	Errors     []string          `json:"errors,omitempty"`
+	// Files holds one view per file with findings, keyed by the SHA256 the
+	// findings carry. A file that sits on many websites is described once.
+	Files    map[string]*FileView `json:"files,omitempty"`
+	Software []Software           `json:"software"`
+	Errors   []string             `json:"errors,omitempty"`
 }
 
 // New returns an empty report stamped with the current version.

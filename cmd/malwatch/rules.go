@@ -11,18 +11,24 @@ import (
 )
 
 // ruleDoc is one catalog entry as the ISPConfig addon sees it - enough to
-// label a finding by its rule ID without linking against the Go catalog.
+// label a finding by its rule ID without linking against the Go catalog, and
+// to tell the operator why it was reported and what to do.
 type ruleDoc struct {
 	ID       string          `json:"id"`
 	Title    string          `json:"title"`
 	Severity report.Severity `json:"severity"`
 	AutoSafe bool            `json:"auto_safe"`
+	Explain  string          `json:"explain"`
+	Advice   string          `json:"advice"`
 }
 
-// ruleCatalogDoc is what malwatch rules --json writes.
+// ruleCatalogDoc is what malwatch rules --json writes. Extras are the sources
+// of findings outside the catalog (vendor checksums, signature engines),
+// kept apart so that Rules stays exactly the catalog.
 type ruleCatalogDoc struct {
 	Schema int       `json:"schema"`
 	Rules  []ruleDoc `json:"rules"`
+	Extras []ruleDoc `json:"extras"`
 }
 
 func cmdRules(args []string) int {
@@ -46,11 +52,25 @@ func cmdRules(args []string) int {
 	all := rules.All()
 	doc := ruleCatalogDoc{Schema: 1, Rules: make([]ruleDoc, 0, len(all))}
 	for _, r := range all {
+		e, _ := rules.Explain(r.ID)
 		doc.Rules = append(doc.Rules, ruleDoc{
 			ID:       r.ID,
 			Title:    r.Description,
 			Severity: r.Severity,
 			AutoSafe: r.AutoSafe,
+			Explain:  e.Why,
+			Advice:   rules.Advice(r.ID, r.Severity, r.AutoSafe),
+		})
+	}
+	for _, x := range rules.Extras {
+		e, _ := rules.Explain(x.ID)
+		doc.Extras = append(doc.Extras, ruleDoc{
+			ID:       x.ID,
+			Title:    x.Title,
+			Severity: x.Severity,
+			AutoSafe: x.AutoSafe,
+			Explain:  e.Why,
+			Advice:   rules.Advice(x.ID, x.Severity, x.AutoSafe),
 		})
 	}
 

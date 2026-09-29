@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/brightcolor/malwatch/internal/fileview"
 	"github.com/brightcolor/malwatch/internal/mail"
 	"github.com/brightcolor/malwatch/internal/progress"
 	"github.com/brightcolor/malwatch/internal/report"
@@ -48,6 +49,12 @@ func cmdScan(args []string) int {
 	maxSize := fs.Int64("max-size", 0, "")
 	threads := fs.Int("threads", 0, "")
 	ignoreChmod0 := fs.Bool("ignore-chmod0", false, "")
+
+	viewLines := fs.Int("view-lines", fileview.Default.MaxLines, "")
+	viewContext := fs.Int("view-context", fileview.Default.Context, "")
+	viewLineLength := fs.Int("view-line-length", fileview.Default.LineLength, "")
+	viewMarks := fs.Int("view-marks", fileview.Default.MaxMarks, "")
+	viewBudget := fs.Int("view-budget", fileview.Default.BudgetMiB, "")
 
 	noMalware := fs.Bool("no-malware-scan", false, "")
 	noVersion := fs.Bool("no-version-scan", false, "")
@@ -103,6 +110,18 @@ func cmdScan(args []string) int {
 		}
 	}
 
+	view := fileview.Options{
+		MaxLines:   *viewLines,
+		Context:    *viewContext,
+		LineLength: *viewLineLength,
+		MaxMarks:   *viewMarks,
+		BudgetMiB:  *viewBudget,
+	}
+	if err := view.Validate(); err != nil {
+		fmt.Fprintf(os.Stderr, "%v. Ohne den Schalter gilt die Vorgabe.\n", err)
+		return report.ExitError
+	}
+
 	for _, file := range excludeFrom {
 		loaded, err := readPatternFile(file)
 		if err != nil {
@@ -143,6 +162,7 @@ func cmdScan(args []string) int {
 		IgnoreRules:     ignore,
 		Whitelist:       whitelist,
 		UploadDirs:      uploads,
+		View:            view,
 		SignatureDir:    *sigDir,
 		StateDir:        *stateDir,
 		CacheFile:       *cacheFile,

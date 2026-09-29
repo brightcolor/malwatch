@@ -58,6 +58,7 @@ class malwatch_ingest
 		}
 
 		$new_findings = $this->store_findings($job, $report, $scan_id, $sys_groupid);
+		$this->store_files($report);
 		$this->store_software($job, $report, $scan_id, $sys_groupid);
 		$this->store_php_version($job, $report);
 
@@ -1114,6 +1115,7 @@ class malwatch_ingest
 
 			$severity = isset($finding['severity']) ? (string) $finding['severity'] : 'medium';
 			$excerpt = isset($finding['excerpt']) ? substr((string) $finding['excerpt'], 0, 255) : '';
+			$marks = self::marks_json(isset($finding['marks']) ? $finding['marks'] : array());
 			$mtime = $this->to_datetime(isset($finding['mtime']) ? $finding['mtime'] : '');
 
 			if (is_array($existing)) {
@@ -1122,11 +1124,11 @@ class malwatch_ingest
 				$state = $existing['finding_state'] === 'ignored' ? 'ignored' : 'open';
 				$app->dbmaster->query(
 					'UPDATE malwatch_finding SET scan_id = ?, line_number = ?, severity = ?, engine = ?, '
-					. 'file_sha256 = ?, excerpt = ?, file_size = ?, file_mtime = ?, finding_state = ?, last_seen = ? '
+					. 'file_sha256 = ?, excerpt = ?, marks = ?, file_size = ?, file_mtime = ?, finding_state = ?, last_seen = ? '
 					. 'WHERE finding_id = ?',
 					$scan_id, intval(isset($finding['line']) ? $finding['line'] : 0), $severity,
 					substr((string) (isset($finding['engine']) ? $finding['engine'] : ''), 0, 32),
-					(string) (isset($finding['sha256']) ? $finding['sha256'] : ''), $excerpt,
+					(string) (isset($finding['sha256']) ? $finding['sha256'] : ''), $excerpt, $marks,
 					intval(isset($finding['size']) ? $finding['size'] : 0), $mtime, $state, $now,
 					intval($existing['finding_id']));
 				continue;
@@ -1135,12 +1137,12 @@ class malwatch_ingest
 			$app->dbmaster->query(
 				'INSERT INTO malwatch_finding (sys_userid, sys_groupid, sys_perm_user, sys_perm_group, sys_perm_other, '
 				. 'server_id, parent_domain_id, domain, scan_id, file_path, path_hash, line_number, rule_id, severity, '
-				. 'engine, file_sha256, excerpt, file_size, file_mtime, finding_state, first_seen, last_seen) '
-				. "VALUES (1, ?, 'riud', 'r', '', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?)",
+				. 'engine, file_sha256, excerpt, marks, file_size, file_mtime, finding_state, first_seen, last_seen) '
+				. "VALUES (1, ?, 'riud', 'r', '', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?)",
 				$sys_groupid, intval($conf['server_id']), $domain_id, (string) $job['domain'], $scan_id,
 				substr($path, 0, 1024), $hash, intval(isset($finding['line']) ? $finding['line'] : 0), $rule,
 				$severity, substr((string) (isset($finding['engine']) ? $finding['engine'] : ''), 0, 32),
-				(string) (isset($finding['sha256']) ? $finding['sha256'] : ''), $excerpt,
+				(string) (isset($finding['sha256']) ? $finding['sha256'] : ''), $excerpt, $marks,
 				intval(isset($finding['size']) ? $finding['size'] : 0), $mtime, $now, $now);
 			$new++;
 		}
@@ -1153,6 +1155,116 @@ class malwatch_ingest
 			$domain_id, $now, 'open');
 
 		return $new;
+	}
+
+	/** The most marks one finding keeps, the upper bound of view_marks. */
+	const MARKS_MAX = 200;
+
+	/**
+	 * The marks of a finding as JSON [{line,col,len}], cleaned: whole numbers,
+	 * at most MARKS_MAX. Null when there are none, so the column says so.
+	 */
+	public static function marks_json($marks)
+	{
+		$out = array();
+		foreach (is_array($marks) ? $marks : array() as $mark) {
+			if (!is_array($mark) || !isset($mark['line']) || (int) $mark['line'] < 1) {
+				continue;
+			}
+			$out[] = array(
+				'line' => (int) $mark['line'],
+				'col' => max(0, isset($mark['col']) ? (int) $mark['col'] : 0),
+				'len' => max(0, isset($mark['len']) ? (int) $mark['len'] : 0),
+			);
+			if (count($out) >= self::MARKS_MAX) {
+				break;
+			}
+		}
+		return count($out) > 0 ? json_encode($out) : null;
+	}
+
+	/**
+	 * Stores the view of every file with findings: its traits and the lines
+	 * the scanner cut out. One row per content (malwatch_file). A view whose
+	 * lines the scanner left out for its budget does not replace a stored one
+	 * with lines: the content is the same, only this report had no room.
+	 */
+	private function store_files($report)
+	{
+		global $app;
+
+		$files = isset($report['files']) && is_array($report['files']) ? $report['files'] : array();
+		$now = date('Y-m-d H:i:s');
+		foreach ($files as $sha => $file) {
+			$sha = strtolower((string) $sha);
+			if (!preg_match('/^[0-9a-f]{64}$/', $sha) || !is_array($file)) {
+				continue;
+			}
+			$row = self::file_row($file);
+			$existing = $app->dbmaster->queryOneRecord(
+				'SELECT file_sha256, omitted, view FROM malwatch_file WHERE file_sha256 = ?', $sha);
+			if (is_array($existing)) {
+				if ($row['omitted'] === 'y' && $existing['omitted'] !== 'y' && (string) $existing['view'] !== '') {
+					$app->dbmaster->query('UPDATE malwatch_file SET traits = ?, last_seen = ? WHERE file_sha256 = ?',
+						$row['traits'], $now, $sha);
+					continue;
+				}
+				$app->dbmaster->query(
+					'UPDATE malwatch_file SET kind = ?, line_count = ?, whole = ?, omitted = ?, traits = ?, view = ?, '
+					. 'last_seen = ? WHERE file_sha256 = ?',
+					$row['kind'], $row['line_count'], $row['whole'], $row['omitted'], $row['traits'], $row['view'],
+					$now, $sha);
+				continue;
+			}
+			$app->dbmaster->query(
+				'INSERT INTO malwatch_file (file_sha256, kind, line_count, whole, omitted, traits, view, first_seen, last_seen) '
+				. 'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+				$sha, $row['kind'], $row['line_count'], $row['whole'], $row['omitted'], $row['traits'], $row['view'],
+				$now, $now);
+		}
+	}
+
+	/**
+	 * One view of the report as the columns of malwatch_file. Only the fields
+	 * the page reads are kept, each checked for its type: the text of the lines
+	 * is whatever the file held, and stays so until the page escapes it.
+	 */
+	public static function file_row(array $file)
+	{
+		$kind = isset($file['kind']) && $file['kind'] === 'binary' ? 'binary' : 'text';
+		$traits = array();
+		foreach (isset($file['traits']) && is_array($file['traits']) ? $file['traits'] : array() as $trait) {
+			if (!is_array($trait) || !isset($trait['id'], $trait['label'], $trait['kind'])) {
+				continue;
+			}
+			$marks = json_decode((string) self::marks_json(isset($trait['marks']) ? $trait['marks'] : array()), true);
+			$traits[] = array(
+				'id' => substr((string) $trait['id'], 0, 64),
+				'label' => substr((string) $trait['label'], 0, 255),
+				'kind' => in_array($trait['kind'], array('risk', 'caution', 'info', 'guard'), true) ? $trait['kind'] : 'info',
+				'marks' => is_array($marks) ? $marks : array(),
+			);
+		}
+		$lines = array();
+		foreach (isset($file['show']) && is_array($file['show']) ? $file['show'] : array() as $line) {
+			if (!is_array($line) || !isset($line['n'])) {
+				continue;
+			}
+			$lines[] = array(
+				'n' => (int) $line['n'],
+				't' => isset($line['t']) ? (string) $line['t'] : '',
+				'o' => isset($line['o']) ? max(0, (int) $line['o']) : 0,
+				'c' => !empty($line['c']),
+			);
+		}
+		return array(
+			'kind' => $kind,
+			'line_count' => isset($file['lines']) ? max(0, (int) $file['lines']) : 0,
+			'whole' => !empty($file['whole']) ? 'y' : 'n',
+			'omitted' => !empty($file['omitted']) ? 'y' : 'n',
+			'traits' => json_encode($traits),
+			'view' => count($lines) > 0 ? json_encode($lines, JSON_INVALID_UTF8_SUBSTITUTE) : null,
+		);
 	}
 
 	/** Records the detected web software of this run. */

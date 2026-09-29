@@ -349,6 +349,12 @@ class malwatch_runner
 		// for the rules that judge a file by lying below one.
 		$args[] = '--upload-dirs=' . implode(',', $app->malwatch_helper->upload_dirs($config['upload_dirs']));
 
+		// What the finding page gets to show of a file (Scanner > Einstellungen
+		// > Fundansicht): marks, traits and the lines around them.
+		foreach ($app->malwatch_helper->view_arguments($config) as $switch) {
+			$args[] = $switch;
+		}
+
 		$max_age =isset($options['max_age']) ? intval($options['max_age']) : intval($config['scan_max_age']);
 		if ($max_age > 0) {
 			$args[] = '--max-age=' . $max_age;

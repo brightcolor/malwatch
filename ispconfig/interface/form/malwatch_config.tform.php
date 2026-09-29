@@ -146,6 +146,115 @@ $form['tabs']['settings'] = array(
 			'width' => '60',
 			'maxlength' => '512'
 		),
+		// What the finding page gets to see of a file (Fundansicht). The
+		// scanner has the same bounds; see malwatch_view_settings().
+		'view_lines' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => (string) malwatch_config_defaults()['view_lines'],
+			'validators' => array(
+				array(
+					'type' => 'RANGE',
+					'range' => malwatch_view_range('view_lines'),
+					'errmsg' => 'view_lines_error_range'
+				)
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '4'
+		),
+		'view_context' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => (string) malwatch_config_defaults()['view_context'],
+			'validators' => array(
+				array(
+					'type' => 'RANGE',
+					'range' => malwatch_view_range('view_context'),
+					'errmsg' => 'view_context_error_range'
+				)
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '2'
+		),
+		'view_line_length' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => (string) malwatch_config_defaults()['view_line_length'],
+			'validators' => array(
+				array(
+					'type' => 'RANGE',
+					'range' => malwatch_view_range('view_line_length'),
+					'errmsg' => 'view_line_length_error_range'
+				)
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '4'
+		),
+		'view_marks' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => (string) malwatch_config_defaults()['view_marks'],
+			'validators' => array(
+				array(
+					'type' => 'RANGE',
+					'range' => malwatch_view_range('view_marks'),
+					'errmsg' => 'view_marks_error_range'
+				)
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '3'
+		),
+		'view_budget' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => (string) malwatch_config_defaults()['view_budget'],
+			'validators' => array(
+				array(
+					'type' => 'RANGE',
+					'range' => malwatch_view_range('view_budget'),
+					'errmsg' => 'view_budget_error_range'
+				)
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '3'
+		),
+		'view_keep_days' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => (string) malwatch_config_defaults()['view_keep_days'],
+			'validators' => array(
+				array(
+					'type' => 'RANGE',
+					'range' => malwatch_view_range('view_keep_days'),
+					'errmsg' => 'view_keep_days_error_range'
+				)
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '3'
+		),
+		// The address of the panel, for the links in the mails; empty sends
+		// mails without links.
+		'panel_url' => array(
+			'datatype' => 'VARCHAR',
+			'formtype' => 'TEXT',
+			'default' => '',
+			'validators' => array(
+				array(
+					'type' => 'REGEX',
+					'regex' => malwatch_panel_url_regex(),
+					'errmsg' => 'panel_url_error_regex'
+				)
+			),
+			'value' => '',
+			'width' => '60',
+			'maxlength' => '255'
+		),
 		'max_parallel' => array(
 			'datatype' => 'INTEGER',
 			'formtype' => 'TEXT',

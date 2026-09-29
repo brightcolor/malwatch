@@ -23,6 +23,23 @@ class malwatch_helper
 	const UPLOAD_DIRS_MAX = 16;
 	const UPLOAD_DIR_LENGTH_MAX = 30;
 
+	/**
+	 * The settings of the finding view: column => array(min, max, default,
+	 * switch of the scanner). The scanner has the same bounds and defaults
+	 * (Limits and Default in internal/fileview/fileview.go), the panel as well
+	 * (malwatch_view_settings()).
+	 */
+	const VIEW_SETTINGS = array(
+		'view_lines' => array(0, 2000, 400, '--view-lines'),
+		'view_context' => array(0, 50, 5, '--view-context'),
+		'view_line_length' => array(60, 2000, 300, '--view-line-length'),
+		'view_marks' => array(1, 200, 20, '--view-marks'),
+		'view_budget' => array(1, 512, 32, '--view-budget'),
+	);
+
+	/** How long a view outlives its last finding, in days: default and bounds. */
+	const VIEW_KEEP_DAYS = array(1, 365, 30);
+
 	private $config = null;
 
 	/** Returns the global settings, with defaults for a missing row. */
@@ -66,6 +83,13 @@ class malwatch_helper
 			'use_clamav' => 'y',
 			'auto_update_signatures' => 'y',
 			'upload_dirs' => 'uploads,attachments,avatars,thumbs,userfiles,user_uploads,file_uploads',
+			'view_lines' => 400,
+			'view_context' => 5,
+			'view_line_length' => 300,
+			'view_marks' => 20,
+			'view_budget' => 32,
+			'view_keep_days' => 30,
+			'panel_url' => '',
 		);
 	}
 
@@ -90,6 +114,34 @@ class malwatch_helper
 			return explode(',', $defaults['upload_dirs']);
 		}
 		return $names;
+	}
+
+	/**
+	 * The switches that hand the view settings to the scanner. A stored value
+	 * the settings page would refuse holds no scan up: it gets the default,
+	 * because the scanner refuses a value out of its bounds and the whole
+	 * scan with it.
+	 */
+	public function view_arguments($config)
+	{
+		$args = array();
+		foreach (self::VIEW_SETTINGS as $key => $setting) {
+			list($min, $max, $default, $switch) = $setting;
+			$value = isset($config[$key]) && is_numeric($config[$key]) ? (int) $config[$key] : $default;
+			if ($value < $min || $value > $max) {
+				$value = $default;
+			}
+			$args[] = $switch . '=' . $value;
+		}
+		return $args;
+	}
+
+	/** Days a view outlives its last finding, within VIEW_KEEP_DAYS. */
+	public function view_keep_days($config)
+	{
+		list($min, $max, $default) = self::VIEW_KEEP_DAYS;
+		$days = isset($config['view_keep_days']) && is_numeric($config['view_keep_days']) ? (int) $config['view_keep_days'] : $default;
+		return ($days < $min || $days > $max) ? $default : $days;
 	}
 
 	/**

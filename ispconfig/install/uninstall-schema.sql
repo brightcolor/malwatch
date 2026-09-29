@@ -12,6 +12,7 @@ DROP TABLE IF EXISTS `malwatch_dump`;
 DROP TABLE IF EXISTS `malwatch_upgrade_element`;
 DROP TABLE IF EXISTS `malwatch_upgrade`;
 DROP TABLE IF EXISTS `malwatch_auto_preset`;
+DROP TABLE IF EXISTS `malwatch_file`;
 DROP TABLE IF EXISTS `malwatch_rule`;
 DROP TABLE IF EXISTS `malwatch_quarantine`;
 DROP TABLE IF EXISTS `malwatch_repair_element`;

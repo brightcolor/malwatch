@@ -18,6 +18,8 @@
  * upload_dirs: the directories that hold nothing but uploads, for the rules
  * that judge a file by lying below one; the scanner has the same list
  * (DefaultUploadDirs in internal/rules/uploads.go), the server side as well.
+ * view_*: what the finding page shows of a file, see malwatch_view_settings().
+ * panel_url: the address of the panel, for the links in the mails.
  */
 function malwatch_config_defaults()
 {
@@ -28,6 +30,13 @@ function malwatch_config_defaults()
 		'default_excludes' => '',
 		'poll_seconds' => 2,
 		'upload_dirs' => 'uploads,attachments,avatars,thumbs,userfiles,user_uploads,file_uploads',
+		'view_lines' => 400,
+		'view_context' => 5,
+		'view_line_length' => 300,
+		'view_marks' => 20,
+		'view_budget' => 32,
+		'view_keep_days' => 30,
+		'panel_url' => '',
 	);
 }
 
@@ -1385,6 +1394,9 @@ function malwatch_group_findings($app, $rows, $wb, $base = '')
 				'severity_label' => '',
 				'severity_class' => '',
 				'first_seen' => $app->functions->htmlentities(malwatch_datetime($row['first_seen'])),
+				// The finding page shows every finding of the file; any of
+				// them opens it.
+				'finding_id' => $app->functions->intval($row['finding_id']),
 				'is_ignored' => 1,
 				'hits' => array(),
 				'hit_count' => 0,
@@ -2029,4 +2041,259 @@ function malwatch_next_run($app)
 	}
 
 	return array('state' => 'none', 'when' => '');
+}
+
+/**
+ * The settings of the finding view: column => array(min, max, default).
+ * view_lines to view_budget are the scanner's (Limits and Default in
+ * internal/fileview/fileview.go, malwatch_helper::VIEW_SETTINGS on the server
+ * side); view_keep_days is the addon's own (malwatch_helper::VIEW_KEEP_DAYS).
+ */
+function malwatch_view_settings()
+{
+	return array(
+		'view_lines' => array(0, 2000, 400),
+		'view_context' => array(0, 50, 5),
+		'view_line_length' => array(60, 2000, 300),
+		'view_marks' => array(1, 200, 20),
+		'view_budget' => array(1, 512, 32),
+		'view_keep_days' => array(1, 365, 30),
+	);
+}
+
+/** The range of a view setting as a tform RANGE validator takes it, e.g. '0:2000'. */
+function malwatch_view_range($key)
+{
+	$settings = malwatch_view_settings();
+	return $settings[$key][0] . ':' . $settings[$key][1];
+}
+
+/**
+ * The pattern panel_url is checked with: an http or https address of the
+ * panel, without spaces, as the browser shows it on the login page.
+ */
+function malwatch_panel_url_regex()
+{
+	return '/^(?:|https?:\/\/[^\s\/?#]+(?::\d{1,5})?(?:\/[^\s?#]*)?)$/';
+}
+
+/**
+ * The address the panel was reached at, from the request: scheme, host and
+ * port, without the page. Empty when the request does not say.
+ */
+function malwatch_panel_url_guess(array $server)
+{
+	$host = isset($server['HTTP_HOST']) ? (string) $server['HTTP_HOST'] : '';
+	if ($host === '' || !preg_match('/^[A-Za-z0-9.:\[\]-]+$/', $host)) {
+		return '';
+	}
+	$https = !empty($server['HTTPS']) && strtolower((string) $server['HTTPS']) !== 'off';
+	return ($https ? 'https' : 'http') . '://' . $host;
+}
+
+/**
+ * Sets the state of every finding of one file: the buttons "Kein Befund"
+ * ($state 'ignored') and "Wieder öffnen" ('open'). A file with several rule
+ * hits is one decision, so all of them change together. Fixed findings stay
+ * fixed. Returns the message for the page.
+ */
+function malwatch_set_file_state($app, $domain_id, $path, $state)
+{
+	$app->db->query(
+		'UPDATE malwatch_finding SET finding_state = ? WHERE parent_domain_id = ? AND file_path = ? '
+		. "AND finding_state IN ('open','ignored')",
+		$state === 'ignored' ? 'ignored' : 'open', $domain_id, (string) $path);
+	return $state === 'ignored'
+		? 'Die Datei wurde freigegeben.'
+		: 'Die Datei wird wieder gemeldet.';
+}
+
+/**
+ * The marks stored with a finding or a trait: a JSON list of
+ * {line, col, len}, or an array of them. Anything else counts as none.
+ */
+function malwatch_decode_marks($marks)
+{
+	if (is_string($marks)) {
+		$marks = json_decode($marks, true);
+	}
+	$out = array();
+	foreach (is_array($marks) ? $marks : array() as $mark) {
+		if (!is_array($mark) || !isset($mark['line']) || (int) $mark['line'] < 1) {
+			continue;
+		}
+		$out[] = array(
+			'line' => (int) $mark['line'],
+			'col' => max(0, isset($mark['col']) ? (int) $mark['col'] : 0),
+			'len' => max(0, isset($mark['len']) ? (int) $mark['len'] : 0),
+		);
+	}
+	return $out;
+}
+
+/**
+ * How strongly a mark class stands out; the stronger one wins where two marks
+ * cover the same bytes or the same line.
+ */
+function malwatch_mark_weight($class)
+{
+	$weights = array(
+		'mw-m-critical' => 9, 'mw-m-high' => 8, 'mw-m-medium' => 7, 'mw-m-low' => 6,
+		'mw-m-risk' => 5, 'mw-m-caution' => 4, 'mw-m-guard' => 3, 'mw-m-info' => 2,
+	);
+	return isset($weights[$class]) ? $weights[$class] : 1;
+}
+
+/** The mark class of a finding's severity. */
+function malwatch_mark_class_severity($severity)
+{
+	return in_array($severity, malwatch_severities(), true) ? 'mw-m-' . $severity : 'mw-m-medium';
+}
+
+/** The mark class of a trait kind (risk, caution, info, guard). */
+function malwatch_mark_class_trait($kind)
+{
+	return in_array($kind, array('risk', 'caution', 'info', 'guard'), true) ? 'mw-m-' . $kind : 'mw-m-info';
+}
+
+/**
+ * Moves byte offset $i of $s to the start of the character it points into,
+ * so a cut never splits a multibyte character.
+ */
+function malwatch_utf8_start($s, $i)
+{
+	$len = strlen($s);
+	if ($i >= $len) {
+		return $len;
+	}
+	while ($i > 0 && (ord($s[$i]) & 0xC0) === 0x80) {
+		$i--;
+	}
+	return max(0, $i);
+}
+
+/**
+ * One line of code as HTML: every byte range in $ranges wrapped in a <mark>
+ * of its class, everything escaped.
+ *
+ * $text is what the scanner kept of the line, $offset where it starts in the
+ * line; a range is array('col' => byte in the line, 'len' => bytes,
+ * 'class' => mark class). Overlapping ranges merge, the stronger class wins.
+ * The text is a customer's file and possibly an attacker's: nothing of it
+ * reaches the page unescaped.
+ */
+function malwatch_mark_line($text, $offset, array $ranges)
+{
+	$text = (string) $text;
+	$len = strlen($text);
+	$spans = array();
+	foreach ($ranges as $r) {
+		if (!isset($r['len']) || (int) $r['len'] < 1) {
+			continue;
+		}
+		$start = (int) $r['col'] - (int) $offset;
+		$end = $start + (int) $r['len'];
+		$start = max(0, $start);
+		$end = min($len, $end);
+		if ($end <= $start) {
+			continue;
+		}
+		$spans[] = array(malwatch_utf8_start($text, $start), malwatch_utf8_start($text, $end), (string) $r['class']);
+	}
+	usort($spans, function ($a, $b) {
+		return $a[0] === $b[0] ? $b[1] - $a[1] : $a[0] - $b[0];
+	});
+
+	// Merge overlapping spans; the merged one takes the stronger class.
+	$merged = array();
+	foreach ($spans as $span) {
+		$last = count($merged) - 1;
+		if ($last >= 0 && $span[0] < $merged[$last][1]) {
+			$merged[$last][1] = max($merged[$last][1], $span[1]);
+			if (malwatch_mark_weight($span[2]) > malwatch_mark_weight($merged[$last][2])) {
+				$merged[$last][2] = $span[2];
+			}
+			continue;
+		}
+		if ($span[1] > $span[0]) {
+			$merged[] = $span;
+		}
+	}
+
+	$esc = function ($s) {
+		return htmlspecialchars($s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+	};
+	$html = '';
+	$pos = 0;
+	foreach ($merged as $span) {
+		$html .= $esc(substr($text, $pos, $span[0] - $pos));
+		$html .= '<mark class="' . $esc($span[2]) . '">' . $esc(substr($text, $span[0], $span[1] - $span[0])) . '</mark>';
+		$pos = $span[1];
+	}
+	return $html . $esc(substr($text, $pos));
+}
+
+/**
+ * The rows of the code view.
+ *
+ * $lines are the lines the scanner kept ({n, t, o, c}); $marks_by_line maps a
+ * line number to its ranges (see malwatch_mark_line()), a range with len 0
+ * marking the whole line. Each row gets its number, its HTML, the class of
+ * the strongest mark on it, whether lines were skipped before it, and whether
+ * it was cut on the left or right.
+ */
+function malwatch_code_rows(array $lines, array $marks_by_line)
+{
+	$rows = array();
+	$prev = 0;
+	foreach ($lines as $line) {
+		if (!is_array($line) || !isset($line['n'])) {
+			continue;
+		}
+		$n = (int) $line['n'];
+		$text = isset($line['t']) ? (string) $line['t'] : '';
+		$offset = isset($line['o']) ? max(0, (int) $line['o']) : 0;
+		$ranges = isset($marks_by_line[$n]) ? $marks_by_line[$n] : array();
+		$row_class = '';
+		foreach ($ranges as $r) {
+			if ($row_class === '' || malwatch_mark_weight($r['class']) > malwatch_mark_weight($row_class)) {
+				$row_class = (string) $r['class'];
+			}
+		}
+		$rows[] = array(
+			'n' => $n,
+			'html' => malwatch_mark_line($text, $offset, $ranges),
+			'row_class' => $row_class === '' ? '' : 'mw-row ' . str_replace('mw-m-', 'mw-r-', $row_class),
+			'gap' => ($prev > 0 && $n > $prev + 1) ? 1 : 0,
+			'skipped' => ($prev > 0 && $n > $prev + 1) ? $n - $prev - 1 : 0,
+			'cut_left' => $offset > 0 ? 1 : 0,
+			'cut_right' => !empty($line['c']) ? 1 : 0,
+		);
+		$prev = $n;
+	}
+	return $rows;
+}
+
+/**
+ * The explanation of a finding: the rule's row in malwatch_rule, or for the
+ * signature engines the row "engine:<engine>". Null while the cron has not
+ * read the catalogue yet.
+ */
+function malwatch_rule_explanation($app, $rule_id, $engine)
+{
+	$row = $app->db->queryOneRecord(
+		'SELECT rule_id, title, severity, auto_safe, explanation, advice FROM malwatch_rule WHERE rule_id = ?',
+		(string) $rule_id);
+	if ((!is_array($row) || (string) $row['explanation'] === '') && in_array($engine, array('signature', 'clamav'), true)) {
+		$engine_row = $app->db->queryOneRecord(
+			'SELECT rule_id, title, severity, auto_safe, explanation, advice FROM malwatch_rule WHERE rule_id = ?',
+			'engine:' . $engine);
+		if (is_array($engine_row)) {
+			if (is_array($row) && (string) $row['title'] !== '') {
+				$engine_row['title'] = $row['title'];
+			}
+			return $engine_row;
+		}
+	}
+	return is_array($row) ? $row : null;
 }

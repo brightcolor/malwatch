@@ -159,3 +159,4 @@ $wb['upgrade_outcome_rolled_back_txt'] = 'taken back';
 $wb['upgrade_outcome_failed_txt'] = 'failed';
 $wb['upgrade_outcome_rollback_failed_txt'] = 'website broken';
 $wb['upgrade_outcome_skipped_txt'] = 'skipped';
+$wb['show_finding_txt'] = 'View';

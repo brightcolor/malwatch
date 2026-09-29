@@ -1,0 +1,208 @@
+<div class='page-header'>
+	<h1>{tmpl_var name='page_head_txt'}</h1>
+</div>
+
+<tmpl_if name="message">
+	<div class="alert alert-success">{tmpl_var name='message'}</div>
+</tmpl_if>
+<tmpl_if name="error">
+	<div class="alert alert-danger">{tmpl_var name='error'}</div>
+</tmpl_if>
+
+<style>
+/* Farben der Markierungen: halbdurchsichtig, damit sie auf hellem und
+   dunklem Theme gleich lesbar bleiben; die Schrift bleibt die des Themes.
+   Jede Stufe hat dazu ein Wort in der Legende, die Farbe allein traegt keine
+   Information. */
+#mw-find{--mw-crit:214,31,122;--mw-high:234,88,12;--mw-med:202,138,4;--mw-low:37,99,235;--mw-guard:22,163,74;--mw-info:59,130,246}
+#mw-find .mw-sec{font-size:15px;font-weight:600;margin:22px 0 10px;padding-bottom:5px;border-bottom:1px solid var(--cic-line-soft,rgba(128,128,128,.35))}
+#mw-find .mw-file{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:13px;word-break:break-all}
+#mw-find .mw-meta{display:flex;flex-wrap:wrap;gap:6px 22px;margin:8px 0 0;font-size:13px}
+#mw-find .mw-meta span{opacity:.72}
+#mw-find .mw-actions{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin:14px 0 4px}
+#mw-find .mw-reason{border:1px solid var(--cic-line-soft,rgba(128,128,128,.35));border-radius:3px;padding:11px 14px;margin:0 0 10px}
+#mw-find .mw-reason h3{font-size:14px;font-weight:600;margin:0 0 6px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+#mw-find .mw-reason p{margin:0 0 6px;max-width:80ch;line-height:1.55}
+#mw-find .mw-reason .mw-advice{font-size:13px}
+#mw-find .mw-reason code{font-size:12px}
+#mw-find .mw-small{font-size:12.5px;opacity:.78}
+#mw-find .mw-lines{display:inline-flex;flex-wrap:wrap;gap:4px;margin-left:4px;vertical-align:middle}
+#mw-find .mw-lines button{font:inherit;font-size:12px;line-height:1.4;padding:0 6px;border-radius:3px;cursor:pointer;
+	border:1px solid var(--cic-line-soft,rgba(128,128,128,.45));background:transparent;color:inherit}
+#mw-find .mw-lines button:hover,#mw-find .mw-lines button:focus-visible{border-color:currentColor}
+#mw-find .mw-traits{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+#mw-find .mw-traits li{display:flex;flex-wrap:wrap;align-items:center;gap:8px;line-height:1.5}
+#mw-find .mw-kind{display:inline-block;min-width:78px;font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;
+	padding:1px 7px;border-radius:3px;text-align:center}
+#mw-find .mw-kind-risk{background:rgba(var(--mw-crit),.18);box-shadow:inset 3px 0 0 rgba(var(--mw-crit),.8)}
+#mw-find .mw-kind-caution{background:rgba(var(--mw-med),.2);box-shadow:inset 3px 0 0 rgba(var(--mw-med),.8)}
+#mw-find .mw-kind-info{background:rgba(var(--mw-info),.14);box-shadow:inset 3px 0 0 rgba(var(--mw-info),.7)}
+#mw-find .mw-kind-guard{background:rgba(var(--mw-guard),.16);box-shadow:inset 3px 0 0 rgba(var(--mw-guard),.8)}
+#mw-find .mw-code{max-height:70vh;overflow:auto;border:1px solid var(--cic-line-soft,rgba(128,128,128,.35));border-radius:3px;
+	font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:12.5px;line-height:1.55;position:relative}
+#mw-find .mw-code table{border-collapse:collapse;width:100%}
+#mw-find .mw-code td{padding:0 10px;vertical-align:top;border:0}
+#mw-find .mw-code td.mw-no{text-align:right;opacity:.55;user-select:none;width:1%;white-space:nowrap;
+	border-right:1px solid var(--cic-line-soft,rgba(128,128,128,.3))}
+#mw-find .mw-code td.mw-src{white-space:pre;tab-size:4}
+#mw-find .mw-code tr.mw-gap td{opacity:.6;font-style:italic;padding:3px 10px;background:rgba(128,128,128,.07)}
+#mw-find .mw-code .mw-cut{opacity:.5}
+#mw-find .mw-row td.mw-no{opacity:.9;font-weight:600}
+#mw-find .mw-r-critical{background:rgba(var(--mw-crit),.09);box-shadow:inset 3px 0 0 rgba(var(--mw-crit),.9)}
+#mw-find .mw-r-high{background:rgba(var(--mw-high),.09);box-shadow:inset 3px 0 0 rgba(var(--mw-high),.9)}
+#mw-find .mw-r-medium{background:rgba(var(--mw-med),.09);box-shadow:inset 3px 0 0 rgba(var(--mw-med),.9)}
+#mw-find .mw-r-low{background:rgba(var(--mw-low),.08);box-shadow:inset 3px 0 0 rgba(var(--mw-low),.8)}
+#mw-find .mw-r-risk{background:rgba(var(--mw-crit),.06);box-shadow:inset 3px 0 0 rgba(var(--mw-crit),.5)}
+#mw-find .mw-r-caution{background:rgba(var(--mw-med),.07);box-shadow:inset 3px 0 0 rgba(var(--mw-med),.55)}
+#mw-find .mw-r-guard{background:rgba(var(--mw-guard),.07);box-shadow:inset 3px 0 0 rgba(var(--mw-guard),.6)}
+#mw-find .mw-r-info{box-shadow:inset 3px 0 0 rgba(var(--mw-info),.45)}
+#mw-find mark{color:inherit;padding:0 1px;border-radius:2px}
+#mw-find mark.mw-m-critical{background:rgba(var(--mw-crit),.32);outline:1px solid rgba(var(--mw-crit),.7)}
+#mw-find mark.mw-m-high{background:rgba(var(--mw-high),.32);outline:1px solid rgba(var(--mw-high),.7)}
+#mw-find mark.mw-m-medium{background:rgba(var(--mw-med),.34);outline:1px solid rgba(var(--mw-med),.7)}
+#mw-find mark.mw-m-low{background:rgba(var(--mw-low),.26)}
+#mw-find mark.mw-m-risk{background:rgba(var(--mw-crit),.2)}
+#mw-find mark.mw-m-caution{background:rgba(var(--mw-med),.24)}
+#mw-find mark.mw-m-guard{background:rgba(var(--mw-guard),.24)}
+#mw-find mark.mw-m-info{background:rgba(var(--mw-info),.16)}
+#mw-find tr.mw-flash td{animation:mw-flash 1.6s ease-out}
+@keyframes mw-flash{from{background:rgba(var(--mw-med),.45)}to{background:transparent}}
+@media (prefers-reduced-motion:reduce){#mw-find tr.mw-flash td{animation:none;outline:2px solid currentColor}}
+#mw-find .mw-legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin:0 0 8px;font-size:12.5px}
+#mw-find .mw-legend mark{padding:0 5px}
+</style>
+
+<div id="mw-find">
+
+<!--
+	No form of our own: the panel wraps the content in pageForm and appends the
+	CSRF token after this template (form.tpl.htm). The action goes into a
+	hidden field, because the panel posts the form by AJAX without the value of
+	the clicked button.
+-->
+<input type="hidden" name="id" value="{tmpl_var name='finding_id'}" />
+<input type="hidden" name="malwatch_action" id="malwatch_action" value="" />
+
+<p class="mw-file"><tmpl_if name="has_dir"><span class="text-muted">{tmpl_var name='dir'}</span></tmpl_if><strong>{tmpl_var name='file'}</strong></p>
+<div class="mw-meta">
+	<div><span>{tmpl_var name='website_txt'}:</span> <a href="#" data-load-content="security/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='domain'}</a></div>
+	<div><span>{tmpl_var name='state_txt'}:</span> <span class="label {tmpl_var name='worst_class'}">{tmpl_var name='worst_label'}</span> {tmpl_var name='state_label'}</div>
+	<div><span>{tmpl_var name='size_txt'}:</span> {tmpl_var name='size'}</div>
+	<div><span>{tmpl_var name='mtime_txt'}:</span> {tmpl_var name='mtime'}</div>
+	<div><span>{tmpl_var name='first_seen_txt'}:</span> {tmpl_var name='first_seen'}</div>
+	<div><span>{tmpl_var name='last_seen_txt'}:</span> {tmpl_var name='last_seen'}</div>
+	<div title="{tmpl_var name='sha256'}"><span>SHA-256:</span> <code>{tmpl_var name='sha256_short'}…</code></div>
+</div>
+
+<div class="mw-actions">
+	<tmpl_if name="state_fixed">
+		<span class="mw-small">{tmpl_var name='fixed_hint_txt'}</span>
+	<tmpl_else>
+		<tmpl_if name="state_ignored">
+			<button class="btn btn-default formbutton-default" type="button"
+				data-mw-set-malwatch_action="reopen"
+				data-submit-form="pageForm" data-form-action="security/malwatch_finding_show.php?id={tmpl_var name='finding_id'}">{tmpl_var name='reopen_txt'}</button>
+		<tmpl_else>
+			<button class="btn btn-default formbutton-default" type="button"
+				data-mw-set-malwatch_action="ignore"
+				data-submit-form="pageForm" data-form-action="security/malwatch_finding_show.php?id={tmpl_var name='finding_id'}">{tmpl_var name='ignore_txt'}</button>
+		</tmpl_if>
+		<button class="btn btn-danger" type="button"
+			data-mw-confirm="{tmpl_var name='confirm_quarantine_txt'}" data-mw-title="{tmpl_var name='quarantine_txt'}"
+			data-mw-detail="{tmpl_var name='full_path'}" data-mw-ok="{tmpl_var name='quarantine_txt'}" data-mw-danger="1"
+			data-mw-set-malwatch_action="quarantine"
+			data-submit-form="pageForm" data-form-action="security/malwatch_finding_show.php?id={tmpl_var name='finding_id'}">{tmpl_var name='quarantine_txt'}</button>
+	</tmpl_if>
+	<a class="btn btn-default formbutton-default" href="#" data-load-content="security/malwatch_finding_list.php">{tmpl_var name='back_txt'}</a>
+</div>
+
+<p class="mw-sec">{tmpl_var name='reasons_txt'}</p>
+<tmpl_loop name="reasons">
+<div class="mw-reason">
+	<h3>
+		<span class="label {tmpl_var name='severity_class'}">{tmpl_var name='severity_label'}</span>
+		<tmpl_if name="title">{tmpl_var name='title'}</tmpl_if>
+		<code>{tmpl_var name='rule_id'}</code>
+		<tmpl_unless name="is_open"><span class="label label-default">{tmpl_var name='state_label'}</span></tmpl_unless>
+	</h3>
+	<tmpl_if name="has_explanation">
+		<p>{tmpl_var name='explanation'}</p>
+		<p class="mw-advice"><strong>{tmpl_var name='advice_txt'}:</strong> {tmpl_var name='advice'}</p>
+	<tmpl_else>
+		<p class="mw-small">{tmpl_var name='no_explanation_txt'}</p>
+	</tmpl_if>
+	<p class="mw-small">
+		<tmpl_if name="has_lines">{tmpl_var name='lines_txt'}:<span class="mw-lines"><tmpl_loop name="lines"><button type="button" data-mw-line="{tmpl_var name='n'}">{tmpl_var name='n'}</button></tmpl_loop></span><tmpl_if name="more_lines"> {tmpl_var name='more_lines_txt'} {tmpl_var name='more_lines'}</tmpl_if></tmpl_if>
+		<tmpl_if name="excerpt"> · <code>{tmpl_var name='excerpt'}</code></tmpl_if>
+	</p>
+</div>
+</tmpl_loop>
+
+<p class="mw-sec">{tmpl_var name='traits_head_txt'}</p>
+<tmpl_if name="has_traits">
+	<p class="mw-small">{tmpl_var name='traits_summary'}</p>
+	<ul class="mw-traits">
+	<tmpl_loop name="traits">
+		<li><span class="mw-kind mw-kind-{tmpl_var name='kind'}">{tmpl_var name='kind_label'}</span> {tmpl_var name='label'}
+			<tmpl_if name="has_lines"><span class="mw-small">{tmpl_var name='lines_txt'}:</span><span class="mw-lines"><tmpl_loop name="lines"><button type="button" data-mw-line="{tmpl_var name='n'}">{tmpl_var name='n'}</button></tmpl_loop></span></tmpl_if></li>
+	</tmpl_loop>
+	</ul>
+<tmpl_else>
+	<p class="mw-small"><tmpl_if name="has_file">{tmpl_var name='no_traits_txt'}<tmpl_else>{tmpl_var name='no_view_txt'}</tmpl_if></p>
+</tmpl_if>
+
+<p class="mw-sec">{tmpl_var name='code_txt'}</p>
+<tmpl_if name="has_code">
+	<div class="mw-legend">
+		<span><mark class="mw-m-critical">{tmpl_var name='legend_rule_txt'}</mark></span>
+		<span><mark class="mw-m-risk">{tmpl_var name='trait_risk_txt'}</mark></span>
+		<span><mark class="mw-m-caution">{tmpl_var name='trait_caution_txt'}</mark></span>
+		<span><mark class="mw-m-guard">{tmpl_var name='trait_guard_txt'}</mark></span>
+		<span><mark class="mw-m-info">{tmpl_var name='trait_info_txt'}</mark></span>
+	</div>
+	<p class="mw-small"><tmpl_if name="file_whole">{tmpl_var name='code_whole_txt'}<tmpl_else>{tmpl_var name='code_part_txt'}</tmpl_if></p>
+	<div class="mw-code" id="mw-code" tabindex="0">
+		<table><tbody>
+		<tmpl_loop name="code_rows">
+			<tmpl_if name="gap"><tr class="mw-gap"><td class="mw-no">…</td><td>{tmpl_var name='skipped_label'}</td></tr></tmpl_if>
+			<tr class="{tmpl_var name='row_class'}" id="mw-L{tmpl_var name='n'}"><td class="mw-no">{tmpl_var name='n'}</td><td class="mw-src"><tmpl_if name="cut_left"><span class="mw-cut">… </span></tmpl_if>{tmpl_var name='html'}<tmpl_if name="cut_right"><span class="mw-cut"> …</span></tmpl_if></td></tr>
+		</tmpl_loop>
+		</tbody></table>
+	</div>
+<tmpl_else>
+	<p class="mw-small">
+	<tmpl_if name="file_binary">{tmpl_var name='code_binary_txt'}<tmpl_else>
+	<tmpl_if name="file_omitted">{tmpl_var name='code_omitted_txt'}<tmpl_else>
+	<tmpl_if name="has_file">{tmpl_var name='code_off_txt'}<tmpl_else>{tmpl_var name='no_view_txt'}</tmpl_if>
+	</tmpl_if></tmpl_if>
+	</p>
+</tmpl_if>
+
+</div>
+
+<script>
+/* Ein Klick auf eine Zeilennummer holt die Zeile in den Codekasten und laesst
+   sie kurz aufleuchten. Die Seite kommt per AJAX; der Handler haengt am
+   Dokument und wird vorher abgenommen, damit ein zweites Laden keinen
+   zweiten anhaengt. */
+(function () {
+	var $ = window.jQuery;
+	if (!$) {
+		return;
+	}
+	$(document).off('click.mwline').on('click.mwline', '#mw-find [data-mw-line]', function () {
+		var row = document.getElementById('mw-L' + this.getAttribute('data-mw-line'));
+		var box = document.getElementById('mw-code');
+		if (!row || !box) {
+			return;
+		}
+		box.scrollTop += row.getBoundingClientRect().top - box.getBoundingClientRect().top - box.clientHeight / 3;
+		box.scrollIntoView({block: 'nearest'});
+		row.classList.remove('mw-flash');
+		void row.offsetWidth;
+		row.classList.add('mw-flash');
+	});
+})();
+</script>
+
+<tmpl_include file="templates/malwatch_modal.htm">

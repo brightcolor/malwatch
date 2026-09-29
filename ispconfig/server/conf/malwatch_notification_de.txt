@@ -3,24 +3,27 @@ Content-type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 8bit
 Subject: malwatch: {count} neue Fund(e) auf {domain}
 
-Auf der Website {domain} wurden bei der Prüfung am {scan_time} {count} neue
-Fund(e) entdeckt. Der schwerste Fund hat die Stufe {worst}.
+Auf der Website {domain} hat die Prüfung am {scan_time} {count} neue Fund(e)
+gemeldet. Der schwerste hat die Stufe {worst}.
 
 Geprüfter Pfad: {scan_path}
 Geprüfte Dateien: {files_scanned}
 Veraltete Installationen: {outdated}
 
-Neue Funde:
+Neue Funde, je Datei mit dem Grund und dem, was die Datei tut:
 
 {findings}
-
 {quarantine_block}
 Automatisch in die Quarantäne verschoben ({quarantine_count} Datei(en)):
 
 {quarantine}
 
-Die Originale liegen jetzt gesichert in der Quarantäne dieser Website.
-Zurückholen können Sie sie im ISPConfig-Panel unter Security > Quarantäne.
+Die Originale liegen gesichert in der Quarantäne dieser Website und lassen
+sich im ISPConfig-Panel unter malwatch > Quarantäne zurückholen.
 
 {/quarantine_block}
-Die vollständige Liste steht im ISPConfig-Panel unter Security.
+{panel_block}
+Alle Funde im Panel: {panel_url} (malwatch > Funde). Ein Link „Ansehen“
+öffnet die Seite des Fundes mit dem markierten Code, sobald das Panel
+angemeldet ist.
+{/panel_block}

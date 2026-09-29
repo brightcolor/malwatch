@@ -2162,6 +2162,74 @@ fi
 grep -q -- '--upload-dirs=NAMEN' "$root/../cmd/malwatch/usage.go" \
 	|| fail "die Hilfe des Scanners nennt --upload-dirs nicht"
 
+# 103. Die Fundansicht (0.39.0): Scanner, Panel und Server kennen dieselben
+#      Vorgaben und Grenzen, das Schema legt die Spalten mit den Vorgaben an,
+#      die Einstellungsseite prüft jedes Feld mit malwatch_view_range() und
+#      zeigt es mit Hinweis, der Runner gibt die Werte an den Scanner, die
+#      Seite eines Fundes ist installiert und verlinkt.
+go_view="$root/../internal/fileview/fileview.go"
+go_defaults=$(sed -n 's/^var Default = Options{\(.*\)}$/\1/p' "$go_view")
+for pair in view_lines:MaxLines view_context:Context view_line_length:LineLength view_marks:MaxMarks view_budget:BudgetMiB; do
+	key=${pair%%:*}
+	field=${pair#*:}
+	def=$(printf '%s\n' "$go_defaults" | tr ',' '\n' | sed -n "s/^ *$field: *\([0-9]*\) *$/\1/p")
+	bounds=$(sed -n "s/^	$field: *Bound{\([0-9]*\), \([0-9]*\)},$/\1, \2/p" "$go_view")
+	if [ -z "$def" ] || [ -z "$bounds" ]; then
+		fail "fileview.go: Vorgabe oder Grenzen von $field nicht lesbar"
+		continue
+	fi
+	switch="--$(printf '%s' "$key" | sed 's/_/-/g')"
+	grep -qF "'$key' => array($bounds, $def)," "$root/interface/lib/malwatch_lib.inc.php" \
+		|| fail "malwatch_view_settings(): $key weicht vom Scanner ab (Grenzen $bounds, Vorgabe $def)"
+	grep -qF "'$key' => array($bounds, $def, '$switch')," "$root/server/lib/classes/malwatch_helper.inc.php" \
+		|| fail "malwatch_helper::VIEW_SETTINGS: $key weicht vom Scanner ab (Grenzen $bounds, Vorgabe $def)"
+	grep -qF "'$key' => $def," "$root/interface/lib/malwatch_lib.inc.php" \
+		|| fail "malwatch_config_defaults() kennt die Vorgabe von $key nicht ($def)"
+	grep -qF "'$key' => $def," "$root/server/lib/classes/malwatch_helper.inc.php" \
+		|| fail "malwatch_helper::config_defaults() kennt die Vorgabe von $key nicht ($def)"
+	grep -qF "ADD COLUMN \`$key\` int(11) unsigned NOT NULL DEFAULT ''$def''" "$schema" \
+		|| fail "schema.sql legt $key nicht mit der Vorgabe des Scanners an"
+	grep -qF -- "$switch=N" "$root/../cmd/malwatch/usage.go" || grep -qF -- "$switch=MIB" "$root/../cmd/malwatch/usage.go" \
+		|| fail "die Hilfe des Scanners nennt $switch nicht"
+done
+grep -qF "ADD COLUMN \`view_keep_days\` int(11) unsigned NOT NULL DEFAULT ''30''" "$schema" \
+	&& grep -qF "'view_keep_days' => array(1, 365, 30)," "$root/interface/lib/malwatch_lib.inc.php" \
+	&& grep -qF "const VIEW_KEEP_DAYS = array(1, 365, 30);" "$root/server/lib/classes/malwatch_helper.inc.php" \
+	|| fail "view_keep_days: Schema, Panel und Server nennen verschiedene Vorgaben oder Grenzen"
+for key in view_lines view_context view_line_length view_marks view_budget view_keep_days; do
+	sed -n "/'$key' => array(/,/'maxlength'/p" "$root/interface/form/malwatch_config.tform.php" > "$tmpdir/field103"
+	grep -qF "'range' => malwatch_view_range('$key')," "$tmpdir/field103" \
+		&& grep -qF "'errmsg' => '${key}_error_range'" "$tmpdir/field103" \
+		|| fail "malwatch_config.tform.php: $key prüft nicht mit malwatch_view_range()"
+	grep -q "name=\"$key\"" "$root/interface/templates/malwatch_config_edit.htm" \
+		&& grep -q "name='${key}_hint_txt'" "$root/interface/templates/malwatch_config_edit.htm" \
+		|| fail "malwatch_config_edit.htm zeigt $key oder seinen Hinweis nicht"
+	for lang in de en; do
+		for suffix in _txt _hint_txt _error_range; do
+			grep -qF "\$wb['$key$suffix']" "$root/interface/lang/${lang}_malwatch_config.lng" \
+				|| fail "${lang}_malwatch_config.lng: $key$suffix fehlt"
+		done
+	done
+done
+grep -qF 'view_arguments($config)' "$root/server/lib/classes/malwatch_runner.inc.php" \
+	|| fail "der Runner gibt dem Scanner die Einstellungen der Fundansicht nicht mit"
+grep -qF 'ADD COLUMN `panel_url` varchar(255)' "$schema" \
+	&& grep -qF "'regex' => malwatch_panel_url_regex()," "$root/interface/form/malwatch_config.tform.php" \
+	|| fail "panel_url: Schema oder Prüfung auf der Einstellungsseite fehlt"
+grep -qxF 'c:interface/malwatch_finding_show.php:interface/web/security/malwatch_finding_show.php' "$root/install/file.list" \
+	&& grep -qxF 'c:interface/js/malwatch-finding-link.js:interface/web/js/js.d/malwatch-finding-link.js' "$root/install/file.list" \
+	|| fail "file.list installiert die Seite eines Fundes oder das Link-Skript nicht"
+grep -qF "malwatch_finding_show.php?id={tmpl_var name='finding_id'}" "$root/interface/templates/malwatch_finding_list.htm" \
+	&& grep -qF "malwatch_finding_show.php?id={tmpl_var name='finding_id'}" "$root/interface/templates/malwatch_site_show.htm" \
+	|| fail "die Fundliste oder die Seite der Website verlinkt die Seite eines Fundes nicht"
+grep -qF "'security/malwatch_finding_show.php?id=' + match[1]" "$root/interface/js/malwatch-finding-link.js" \
+	&& grep -qF '#malwatch-finding-(\d{1,9})$' "$root/interface/js/malwatch-finding-link.js" \
+	&& grep -qF "'/index.php#malwatch-finding-'" "$root/server/lib/classes/malwatch_actions.inc.php" \
+	|| fail "Mail-Link und Link-Skript nennen verschiedene Adressen"
+grep -qF 'explanation = VALUES(explanation), advice = VALUES(advice)' "$root/server/lib/classes/cron.d/560-malwatch.inc.php" \
+	&& grep -qF 'ADD COLUMN `explanation` text, ADD COLUMN `advice` text' "$schema" \
+	|| fail "die Erklärungen der Regeln kommen nicht in malwatch_rule"
+
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'
 fi

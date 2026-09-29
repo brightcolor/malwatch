@@ -1356,3 +1356,65 @@ SET @mw := (SELECT IF(COUNT(*) = 0,
   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_action_log' AND COLUMN_NAME = 'action_type'
     AND COLUMN_TYPE LIKE '%''waf''%');
 PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- --------------------------------------------------------
+-- Fundansicht (0.39.0)
+--
+-- Why a rule reported a file and what to do: the scanner's catalogue carries
+-- both (malwatch rules --json), the cron copies them into malwatch_rule with
+-- the title. The sources outside the catalogue (vendor checksums, signature
+-- engines) get rows of their own, "engine:<name>" for the engines.
+-- --------------------------------------------------------
+
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_rule` ADD COLUMN `explanation` text, ADD COLUMN `advice` text',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_rule' AND COLUMN_NAME = 'explanation');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- The places a finding's rule matched on, as JSON [{line,col,len}], capped by
+-- the scanner (view_marks). The finding page highlights them.
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_finding` ADD COLUMN `marks` text AFTER `excerpt`',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_finding' AND COLUMN_NAME = 'marks');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+--
+-- What the finding page shows of a file: its traits (what it does, with
+-- lines) and the lines around its marks, or the whole file when it is short.
+-- One row per content, keyed by the SHA256 the findings carry, so a file that
+-- sits on many websites is stored once. The cron drops a row once no open or
+-- released finding points to it and it is older than view_keep_days.
+--
+-- The lines are text from a customer's website and possibly from an
+-- attacker. They are stored as the scanner cut them and escaped when shown.
+--
+CREATE TABLE IF NOT EXISTS `malwatch_file` (
+  `file_sha256` varchar(64) CHARACTER SET ascii NOT NULL,
+  `kind` varchar(10) NOT NULL DEFAULT 'text',
+  `line_count` int(11) unsigned NOT NULL DEFAULT '0',
+  `whole` enum('n','y') NOT NULL DEFAULT 'n',
+  `omitted` enum('n','y') NOT NULL DEFAULT 'n',
+  `traits` mediumtext,
+  `view` mediumtext,
+  `first_seen` datetime DEFAULT NULL,
+  `last_seen` datetime DEFAULT NULL,
+  PRIMARY KEY (`file_sha256`),
+  KEY `last_seen` (`last_seen`)
+) DEFAULT CHARSET=utf8mb4 ;
+
+-- The limits of the view (Scanner > Einstellungen > Fundansicht). The scanner
+-- has the same defaults and bounds (Default and Limits in
+-- internal/fileview/fileview.go), the panel and the server side as well
+-- (malwatch_view_settings(), malwatch_helper::VIEW_SETTINGS).
+-- view_keep_days and panel_url are the addon's own: how long a view outlives
+-- its last finding, and the address of the panel for links in mails.
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_config` ADD COLUMN `view_lines` int(11) unsigned NOT NULL DEFAULT ''400'', ADD COLUMN `view_context` int(11) unsigned NOT NULL DEFAULT ''5'', ADD COLUMN `view_line_length` int(11) unsigned NOT NULL DEFAULT ''300'', ADD COLUMN `view_marks` int(11) unsigned NOT NULL DEFAULT ''20'', ADD COLUMN `view_budget` int(11) unsigned NOT NULL DEFAULT ''32'', ADD COLUMN `view_keep_days` int(11) unsigned NOT NULL DEFAULT ''30'', ADD COLUMN `panel_url` varchar(255) NOT NULL DEFAULT ''''',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_config' AND COLUMN_NAME = 'view_lines');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;

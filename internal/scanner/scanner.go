@@ -18,11 +18,14 @@ import (
 
 	"github.com/brightcolor/malwatch/internal/clamav"
 	"github.com/brightcolor/malwatch/internal/cms"
+	"github.com/brightcolor/malwatch/internal/fileview"
 	"github.com/brightcolor/malwatch/internal/knownfiles"
 	"github.com/brightcolor/malwatch/internal/phpinfo"
 	"github.com/brightcolor/malwatch/internal/report"
 	"github.com/brightcolor/malwatch/internal/rules"
 	"github.com/brightcolor/malwatch/internal/sigs"
+	"github.com/brightcolor/malwatch/internal/textpos"
+	"github.com/brightcolor/malwatch/internal/traits"
 	"github.com/brightcolor/malwatch/internal/version"
 	"github.com/brightcolor/malwatch/internal/vulns"
 	"github.com/brightcolor/malwatch/internal/walk"
@@ -58,6 +61,10 @@ type Options struct {
 	// rules that judge a file by lying below one. Empty means
 	// rules.DefaultUploadDirs.
 	UploadDirs []string
+	// View limits what the report shows of a file with findings: its marks,
+	// its traits and the lines around them. The zero value reports neither
+	// marks nor code; the command line starts from fileview.Default.
+	View fileview.Options
 
 	SignatureDir string
 	CacheFile    string
@@ -112,6 +119,7 @@ func Run(opts Options) (*report.Report, error) {
 	rep.Engines["signaturen"] = sigDB.Describe()
 
 	engine := rules.NewEngine(opts.IgnoreRules)
+	engine.SetMarkLimit(opts.View.MaxMarks)
 	if len(opts.UploadDirs) > 0 {
 		if err := engine.SetUploadDirs(opts.UploadDirs); err != nil {
 			return nil, fmt.Errorf("--upload-dirs: %w", err)
@@ -137,6 +145,7 @@ func Run(opts Options) (*report.Report, error) {
 	}
 
 	applyWhitelist(rep, opts.Whitelist)
+	pruneViews(rep)
 	rep.FinishedAt = time.Now()
 	rep.Sort()
 	return rep, nil
@@ -154,6 +163,10 @@ func scanFiles(rep *report.Report, opts *Options, sigDB *sigs.DB, engine *rules.
 		mu       sync.Mutex
 		findings []report.Finding
 		errs     []string
+		views    = map[string]*report.FileView{}
+		// spent counts the code bytes of the views so far, against the
+		// budget of opts.View.
+		spent int64
 	)
 	var wg sync.WaitGroup
 
@@ -188,11 +201,21 @@ func scanFiles(rep *report.Report, opts *Options, sigDB *sigs.DB, engine *rules.
 		go func() {
 			defer wg.Done()
 			for j := range jobs {
-				got, ferr := scanOne(j.file, sigDB, engine, known, opts)
+				got, view, ferr := scanFile(j.file, sigDB, engine, known, opts)
 				mu.Lock()
 				findings = append(findings, got...)
 				if ferr != "" {
 					errs = append(errs, ferr)
+				}
+				if view != nil && len(got) > 0 && views[got[0].SHA256] == nil {
+					size := viewBytes(view)
+					if spent+size > opts.View.Budget() {
+						view.Omitted = size > 0
+						view.Show = nil
+					} else {
+						spent += size
+					}
+					views[got[0].SHA256] = view
 				}
 				mu.Unlock()
 
@@ -258,6 +281,9 @@ func scanFiles(rep *report.Report, opts *Options, sigDB *sigs.DB, engine *rules.
 
 	cache.Save()
 
+	if len(views) > 0 {
+		rep.Files = views
+	}
 	rep.Findings = append(rep.Findings, findings...)
 	rep.Errors = append(rep.Errors, errs...)
 	rep.Errors = append(rep.Errors, walker.Errors()...)
@@ -270,9 +296,16 @@ func scanFiles(rep *report.Report, opts *Options, sigDB *sigs.DB, engine *rules.
 
 // scanOne reads and examines a single file.
 func scanOne(f walk.File, sigDB *sigs.DB, engine *rules.Engine, known *knownfiles.Index, opts *Options) ([]report.Finding, string) {
+	got, _, ferr := scanFile(f, sigDB, engine, known, opts)
+	return got, ferr
+}
+
+// scanFile reads and examines a single file and, when it has findings, cuts
+// the view a reader gets to see of it.
+func scanFile(f walk.File, sigDB *sigs.DB, engine *rules.Engine, known *knownfiles.Index, opts *Options) ([]report.Finding, *report.FileView, string) {
 	content, err := os.ReadFile(f.Path)
 	if err != nil {
-		return nil, "nicht lesbar: " + f.Path + " (" + err.Error() + ")"
+		return nil, nil, "nicht lesbar: " + f.Path + " (" + err.Error() + ")"
 	}
 
 	if isGeneratedReport(content) {
@@ -280,13 +313,13 @@ func scanOne(f walk.File, sigDB *sigs.DB, engine *rules.Engine, known *knownfile
 		// public site includes the paths attackers probe for: c99shell,
 		// FilesMan and the rest. Scanning them finds the attacker's wish list,
 		// not an infection, and buries the real findings under it.
-		return nil, ""
+		return nil, nil, ""
 	}
 
 	status, label := known.Check(f.Path, content)
 	if status == knownfiles.Original {
 		// Byte identical to what the vendor shipped. Nothing to look for.
-		return nil, ""
+		return nil, nil, ""
 	}
 
 	var out []report.Finding
@@ -329,13 +362,13 @@ func scanOne(f walk.File, sigDB *sigs.DB, engine *rules.Engine, known *knownfile
 	out = append(out, engine.Scan(f.Path, f.Rel, f.Ext, content)...)
 
 	if len(out) == 0 {
-		return nil, ""
+		return nil, nil, ""
 	}
 
 	sum := sha256.Sum256(content)
 	hexSum := hex.EncodeToString(sum[:])
 	if opts.Whitelist[hexSum] {
-		return nil, ""
+		return nil, nil, ""
 	}
 	mtime := f.MTime.Format(time.RFC3339)
 	for i := range out {
@@ -343,7 +376,7 @@ func scanOne(f walk.File, sigDB *sigs.DB, engine *rules.Engine, known *knownfile
 		out[i].Size = f.Size
 		out[i].MTime = mtime
 	}
-	return out, ""
+	return out, buildView(content, out, opts), ""
 }
 
 // scanHead asks the rules for the start of a file about one the size limit
@@ -483,6 +516,60 @@ func fileSHA256(path string) (string, error) {
 	}
 	sum := sha256.Sum256(content)
 	return hex.EncodeToString(sum[:]), nil
+}
+
+// buildView cuts the view of a file with findings: the marks of the rules
+// first, then those of the traits, most telling first, so a view that cannot
+// hold every place keeps the reason for the finding.
+func buildView(content []byte, found []report.Finding, opts *Options) *report.FileView {
+	lines := textpos.New(content)
+	var marks []report.Mark
+	for _, f := range found {
+		marks = append(marks, f.Marks...)
+	}
+	var fileTraits []report.Trait
+	if !fileview.IsBinary(content) && opts.View.MaxMarks > 0 {
+		fileTraits = traits.Detect(content, lines, opts.View.MaxMarks)
+	}
+	for _, kind := range []string{report.TraitRisk, report.TraitCaution, report.TraitGuard, report.TraitInfo} {
+		for _, t := range fileTraits {
+			if t.Kind == kind {
+				marks = append(marks, t.Marks...)
+			}
+		}
+	}
+	v := fileview.Build(content, lines, marks, opts.View)
+	v.Traits = fileTraits
+	return v
+}
+
+// viewBytes is what the lines of a view weigh in a report.
+func viewBytes(v *report.FileView) int64 {
+	var n int64
+	for _, l := range v.Show {
+		n += int64(len(l.Text))
+	}
+	return n
+}
+
+// pruneViews drops the views no finding points to any more, after the
+// whitelist took the findings of a released file out of the report.
+func pruneViews(rep *report.Report) {
+	if len(rep.Files) == 0 {
+		return
+	}
+	used := map[string]bool{}
+	for _, f := range rep.Findings {
+		used[f.SHA256] = true
+	}
+	for sum := range rep.Files {
+		if !used[sum] {
+			delete(rep.Files, sum)
+		}
+	}
+	if len(rep.Files) == 0 {
+		rep.Files = nil
+	}
 }
 
 // applyWhitelist drops findings for files the operator released, and folds

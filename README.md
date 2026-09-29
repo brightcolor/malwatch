@@ -323,9 +323,35 @@ malwatch rules --json
 Gibt jede bekannte Regel mit Kennung, Titel und Schwere aus, dazu ob ein
 Treffer allein genügt, um eine Datei automatisch in Quarantäne zu geben
 (`auto_safe`) — Kandidaten dafür sind Regeln, bei denen eine Datei keinen
-legitimen Zweck haben kann. Das ISPConfig-Addon liest diese Liste einmal
-täglich per Cron, um Regeltitel neben ihrer Kennung anzuzeigen und eigene
-Auswahlen für die automatische Maßnahme zusammenzustellen.
+legitimen Zweck haben kann. Jede Regel erklärt sich selbst: `explain` sagt in
+einfachen Worten, was sie gesehen hat und was das bedeutet, `advice`, was zu
+tun ist. Unter `extras` stehen die Quellen von Funden außerhalb des Katalogs
+(`core.modified`, `vendor.foreign_file`, `engine:signature`, `engine:clamav`).
+Das ISPConfig-Addon liest diese Liste einmal täglich und nach jedem Update des
+Scanners per Cron, um Regeltitel und Erklärungen neben ihrer Kennung
+anzuzeigen und eigene Auswahlen für die automatische Maßnahme
+zusammenzustellen.
+
+## Fundansicht im Bericht
+
+Zu jeder Datei mit Funden liefert der JSON-Bericht, was ein Mensch zum
+Entscheiden braucht:
+
+- **Markierte Stellen** (`marks` am Fund): jede Stelle, an der die Regel und
+  ihre Zusatzbedingungen greifen, als Zeile, Spalte und Länge.
+- **Fähigkeiten** (`files.<sha256>.traits`): was die Datei laut Quelltext tut,
+  eingestuft als gefährlich (führt Shell-Befehle aus, führt Text als Code aus),
+  zum Aufpassen (entschlüsselt Text, nimmt Uploads an, schreibt Dateien),
+  Hinweis (liest Anfragedaten) und Schutz (verlangt eine Anmeldung, prüft
+  Rechte oder ein Formular-Token). Eine Fähigkeit allein ist nie ein Fund.
+- **Code** (`files.<sha256>.show`): die ganze Datei, wenn sie kurz ist, sonst
+  die Zeilen um die markierten Stellen; lange Zeilen gekürzt auf den Teil um
+  die Markierung.
+
+Die Grenzen sind Schalter von `malwatch scan`: `--view-lines` (Vorgabe 400),
+`--view-context` (5), `--view-line-length` (300), `--view-marks` (20) und
+`--view-budget` (32 MiB Code je Bericht; darüber behalten weitere Dateien ihre
+Fähigkeiten und verlieren den Code).
 
 ## Das ISPConfig-Addon
 

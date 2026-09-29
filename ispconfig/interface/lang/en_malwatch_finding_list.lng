@@ -9,6 +9,6 @@ $wb['domain_txt'] = 'Website';
 $wb['rule_id_txt'] = 'Rule';
 $wb['file_path_txt'] = 'File';
 $wb['last_seen_txt'] = 'Last seen';
-$wb['open_txt'] = 'Open';
+$wb['open_txt'] = 'View';
 $wb['filter_txt'] = 'Filter';
 $wb['line_number_txt'] = 'Line';

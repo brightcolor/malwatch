@@ -20,6 +20,10 @@ c:interface/module.conf.php:interface/web/security/lib/module.conf.php
 c:interface/status.php:interface/web/security/status.php
 c:interface/malwatch_progress.php:interface/web/security/malwatch_progress.php
 c:interface/malwatch_site_show.php:interface/web/security/malwatch_site_show.php
+c:interface/malwatch_finding_show.php:interface/web/security/malwatch_finding_show.php
+# The link from a mail to the page of a finding (see the script). js.d is
+# ISPConfig's own; the panel loads every script in it on start.
+c:interface/js/malwatch-finding-link.js:interface/web/js/js.d/malwatch-finding-link.js
 c:interface/malwatch_site_edit.php:interface/web/security/malwatch_site_edit.php
 c:interface/malwatch_finding_list.php:interface/web/security/malwatch_finding_list.php
 c:interface/malwatch_scan_list.php:interface/web/security/malwatch_scan_list.php
@@ -61,6 +65,7 @@ c:interface/form/malwatch_config.tform.php:interface/web/security/form/malwatch_
 
 c:interface/templates/status.htm:interface/web/security/templates/status.htm
 c:interface/templates/malwatch_site_show.htm:interface/web/security/templates/malwatch_site_show.htm
+c:interface/templates/malwatch_finding_show.htm:interface/web/security/templates/malwatch_finding_show.htm
 c:interface/templates/malwatch_site_edit.htm:interface/web/security/templates/malwatch_site_edit.htm
 c:interface/templates/malwatch_config_edit.htm:interface/web/security/templates/malwatch_config_edit.htm
 c:interface/templates/malwatch_finding_list.htm:interface/web/security/templates/malwatch_finding_list.htm
@@ -86,7 +91,9 @@ c:interface/lang/en_malwatch_scan_list.lng:interface/web/security/lib/lang/en_ma
 c:interface/lang/de_status.lng:interface/web/security/lib/lang/de_status.lng
 c:interface/lang/en_status.lng:interface/web/security/lib/lang/en_status.lng
 c:interface/lang/de_malwatch_quarantine.lng:interface/web/security/lib/lang/de_malwatch_quarantine.lng
+c:interface/lang/de_malwatch_finding.lng:interface/web/security/lib/lang/de_malwatch_finding.lng
 c:interface/lang/en_malwatch_quarantine.lng:interface/web/security/lib/lang/en_malwatch_quarantine.lng
+c:interface/lang/en_malwatch_finding.lng:interface/web/security/lib/lang/en_malwatch_finding.lng
 c:interface/lang/de_malwatch_repair.lng:interface/web/security/lib/lang/de_malwatch_repair.lng
 c:interface/lang/en_malwatch_repair.lng:interface/web/security/lib/lang/en_malwatch_repair.lng
 c:interface/lang/de_malwatch_vuln_list.lng:interface/web/security/lib/lang/de_malwatch_vuln_list.lng

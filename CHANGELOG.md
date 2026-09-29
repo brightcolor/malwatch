@@ -2,6 +2,89 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.39.0] – 2026-09-29
+
+### Hinzugefügt
+
+**Fundansicht.** Jede gemeldete Datei hat im Panel eine eigene Seite (Liste der Funde und
+Seite der Website: „Ansehen“). Sie zeigt, warum die Datei gemeldet wurde, was sie tut und
+ihren Code mit den auffälligen Stellen markiert, und daneben die Knöpfe „Kein Befund“,
+„Wieder melden“ und „In Quarantäne verschieben“. Der Code ist Text einer Kundenseite und
+erscheint immer maskiert; eine Markierung teilt nie ein Zeichen.
+
+**Erklärungen je Regel.** Alle 71 Regeln des Katalogs und die vier Quellen außerhalb
+(abweichende Herstellerdatei, fremde Datei im Herstellerordner, Signaturliste, ClamAV)
+sagen in einfachen Worten, was sie gesehen haben, was das bedeutet und was zu tun ist.
+`malwatch rules --json` liefert beides als `explain` und `advice`, die Quellen außerhalb
+unter `extras`. Ein Test verlangt eine Erklärung für jede Regel und verbietet Erklärungen
+zu Regeln, die es nicht mehr gibt.
+
+**Was die Datei tut.** Für jede Datei mit Funden nennt der Scanner ihre Fähigkeiten laut
+Quelltext, jeweils mit Zeilen: gefährlich (führt Shell-Befehle aus, führt Text als Code
+aus, bindet Code von fremden Adressen ein, ändert die Crontab, startet Hintergrund-
+prozesse), zum Aufpassen (entschlüsselt Text, versteckt Namen in Hex, lädt aus dem Netz,
+nimmt Uploads an, schreibt Dateien, entpackt Archive, verschickt Mails, schaltet
+Fehlermeldungen ab), Hinweis (liest Anfragedaten) und Schutz (läuft nur in WordPress oder
+Joomla, verlangt eine Anmeldung, prüft Rechte, arbeitet mit einem Formular-Token). Eine
+Fähigkeit allein ist nie ein Fund.
+
+**Markierte Stellen im Bericht.** Ein Fund einer Regel trägt jede Stelle, an der ihr Muster
+greift, dazu die erste Stelle jeder Zusatzbedingung (`marks`: Zeile, Spalte, Länge).
+Treffer in der zusammengesetzten Sicht zeigen auf die Stelle in der Datei.
+
+**Neue Schalter für `malwatch scan`:** `--view-lines` (ganze Datei bis so viele Zeilen,
+sonst Ausschnitte; Vorgabe 400, 0 schaltet den Code ab), `--view-context` (Zeilen um jede
+Stelle, 5), `--view-line-length` (Bytes je Zeile, 300; längere Zeilen behalten den Teil um
+die Markierung), `--view-marks` (Stellen je Regel und Fähigkeit, 20) und `--view-budget`
+(MiB Code je Bericht, 32; darüber behalten weitere Dateien ihre Fähigkeiten und verlieren
+den Code). Werte außerhalb der Grenzen lehnt der Scanner mit dem Namen des Schalters ab.
+Der Bericht führt die Ansichten unter `files`, je Inhalt einmal.
+
+**Einstellungen im Panel.** Scanner > Einstellungen hat den Abschnitt „Fundansicht“ mit
+denselben Werten, dazu „Ansicht behalten (Tage)“ (Vorgabe 30) und unter „Mail“ die
+„Adresse des Panels“. Ein gespeicherter Wert außerhalb der Grenzen hält keine Prüfung auf:
+Der Scanner bekommt dann die Vorgabe.
+
+### Geändert
+
+**Die Mail an den Betreiber** nennt je Datei die Stufe, die Regeln mit Titel, den Grund
+(die Erklärung der schwersten Regel) und was die Datei tut, gekürzt auf 78 Zeichen je
+Zeile. Mit eingetragener Adresse des Panels steht darunter „Ansehen“ mit einem Link, der
+die Seite des Fundes öffnet, sobald das Panel angemeldet ist (Skript
+`js/js.d/malwatch-finding-link.js`). Die Vorlagen kennen dafür `{panel_url}` und den
+Abschnitt `{panel_block}`.
+
+**Der Regelkatalog** wird zusätzlich eingelesen, sobald das Programm des Scanners neuer ist
+als die gespeicherte Liste. Bis 0.38.0 dauerte das nach einem Update bis zu einen Tag.
+
+### Einspielen
+
+Das Schema legt `malwatch_file` an (eine Ansicht je Inhalt), dazu `malwatch_finding.marks`,
+`malwatch_rule.explanation` und `.advice` sowie die Einstellungen `view_lines`,
+`view_context`, `view_line_length`, `view_marks`, `view_budget`, `view_keep_days` und
+`panel_url` in `malwatch_config`. Scanner und Addon gehören zusammen: Das Addon gibt ab
+0.39.0 die Schalter `--view-*` mit, die erst der Scanner 0.39.0 kennt. Ansichten entstehen
+bei der nächsten Prüfung einer Website; bis dahin sagt die Seite eines Fundes das.
+
+### Tests
+
+- `internal/traits`, `internal/fileview`, `internal/textpos`: Fähigkeiten eines alten
+  Uploaders und einer Probe mit Shell-Aufruf, Methoden gleichen Namens, Reihenfolge und
+  Grenzen; ganze Datei, Ausschnitte, Grenze der Zeilen, lange Zeilen um die Markierung,
+  gleiche Länge in Bytes nach dem Ersetzen, Binärdateien; Zeilen und Stellen.
+- `internal/rules/marks_test.go`, `explain_test.go`: Stellen je Treffer und Zusatzbedingung,
+  die Grenze; eine Erklärung je Regel, keine verwaisten, Rat je Stufe, echte Umlaute.
+- `internal/scanner/view_test.go`: Stellen, Fähigkeiten und Code im Bericht, das Budget,
+  ohne Einstellungen kein Code.
+- `cmd/malwatch`: Erklärungen im Katalog, die Hilfe nennt Vorgaben und Grenzen der Schalter
+  aus dem Code, ein Wert außerhalb wird abgelehnt.
+- `ispconfig/tests/finding_view_test.php` (neu, in der CI): Maskieren jeder Zeile,
+  Markierungen, Überlappung, Mehrbyte-Zeichen, Zeilen der Ansicht, Einlesen von Stellen und
+  Ansichten, gleiche Grenzen in Panel und Server, die Adresse des Panels, die Funde in der
+  Mail samt Breite.
+- `check_wiring.sh` Prüfung 103: Vorgaben und Grenzen in Scanner, Panel, Server und Schema,
+  Felder, Hinweise und Texte, Runner, Hilfe, Installation und Links, Erklärungen im Katalog.
+
 ## [0.38.0] – 2026-09-28
 
 ### Hinzugefügt

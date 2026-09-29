@@ -252,18 +252,16 @@ class malwatch_actions
 
 	private function render($template, $language, $scan, $findings, $worst, $auto)
 	{
+		global $app;
+
 		$file = $this->template_file($template, $language);
 		if ($file === '') {
 			return '';
 		}
 
-		$lines = array();
-		foreach (array_slice($findings, 0, 25) as $finding) {
-			$lines[] = '  [' . $finding['severity'] . '] ' . $finding['rule_id'] . "\n      " . $finding['file_path'];
-		}
-		if (count($findings) > 25) {
-			$lines[] = '  … und ' . (count($findings) - 25) . ' weitere.';
-		}
+		$app->uses('malwatch_helper');
+		$config = $app->malwatch_helper->get_config();
+		$lines = $this->finding_lines($findings, (string) $scan['scan_path'], (string) $config['panel_url'], $language);
 
 		$auto_lines = array();
 		foreach (array_slice($auto, 0, 50) as $rel) {
@@ -273,7 +271,9 @@ class malwatch_actions
 			$auto_lines[] = '  … und ' . (count($auto) - 50) . ' weitere.';
 		}
 
+		$panel = rtrim((string) $config['panel_url'], '/');
 		$replace = array(
+			'{panel_url}' => $panel === '' ? '' : $panel . '/index.php',
 			'{domain}' => (string) $scan['domain'],
 			'{hostname}' => (string) php_uname('n'),
 			'{scan_time}' => (string) $scan['finished_at'],
@@ -292,7 +292,170 @@ class malwatch_actions
 		// The paragraph about moved files applies only when this very run
 		// queued something; a template written once for both cases needs a
 		// way to leave it out on the others, which a plain strtr() cannot do.
+		// The same for the link to the panel, which needs its address.
+		$body = $this->strip_optional_block($body, 'panel', $panel !== '');
 		return $this->strip_optional_block($body, 'quarantine', !empty($auto));
+	}
+
+	/** The most files a mail lists; the rest is a line with their number. */
+	const MAIL_FILES_MAX = 25;
+
+	/** The width the plain text mail is wrapped at. */
+	const MAIL_WIDTH = 78;
+
+	/**
+	 * The new findings for the mail, one block per file, worst first: the
+	 * rules that reported it, why (the explanation of the worst rule), what
+	 * the file does (its traits, dangerous ones first) and the link to its
+	 * page in the panel.
+	 */
+	public function finding_lines(array $findings, $scan_path, $panel_url, $language = 'de')
+	{
+		$de = $language !== 'en';
+		$files = array();
+		foreach ($findings as $finding) {
+			$path = (string) $finding['file_path'];
+			if (!isset($files[$path])) {
+				$files[$path] = array('rows' => array(), 'worst' => '', 'sha' => '', 'id' => 0);
+			}
+			$files[$path]['rows'][] = $finding;
+			if ($this->severity_rank($finding['severity']) > $this->severity_rank($files[$path]['worst'])) {
+				$files[$path]['worst'] = (string) $finding['severity'];
+				$files[$path]['id'] = (int) $finding['finding_id'];
+			}
+			if ((string) $finding['file_sha256'] !== '') {
+				$files[$path]['sha'] = strtolower((string) $finding['file_sha256']);
+			}
+		}
+		$self = $this;
+		uasort($files, function ($a, $b) use ($self) {
+			return $self->severity_rank($b['worst']) - $self->severity_rank($a['worst']);
+		});
+
+		$base = rtrim($scan_path, '/') . '/';
+		$panel = rtrim((string) $panel_url, '/');
+		$lines = array();
+		$shown = 0;
+		foreach ($files as $path => $file) {
+			if ($shown >= self::MAIL_FILES_MAX) {
+				break;
+			}
+			$shown++;
+			$rel = strpos($path, $base) === 0 ? substr($path, strlen($base)) : $path;
+			$lines[] = '[' . $this->severity_word($file['worst'], $de) . '] ' . $rel;
+
+			$worst_rule = null;
+			foreach ($file['rows'] as $row) {
+				$rule = $this->rule_row($row['rule_id'], $row['engine']);
+				$title = is_array($rule) && (string) $rule['title'] !== '' ? $rule['title'] . ' (' . $row['rule_id'] . ')' : $row['rule_id'];
+				$lines[] = '    ' . $title;
+				if ($row['severity'] === $file['worst'] && $worst_rule === null) {
+					$worst_rule = $rule;
+				}
+			}
+			if (is_array($worst_rule) && (string) $worst_rule['explanation'] !== '') {
+				$lines = array_merge($lines, $this->wrap(($de ? 'Warum: ' : 'Why: ') . $worst_rule['explanation'], '    ', '           '));
+			}
+			$traits = $this->trait_labels($file['sha']);
+			if (count($traits) > 0) {
+				$lines = array_merge($lines, $this->wrap(($de ? 'Tut: ' : 'Does: ') . implode('; ', $traits), '    ', '         '));
+			}
+			if ($panel !== '' && $file['id'] > 0) {
+				$lines[] = '    ' . ($de ? 'Ansehen: ' : 'View: ') . $panel . '/index.php#malwatch-finding-' . $file['id'];
+			}
+			$lines[] = '';
+		}
+		if (count($files) > $shown) {
+			$lines[] = $de
+				? '… und ' . (count($files) - $shown) . ' weitere Datei(en).'
+				: '… and ' . (count($files) - $shown) . ' more file(s).';
+		}
+		return array_values($lines);
+	}
+
+	/** A severity in words, as the panel shows it. */
+	private function severity_word($severity, $de)
+	{
+		$words = $de
+			? array('critical' => 'kritisch', 'high' => 'hoch', 'medium' => 'mittel', 'low' => 'gering')
+			: array('critical' => 'critical', 'high' => 'high', 'medium' => 'medium', 'low' => 'low');
+		return isset($words[$severity]) ? $words[$severity] : (string) $severity;
+	}
+
+	/** Rank of a severity, 0 for an unknown one. */
+	public function severity_rank($severity)
+	{
+		$ranks = array('low' => 1, 'medium' => 2, 'high' => 3, 'critical' => 4);
+		return isset($ranks[$severity]) ? $ranks[$severity] : 0;
+	}
+
+	/**
+	 * The row of a rule in malwatch_rule, or of its engine for the signature
+	 * engines (engine:signature, engine:clamav), the way the finding page
+	 * looks it up (malwatch_rule_explanation()).
+	 */
+	protected function rule_row($rule_id, $engine)
+	{
+		global $app;
+
+		$row = $app->dbmaster->queryOneRecord(
+			'SELECT title, explanation, advice FROM malwatch_rule WHERE rule_id = ?', (string) $rule_id);
+		if ((!is_array($row) || (string) $row['explanation'] === '') && in_array($engine, array('signature', 'clamav'), true)) {
+			$engine_row = $app->dbmaster->queryOneRecord(
+				'SELECT title, explanation, advice FROM malwatch_rule WHERE rule_id = ?', 'engine:' . $engine);
+			if (is_array($engine_row)) {
+				if (is_array($row) && (string) $row['title'] !== '') {
+					$engine_row['title'] = $row['title'];
+				}
+				return $engine_row;
+			}
+		}
+		return is_array($row) ? $row : null;
+	}
+
+	/** The traits of a file content, dangerous first, at most five labels. */
+	protected function trait_labels($sha)
+	{
+		global $app;
+
+		if (!preg_match('/^[0-9a-f]{64}$/', (string) $sha)) {
+			return array();
+		}
+		$row = $app->dbmaster->queryOneRecord('SELECT traits FROM malwatch_file WHERE file_sha256 = ?', $sha);
+		$traits = is_array($row) ? json_decode((string) $row['traits'], true) : null;
+		$order = array('risk' => 0, 'caution' => 1, 'guard' => 2, 'info' => 3);
+		$labels = array();
+		foreach (is_array($traits) ? $traits : array() as $trait) {
+			if (is_array($trait) && isset($trait['label'], $trait['kind'], $order[$trait['kind']])) {
+				$labels[] = array($order[$trait['kind']], (string) $trait['label']);
+			}
+		}
+		usort($labels, function ($a, $b) {
+			return $a[0] - $b[0];
+		});
+		$out = array();
+		foreach (array_slice($labels, 0, 5) as $label) {
+			$out[] = $label[1];
+		}
+		return $out;
+	}
+
+	/** Wraps $text at MAIL_WIDTH: $first before the first line, $rest before the others. */
+	private function wrap($text, $first, $rest)
+	{
+		$out = array();
+		$line = $first;
+		foreach (preg_split('/\s+/u', trim((string) $text)) as $word) {
+			$candidate = $line === $first || $line === $rest ? $line . $word : $line . ' ' . $word;
+			if (mb_strlen($candidate, 'UTF-8') > self::MAIL_WIDTH && $line !== $first && $line !== $rest) {
+				$out[] = $line;
+				$line = $rest . $word;
+				continue;
+			}
+			$line = $candidate;
+		}
+		$out[] = $line;
+		return $out;
 	}
 
 	/** The mail template for a language: custom first, then the shipped one, German as fallback. */

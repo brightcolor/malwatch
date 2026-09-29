@@ -45,13 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 		if ($path === '') {
 			$error = 'Es wurde keine Datei ausgewählt.';
 		} else {
-			$app->db->query(
-				'UPDATE malwatch_finding SET finding_state = ? WHERE parent_domain_id = ? AND file_path = ? '
-				. "AND finding_state IN ('open','ignored')",
-				$state, $domain_id, $path);
-			$message = $action === 'ignore'
-				? 'Die Datei wurde freigegeben.'
-				: 'Die Datei wird wieder gemeldet.';
+			$message = malwatch_set_file_state($app, $domain_id, $path, $state);
 		}
 	} elseif ($action === 'delete_one' || $action === 'delete_all') {
 		// Despite the field names below (kept as they are so the confirm

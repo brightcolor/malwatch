@@ -57,6 +57,20 @@ Ausgabe:
   --quiet                  keine Fortschrittsanzeige
   --expect=N               erwartete Dateizahl, nur für die Fortschrittsanzeige
 
+Fundansicht (im JSON-Bericht, für das Panel):
+  --view-lines=N           Dateien bis N Zeilen ganz zeigen, längere in
+                           Ausschnitten mit höchstens N Zeilen; 0 zeigt keinen
+                           Code (Vorgabe: 400, erlaubt 0 bis 2000)
+  --view-context=N         Zeilen über und unter jeder markierten Stelle
+                           (Vorgabe: 5, erlaubt 0 bis 50)
+  --view-line-length=N     höchstens N Bytes einer Zeile, bei längeren Zeilen
+                           der Teil um die Markierung (Vorgabe: 300, erlaubt
+                           60 bis 2000)
+  --view-marks=N           höchstens N markierte Stellen je Regel und je
+                           Fähigkeit (Vorgabe: 20, erlaubt 1 bis 200)
+  --view-budget=MIB        höchstens so viel Code in allen Ansichten eines
+                           Berichts zusammen (Vorgabe: 32, erlaubt 1 bis 512)
+
 Bericht per E-Mail:
   --email=ADRESSE          Bericht an diese Adresse senden, mehrfach angebbar
   --email-from=ADRESSE     Absender

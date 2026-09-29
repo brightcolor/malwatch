@@ -3,24 +3,27 @@ Content-type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 8bit
 Subject: malwatch: {count} new finding(s) on {domain}
 
-The scan of {domain} on {scan_time} produced {count} new finding(s).
+The scan of {domain} on {scan_time} reported {count} new finding(s).
 The most severe one is rated {worst}.
 
 Scanned path: {scan_path}
 Files scanned: {files_scanned}
 Outdated installations: {outdated}
 
-New findings:
+New findings, per file with the reason and what the file does:
 
 {findings}
-
 {quarantine_block}
 Automatically moved to quarantine ({quarantine_count} file(s)):
 
 {quarantine}
 
-The originals are now held, unaltered, in this website's quarantine. You can
-restore them from the ISPConfig panel under Security > Quarantine.
+The originals are held, unaltered, in this website's quarantine and can be
+restored from the ISPConfig panel under malwatch > Quarantine.
 
 {/quarantine_block}
-The full list is in the ISPConfig panel under Security.
+{panel_block}
+All findings in the panel: {panel_url} (malwatch > Findings). A "View" link
+opens the page of the finding with the marked code once the panel is logged
+in.
+{/panel_block}

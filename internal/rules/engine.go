@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/brightcolor/malwatch/internal/report"
+	"github.com/brightcolor/malwatch/internal/textpos"
 )
 
 // Engine applies the rule catalog to file contents.
@@ -17,6 +18,8 @@ type Engine struct {
 	// directories, uploads the pattern built from them.
 	uploadDirs []string
 	uploads    *regexp.Regexp
+	// markLimit is the most marks a finding carries, 0 for none.
+	markLimit int
 }
 
 // NewEngine returns an engine over the full catalog, minus the rule IDs in
@@ -47,6 +50,15 @@ func (e *Engine) SetUploadDirs(dirs []string) error {
 	e.uploadDirs = append([]string(nil), dirs...)
 	e.uploads = uploadPattern(e.uploadDirs)
 	return nil
+}
+
+// SetMarkLimit sets how many places a finding marks: the matches of its
+// pattern first, then one match of each supporting condition. 0 marks none.
+func (e *Engine) SetMarkLimit(n int) {
+	if n < 0 {
+		n = 0
+	}
+	e.markLimit = n
 }
 
 // RuleCount returns how many rules are active.
@@ -82,7 +94,7 @@ func (e *Engine) ScanHead(path, rel, ext string, head []byte) []report.Finding {
 		if !r.HeadOnly || !r.AppliesTo(rel, ext, looks) || !e.fits(r, rel) {
 			continue
 		}
-		if f, ok := e.apply(r, path, head, head, nil); ok {
+		if f, ok := e.apply(r, path, head, head, nil, nil); ok {
 			out = append(out, f)
 		}
 	}
@@ -118,12 +130,22 @@ func (e *Engine) Scan(path, rel, ext string, content []byte) []report.Finding {
 
 	looks := look(content)
 
+	// The line index for the marks, built once and only for a file that
+	// matches at all.
+	var lines *textpos.Lines
+	linesOf := func() *textpos.Lines {
+		if lines == nil {
+			lines = textpos.New(content)
+		}
+		return lines
+	}
+
 	var out []report.Finding
 	for _, r := range e.rules {
 		if !r.AppliesTo(rel, ext, looks) || !e.fits(r, rel) {
 			continue
 		}
-		if f, ok := e.apply(r, path, content, content, nil); ok {
+		if f, ok := e.apply(r, path, content, content, nil, linesOf); ok {
 			out = append(out, f)
 			continue
 		}
@@ -135,7 +157,7 @@ func (e *Engine) Scan(path, rel, ext string, content []byte) []report.Finding {
 			built = true
 		}
 		if joined != nil {
-			if f, ok := e.apply(r, path, joined, content, index); ok {
+			if f, ok := e.apply(r, path, joined, content, index, linesOf); ok {
 				out = append(out, f)
 			}
 		}
@@ -145,8 +167,9 @@ func (e *Engine) Scan(path, rel, ext string, content []byte) []report.Finding {
 
 // apply runs one rule over hay. raw and index translate a position in hay back
 // to the file, so a finding names the line someone can actually open; index is
-// nil when hay is the file itself.
-func (e *Engine) apply(r *Rule, path string, hay, raw []byte, index []int32) (report.Finding, bool) {
+// nil when hay is the file itself. linesOf gives the line index of raw for the
+// marks; nil leaves the finding without marks.
+func (e *Engine) apply(r *Rule, path string, hay, raw []byte, index []int32, linesOf func() *textpos.Lines) (report.Finding, bool) {
 	loc := r.Match.FindIndex(hay)
 	if loc == nil {
 		return report.Finding{}, false
@@ -167,7 +190,7 @@ func (e *Engine) apply(r *Rule, path string, hay, raw []byte, index []int32) (re
 		}
 		at = int(index[loc[0]])
 	}
-	return report.Finding{
+	f := report.Finding{
 		Path:     path,
 		Line:     lineOf(raw, at),
 		Rule:     r.ID,
@@ -176,7 +199,47 @@ func (e *Engine) apply(r *Rule, path string, hay, raw []byte, index []int32) (re
 		// The excerpt comes from the view that matched: reading the
 		// reassembled name is what explains the finding.
 		Excerpt: excerpt(hay[loc[0]:loc[1]]),
-	}, true
+	}
+	if e.markLimit > 0 && linesOf != nil {
+		f.Marks = e.marks(r, hay, index, linesOf())
+	}
+	return f, true
+}
+
+// marks lists the places behind a finding: every match of the pattern up to
+// the limit, then the first match of each supporting condition, since those
+// are part of the reason as well. Positions in the reassembled view are taken
+// back to the file through index.
+func (e *Engine) marks(r *Rule, hay []byte, index []int32, lines *textpos.Lines) []report.Mark {
+	var out []report.Mark
+	add := func(re *regexp.Regexp, n int) {
+		for _, loc := range re.FindAllIndex(hay, n) {
+			if len(out) >= e.markLimit {
+				return
+			}
+			start, end := loc[0], loc[1]
+			if end <= start {
+				// A rule that only asks where a file lies matches the empty
+				// start of it; there is no place to point at.
+				continue
+			}
+			if index != nil {
+				if end-1 >= len(index) {
+					continue
+				}
+				start, end = int(index[start]), int(index[end-1])+1
+			}
+			out = append(out, lines.Marks(start, end, e.markLimit-len(out))...)
+		}
+	}
+	add(r.Match, e.markLimit)
+	if r.Requires != nil {
+		add(r.Requires, 1)
+	}
+	if r.AlsoRequires != nil {
+		add(r.AlsoRequires, 1)
+	}
+	return out
 }
 
 // lineOf returns the 1-based line number of a byte offset.
