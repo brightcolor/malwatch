@@ -48,19 +48,22 @@
 #mw-find .mw-code tr.mw-gap td{opacity:.6;font-style:italic;padding:3px 10px;background:rgba(128,128,128,.07)}
 #mw-find .mw-code .mw-cut{opacity:.5}
 #mw-find .mw-row td.mw-no{opacity:.9;font-weight:600}
-#mw-find .mw-r-critical{background:rgba(var(--mw-crit),.09);box-shadow:inset 3px 0 0 rgba(var(--mw-crit),.9)}
-#mw-find .mw-r-high{background:rgba(var(--mw-high),.09);box-shadow:inset 3px 0 0 rgba(var(--mw-high),.9)}
-#mw-find .mw-r-medium{background:rgba(var(--mw-med),.09);box-shadow:inset 3px 0 0 rgba(var(--mw-med),.9)}
-#mw-find .mw-r-low{background:rgba(var(--mw-low),.08);box-shadow:inset 3px 0 0 rgba(var(--mw-low),.8)}
+/* Treffer einer Regel tragen die Farbe ihrer Stufe, Fähigkeiten die ihrer Art.
+   Die Töne teilen sie sich (mittel und „aufpassen“ sind beide Bernstein), deshalb
+   hat ein Treffer einen Rahmen, fette Schrift und einen breiten Balken. */
+#mw-find .mw-r-critical{background:rgba(var(--mw-crit),.09);box-shadow:inset 5px 0 0 rgba(var(--mw-crit),.9)}
+#mw-find .mw-r-high{background:rgba(var(--mw-high),.09);box-shadow:inset 5px 0 0 rgba(var(--mw-high),.9)}
+#mw-find .mw-r-medium{background:rgba(var(--mw-med),.09);box-shadow:inset 5px 0 0 rgba(var(--mw-med),.9)}
+#mw-find .mw-r-low{background:rgba(var(--mw-low),.08);box-shadow:inset 5px 0 0 rgba(var(--mw-low),.8)}
 #mw-find .mw-r-risk{background:rgba(var(--mw-crit),.06);box-shadow:inset 3px 0 0 rgba(var(--mw-crit),.5)}
 #mw-find .mw-r-caution{background:rgba(var(--mw-med),.07);box-shadow:inset 3px 0 0 rgba(var(--mw-med),.55)}
 #mw-find .mw-r-guard{background:rgba(var(--mw-guard),.07);box-shadow:inset 3px 0 0 rgba(var(--mw-guard),.6)}
 #mw-find .mw-r-info{box-shadow:inset 3px 0 0 rgba(var(--mw-info),.45)}
 #mw-find mark{color:inherit;padding:0 1px;border-radius:2px}
-#mw-find mark.mw-m-critical{background:rgba(var(--mw-crit),.32);outline:1px solid rgba(var(--mw-crit),.7)}
-#mw-find mark.mw-m-high{background:rgba(var(--mw-high),.32);outline:1px solid rgba(var(--mw-high),.7)}
-#mw-find mark.mw-m-medium{background:rgba(var(--mw-med),.34);outline:1px solid rgba(var(--mw-med),.7)}
-#mw-find mark.mw-m-low{background:rgba(var(--mw-low),.26)}
+#mw-find mark.mw-m-critical{background:rgba(var(--mw-crit),.32);outline:2px solid rgba(var(--mw-crit),.8);font-weight:700}
+#mw-find mark.mw-m-high{background:rgba(var(--mw-high),.32);outline:2px solid rgba(var(--mw-high),.8);font-weight:700}
+#mw-find mark.mw-m-medium{background:rgba(var(--mw-med),.34);outline:2px solid rgba(var(--mw-med),.8);font-weight:700}
+#mw-find mark.mw-m-low{background:rgba(var(--mw-low),.26);outline:2px solid rgba(var(--mw-low),.8);font-weight:700}
 #mw-find mark.mw-m-risk{background:rgba(var(--mw-crit),.2)}
 #mw-find mark.mw-m-caution{background:rgba(var(--mw-med),.24)}
 #mw-find mark.mw-m-guard{background:rgba(var(--mw-guard),.24)}
@@ -154,7 +157,7 @@
 <p class="mw-sec">{tmpl_var name='code_txt'}</p>
 <tmpl_if name="has_code">
 	<div class="mw-legend">
-		<span><mark class="mw-m-critical">{tmpl_var name='legend_rule_txt'}</mark></span>
+		<span><mark class="{tmpl_var name='legend_rule_class'}">{tmpl_var name='legend_rule_txt'}</mark></span>
 		<span><mark class="mw-m-risk">{tmpl_var name='trait_risk_txt'}</mark></span>
 		<span><mark class="mw-m-caution">{tmpl_var name='trait_caution_txt'}</mark></span>
 		<span><mark class="mw-m-guard">{tmpl_var name='trait_guard_txt'}</mark></span>

@@ -83,8 +83,10 @@ und von der Seite der Website („Ansehen“). Sie zeigt:
   (führt Shell-Befehle aus) bis „Schutz“ (verlangt eine Anmeldung), jeweils mit
   Zeilennummern.
 - **Code:** die ganze Datei oder Ausschnitte, die auffälligen Stellen farbig
-  markiert; ein Klick auf eine Zeilennummer springt dorthin. Der Code ist
-  Text einer Kundenseite und wird immer maskiert angezeigt.
+  markiert: Treffer einer Regel in der Farbe ihrer Stufe, mit Rahmen und fett,
+  Fähigkeiten in der Farbe ihrer Art. Ein Klick auf eine Zeilennummer springt
+  dorthin. Der Code ist Text einer Kundenseite und wird immer maskiert
+  angezeigt.
 - Die Knöpfe „Kein Befund“, „Wieder melden“ und „In Quarantäne verschieben“.
 
 Die Grenzen stehen unter **Security > Scanner > Einstellungen > Fundansicht**:

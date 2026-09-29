@@ -87,6 +87,39 @@ expect_same('marks from JSON', malwatch_decode_marks('[{"line":3,"col":2,"len":4
 expect_same('marks from nothing', malwatch_decode_marks(null), array());
 expect_same('marks from broken JSON', malwatch_decode_marks('{'), array());
 
+// --- The legend shows the marks the way the code does ----------------------------
+// A rule hit is marked in the colour of its finding's severity. The legend
+// takes the same class, so a medium finding is not explained in pink.
+$template = file_get_contents(__DIR__ . '/../interface/templates/malwatch_finding_show.htm');
+$page = file_get_contents(__DIR__ . '/../interface/malwatch_finding_show.php');
+expect_same('the legend of a rule hit takes the class of the page',
+	strpos($template, $lt . "mark class=\"{tmpl_var name='legend_rule_class'}\">{tmpl_var name='legend_rule_txt'}") !== false, true);
+expect_same('the page sets it from the worst severity',
+	strpos($page, "setVar('legend_rule_class', malwatch_mark_class_severity(\$worst))") !== false, true);
+expect_same('without a severity the legend is medium', malwatch_mark_class_severity(''), 'mw-m-medium');
+
+// Hits and capabilities share their hues (medium and "aufpassen" are both
+// amber), so a hit carries a frame and bold type and its row a wider bar.
+$css = array();
+preg_match_all('/#mw-find (mark\.mw-m|\.mw-r)-([a-z]+)\{([^}]*)\}/', $template, $found, PREG_SET_ORDER);
+foreach ($found as $rule) {
+	$css[$rule[1] . '-' . $rule[2]] = $rule[3];
+}
+foreach (array('critical', 'high', 'medium', 'low') as $severity) {
+	$mark = isset($css['mark.mw-m-' . $severity]) ? $css['mark.mw-m-' . $severity] : '';
+	$row = isset($css['.mw-r-' . $severity]) ? $css['.mw-r-' . $severity] : '';
+	expect_same('a hit (' . $severity . ') is framed, bold, with a wide bar',
+		array(strpos($mark, 'outline:2px solid') !== false, strpos($mark, 'font-weight:700') !== false, strpos($row, 'inset 5px') !== false),
+		array(true, true, true));
+}
+foreach (array('risk', 'caution', 'guard', 'info') as $kind) {
+	$mark = isset($css['mark.mw-m-' . $kind]) ? $css['mark.mw-m-' . $kind] : 'missing';
+	$row = isset($css['.mw-r-' . $kind]) ? $css['.mw-r-' . $kind] : '';
+	expect_same('a capability (' . $kind . ') has no frame and a narrow bar',
+		array(strpos($mark, 'outline') === false && $mark !== 'missing', strpos($row, 'inset 3px') !== false),
+		array(true, true));
+}
+
 // --- The server reads marks and views from the report --------------------------
 expect_same('marks_json keeps whole numbers', malwatch_ingest::marks_json(array(array('line' => '4', 'col' => '-3', 'len' => 2))),
 	'[{"line":4,"col":0,"len":2}]');

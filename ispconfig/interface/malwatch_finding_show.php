@@ -202,6 +202,9 @@ $app->tpl->setVar('state_ignored', $file_state === 'ignored' ? 1 : 0);
 $app->tpl->setVar('state_fixed', $file_state === 'fixed' ? 1 : 0);
 $app->tpl->setVar('worst_label', $app->functions->htmlentities(malwatch_severity_label($wb, $worst)));
 $app->tpl->setVar('worst_class', malwatch_severity_class($worst));
+// The legend shows a rule hit the way the code marks it: in the colour of the
+// worst severity on the page.
+$app->tpl->setVar('legend_rule_class', malwatch_mark_class_severity($worst));
 $app->tpl->setLoop('reasons', $reasons);
 $app->tpl->setLoop('traits', $traits);
 $app->tpl->setVar('has_traits', count($traits) > 0 ? 1 : 0);

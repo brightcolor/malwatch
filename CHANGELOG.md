@@ -38,6 +38,14 @@ ein Bild, das die Vorlage einbetten will, steht das im Protokoll von ISPConfig.
 **Datum und Zahlen** stehen in den Mails so, wie man sie liest: 29.09.2026, 18:20 und
 38.619 (englisch 2026-09-29 18:20 und 38,619).
 
+### Behoben
+
+**Legende der Fundseite:** „Treffer einer Regel“ stand immer in Pink, der Farbe von
+„kritisch“, auch wenn die Treffer im Code die Farbe ihrer Stufe trugen, etwa Bernstein bei
+„mittel“. Die Legende nimmt jetzt die Farbe der schwersten Stufe auf der Seite. Weil Stufen
+und Fähigkeiten sich die Töne teilen (mittel und „aufpassen“ sind beide Bernstein), hat ein
+Treffer zusätzlich einen Rahmen, fette Schrift und einen breiteren Balken am Zeilenrand.
+
 ### Einspielen
 
 Das Schema legt `mail_format`, `mail_from_name` und `mail_smtp_verify` in `malwatch_config`
@@ -57,6 +65,11 @@ das erst der Scanner 0.40.0 kennt; mit einem älteren Scanner geht die Mail als 
 - `check_wiring.sh` Prüfung 104: Schema, Vorgaben, Formular, Seite und Texte der
   Mail-Einstellungen, installierte Klassen und Vorlagen, dieselbe Umgebungsvariable in Scanner
   und Addon, kein Passwort auf der Befehlszeile, HTML-Weg und Rückweg, der CI-Schritt.
+- `ispconfig/tests/finding_view_test.php`: Die Legende nimmt die Klasse der Seite, die Seite
+  setzt sie aus der schwersten Stufe; Treffer jeder Stufe mit Rahmen, fetter Schrift und
+  breitem Balken, Fähigkeiten ohne Rahmen mit schmalem Balken.
+- `ispconfig/tests/render_pages.php`: rendert die Seite eines Funds, dessen Datei eine
+  Ansicht hat, und verlangt dann Codezeilen.
 
 ## [0.39.0] – 2026-09-29
 
