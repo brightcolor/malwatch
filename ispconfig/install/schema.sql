@@ -1418,3 +1418,18 @@ SET @mw := (SELECT IF(COUNT(*) = 0,
   FROM information_schema.COLUMNS
   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_config' AND COLUMN_NAME = 'view_lines');
 PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- --------------------------------------------------------
+-- HTML-Mail (0.40.0)
+--
+-- mail_format: html sends the HTML template (…_de.html) with the text as the
+-- alternative, text only the text. mail_from_name is the name next to the
+-- sender address. mail_smtp_verify n accepts any certificate of the SMTP
+-- relay ISPConfig names (System > Main Config > Mail).
+-- --------------------------------------------------------
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_config` ADD COLUMN `mail_format` enum(''html'',''text'') NOT NULL DEFAULT ''html'', ADD COLUMN `mail_from_name` varchar(64) NOT NULL DEFAULT ''malwatch'', ADD COLUMN `mail_smtp_verify` enum(''y'',''n'') NOT NULL DEFAULT ''y''',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_config' AND COLUMN_NAME = 'mail_format');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;

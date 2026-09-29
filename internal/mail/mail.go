@@ -26,6 +26,10 @@ type Sender struct {
 	SMTPPass string
 	// TLSMode is none, starttls or tls.
 	TLSMode string
+	// Insecure accepts any server certificate. For a relay with a
+	// self-signed certificate; the password still travels encrypted, but
+	// nobody checks whom to.
+	Insecure bool
 }
 
 // SendReport delivers the report. A clean report is only sent when
@@ -65,6 +69,34 @@ func (s Sender) Send(subject, body string) error {
 		return s.sendSMTP(from, msg)
 	}
 	return sendViaSendmail(s.To, msg)
+}
+
+// SendRaw delivers a message someone else built, headers and MIME parts
+// included; line ends become CRLF. The envelope sender is From, or the
+// default Send uses.
+func (s Sender) SendRaw(msg []byte) error {
+	if len(s.To) == 0 {
+		return fmt.Errorf("kein Empfänger angegeben")
+	}
+	from := s.From
+	if from == "" {
+		host, _ := os.Hostname()
+		if host == "" {
+			host = "localhost"
+		}
+		from = "malwatch@" + host
+	}
+	msg = toCRLF(msg)
+	if s.SMTPHost != "" {
+		return s.sendSMTP(from, msg)
+	}
+	return sendViaSendmail(s.To, msg)
+}
+
+// toCRLF gives every line of msg a CRLF end, whatever it had before.
+func toCRLF(msg []byte) []byte {
+	msg = bytes.ReplaceAll(msg, []byte("\r\n"), []byte("\n"))
+	return bytes.ReplaceAll(msg, []byte("\n"), []byte("\r\n"))
 }
 
 // buildMessage assembles a UTF-8 mail. The subject is encoded so umlauts
@@ -125,8 +157,9 @@ func (s Sender) sendSMTP(from string, msg []byte) error {
 
 	var conn net.Conn
 	dialer := &net.Dialer{Timeout: 30 * time.Second}
+	tlsConfig := &tls.Config{ServerName: hostname, InsecureSkipVerify: s.Insecure}
 	if strings.EqualFold(s.TLSMode, "tls") {
-		conn, err = tls.DialWithDialer(dialer, "tcp", host, &tls.Config{ServerName: hostname})
+		conn, err = tls.DialWithDialer(dialer, "tcp", host, tlsConfig)
 	} else {
 		conn, err = dialer.Dial("tcp", host)
 	}
@@ -143,7 +176,7 @@ func (s Sender) sendSMTP(from string, msg []byte) error {
 
 	if strings.EqualFold(s.TLSMode, "starttls") {
 		if ok, _ := client.Extension("STARTTLS"); ok {
-			if err := client.StartTLS(&tls.Config{ServerName: hostname}); err != nil {
+			if err := client.StartTLS(tlsConfig); err != nil {
 				return err
 			}
 		}

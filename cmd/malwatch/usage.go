@@ -17,6 +17,7 @@ Aufruf:
   malwatch update [--sig-dir=…]
   malwatch whitelist --file=/pfad/zur/datei.php [--whitelist-path=…]
   malwatch rules --json [--out=…]
+  malwatch send-mail --message=DATEI --to=ADRESSE [Optionen]
   malwatch version
 
 Prüfumfang:
@@ -177,6 +178,17 @@ Regelkatalog ausgeben (rules):
   --json                   Katalog als JSON ausgeben (derzeit erforderlich)
   --out=DATEI              Katalog in eine Datei schreiben statt auf die
                            Standardausgabe
+
+Fertige Mail zustellen (send-mail):
+  --message=DATEI          die Mail mit Kopfzeilen und MIME-Teilen
+  --to=ADRESSE             Empfänger, mehrfach oder durch Komma getrennt
+  --from=ADRESSE           Absender im Umschlag (Vorgabe: malwatch@RECHNER)
+  --smtp=HOST:PORT         über diesen Server senden statt über sendmail
+  --smtp-user=NAME         Anmeldung am SMTP-Server; das Passwort kommt aus
+                           --smtp-pass-file=DATEI oder der Umgebungsvariablen
+                           MALWATCH_SMTP_PASS
+  --smtp-tls=MODUS         none, starttls oder tls (Vorgabe: starttls)
+  --smtp-insecure          Zertifikat des SMTP-Servers nicht prüfen
 
 Ablagen:
   --sig-dir=PFAD           Signaturverzeichnis (Vorgabe: /var/lib/malwatch/signatures)

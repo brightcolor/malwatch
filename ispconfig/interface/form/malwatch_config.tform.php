@@ -238,6 +238,36 @@ $form['tabs']['settings'] = array(
 			'width' => '10',
 			'maxlength' => '3'
 		),
+		// The mails: HTML with the text as alternative, or text only; the
+		// name next to the sender; whether the SMTP relay's certificate is
+		// checked. See malwatch_mailer.
+		'mail_format' => array(
+			'datatype' => 'VARCHAR',
+			'formtype' => 'SELECT',
+			'default' => malwatch_config_defaults()['mail_format'],
+			'value' => array('html' => 'mail_format_html_txt', 'text' => 'mail_format_text_txt')
+		),
+		'mail_from_name' => array(
+			'datatype' => 'VARCHAR',
+			'formtype' => 'TEXT',
+			'default' => malwatch_config_defaults()['mail_from_name'],
+			'validators' => array(
+				array(
+					'type' => 'REGEX',
+					'regex' => '/^[^\\x00-\\x1f"<>]{0,64}$/u',
+					'errmsg' => 'mail_from_name_error_regex'
+				)
+			),
+			'value' => '',
+			'width' => '30',
+			'maxlength' => '64'
+		),
+		'mail_smtp_verify' => array(
+			'datatype' => 'VARCHAR',
+			'formtype' => 'CHECKBOX',
+			'default' => malwatch_config_defaults()['mail_smtp_verify'],
+			'value' => array(0 => 'n', 1 => 'y')
+		),
 		// The address of the panel, for the links in the mails; empty sends
 		// mails without links.
 		'panel_url' => array(

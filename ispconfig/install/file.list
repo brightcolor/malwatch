@@ -112,6 +112,8 @@ s:server/plugins/malwatch_plugin.inc.php:server/plugins-enabled/malwatch_plugin.
 # unless DEVSYSTEM is on, and on a production install it is not: the class
 # would silently never load and every call on it would be a fatal.
 c:server/lib/classes/malwatch_helper.inc.php:server/lib/classes/malwatch_helper.inc.php
+c:server/lib/classes/malwatch_mailer.inc.php:server/lib/classes/malwatch_mailer.inc.php
+c:server/lib/classes/malwatch_mail_html.inc.php:server/lib/classes/malwatch_mail_html.inc.php
 c:server/lib/classes/malwatch_runner.inc.php:server/lib/classes/malwatch_runner.inc.php
 c:server/lib/classes/malwatch_ingest.inc.php:server/lib/classes/malwatch_ingest.inc.php
 c:server/lib/classes/malwatch_actions.inc.php:server/lib/classes/malwatch_actions.inc.php
@@ -120,6 +122,8 @@ c:server/lib/classes/cron.d/560-malwatch.inc.php:server/lib/classes/cron.d/560-m
 
 c:server/conf/malwatch_notification_de.txt:server/conf/malwatch_notification_de.txt
 c:server/conf/malwatch_notification_en.txt:server/conf/malwatch_notification_en.txt
+c:server/conf/malwatch_notification_de.html:server/conf/malwatch_notification_de.html
+c:server/conf/malwatch_notification_en.html:server/conf/malwatch_notification_en.html
 c:server/conf/malwatch_client_notification_de.txt:server/conf/malwatch_client_notification_de.txt
 c:server/conf/malwatch_client_notification_en.txt:server/conf/malwatch_client_notification_en.txt
 c:server/conf/malwatch_upgrade_notification_de.txt:server/conf/malwatch_upgrade_notification_de.txt

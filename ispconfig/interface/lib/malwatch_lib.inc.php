@@ -37,6 +37,9 @@ function malwatch_config_defaults()
 		'view_budget' => 32,
 		'view_keep_days' => 30,
 		'panel_url' => '',
+		'mail_format' => 'html',
+		'mail_from_name' => 'malwatch',
+		'mail_smtp_verify' => 'y',
 	);
 }
 

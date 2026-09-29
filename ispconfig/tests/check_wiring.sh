@@ -2230,6 +2230,60 @@ grep -qF 'explanation = VALUES(explanation), advice = VALUES(advice)' "$root/ser
 	&& grep -qF 'ADD COLUMN `explanation` text, ADD COLUMN `advice` text' "$schema" \
 	|| fail "die Erklärungen der Regeln kommen nicht in malwatch_rule"
 
+# 104. Die HTML-Mail (0.40.0): Schema, Vorgaben, Formular, Seite und Texte der
+#      drei Mail-Einstellungen, die installierten Klassen und Vorlagen, der
+#      Weg über `malwatch send-mail` mit dem Passwort in der Umgebung, und die
+#      Rückfalle auf die Textmail über ISPConfig.
+grep -qF "ADD COLUMN \`mail_format\` enum(''html'',''text'') NOT NULL DEFAULT ''html''" "$schema" \
+	&& grep -qF "ADD COLUMN \`mail_from_name\` varchar(64) NOT NULL DEFAULT ''malwatch''" "$schema" \
+	&& grep -qF "ADD COLUMN \`mail_smtp_verify\` enum(''y'',''n'') NOT NULL DEFAULT ''y''" "$schema" \
+	|| fail "schema.sql legt die Mail-Einstellungen nicht mit ihren Vorgaben an"
+for place in "$root/interface/lib/malwatch_lib.inc.php" "$root/server/lib/classes/malwatch_helper.inc.php"; do
+	grep -qF "'mail_format' => 'html'," "$place" \
+		&& grep -qF "'mail_from_name' => 'malwatch'," "$place" \
+		&& grep -qF "'mail_smtp_verify' => 'y'," "$place" \
+		|| fail "$(basename "$place"): die Vorgaben der Mail-Einstellungen fehlen oder weichen vom Schema ab"
+done
+for key in mail_format mail_from_name mail_smtp_verify; do
+	grep -qF "'$key' => array(" "$root/interface/form/malwatch_config.tform.php" \
+		|| fail "malwatch_config.tform.php kennt $key nicht"
+	grep -qF "name='${key}_hint_txt'" "$root/interface/templates/malwatch_config_edit.htm" \
+		&& grep -qF "{tmpl_var name='$key'}" "$root/interface/templates/malwatch_config_edit.htm" \
+		|| fail "malwatch_config_edit.htm zeigt $key oder seinen Hinweis nicht"
+	for lang in de en; do
+		for suffix in _txt _hint_txt; do
+			grep -qF "\$wb['$key$suffix']" "$root/interface/lang/${lang}_malwatch_config.lng" \
+				|| fail "${lang}_malwatch_config.lng: $key$suffix fehlt"
+		done
+	done
+done
+for lang in de en; do
+	for key in mail_format_html_txt mail_format_text_txt mail_from_name_error_regex; do
+		grep -qF "\$wb['$key']" "$root/interface/lang/${lang}_malwatch_config.lng" \
+			|| fail "${lang}_malwatch_config.lng: $key fehlt"
+	done
+	grep -qxF "c:server/conf/malwatch_notification_$lang.html:server/conf/malwatch_notification_$lang.html" "$root/install/file.list" \
+		|| fail "file.list installiert die HTML-Vorlage $lang nicht"
+done
+for class in malwatch_mailer malwatch_mail_html; do
+	grep -qxF "c:server/lib/classes/$class.inc.php:server/lib/classes/$class.inc.php" "$root/install/file.list" \
+		|| fail "file.list installiert $class nicht"
+done
+go_env=$(sed -n 's/^const smtpPassEnv = "\(.*\)"$/\1/p' "$root/../cmd/malwatch/sendmail.go")
+[ -n "$go_env" ] && grep -qF "const PASS_ENV = '$go_env';" "$root/server/lib/classes/malwatch_mailer.inc.php" \
+	|| fail "Scanner und malwatch_mailer nennen verschiedene Umgebungsvariablen für das SMTP-Passwort"
+if grep -n -- "--smtp-pass=" "$root/server/lib/classes/malwatch_mailer.inc.php" > "$tmpdir/pass104"; then
+	fail "malwatch_mailer gibt das SMTP-Passwort auf der Befehlszeile weiter: Zeile $(cut -d: -f1 "$tmpdir/pass104" | tr '\n' ' ')"
+fi
+grep -qF "malwatch send-mail --message=DATEI --to=ADRESSE" "$root/../cmd/malwatch/usage.go" \
+	|| fail "die Hilfe des Scanners nennt send-mail nicht"
+grep -qF "template_file(\$template, \$language, 'html')" "$root/server/lib/classes/malwatch_actions.inc.php" \
+	&& grep -qF 'malwatch_mailer::build(' "$root/server/lib/classes/malwatch_actions.inc.php" \
+	&& grep -qF "\$app->functions->mail(\$recipient, \$subject, \$body, \$sender);" "$root/server/lib/classes/malwatch_actions.inc.php" \
+	|| fail "malwatch_actions: HTML-Weg oder die Rückfalle auf die Textmail fehlen"
+grep -qF 'php ispconfig/tests/mail_html_test.php' "$root/../.github/workflows/ci.yml" \
+	|| fail "die CI führt mail_html_test.php nicht aus"
+
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'
 fi

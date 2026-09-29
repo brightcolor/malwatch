@@ -244,10 +244,100 @@ class malwatch_actions
 			$body = $text;
 		}
 
+		// The HTML mail, when the settings ask for it and a template exists.
+		// It goes out through the scanner; when that fails, the same mail goes
+		// out as text through ISPConfig below, and the log says why.
+		$app->uses('malwatch_helper');
+		$config_all = $app->malwatch_helper->get_config();
+		$html_note = '';
+		if ((isset($config_all['mail_format']) ? $config_all['mail_format'] : 'html') === 'html') {
+			$html_file = $this->template_file($template, $language, 'html');
+			if ($html_file !== '') {
+				$html_note = $this->send_html($html_file, $language, $scan, $findings, $worst, $auto, $recipient,
+					$sender, $subject, $body, $global, $config_all);
+				if ($html_note === '') {
+					$this->log_action($scan, $type, $worst, count($findings), $recipient, '');
+					return;
+				}
+			}
+		}
+
 		$app->uses('functions');
 		$app->functions->mail($recipient, $subject, $body, $sender);
 
-		$this->log_action($scan, $type, $worst, count($findings), $recipient, '');
+		$this->log_action($scan, $type, $worst, count($findings), $recipient, $html_note === ''
+			? '' : 'Als Text über ISPConfig verschickt, weil die HTML-Mail scheiterte: ' . $html_note);
+	}
+
+	/**
+	 * Renders the HTML template and delivers it with the text part through the
+	 * scanner. Returns '' when the mail went out, otherwise the reason.
+	 */
+	private function send_html($file, $language, $scan, $findings, $worst, $auto, $recipient, $sender, $subject, $text,
+		array $global, array $config)
+	{
+		global $app;
+
+		$app->uses('malwatch_mailer,malwatch_mail_html');
+		$rendered = $this->render_html($file, $language, $scan, $findings, $worst, $auto, $subject, $config);
+		if (count($rendered['missing']) > 0) {
+			$app->log('malwatch: the mail template ' . basename($file) . ' asks for images its folder lacks: '
+				. implode(', ', $rendered['missing']), LOGLEVEL_WARN);
+		}
+		$message = malwatch_mailer::build(array(
+			'from' => $sender,
+			'from_name' => isset($config['mail_from_name']) ? (string) $config['mail_from_name'] : '',
+			'to' => array($recipient),
+			'subject' => $subject,
+			'host' => (string) php_uname('n'),
+		), $text, $rendered['html'], $rendered['images']);
+
+		return $app->malwatch_mailer->send((string) $config['binary_path'], $message, $sender, array($recipient), $global,
+			isset($config['mail_smtp_verify']) ? (string) $config['mail_smtp_verify'] : 'y');
+	}
+
+	/**
+	 * The HTML mail from its template: the values of the scan, the optional
+	 * parts and every reported file (see malwatch_mail_html).
+	 */
+	public function render_html($file, $language, $scan, $findings, $worst, $auto, $subject, array $config)
+	{
+		$de = $language !== 'en';
+		$panel = rtrim((string) $config['panel_url'], '/');
+		$files = $this->finding_files($findings, (string) $scan['scan_path'], $panel, $language);
+		$shown = array_slice($files, 0, self::MAIL_FILES_MAX);
+
+		$quarantine = array_slice(array_map('strval', $auto), 0, 50);
+		if (count($auto) > 50) {
+			$quarantine[] = ($de ? '… und ' : '… and ') . (count($auto) - 50) . ($de ? ' weitere.' : ' more.');
+		}
+		$worst_word = $this->severity_word($worst, $de);
+		$vars = array(
+			'subject' => $subject,
+			'preheader' => $de
+				? count($files) . ' Datei(en) auf ' . $scan['domain'] . ' gemeldet, die schwerste mit Stufe ' . $worst_word . '.'
+				: count($files) . ' file(s) reported on ' . $scan['domain'] . ', the most severe rated ' . $worst_word . '.',
+			'domain' => (string) $scan['domain'],
+			'hostname' => (string) php_uname('n'),
+			'scan_time' => $this->format_time($scan['finished_at'], $de),
+			'scan_path' => (string) $scan['scan_path'],
+			'count' => (string) count($findings),
+			'file_count' => (string) count($files),
+			'worst' => (string) $worst,
+			'worst_word' => $worst_word,
+			'files_scanned' => $this->format_number($scan['files_scanned'], $de),
+			'outdated' => (string) $scan['count_outdated'],
+			'panel_url' => $panel === '' ? '' : $panel . '/index.php',
+			'quarantine_count' => (string) count($auto),
+			'more_count' => (string) (count($files) - count($shown)),
+		);
+		$blocks = array(
+			'panel' => $panel !== '',
+			'quarantine' => !empty($auto),
+			'more' => count($files) > count($shown),
+		);
+		return malwatch_mail_html::render((string) file_get_contents($file), $vars, $blocks,
+			array('quarantine_list' => $quarantine), $shown, dirname($file));
 	}
 
 	private function render($template, $language, $scan, $findings, $worst, $auto)
@@ -276,11 +366,11 @@ class malwatch_actions
 			'{panel_url}' => $panel === '' ? '' : $panel . '/index.php',
 			'{domain}' => (string) $scan['domain'],
 			'{hostname}' => (string) php_uname('n'),
-			'{scan_time}' => (string) $scan['finished_at'],
+			'{scan_time}' => $this->format_time($scan['finished_at'], $language !== 'en'),
 			'{scan_path}' => (string) $scan['scan_path'],
 			'{count}' => (string) count($findings),
 			'{worst}' => (string) $worst,
-			'{files_scanned}' => (string) $scan['files_scanned'],
+			'{files_scanned}' => $this->format_number($scan['files_scanned'], $language !== 'en'),
 			'{outdated}' => (string) $scan['count_outdated'],
 			'{findings}' => implode("\n", $lines),
 			'{quarantine}' => implode("\n", $auto_lines),
@@ -304,12 +394,13 @@ class malwatch_actions
 	const MAIL_WIDTH = 78;
 
 	/**
-	 * The new findings for the mail, one block per file, worst first: the
-	 * rules that reported it, why (the explanation of the worst rule), what
-	 * the file does (its traits, dangerous ones first) and the link to its
-	 * page in the panel.
+	 * The reported files for a mail, worst first: per file its path below the
+	 * scanned folder, its worst severity, the rules with their titles, why
+	 * (the explanation of its worst rule), what to do, what the file does
+	 * (its traits, dangerous ones first) and the link to its page in the
+	 * panel, empty without the panel's address.
 	 */
-	public function finding_lines(array $findings, $scan_path, $panel_url, $language = 'de')
+	public function finding_files(array $findings, $scan_path, $panel_url, $language = 'de')
 	{
 		$de = $language !== 'en';
 		$files = array();
@@ -332,45 +423,81 @@ class malwatch_actions
 			return $self->severity_rank($b['worst']) - $self->severity_rank($a['worst']);
 		});
 
-		$base = rtrim($scan_path, '/') . '/';
+		$base = rtrim((string) $scan_path, '/') . '/';
 		$panel = rtrim((string) $panel_url, '/');
-		$lines = array();
-		$shown = 0;
+		$out = array();
 		foreach ($files as $path => $file) {
-			if ($shown >= self::MAIL_FILES_MAX) {
-				break;
-			}
-			$shown++;
-			$rel = strpos($path, $base) === 0 ? substr($path, strlen($base)) : $path;
-			$lines[] = '[' . $this->severity_word($file['worst'], $de) . '] ' . $rel;
-
+			$rules = array();
 			$worst_rule = null;
 			foreach ($file['rows'] as $row) {
 				$rule = $this->rule_row($row['rule_id'], $row['engine']);
-				$title = is_array($rule) && (string) $rule['title'] !== '' ? $rule['title'] . ' (' . $row['rule_id'] . ')' : $row['rule_id'];
-				$lines[] = '    ' . $title;
+				$rules[] = is_array($rule) && (string) $rule['title'] !== ''
+					? $rule['title'] . ' (' . $row['rule_id'] . ')' : (string) $row['rule_id'];
 				if ($row['severity'] === $file['worst'] && $worst_rule === null) {
 					$worst_rule = $rule;
 				}
 			}
-			if (is_array($worst_rule) && (string) $worst_rule['explanation'] !== '') {
-				$lines = array_merge($lines, $this->wrap(($de ? 'Warum: ' : 'Why: ') . $worst_rule['explanation'], '    ', '           '));
+			$out[] = array(
+				'path' => strpos($path, $base) === 0 ? substr($path, strlen($base)) : $path,
+				'severity' => $file['worst'],
+				'severity_word' => $this->severity_word($file['worst'], $de),
+				'rules' => $rules,
+				'why' => is_array($worst_rule) ? (string) $worst_rule['explanation'] : '',
+				'advice' => is_array($worst_rule) ? (string) $worst_rule['advice'] : '',
+				'traits' => $this->trait_labels($file['sha']),
+				'link' => $panel !== '' && $file['id'] > 0 ? $panel . '/index.php#malwatch-finding-' . $file['id'] : '',
+			);
+		}
+		return $out;
+	}
+
+	/**
+	 * The new findings for the text mail, one block per file, worst first
+	 * (see finding_files()), wrapped at MAIL_WIDTH.
+	 */
+	public function finding_lines(array $findings, $scan_path, $panel_url, $language = 'de')
+	{
+		$de = $language !== 'en';
+		$files = $this->finding_files($findings, $scan_path, $panel_url, $language);
+		$lines = array();
+		foreach (array_slice($files, 0, self::MAIL_FILES_MAX) as $file) {
+			$lines[] = '[' . $file['severity_word'] . '] ' . $file['path'];
+			foreach ($file['rules'] as $rule) {
+				$lines[] = '    ' . $rule;
 			}
-			$traits = $this->trait_labels($file['sha']);
-			if (count($traits) > 0) {
-				$lines = array_merge($lines, $this->wrap(($de ? 'Tut: ' : 'Does: ') . implode('; ', $traits), '    ', '         '));
+			if ($file['why'] !== '') {
+				$lines = array_merge($lines, $this->wrap(($de ? 'Warum: ' : 'Why: ') . $file['why'], '    ', '           '));
 			}
-			if ($panel !== '' && $file['id'] > 0) {
-				$lines[] = '    ' . ($de ? 'Ansehen: ' : 'View: ') . $panel . '/index.php#malwatch-finding-' . $file['id'];
+			if (count($file['traits']) > 0) {
+				$lines = array_merge($lines, $this->wrap(($de ? 'Tut: ' : 'Does: ') . implode('; ', $file['traits']), '    ', '         '));
+			}
+			if ($file['link'] !== '') {
+				$lines[] = '    ' . ($de ? 'Ansehen: ' : 'View: ') . $file['link'];
 			}
 			$lines[] = '';
 		}
-		if (count($files) > $shown) {
+		if (count($files) > self::MAIL_FILES_MAX) {
 			$lines[] = $de
-				? '… und ' . (count($files) - $shown) . ' weitere Datei(en).'
-				: '… and ' . (count($files) - $shown) . ' more file(s).';
+				? '… und ' . (count($files) - self::MAIL_FILES_MAX) . ' weitere Datei(en).'
+				: '… and ' . (count($files) - self::MAIL_FILES_MAX) . ' more file(s).';
 		}
-		return array_values($lines);
+		return $lines;
+	}
+
+	/** A time from the database as the reader writes it: 29.09.2026, 18:20 or 2026-09-29 18:20. */
+	public function format_time($value, $de)
+	{
+		$stamp = strtotime((string) $value);
+		if ($stamp === false || $stamp <= 0) {
+			return (string) $value;
+		}
+		return date($de ? 'd.m.Y, H:i' : 'Y-m-d H:i', $stamp);
+	}
+
+	/** A count with thousands separators: 38.619 or 38,619. */
+	public function format_number($value, $de)
+	{
+		return number_format((float) $value, 0, $de ? ',' : '.', $de ? '.' : ',');
 	}
 
 	/** A severity in words, as the panel shows it. */
@@ -458,17 +585,21 @@ class malwatch_actions
 		return $out;
 	}
 
-	/** The mail template for a language: custom first, then the shipped one, German as fallback. */
-	private function template_file($template, $language)
+	/**
+	 * The mail template for a language: custom first, then the shipped one,
+	 * German as fallback. $ext is txt for the text or html for the HTML mail.
+	 */
+	private function template_file($template, $language, $ext = 'txt')
 	{
 		global $conf;
 
 		$language = preg_match('/^[a-z]{2}$/', (string) $language) ? $language : 'de';
+		$ext = $ext === 'html' ? 'html' : 'txt';
 		$candidates = array(
-			$conf['rootpath'] . '/conf-custom/mail/' . $template . '_' . $language . '.txt',
-			$conf['rootpath'] . '/conf-custom/mail/' . $template . '_de.txt',
-			$conf['rootpath'] . '/conf/' . $template . '_' . $language . '.txt',
-			$conf['rootpath'] . '/conf/' . $template . '_de.txt',
+			$conf['rootpath'] . '/conf-custom/mail/' . $template . '_' . $language . '.' . $ext,
+			$conf['rootpath'] . '/conf-custom/mail/' . $template . '_de.' . $ext,
+			$conf['rootpath'] . '/conf/' . $template . '_' . $language . '.' . $ext,
+			$conf['rootpath'] . '/conf/' . $template . '_de.' . $ext,
 		);
 		foreach ($candidates as $candidate) {
 			if (is_file($candidate)) {

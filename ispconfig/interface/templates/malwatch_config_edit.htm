@@ -53,6 +53,27 @@
 	<div class="col-sm-9"><input type="text" name="sender_email" id="sender_email" value="{tmpl_var name='sender_email'}" class="form-control" /></div>
 </div>
 <div class="form-group">
+	<label for="mail_format" class="col-sm-3 control-label">{tmpl_var name='mail_format_txt'}</label>
+	<div class="col-sm-9">
+		<select name="mail_format" id="mail_format" class="form-control">{tmpl_var name='mail_format'}</select>
+		<span class="help-block">{tmpl_var name='mail_format_hint_txt'}</span>
+	</div>
+</div>
+<div class="form-group">
+	<label for="mail_from_name" class="col-sm-3 control-label">{tmpl_var name='mail_from_name_txt'}</label>
+	<div class="col-sm-9">
+		<input type="text" name="mail_from_name" id="mail_from_name" value="{tmpl_var name='mail_from_name'}" maxlength="64" class="form-control" />
+		<span class="help-block">{tmpl_var name='mail_from_name_hint_txt'}</span>
+	</div>
+</div>
+<div class="form-group">
+	<label class="col-sm-3 control-label">{tmpl_var name='mail_smtp_verify_txt'}</label>
+	<div class="col-sm-9">
+		{tmpl_var name='mail_smtp_verify'}
+		<span class="help-block">{tmpl_var name='mail_smtp_verify_hint_txt'}</span>
+	</div>
+</div>
+<div class="form-group">
 	<label for="panel_url" class="col-sm-3 control-label">{tmpl_var name='panel_url_txt'}</label>
 	<div class="col-sm-9">
 		<input type="text" name="panel_url" id="panel_url" value="{tmpl_var name='panel_url'}" maxlength="255" placeholder="{tmpl_var name='panel_url_guess'}" class="form-control" />

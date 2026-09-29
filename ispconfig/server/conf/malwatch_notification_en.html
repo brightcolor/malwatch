@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!--
+  malwatch: mail to the operator about new findings, neutral version.
+  A version of your own in conf-custom/mail/malwatch_notification_en.html takes
+  precedence; images next to it are embedded with img:name.png in curly braces.
+  Placeholders and parts: see the addon README, section on mail templates.
+  Built for mail programs: tables, styles on every element, 600 px.
+-->
+<!-- malwatch-colors: critical=#b42318; high=#c4320a; medium=#b54708; low=#475467 -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<meta name="supported-color-schemes" content="light">
+<title>{subject}</title>
+<style>
+  body { margin: 0 !important; padding: 0 !important; width: 100% !important; -webkit-text-size-adjust: 100%; }
+  table, td { border-collapse: collapse; }
+  @media screen and (max-width: 620px) {
+    .mw-outer { padding: 0 !important; }
+    .mw-pad { padding-left: 20px !important; padding-right: 20px !important; }
+  }
+</style>
+</head>
+<body style="margin:0; padding:0; background-color:#f2f4f7;">
+<div style="display:none; max-height:0; overflow:hidden; opacity:0; font-size:1px; line-height:1px; color:#f2f4f7;">{preheader}</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f2f4f7" style="width:100%; background-color:#f2f4f7;">
+<tr>
+<td class="mw-outer" align="center" style="padding:28px 16px;">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%; max-width:600px;">
+
+  <tr>
+    <td class="mw-pad" bgcolor="#101828" style="padding:18px 28px; background-color:#101828; font-family:Arial, Helvetica, sans-serif; font-size:15px; line-height:20px; font-weight:700; color:#ffffff;">malwatch <span style="font-weight:400; color:#d0d5dd;">· {hostname}</span></td>
+  </tr>
+
+  <tr>
+    <td class="mw-pad" bgcolor="#ffffff" style="padding:28px 28px 8px; background-color:#ffffff; font-family:Arial, Helvetica, sans-serif; color:#101828;">
+      <h1 style="margin:0; font-size:22px; line-height:28px; font-weight:700;">{file_count} file(s) reported on {domain}</h1>
+      <p style="margin:12px 0 0; font-size:15px; line-height:23px;">The scan of {scan_time} reported {count} new finding(s). Below is, per file, why it stood out, what it does and what to do.</p>
+    </td>
+  </tr>
+
+  <tr>
+    <td class="mw-pad" bgcolor="#ffffff" style="padding:12px 28px 4px; background-color:#ffffff;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%; font-family:Arial, Helvetica, sans-serif; font-size:14px; line-height:20px; color:#101828;">
+        <tr>
+          <td style="padding:8px 0; border-top:1px solid #eaecf0; color:#475467;">Most severe</td>
+          <td align="right" style="padding:8px 0; border-top:1px solid #eaecf0; font-weight:700;"><span style="display:inline-block; width:10px; height:10px; background-color:{worst_color}; margin-right:6px;"></span>{worst_word}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 0; border-top:1px solid #eaecf0; color:#475467;">Files scanned</td>
+          <td align="right" style="padding:8px 0; border-top:1px solid #eaecf0; font-weight:700;">{files_scanned}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 0; border-top:1px solid #eaecf0; border-bottom:1px solid #eaecf0; color:#475467;">Outdated installations</td>
+          <td align="right" style="padding:8px 0; border-top:1px solid #eaecf0; border-bottom:1px solid #eaecf0; font-weight:700;">{outdated}</td>
+        </tr>
+      </table>
+      <p style="margin:8px 0 0; font-family:Arial, Helvetica, sans-serif; font-size:12px; line-height:18px; color:#475467; word-break:break-all;">{scan_path}</p>
+    </td>
+  </tr>
+
+  {finding_block}
+  <tr>
+    <td class="mw-pad" bgcolor="#ffffff" style="padding:16px 28px 0; background-color:#ffffff;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;">
+        <tr>
+          <td style="border-left:4px solid {f_color}; background-color:#f9fafb; padding:14px 16px; font-family:Arial, Helvetica, sans-serif; color:#101828;">
+            <p style="margin:0; font-size:12px; line-height:16px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:#475467;">{f_severity_word}</p>
+            <p style="margin:4px 0 0; font-family:Consolas, 'Courier New', monospace; font-size:13px; line-height:19px; font-weight:700; word-break:break-all;">{f_path}</p>
+            <p style="margin:8px 0 0; font-size:13px; line-height:19px; color:#344054;">{f_rules}</p>
+            {f_why_block}<p style="margin:10px 0 0; font-size:14px; line-height:21px;"><strong>Why:</strong> {f_why}</p>{/f_why_block}
+            {f_does_block}<p style="margin:8px 0 0; font-size:14px; line-height:21px;"><strong>What the file does:</strong> {f_does}</p>{/f_does_block}
+            {f_advice_block}<p style="margin:8px 0 0; font-size:14px; line-height:21px;"><strong>What to do:</strong> {f_advice}</p>{/f_advice_block}
+            {f_link_block}<p style="margin:12px 0 0;"><a href="{f_link}" style="display:inline-block; padding:8px 14px; background-color:#101828; color:#ffffff; font-size:14px; font-weight:700; line-height:18px; text-decoration:none;">View in the panel</a></p>{/f_link_block}
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+  {/finding_block}
+
+  {more_block}
+  <tr>
+    <td class="mw-pad" bgcolor="#ffffff" style="padding:14px 28px 0; background-color:#ffffff; font-family:Arial, Helvetica, sans-serif; font-size:14px; line-height:21px; color:#475467;">… and {more_count} more file(s). The full list is in the panel.</td>
+  </tr>
+  {/more_block}
+
+  {quarantine_block}
+  <tr>
+    <td class="mw-pad" bgcolor="#ffffff" style="padding:20px 28px 0; background-color:#ffffff; font-family:Arial, Helvetica, sans-serif; color:#101828;">
+      <p style="margin:0; font-size:15px; line-height:22px; font-weight:700;">Automatically moved to the quarantine ({quarantine_count} file(s))</p>
+      <p style="margin:6px 0 0; font-family:Consolas, 'Courier New', monospace; font-size:12px; line-height:18px; word-break:break-all;">{quarantine_list}</p>
+      <p style="margin:8px 0 0; font-size:14px; line-height:21px; color:#344054;">The originals are held in this website's quarantine and can be restored from the panel under malwatch &gt; Quarantine.</p>
+    </td>
+  </tr>
+  {/quarantine_block}
+
+  <tr>
+    <td class="mw-pad" bgcolor="#ffffff" style="padding:24px 28px 28px; background-color:#ffffff; font-family:Arial, Helvetica, sans-serif; font-size:14px; line-height:21px; color:#344054;">
+      {panel_block}<p style="margin:0;">All findings are in the <a href="{panel_url}" style="color:#175cd3;">panel</a> under malwatch &gt; Findings. "View in the panel" opens the page of a file with the marked code once the panel is logged in.</p>{/panel_block}
+    </td>
+  </tr>
+
+  <tr>
+    <td class="mw-pad" bgcolor="#eaecf0" style="padding:16px 28px 20px; background-color:#eaecf0; font-family:Arial, Helvetica, sans-serif; font-size:12px; line-height:18px; color:#475467;">This message comes from malwatch on {hostname} because new findings at or above the set severity are reported for {domain}.</td>
+  </tr>
+
+</table>
+</td>
+</tr>
+</table>
+</body>
+</html>

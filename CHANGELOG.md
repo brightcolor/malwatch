@@ -2,6 +2,62 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.40.0] – 2026-09-29
+
+### Hinzugefügt
+
+**HTML-Mail an den Betreiber.** Die Mail bei neuen Funden kommt als HTML mit der
+Textfassung als Alternative: je Datei die Stufe mit ihrer Farbe, die Regeln, warum, was die
+Datei tut, was zu tun ist und der Knopf „Im Panel ansehen“. Die Vorlage
+`malwatch_notification_de.html` (und `_en`) wird mitgeliefert und ist neutral gehalten;
+eine eigene unter `conf-custom/mail/` geht vor, so wie ISPConfig es bei seinen eigenen Mails
+hält. Die Gestaltung steht ganz in der Vorlage: `{…}` für Werte, `{name_block}…{/name_block}`
+für Teile, die nur bei Bedarf erscheinen, `{finding_block}…{/finding_block}` je Datei,
+`{img:logo.png}` für ein Bild aus dem Ordner der Vorlage, das eingebettet mitkommt, und ein
+Kommentar `malwatch-colors` für die Farben der Stufen. Jeder Wert wird maskiert; aus einem
+Fund gelangt kein Markup in die Mail.
+
+**`malwatch send-mail`.** Stellt eine fertig gebaute Mail zu, über einen SMTP-Server
+(`--smtp`, `--smtp-user`, `--smtp-tls=none|starttls|tls`, `--smtp-insecure`) oder über
+sendmail. Das Passwort kommt aus `--smtp-pass-file` oder der Umgebungsvariablen
+`MALWATCH_SMTP_PASS`, nie von der Befehlszeile. Das Addon nutzt dafür denselben SMTP-Server
+wie ISPConfig (System > Hauptkonfiguration > Mail), weil ISPConfigs eigener Mailer eine
+Textfassung, eine HTML-Fassung und eingebettete Bilder nebeneinanderlegt und Mailprogramme
+dann alles zeigen.
+
+**Einstellungen unter Scanner > Einstellungen > Mail:** „Format der Mails“ (HTML mit
+Textfassung oder nur Text), „Name des Absenders“ (Vorgabe malwatch) und „Zertifikat des
+SMTP-Servers prüfen“ (Vorgabe an).
+
+### Geändert
+
+**Rückweg bei Fehlern:** Scheitert die HTML-Mail (Scanner fehlt, SMTP lehnt ab), geht
+dieselbe Mail als Text über ISPConfig, und das Protokoll der Aktionen nennt den Grund. Fehlt
+ein Bild, das die Vorlage einbetten will, steht das im Protokoll von ISPConfig.
+
+**Datum und Zahlen** stehen in den Mails so, wie man sie liest: 29.09.2026, 18:20 und
+38.619 (englisch 2026-09-29 18:20 und 38,619).
+
+### Einspielen
+
+Das Schema legt `mail_format`, `mail_from_name` und `mail_smtp_verify` in `malwatch_config`
+an. Scanner und Addon gehören zusammen: Das Addon ruft ab 0.40.0 `malwatch send-mail` auf,
+das erst der Scanner 0.40.0 kennt; mit einem älteren Scanner geht die Mail als Text raus.
+
+### Tests
+
+- `cmd/malwatch/sendmail_test.go`: Zustellung an einen SMTP-Server im Test, Anmeldung mit dem
+  Passwort aus der Umgebung und aus einer Datei, CRLF und Punkt-Maskierung, abgelehnte
+  Eingaben.
+- `ispconfig/tests/mail_html_test.php` (neu, in der CI): Maskieren, Abschnitte, Farben aus der
+  Vorlage und neutraler Rückfall, eingebettete Bilder, fehlende Bilder, keine Pfade aus dem
+  Ordner hinaus, beide mitgelieferten Vorlagen ohne übrige Platzhalter, der MIME-Aufbau
+  (related um alternative, CID, Quoted-Printable, keine Zeile über 998 Zeichen, kodierter
+  Betreff), die Befehlszeile ohne Passwort, die Mail eines Laufs mit Obergrenze der Dateien.
+- `check_wiring.sh` Prüfung 104: Schema, Vorgaben, Formular, Seite und Texte der
+  Mail-Einstellungen, installierte Klassen und Vorlagen, dieselbe Umgebungsvariable in Scanner
+  und Addon, kein Passwort auf der Befehlszeile, HTML-Weg und Rückweg, der CI-Schritt.
+
 ## [0.39.0] – 2026-09-29
 
 ### Hinzugefügt

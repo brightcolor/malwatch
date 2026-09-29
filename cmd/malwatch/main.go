@@ -31,6 +31,8 @@ func run(args []string) int {
 		return cmdUpdate(args[1:])
 	case "rules":
 		return cmdRules(args[1:])
+	case "send-mail":
+		return cmdSendMail(args[1:])
 	case "whitelist":
 		return cmdWhitelist(args[1:])
 	case "version", "--version", "-v":

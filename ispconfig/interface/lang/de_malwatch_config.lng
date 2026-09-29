@@ -170,3 +170,13 @@ $wb['panel_url_txt'] = 'Adresse des Panels';
 $wb['panel_url_hint_txt'] = 'Für die Knöpfe „Im Panel ansehen“ in den Mails, etwa https://panel.example.de:8080. Leer schickt die Mails ohne diese Knöpfe.';
 $wb['panel_url_guess_txt'] = 'Diese Seite läuft unter';
 $wb['panel_url_error_regex'] = 'Adresse des Panels: Erwartet wird eine Adresse mit http:// oder https:// ohne Leerzeichen, zum Beispiel https://panel.example.de:8080. Bitte korrigieren oder leer lassen.';
+// HTML-Mail (0.40.0)
+$wb['mail_format_txt'] = 'Format der Mails';
+$wb['mail_format_html_txt'] = 'HTML mit Textfassung';
+$wb['mail_format_text_txt'] = 'nur Text';
+$wb['mail_format_hint_txt'] = 'HTML nimmt die Vorlage malwatch_notification_de.html, eine eigene unter conf-custom/mail/ geht vor; Bilder daneben kommen eingebettet mit. Scheitert der Versand, geht die Mail als Text über ISPConfig, und das Protokoll der Aktionen sagt warum.';
+$wb['mail_from_name_txt'] = 'Name des Absenders';
+$wb['mail_from_name_hint_txt'] = 'Steht in der HTML-Mail vor der Absenderadresse. Leer lässt die Adresse allein stehen.';
+$wb['mail_from_name_error_regex'] = 'Name des Absenders: Erlaubt sind bis zu 64 Zeichen ohne Anführungszeichen und spitze Klammern. Bitte anpassen und erneut speichern.';
+$wb['mail_smtp_verify_txt'] = 'Zertifikat des SMTP-Servers prüfen';
+$wb['mail_smtp_verify_hint_txt'] = 'Die HTML-Mail geht über den SMTP-Server aus System > Hauptkonfiguration > Mail. Ohne Haken wird auch ein selbst signiertes Zertifikat angenommen; verschlüsselt bleibt die Verbindung, geprüft wird der Server dann nicht.';

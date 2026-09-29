@@ -302,9 +302,33 @@ Website.
 Die Vorlagen liegen unter `/usr/local/ispconfig/server/conf/`:
 
 ```
-malwatch_notification_de.txt          an den Betreiber
+malwatch_notification_de.txt          an den Betreiber (Text)
+malwatch_notification_de.html         an den Betreiber (HTML)
 malwatch_client_notification_de.txt   an den Kunden
 ```
+
+Die Mail an den Betreiber geht als HTML mit der Textfassung als Alternative, solange unter
+**Scanner > Einstellungen > Mail** „HTML mit Textfassung“ steht und es eine HTML-Vorlage gibt.
+Sie geht über `malwatch send-mail` an denselben SMTP-Server, den ISPConfig nutzt; scheitert
+das, geht dieselbe Mail als Text über ISPConfig, und das Protokoll der Aktionen nennt den
+Grund. Die HTML-Vorlage bestimmt die Gestaltung ganz:
+
+- `{domain}`, `{hostname}`, `{scan_time}`, `{scan_path}`, `{count}`, `{file_count}`,
+  `{worst}`, `{worst_word}`, `{worst_color}`, `{files_scanned}`, `{outdated}`, `{panel_url}`,
+  `{quarantine_count}`, `{quarantine_list}`, `{more_count}`, `{subject}`, `{preheader}`.
+- `{finding_block}…{/finding_block}` wiederholt sich je Datei, darin `{f_severity}`,
+  `{f_severity_word}`, `{f_color}`, `{f_path}`, `{f_rules}`, `{f_why}`, `{f_does}`,
+  `{f_advice}`, `{f_link}` und die Abschnitte `{f_why_block}`, `{f_does_block}`,
+  `{f_advice_block}`, `{f_link_block}`.
+- Abschnitte `{panel_block}`, `{quarantine_block}` und `{more_block}` erscheinen nur, wenn sie
+  zutreffen.
+- `{img:logo.png}` bettet ein Bild aus dem Ordner der Vorlage ein (PNG, JPEG oder GIF), etwa
+  `<img src="{img:logo.png}">`.
+- Ein Kommentar `<!-- malwatch-colors: critical=#…; high=#…; medium=#…; low=#… -->` legt die
+  Farben der Stufen fest.
+
+Jeder Wert wird für HTML maskiert. Eine eigene Vorlage samt Bildern gehört nach
+`/usr/local/ispconfig/server/conf-custom/mail/`.
 
 Eine Kopie unter `/usr/local/ispconfig/server/conf-custom/mail/` wird
 bevorzugt und übersteht ein Update. Verfügbare Platzhalter: `{domain}`,

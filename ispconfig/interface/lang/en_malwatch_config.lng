@@ -169,3 +169,13 @@ $wb['panel_url_txt'] = 'Address of the panel';
 $wb['panel_url_hint_txt'] = 'For the buttons "View in the panel" in the mails, for example https://panel.example.com:8080. Empty sends the mails without these buttons.';
 $wb['panel_url_guess_txt'] = 'This page runs at';
 $wb['panel_url_error_regex'] = 'Address of the panel: an address with http:// or https:// and no spaces is expected, for example https://panel.example.com:8080. Please correct it or leave it empty.';
+// HTML mail (0.40.0)
+$wb['mail_format_txt'] = 'Mail format';
+$wb['mail_format_html_txt'] = 'HTML with text version';
+$wb['mail_format_text_txt'] = 'text only';
+$wb['mail_format_hint_txt'] = 'HTML uses the template malwatch_notification_de.html, a custom one in conf-custom/mail/ takes precedence; images next to it are embedded. When delivery fails, the mail goes out as text through ISPConfig and the action log says why.';
+$wb['mail_from_name_txt'] = 'Sender name';
+$wb['mail_from_name_hint_txt'] = 'Shown in the HTML mail before the sender address. Empty leaves the address on its own.';
+$wb['mail_from_name_error_regex'] = 'Sender name: up to 64 characters without quotes and angle brackets are allowed. Please adjust and save again.';
+$wb['mail_smtp_verify_txt'] = 'Check the SMTP server certificate';
+$wb['mail_smtp_verify_hint_txt'] = 'The HTML mail goes out through the SMTP server from System > Main Config > Mail. Unticked, a self-signed certificate is accepted too; the connection stays encrypted, but the server is not checked.';
