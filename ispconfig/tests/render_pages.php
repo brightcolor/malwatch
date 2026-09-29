@@ -42,6 +42,8 @@ $pages = array(
 	'malwatch_site_show.php?show=vulns',
 	'malwatch_site_edit.php',
 	'malwatch_finding_list.php',
+	// The page of one finding: the newest one with a stored view (0.39.0).
+	'malwatch_finding_show.php?id=finding',
 	'malwatch_scan_list.php',
 	'malwatch_config_edit.php',
 	'malwatch_quarantine_list.php',
@@ -129,6 +131,19 @@ if (isset($mw_query['software_id']) && $mw_query['software_id'] === 'listed') {
 		"SELECT software_id FROM malwatch_software WHERE parent_domain_id = ? AND product = 'wordpress' "
 		. "AND versions IS NOT NULL AND versions != '' ORDER BY software_id", $domain_id);
 	$mw_query['software_id'] = is_array($listed) ? (string) $listed['software_id'] : '';
+}
+
+// A finding whose file has a stored view, so the page shows code; without one
+// the newest finding at all, and the page says there is no view yet.
+$mw_view_expected = false;
+if (isset($mw_query['id']) && $mw_query['id'] === 'finding') {
+	$with_view = $app->db->queryOneRecord(
+		'SELECT f.finding_id FROM malwatch_finding f JOIN malwatch_file v ON v.file_sha256 = f.file_sha256 '
+		. "WHERE v.view IS NOT NULL AND v.view <> '' ORDER BY f.last_seen DESC, f.finding_id DESC LIMIT 1");
+	$any = is_array($with_view) ? $with_view
+		: $app->db->queryOneRecord('SELECT finding_id FROM malwatch_finding ORDER BY last_seen DESC, finding_id DESC LIMIT 1');
+	$mw_query['id'] = is_array($any) ? (string) $any['finding_id'] : '0';
+	$mw_view_expected = is_array($with_view);
 }
 
 // The address of the latest stored request of the website, so the filter runs
@@ -225,7 +240,15 @@ $pieceless = preg_match('/data-mw-q-[a-z-]+=""/', $out) === 1;
 $unfiltered = isset($mw_query['ip']) && $mw_query['ip'] !== ''
 	&& (strpos($out, 'class="mw-ipfilter"') === false || strpos($out, "getElementById('mw-hits')") === false);
 
+// The page of a finding with a stored view shows its code, every line
+// escaped: nothing of the file may reach the page as markup.
+$codeless = $mw_file === 'malwatch_finding_show.php' && $mw_view_expected
+	&& strpos($out, 'id="mw-L') === false;
+
 $why = '';
+if ($codeless) {
+	$why = 'no code rows although the finding has a view';
+}
 if ($broken) {
 	$why = 'fatal in the output';
 } elseif ($denied) {
