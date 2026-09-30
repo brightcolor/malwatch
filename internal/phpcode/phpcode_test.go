@@ -75,6 +75,19 @@ func TestBackticksAndAttributesAreCode(t *testing.T) {
 	}
 }
 
+// Where short_open_tag is on, PHP opens code at <? whatever follows it:
+// <?eval(...) runs. Only the XML declaration <?xml stays text.
+func TestAShortTagOpensCodeWithoutASpace(t *testing.T) {
+	src := "<?php $a = 1; ?><p>Hallo</p><?" + ev + "(" + post + "['c']);?>\n<?xml version=\"1.0\"?><a/>"
+	s := Parse([]byte(src))
+	if got := kindOf(t, s, src, ev, 0); got != Code {
+		t.Errorf("Code hinter <? ohne Leerzeichen: %v, erwartet Code", got)
+	}
+	if got := kindOf(t, s, src, "version", 0); got != Text {
+		t.Errorf("XML-Deklaration: %v, erwartet Text", got)
+	}
+}
+
 func TestAFileWithoutTagIsCode(t *testing.T) {
 	// A payload that is read and passed to eval carries no tag.
 	src := ev + "(" + post + "['x']);"
@@ -172,6 +185,29 @@ func TestInterpolationKeepsTheStringOpen(t *testing.T) {
 	}
 	if got := kindOf(t, s, src, "and", 0); got != String {
 		t.Fatalf("Text zwischen den eingesetzten Werten: %v, erwartet String", got)
+	}
+}
+
+// An interpolation {$...} ends at its own closing brace. The lexer looked for
+// the next opening brace after the dollar sign instead, found the body of a
+// function further down and read the code in between as a string: in
+// BackupBuddy's restore.php that hid a write to a file behind
+// "INSERT INTO `{$newPrefix}options` ...".
+func TestInterpolationEndsAtItsOwnBrace(t *testing.T) {
+	src := "<?php\n$q = \"INSERT INTO `{$p}options` VALUES( '\" . $o . \"' )\";\n" +
+		"function f() { " + ev + "(" + post + "['c']); }\n$z = \"end\";\n"
+	s := Parse([]byte(src))
+	if s.Broken() {
+		t.Fatal("Datei gilt als kaputt")
+	}
+	if got := kindOf(t, s, src, ev, 0); got != Code {
+		t.Fatalf("Code nach einem String mit {$...}: %v, erwartet Code", got)
+	}
+	if got := kindOf(t, s, src, "options", 0); got != String {
+		t.Fatalf("Text nach dem eingesetzten Wert: %v, erwartet String", got)
+	}
+	if got := kindOf(t, s, src, "end", 0); got != String {
+		t.Fatalf("der String am Ende: %v, erwartet String", got)
 	}
 }
 

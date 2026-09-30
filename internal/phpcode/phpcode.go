@@ -424,7 +424,10 @@ func openTagAt(src []byte, i int) int {
 }
 
 // tagLength returns the length of the open tag at offset at, or 0 when the
-// bytes there open none: <?php, <?= and <? followed by white space do.
+// bytes there open none. <?php and <?= open code, and so does a bare <?
+// whatever follows it: where short_open_tag is on, PHP runs <?eval(...) as
+// well as <? eval(...), and which setting a website has is unknown here. The
+// XML declaration <?xml is the one form that stays text.
 func tagLength(src []byte, at int) int {
 	rest := src[at+2:]
 	switch {
@@ -432,10 +435,10 @@ func tagLength(src []byte, at int) int {
 		return 5
 	case len(rest) >= 1 && rest[0] == '=':
 		return 3
-	case len(rest) >= 1 && isSpace(rest[0]):
-		return 2
+	case len(rest) >= 3 && bytes.EqualFold(rest[:3], []byte("xml")) && (len(rest) == 3 || !isIdentByte(rest[3])):
+		return 0
 	}
-	return 0
+	return 2
 }
 
 // stringEnd returns the offset just past the closing quote of the string that
@@ -457,8 +460,15 @@ func stringEnd(src []byte, i int) int {
 			if q == '\'' || j+1 >= len(src) {
 				continue
 			}
+			// braceEnd starts at the opening brace itself: {$ at j, ${ at j+1.
+			// Handed the dollar sign of {$, it went on to the next brace in the
+			// file and read everything up to there as part of the string.
+			open := j
+			if src[j] == '$' {
+				open = j + 1
+			}
 			if (src[j] == '{' && src[j+1] == '$') || (src[j] == '$' && src[j+1] == '{') {
-				end := braceEnd(src, j+1)
+				end := braceEnd(src, open)
 				if end < 0 {
 					return -1
 				}
