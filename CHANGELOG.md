@@ -2,7 +2,7 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
-## [0.40.0] – 2026-09-29
+## [0.40.0] – 2026-09-30
 
 ### Hinzugefügt
 
