@@ -254,11 +254,26 @@ func (e *Engine) apply(r *Rule, path string, hay, raw []byte, index []int32, lin
 		// reassembled name is what explains the finding.
 		Excerpt: excerpt(hay[loc[0]:loc[1]]),
 	}
+	if r.GuardLowers && f.Severity.AtLeast(report.SeverityHigh) && cv.source().GuardedAt(at, wpRights, wpNonces) {
+		f.Severity = report.SeverityMedium
+		f.Excerpt = guardedNote + f.Excerpt
+	}
 	if e.markLimit > 0 && linesOf != nil {
 		f.Marks = e.marks(r, hay, index, linesOf(), inCode)
 	}
 	return f, true
 }
+
+// The WordPress functions that check a user's rights and a nonce. They are
+// the API of WordPress, not a setting.
+var (
+	wpRights = map[string]bool{"current_user_can": true, "user_can": true, "is_super_admin": true,
+		"current_user_can_for_blog": true}
+	wpNonces = map[string]bool{"check_admin_referer": true, "check_ajax_referer": true, "wp_verify_nonce": true}
+)
+
+// guardedNote opens the excerpt of a finding GuardLowers took down.
+const guardedNote = "[hinter Rechte- und Nonce-Prüfung] "
 
 // codeView reads the PHP structure of one file, once and only when a rule
 // asks. A file the reader loses track in counts as code throughout: a

@@ -96,6 +96,11 @@ type Rule struct {
 	// on a website with that PHP or newer the rule stays silent. The version
 	// comes from the PHP of the site (SetPHPVersion); unknown keeps it on.
 	DeadFrom string
+	// GuardLowers takes a finding down to medium where WordPress only runs
+	// the code for a user with the right capability and a valid nonce: an
+	// admin action of a plugin, reachable only by someone who is an
+	// administrator already. The finding stays, without a mail.
+	GuardLowers bool
 }
 
 // Place is where below the scanned root a rule looks.

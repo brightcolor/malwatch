@@ -13,7 +13,10 @@
 // not know stays code, so a rule keeps seeing it.
 package phpcode
 
-import "bytes"
+import (
+	"bytes"
+	"strings"
+)
 
 // Kind says what a byte of the source is to PHP.
 type Kind uint8
@@ -602,4 +605,62 @@ func definesFunction(toks []token, i int) bool {
 		j--
 	}
 	return j >= 0 && toks[j].kind == tIdent && toks[j].val == "function"
+}
+
+// GuardedAt reports whether the code at offset at only runs after a check of
+// the user's rights and a check of a nonce: calls of both lists stand before it
+// in its function body, or the function around it is only ever registered as a
+// callback or called after such checks. rights and nonces name the functions,
+// lower case.
+//
+// "Before" is the order in the file, not the flow of control: a check whose
+// block ends before the code counts as well. The rules use this to lower a
+// finding, never to drop it.
+func (s *Source) GuardedAt(at int, rights, nonces map[string]bool) bool {
+	if s.checksBefore(at, rights, nonces) {
+		return true
+	}
+	k := s.scopeIndex(at)
+	if k < 0 || s.scopes[k].Name == "" {
+		return false
+	}
+	name := s.scopes[k].Name
+	refs := 0
+	for i, t := range s.toks {
+		callback := t.kind == tStr && strings.EqualFold(t.val, name)
+		call := t.kind == tIdent && t.val == name && i+1 < len(s.toks) && s.toks[i+1].kind == tPunct &&
+			s.toks[i+1].val == "(" && !definesFunction(s.toks, i)
+		if !callback && !call {
+			continue
+		}
+		refs++
+		if !s.checksBefore(t.pos, rights, nonces) {
+			return false
+		}
+	}
+	return refs > 0
+}
+
+// checksBefore reports whether calls from both lists stand in code before
+// offset at in the same function body.
+func (s *Source) checksBefore(at int, rights, nonces map[string]bool) bool {
+	k := s.scopeIndex(at)
+	right, nonce := false, false
+	for i, t := range s.toks {
+		if t.pos >= at {
+			break
+		}
+		if t.kind != tIdent || i+1 >= len(s.toks) || s.toks[i+1].kind != tPunct || s.toks[i+1].val != "(" {
+			continue
+		}
+		if !rights[t.val] && !nonces[t.val] {
+			continue
+		}
+		if s.scopeIndex(t.pos) != k {
+			continue
+		}
+		right = right || rights[t.val]
+		nonce = nonce || nonces[t.val]
+	}
+	return right && nonce
 }

@@ -50,6 +50,7 @@ var catalog = []*Rule{
 	},
 	{
 		ID:          "php.eval.request",
+		GuardLowers: true,
 		CodeOnly:    true,
 		Severity:    report.SeverityCritical,
 		AutoSafe:    true,
@@ -82,6 +83,7 @@ var catalog = []*Rule{
 	},
 	{
 		ID:          "php.callback.request",
+		GuardLowers: true,
 		CodeOnly:    true,
 		Severity:    report.SeverityCritical,
 		AutoSafe:    true,
@@ -91,6 +93,7 @@ var catalog = []*Rule{
 	},
 	{
 		ID:          "php.dynamic.request_call",
+		GuardLowers: true,
 		CodeOnly:    true,
 		Severity:    report.SeverityCritical,
 		AutoSafe:    true,
@@ -449,6 +452,7 @@ var catalog = []*Rule{
 	},
 	{
 		ID:          "php.globals.extract_request",
+		GuardLowers: true,
 		CodeOnly:    true,
 		Severity:    report.SeverityHigh,
 		Description: "extract() auf Anfragedaten überschreibt beliebige Variablen",
@@ -459,6 +463,7 @@ var catalog = []*Rule{
 	// ---------------------------------------------------------- execution
 	{
 		ID:          "php.exec.request",
+		GuardLowers: true,
 		CodeOnly:    true,
 		Severity:    report.SeverityCritical,
 		Description: "Systembefehl mit Anteilen aus der Anfrage",
@@ -479,6 +484,7 @@ var catalog = []*Rule{
 	},
 	{
 		ID:          "php.dropper.write_code",
+		GuardLowers: true,
 		CodeOnly:    true,
 		Severity:    report.SeverityHigh,
 		Description: "schreibt dekodierten oder übermittelten Inhalt in eine Datei",
@@ -865,6 +871,7 @@ var catalog = []*Rule{
 	},
 	{
 		ID:            "php.webshell.file_manager",
+		GuardLowers:   true,
 		CodeOnly:      true,
 		SupportInCode: true,
 		Severity:      report.SeverityHigh,
@@ -890,6 +897,7 @@ var catalog = []*Rule{
 	},
 	{
 		ID:          "php.upload.unchecked",
+		GuardLowers: true,
 		CodeOnly:    true,
 		Severity:    report.SeverityMedium,
 		Description: "Datei-Upload ohne erkennbare Prüfung des Ziels",
@@ -911,6 +919,7 @@ var catalog = []*Rule{
 	},
 	{
 		ID:          "php.mailer.request",
+		GuardLowers: true,
 		CodeOnly:    true,
 		Severity:    report.SeverityMedium,
 		Description: "Massenversand mit Empfänger und Text aus der Anfrage",
