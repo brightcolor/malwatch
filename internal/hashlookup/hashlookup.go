@@ -27,9 +27,22 @@ const DefaultURL = "https://hashlookup.circl.lu"
 const maxBatch = 100
 
 // CheckURL says in German why an address cannot be used, or returns nil.
+//
+// A login in the address is refused: the address travels on the command line
+// of the scanner, where every user of the server can read it. The messages
+// show such an address with its password masked.
 func CheckURL(raw string) error {
 	u, err := url.Parse(raw)
-	if err != nil || u.Scheme != "https" || u.Host == "" || len(raw) > 200 {
+	if err != nil {
+		return fmt.Errorf("die Adresse der Datenbank bekannter Dateien ist nicht lesbar; erwartet wird eine "+
+			"https-Adresse wie %s", DefaultURL)
+	}
+	if u.User != nil {
+		return fmt.Errorf("die Adresse %s enthält Anmeldedaten. Sie steht auf der Befehlszeile des Scanners, "+
+			"die jeder Benutzer des Servers lesen kann; bitte eine Adresse ohne Benutzer und Passwort angeben",
+			u.Redacted())
+	}
+	if u.Scheme != "https" || u.Host == "" || len(raw) > 200 {
 		return fmt.Errorf("%q ist keine https-Adresse wie %s", raw, DefaultURL)
 	}
 	return nil

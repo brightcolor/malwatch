@@ -58,7 +58,10 @@ func TestKnownConfirmsOnlyOrdinaryFilesWithBothSums(t *testing.T) {
 }
 
 func TestNewRefusesAddressesThatAreNotHTTPS(t *testing.T) {
-	for _, raw := range []string{"http://hashlookup.circl.lu", "ftp://x", "hashlookup.circl.lu", ""} {
+	// The address travels on the command line of the scanner, where every
+	// user of the server can read it: a login in it is refused.
+	for _, raw := range []string{"http://hashlookup.circl.lu", "ftp://x", "hashlookup.circl.lu", "",
+		"https://user:secret@hashlookup.circl.lu", "https://user@hashlookup.circl.lu"} {
 		if err := CheckURL(raw); err == nil {
 			t.Errorf("%q angenommen", raw)
 		}
