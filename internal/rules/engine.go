@@ -219,11 +219,18 @@ func (e *Engine) apply(r *Rule, path string, hay, raw []byte, index []int32, lin
 		at, ok := rawAt(loc[0])
 		return ok && cv.code(at)
 	}
+	ownCode := func(loc []int) bool {
+		if !r.SkipOwnCode {
+			return false
+		}
+		at, ok := rawAt(loc[0])
+		return ok && cv.source().OwnCode(at)
+	}
 	var loc []int
 	if r.SameScope {
-		loc = e.scopedMatch(r, hay, rawAt, inCode, cv)
+		loc = e.scopedMatch(r, hay, rawAt, inCode, ownCode, cv)
 	} else {
-		loc = e.firstMatch(r, hay, inCode)
+		loc = e.firstMatch(r, hay, inCode, ownCode)
 		if loc != nil && r.Requires != nil && !supported(r, r.Requires, hay, inCode) {
 			loc = nil
 		}
@@ -259,7 +266,7 @@ func (e *Engine) apply(r *Rule, path string, hay, raw []byte, index []int32, lin
 		f.Excerpt = guardedNote + f.Excerpt
 	}
 	if e.markLimit > 0 && linesOf != nil {
-		f.Marks = e.marks(r, hay, index, linesOf(), inCode)
+		f.Marks = e.marks(r, hay, index, linesOf(), inCode, ownCode)
 	}
 	return f, true
 }
@@ -311,7 +318,7 @@ func (c *codeView) code(at int) bool {
 // scopedMatch returns the first match of a SameScope rule whose supporting
 // conditions sit in the same function body, or in the body of a function
 // defined in the file that this body calls. nil means none.
-func (e *Engine) scopedMatch(r *Rule, hay []byte, rawAt func(int) (int, bool), inCode func([]int) bool,
+func (e *Engine) scopedMatch(r *Rule, hay []byte, rawAt func(int) (int, bool), inCode, ownCode func([]int) bool,
 	cv *codeView) []int {
 	positions := func(re *regexp.Regexp) []int {
 		var out []int
@@ -342,6 +349,9 @@ func (e *Engine) scopedMatch(r *Rule, hay []byte, rawAt func(int) (int, bool), i
 			continue
 		}
 		if r.Harmless != nil && r.Harmless(e, hay, loc) {
+			continue
+		}
+		if ownCode(loc) {
 			continue
 		}
 		at, ok := rawAt(loc[0])
@@ -392,10 +402,12 @@ func supported(r *Rule, re *regexp.Regexp, hay []byte, inCode func([]int) bool) 
 }
 
 // firstMatch returns the first match of the rule's pattern that counts: the
-// first one at all, for a rule with CodeOnly the first one in code, and for a
-// rule with Harmless the first one it does not excuse. nil means none counts.
-func (e *Engine) firstMatch(r *Rule, hay []byte, inCode func([]int) bool) []int {
-	if r.Harmless == nil && !r.CodeOnly {
+// first one at all, for a rule with CodeOnly the first one in code, for a
+// rule with Harmless the first one it does not excuse, and for a rule with
+// SkipOwnCode the first eval of code the function did not write itself. nil
+// means none counts.
+func (e *Engine) firstMatch(r *Rule, hay []byte, inCode, ownCode func([]int) bool) []int {
+	if r.Harmless == nil && !r.CodeOnly && !r.SkipOwnCode {
 		return r.Match.FindIndex(hay)
 	}
 	for _, loc := range r.Match.FindAllIndex(hay, maxWeighedMatches) {
@@ -403,6 +415,9 @@ func (e *Engine) firstMatch(r *Rule, hay []byte, inCode func([]int) bool) []int 
 			continue
 		}
 		if r.Harmless != nil && r.Harmless(e, hay, loc) {
+			continue
+		}
+		if ownCode(loc) {
 			continue
 		}
 		return loc
@@ -414,7 +429,7 @@ func (e *Engine) firstMatch(r *Rule, hay []byte, inCode func([]int) bool) []int 
 // the limit, then the first match of each supporting condition, since those
 // are part of the reason as well. Positions in the reassembled view are taken
 // back to the file through index.
-func (e *Engine) marks(r *Rule, hay []byte, index []int32, lines *textpos.Lines, inCode func([]int) bool) []report.Mark {
+func (e *Engine) marks(r *Rule, hay []byte, index []int32, lines *textpos.Lines, inCode, ownCode func([]int) bool) []report.Mark {
 	var out []report.Mark
 	add := func(re *regexp.Regexp, n int) {
 		for _, loc := range re.FindAllIndex(hay, n) {
@@ -423,6 +438,9 @@ func (e *Engine) marks(r *Rule, hay []byte, index []int32, lines *textpos.Lines,
 			}
 			if re == r.Match && r.Harmless != nil && r.Harmless(e, hay, loc) {
 				// A picture next to the block of code is no place to look at.
+				continue
+			}
+			if re == r.Match && ownCode(loc) {
 				continue
 			}
 			if (re == r.Match && r.CodeOnly || re != r.Match && r.SupportInCode) && !inCode(loc) {

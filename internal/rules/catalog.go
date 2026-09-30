@@ -102,8 +102,11 @@ var catalog = []*Rule{
 		Match:       rx(`(?is)\$(?:_GET|_POST|_REQUEST|_COOKIE)\s*\[\s*(?:'[^'\n]{0,60}'|"[^"\n]{0,60}"|\$[a-zA-Z_]\w{0,40})\s*\]\s*\(`),
 	},
 	{
-		ID:          "php.eval.variable",
-		CodeOnly:    true,
+		ID:       "php.eval.variable",
+		CodeOnly: true,
+		// phpxmlrpc (in SeedProd) evaluates wrappers it writes from its own
+		// text. A parameter, cookie data or decoded text stays a finding.
+		SkipOwnCode: true,
 		Severity:    report.SeverityMedium,
 		Description: "eval auf einer Variablen",
 		Exts:        phpExts,
@@ -697,7 +700,10 @@ var catalog = []*Rule{
 		// Fetch and eval in one body, or eval next to a call of the helper
 		// that fetches. SeedProd's XML-RPC library fetches in its client and
 		// evaluates a generated wrapper in a function that never calls it.
-		SameScope:   true,
+		SameScope: true,
+		// A wrapper the function writes from its own text runs nothing it
+		// fetched; one that carries the fetched data does.
+		SkipOwnCode: true,
 		Severity:    report.SeverityCritical,
 		Description: "lädt von einer fremden Adresse und führt es danach aus",
 		Exts:        phpExts,

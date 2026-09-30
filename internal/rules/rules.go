@@ -74,6 +74,11 @@ type Rule struct {
 	// fixed data (phpcode.Inert). For rules that ask whether a file can be a
 	// way in by where it lies, not what it contains.
 	SkipInert bool
+	// SkipOwnCode lets an eval pass that runs code its own function writes
+	// (phpcode.Source.OwnCode): the wrappers XML-RPC and mock libraries write
+	// from their own text. For the rules about eval on a variable; the
+	// finding goes to the first eval that runs anything else.
+	SkipOwnCode bool
 	// Harmless, when set, weighs every match on its own: a match it calls
 	// harmless does not count, and the finding goes to the first one that is
 	// not. A block that decodes to a picture is data; a picture next to a
