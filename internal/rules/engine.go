@@ -254,7 +254,7 @@ func (e *Engine) apply(r *Rule, path string, hay, raw []byte, index []int32, lin
 		// reassembled name is what explains the finding.
 		Excerpt: excerpt(hay[loc[0]:loc[1]]),
 	}
-	if r.GuardLowers && f.Severity.AtLeast(report.SeverityHigh) && cv.source().GuardedAt(at, wpRights, wpNonces) {
+	if r.GuardLowers && f.Severity.AtLeast(report.SeverityHigh) && cv.source().GuardedAt(at, wpGuard) {
 		f.Severity = report.SeverityMedium
 		f.Excerpt = guardedNote + f.Excerpt
 	}
@@ -264,13 +264,18 @@ func (e *Engine) apply(r *Rule, path string, hay, raw []byte, index []int32, lin
 	return f, true
 }
 
-// The WordPress functions that check a user's rights and a nonce. They are
-// the API of WordPress, not a setting.
-var (
-	wpRights = map[string]bool{"current_user_can": true, "user_can": true, "is_super_admin": true,
-		"current_user_can_for_blog": true}
-	wpNonces = map[string]bool{"check_admin_referer": true, "check_ajax_referer": true, "wp_verify_nonce": true}
-)
+// The WordPress functions that check a user's rights and a nonce, the nonce
+// checks that end the request themselves (check_ajax_referer unless its third
+// argument is false), and the words that leave a function or the request.
+// They are the API of WordPress and the words of PHP, not a setting.
+var wpGuard = phpcode.Guard{
+	Rights: map[string]bool{"current_user_can": true, "user_can": true, "is_super_admin": true,
+		"current_user_can_for_blog": true},
+	Nonces: map[string]bool{"check_admin_referer": true, "check_ajax_referer": true, "wp_verify_nonce": true},
+	Dying:  map[string]bool{"check_admin_referer": true, "check_ajax_referer": true},
+	Leave: map[string]bool{"exit": true, "die": true, "return": true, "throw": true, "wp_die": true,
+		"wp_send_json": true, "wp_send_json_error": true, "wp_send_json_success": true},
+}
 
 // guardedNote opens the excerpt of a finding GuardLowers took down.
 const guardedNote = "[hinter Rechte- und Nonce-Prüfung] "

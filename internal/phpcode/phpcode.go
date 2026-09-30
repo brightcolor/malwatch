@@ -617,17 +617,21 @@ func definesFunction(toks []token, i int) bool {
 	return j >= 0 && toks[j].kind == tIdent && toks[j].val == "function"
 }
 
+// Guard names the functions GuardedAt looks for, lower case: the checks of a
+// user's rights, the checks of a nonce, the nonce checks that end the request
+// by themselves when the nonce is wrong, and the words that leave a function
+// or the request.
+type Guard struct {
+	Rights, Nonces, Dying, Leave map[string]bool
+}
+
 // GuardedAt reports whether the code at offset at only runs after a check of
-// the user's rights and a check of a nonce: calls of both lists stand before it
-// in its function body, or the function around it is only ever registered as a
-// callback or called after such checks. rights and nonces name the functions,
-// lower case.
-//
-// "Before" is the order in the file, not the flow of control: a check whose
-// block ends before the code counts as well. The rules use this to lower a
-// finding, never to drop it.
-func (s *Source) GuardedAt(at int, rights, nonces map[string]bool) bool {
-	if s.checksBefore(at, rights, nonces) {
+// the user's rights and a check of a nonce, each of which decides whether it
+// is reached (see gates): both stand before it in its function body, or the
+// function around it is only ever registered as a callback or called behind
+// such checks. The rules use this to lower a finding, never to drop it.
+func (s *Source) GuardedAt(at int, g Guard) bool {
+	if s.checksBefore(at, g) {
 		return true
 	}
 	k := s.scopeIndex(at)
@@ -644,16 +648,17 @@ func (s *Source) GuardedAt(at int, rights, nonces map[string]bool) bool {
 			continue
 		}
 		refs++
-		if !s.checksBefore(t.pos, rights, nonces) {
+		if !s.checksBefore(t.pos, g) {
 			return false
 		}
 	}
 	return refs > 0
 }
 
-// checksBefore reports whether calls from both lists stand in code before
-// offset at in the same function body.
-func (s *Source) checksBefore(at int, rights, nonces map[string]bool) bool {
+// checksBefore reports whether a check of the rights and a check of a nonce
+// stand before offset at in the same function body, each deciding whether at
+// is reached.
+func (s *Source) checksBefore(at int, g Guard) bool {
 	k := s.scopeIndex(at)
 	right, nonce := false, false
 	for i, t := range s.toks {
@@ -663,14 +668,196 @@ func (s *Source) checksBefore(at int, rights, nonces map[string]bool) bool {
 		if t.kind != tIdent || i+1 >= len(s.toks) || s.toks[i+1].kind != tPunct || s.toks[i+1].val != "(" {
 			continue
 		}
-		if !rights[t.val] && !nonces[t.val] {
+		isRight, isNonce := g.Rights[t.val], g.Nonces[t.val]
+		if !isRight && !isNonce {
 			continue
 		}
 		if s.scopeIndex(t.pos) != k {
 			continue
 		}
-		right = right || rights[t.val]
-		nonce = nonce || nonces[t.val]
+		dying := isNonce && g.Dying[t.val] && !s.thirdArgFalse(i+1)
+		if !s.gates(i, at, dying, g.Leave) {
+			continue
+		}
+		right = right || isRight
+		nonce = nonce || isNonce
 	}
 	return right && nonce
+}
+
+// gates reports whether the check called at token i decides whether offset at
+// is reached. Three shapes do:
+//
+//	if ( check(...) ) { ... at ... }        the check wraps the code
+//	if ( ! check(...) ) { exit; } ... at    the check turns away before it
+//	check_admin_referer( 'x' ); ... at      a nonce check that ends the request itself
+//
+// A check whose answer nobody reads protects nothing, and neither does one
+// joined by || to another condition around the code, or by && in front of a
+// branch that turns away: either lets the code run without it.
+func (s *Source) gates(i, at int, dying bool, leave map[string]bool) bool {
+	toks := s.toks
+	cond := s.conditionOf(i)
+	if cond < 0 {
+		return dying
+	}
+	end := s.closing(cond)
+	if end < 0 || end+1 >= len(toks) {
+		return false
+	}
+	// The branch: a block, or a single statement such as return;. from and to
+	// are the tokens of its content, to exclusive; open is the offset it starts
+	// after.
+	body := end + 1
+	var open, from, to int
+	if toks[body].kind == tPunct && toks[body].val == "{" {
+		open, from, to = toks[body].pos, body+1, s.closing(body)
+	} else {
+		open, from, to = toks[body].pos-1, body, s.statementEnd(body)
+	}
+	if to < 0 {
+		return false
+	}
+	negated := i > 0 && toks[i-1].kind == tPunct && toks[i-1].val == "!"
+	if !negated {
+		return !s.joined(cond, end, "||", "or") && at > open && at < toks[to].pos
+	}
+	return !s.joined(cond, end, "&&", "and") && at > toks[to].pos && s.leaves(from, to, leave)
+}
+
+// conditionOf returns the index of the parenthesis that opens the if or
+// elseif condition the call at token i stands in, or -1.
+func (s *Source) conditionOf(i int) int {
+	depth := 0
+	for j := i - 1; j >= 0; j-- {
+		t := s.toks[j]
+		if t.kind != tPunct {
+			continue
+		}
+		switch t.val {
+		case ")", "]":
+			depth++
+		case "(", "[":
+			if depth > 0 {
+				depth--
+				continue
+			}
+			if t.val == "(" && j > 0 && s.toks[j-1].kind == tIdent &&
+				(s.toks[j-1].val == "if" || s.toks[j-1].val == "elseif") {
+				return j
+			}
+		case ";", "{", "}":
+			if depth == 0 {
+				return -1
+			}
+		}
+	}
+	return -1
+}
+
+// closing returns the index of the token that closes the parenthesis or brace
+// at token open, or -1.
+func (s *Source) closing(open int) int {
+	o := s.toks[open].val
+	c := ")"
+	if o == "{" {
+		c = "}"
+	}
+	depth := 0
+	for j := open; j < len(s.toks); j++ {
+		t := s.toks[j]
+		if t.kind != tPunct {
+			continue
+		}
+		switch t.val {
+		case o:
+			depth++
+		case c:
+			depth--
+			if depth == 0 {
+				return j
+			}
+		}
+	}
+	return -1
+}
+
+// statementEnd returns the index of the semicolon that ends the statement
+// starting at token from, or -1.
+func (s *Source) statementEnd(from int) int {
+	depth := 0
+	for j := from; j < len(s.toks); j++ {
+		t := s.toks[j]
+		if t.kind != tPunct {
+			continue
+		}
+		switch t.val {
+		case "(", "[", "{":
+			depth++
+		case ")", "]", "}":
+			depth--
+		case ";":
+			if depth == 0 {
+				return j
+			}
+		}
+	}
+	return -1
+}
+
+// joined reports whether the condition between the tokens from and to holds
+// one of the operators ops.
+func (s *Source) joined(from, to int, ops ...string) bool {
+	for j := from + 1; j < to; j++ {
+		t := s.toks[j]
+		for _, op := range ops {
+			if (t.kind == tPunct || t.kind == tIdent) && t.val == op {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// leaves reports whether the tokens from from up to to, exclusive, hold a word
+// of leave, such as exit, return or wp_die.
+func (s *Source) leaves(from, to int, leave map[string]bool) bool {
+	for j := from; j < to; j++ {
+		if t := s.toks[j]; t.kind == tIdent && leave[t.val] {
+			return true
+		}
+	}
+	return false
+}
+
+// thirdArgFalse reports whether the call whose parenthesis opens at token open
+// passes false as its third argument: check_ajax_referer then returns its
+// answer instead of ending the request.
+func (s *Source) thirdArgFalse(open int) bool {
+	depth, commas := 0, 0
+	for j := open; j < len(s.toks); j++ {
+		t := s.toks[j]
+		if t.kind == tPunct {
+			switch t.val {
+			case "(", "[", "{":
+				depth++
+				continue
+			case ")", "]", "}":
+				depth--
+				if depth == 0 {
+					return false
+				}
+				continue
+			case ",":
+				if depth == 1 {
+					commas++
+				}
+				continue
+			}
+		}
+		if depth == 1 && commas == 2 {
+			return t.kind == tIdent && t.val == "false"
+		}
+	}
+	return false
 }

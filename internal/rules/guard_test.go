@@ -36,6 +36,13 @@ func TestGuardedAdminActionsAreLowered(t *testing.T) {
 			"      if (check_admin_referer('save-user-css')) { add_action('admin_init', 'ls_save_user_css'); }\n" +
 			"    }\n  }\n}\n" +
 			"function ls_save_user_css() {\n  file_put_contents($file, stripslashes(" + post + "['contents']));\n}\n"},
+		{"Wächter mit Rückgabe", "php.dynamic.request_call", "<?php function f() {\n" +
+			"  if ( ! current_user_can( 'x' ) || ! wp_verify_nonce( " + req + "['n'], 'a' ) ) return;\n" +
+			"  " + req + "['c']();\n}\n"},
+		{"AJAX mit JSON-Fehler", "php.dynamic.request_call", "<?php function f() {\n" +
+			"  if ( ! check_ajax_referer( 'a', 'n', false ) ) { wp_send_json_error(); }\n" +
+			"  if ( ! current_user_can( 'x' ) ) { wp_die(); }\n" +
+			"  " + req + "['c']();\n}\n"},
 	}
 	for _, c := range cases {
 		if got := severityOf(e, c.rule, c.src); got != report.SeverityMedium {
@@ -62,6 +69,17 @@ func TestUnguardedActionsKeepTheirLevel(t *testing.T) {
 		{"Prüfung in anderer Funktion", "php.dropper.write_code", "<?php\n" +
 			"function check() { current_user_can('x'); check_admin_referer('y'); }\n" +
 			"function save() { file_put_contents($f, " + post + "['c']); }\n", report.SeverityHigh},
+		// A check whose answer nobody reads protects nothing. Two such calls in
+		// front of a backdoor would otherwise take it below the level that
+		// sends a mail.
+		{"Prüfungen als Köder", "php.dynamic.request_call", "<?php function f() { current_user_can('read'); " +
+			"wp_verify_nonce(" + req + "['n'], 'a'); " + req + "['c'](); }", report.SeverityCritical},
+		{"Nonce ohne Abbruch", "php.dynamic.request_call", "<?php function f() { if (!current_user_can('x')) { return; } " +
+			"check_ajax_referer('a', 'n', false); " + req + "['c'](); }", report.SeverityCritical},
+		{"Prüfung mit leerem Zweig", "php.dynamic.request_call", "<?php function f() { if (!current_user_can('x')) { } " +
+			"if (!wp_verify_nonce(" + req + "['n'], 'a')) { } " + req + "['c'](); }", report.SeverityCritical},
+		{"verneinte Prüfung umschließt den Code", "php.dynamic.request_call", "<?php function f() { " +
+			"if (!current_user_can('x') && !wp_verify_nonce(" + req + "['n'], 'a')) { " + req + "['c'](); } }", report.SeverityCritical},
 	}
 	for _, c := range cases {
 		if got := severityOf(e, c.rule, c.src); got != c.want {
