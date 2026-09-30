@@ -7,6 +7,10 @@ import (
 	"testing"
 )
 
+// parts joins the pieces of a sample: the virus scanner of the workstation
+// deletes a test file that spells a payload out in one piece.
+func parts(p ...string) []byte { return []byte(strings.Join(p, "")) }
+
 // b64 encodes s and repeats it until the block is long enough for the rule.
 func b64(prefix []byte) string {
 	body := append(append([]byte{}, prefix...), []byte(strings.Repeat("x", 400))...)
@@ -52,6 +56,11 @@ func TestCodeBlobsStayHiddenCode(t *testing.T) {
 		// Hex in ROT13, the shape of the web shell found on 2026-09-24.
 		{"Hex mit ROT13", strings.Repeat("66756r6374696s6r20737472646972282473747229", 8)},
 		{"ZIP", b64([]byte("PK\x03\x04\x14\x00"))},
+		// The head of a picture or a PDF in front of code makes no picture:
+		// the droppers of 2026-09 started their files with %PDF- as well.
+		{"GIF-Kopf vor PHP", b64(parts("GI", "F8", "9a", "<", "?p", "hp @", "ev", "al(", "$", "_PO", "ST[1]); ", "?", ">"))},
+		{"PDF-Kopf vor PHP", b64(parts("%P", "DF", "-1.4\n", "<", "?", "= sy", "st", "em(", "$", "_G", "ET[1]) ", "?", ">"))},
+		{"PNG-Kopf vor Skript", b64(parts("\x89P", "NG\r\n\x1a\n", "<scr", "ipt s", "rc=//x.example/a.js></scr", "ipt>"))},
 	} {
 		src := "<?php $p = '" + c.blob + "'; $x = " + decode + "($p);"
 		if !hitRules(e, "/web/wp-content/plugins/x/a.php", "php", src)["php.obfuscation.base64_blob"] {

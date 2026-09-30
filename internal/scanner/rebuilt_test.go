@@ -38,6 +38,10 @@ func TestDeviationsOfScriptFiles(t *testing.T) {
 		{"Lader vorangestellt", loader + orig, false},
 		{"Lader vorn und hinten", loader + orig + "eval(atob('YWxlcnQoMSk='));", false},
 		{"Lader in der Mitte", orig[:4000] + loader + orig[4000:], false},
+		// A file replaced as a whole keeps nothing of the original, just as a
+		// rebuild does. What tells them apart is what runs: a rebuild brings
+		// no loader the release lacks.
+		{"ganz ersetzt durch einen Lader", strings.Repeat("var q=1;", 100) + loader, false},
 	}
 	for _, c := range cases {
 		if c.local == orig {
@@ -46,6 +50,11 @@ func TestDeviationsOfScriptFiles(t *testing.T) {
 		if got := harmlessDeviation([]byte(c.local), []byte(orig)); got != c.want {
 			t.Errorf("%s: harmlos %v, erwartet %v", c.name, got, c.want)
 		}
+	}
+	// A release that loads a script itself keeps doing so after a rebuild.
+	withLoader := orig + loader
+	if !harmlessDeviation([]byte(strings.ReplaceAll(withLoader, "e+1", "1+e")), []byte(withLoader)) {
+		t.Error("durchgehend neu gebaut mit dem Lader des Originals: als Einschub gewertet")
 	}
 }
 

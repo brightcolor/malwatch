@@ -33,8 +33,9 @@ const localized = 0.9
 // vendor's release differs the way a rebuild does. A file that keeps the
 // original whole or all but one place is judged by what came in there:
 // code that loads or runs a script is what an injection adds, a changed data
-// block is not. A file that differs throughout is a rebuild; code injected
-// into it is left to the rules that read scripts.
+// block is not. A file that differs throughout is a rebuild as long as it
+// loads and runs scripts only in ways the release does too; a file replaced
+// as a whole by an injection brings a way of its own.
 func harmlessDeviation(local, orig []byte) bool {
 	if len(orig) > 0 {
 		if i := bytes.Index(local, orig); i >= 0 {
@@ -53,7 +54,19 @@ func harmlessDeviation(local, orig []byte) bool {
 	if float64(p+s) >= localized*float64(len(orig)) {
 		return !loadsOrRuns(local[p : len(local)-s])
 	}
-	return true
+	return !addsRunner(local, orig)
+}
+
+// addsRunner reports whether local loads or runs a script in a way orig does
+// not.
+func addsRunner(local, orig []byte) bool {
+	l, o := bytes.ToLower(local), bytes.ToLower(orig)
+	for _, r := range runners {
+		if bytes.Contains(l, r) && !bytes.Contains(o, r) {
+			return true
+		}
+	}
+	return false
 }
 
 // runners are what code that loads or runs a script contains, lower case.

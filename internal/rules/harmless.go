@@ -78,14 +78,36 @@ func harmlessBlob(_ *Engine, hay []byte, loc []int) bool {
 		return false
 	}
 	if knownData(head) {
-		return true
+		// The head of a picture or a PDF in front of code makes no picture:
+		// the whole block has to be free of it.
+		return !holdsCode(decodeHead(blob, len(blob)))
 	}
 	if svgStart(head) {
 		// A picture as long as it carries no script of its own.
 		full := decodeHead(blob, len(blob))
 		lower := bytes.ToLower(full)
-		return !bytes.Contains(lower, []byte("<script")) && !bytes.Contains(lower, []byte("javascript:")) &&
+		return !holdsCode(full) && !bytes.Contains(lower, []byte("javascript:")) &&
 			!bytes.Contains(lower, []byte("onload")) && !bytes.Contains(lower, []byte("onerror"))
+	}
+	return false
+}
+
+// codeMarks are what code looks like inside a decoded block, lower case. Each
+// is long enough that the random bytes of a picture or a font do not spell it
+// by chance.
+var codeMarks = [][]byte{
+	[]byte("<?php"), []byte("<?= "), []byte("<?=$"), []byte("<script"), []byte("eval("), []byte("assert("),
+	[]byte("system("), []byte("passthru("), []byte("shell_exec("), []byte("base64_decode"),
+	[]byte("$_post"), []byte("$_get"), []byte("$_request"), []byte("$_cookie"),
+}
+
+// holdsCode reports whether decoded bytes carry PHP or a script anywhere.
+func holdsCode(b []byte) bool {
+	lower := bytes.ToLower(b)
+	for _, m := range codeMarks {
+		if bytes.Contains(lower, m) {
+			return true
+		}
 	}
 	return false
 }
