@@ -72,6 +72,23 @@ Zeichen). Liegt darunter eine PHP-Datei, ein Shell-Skript oder ein Linux-Program
 der Scanner das eigens, ein Programm dort als „kritisch“. Das Addon gibt die Liste bei
 jeder Prüfung als `--upload-dirs` an den Scanner.
 
+## Testordner von Bibliotheken
+
+**Security > Scanner > Einstellungen > Testordner von Bibliotheken** legt fest, welche
+Dateien als Tests einer Bibliothek gelten und welche Hinweisregeln dort nicht zählen:
+
+| Einstellung | Vorgabe |
+|---|---|
+| Testordner | test, tests, test-suite, testsuite, fixtures, \_\_tests\_\_ |
+| Bibliotheksordner | vendor, vendors, node_modules, bower_components |
+| Regeln, die in Testordnern nicht zählen | php.exec.background, php.eval.variable, binary.elf |
+
+Die Ordnerlisten nehmen bis zu 16 Namen mit je höchstens 30 Zeichen, die Regelliste bis zu
+16 Kennungen. Eintragen lassen sich Regeln bis zur Stufe „mittel“, die keine Datei selbst
+verschieben; eine andere Regel lehnt die Seite mit ihrem Namen ab. Eine leere Regelliste
+lässt jede Regel auch in Testordnern zählen. Das Addon gibt die Listen bei jeder Prüfung als
+`--test-dirs`, `--library-dirs` und `--test-rules` an den Scanner.
+
 ## Abgleich mit den Herstellern
 
 **Security > Scanner > Einstellungen > Abgleich mit den Herstellern** legt fest, wie der

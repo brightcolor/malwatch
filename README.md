@@ -111,6 +111,29 @@ Konstrukte, die das PHP der Website nicht mehr ausführt, etwa `preg_replace`
 mit `/e` ab PHP 7, bleiben still; die Version kommt von `--php` oder
 `--php-version`.
 
+Seit 0.42.0 zählt ein `eval` nicht, das Code ausführt, den dieselbe Funktion
+aus eigenem Text schreibt: Die Variable entsteht dort aus Zeichenketten, die
+eine Funktions- oder Klassendefinition eröffnen, und aus nichts, was aus der
+Anfrage, einer Datei, dem Netz, einem Decoder oder einem Aufruf über eine
+Variable stammt. So schreiben XML-RPC- und Mock-Bibliotheken ihre Wrapper. Ein
+`eval` auf einen Parameter, auf der obersten Ebene einer Datei oder auf
+dekodierten Text bleibt ein Fund.
+
+**Tests von Bibliotheken.** Bibliotheken bringen ihre Tests mit: Die starten
+Testserver im Hintergrund, enthalten Beispieldateien mit `eval` und liefern die
+Programme mit, die sie dafür brauchen. In einem Testordner einer Bibliothek
+zählen die Hinweisregeln aus `--test-rules` nicht (Vorgabe:
+php.exec.background, php.eval.variable, binary.elf). Ein Testordner ist ein
+Ordner aus `--test-dirs` (Vorgabe: test, tests, test-suite, testsuite,
+fixtures, \_\_tests\_\_) innerhalb einer Bibliothek unterhalb eines Ordners aus
+`--library-dirs` (Vorgabe: vendor, vendors, node_modules, bower_components),
+etwa `vendor/phpmailer/phpmailer/test`. Als Test gilt auch eine Datei, die die
+Bibliothek in ihrer `.gitignore` als Datei eines Testordners führt, etwa der
+Mock-Server `prism_linux_amd64` des SendGrid-SDK. Unterhalb eines Upload-Ordners
+gilt nichts als Bibliothek. Eintragen lassen sich nur Regeln bis zur Stufe
+„mittel“ ohne selbsttätige Quarantäne; Signaturen, Webshell-Regeln und alle
+Funde ab „hoch“ gelten auch in Testordnern.
+
 **Veraltete Installationen** von WordPress samt Plugins und Themes, Joomla,
 Drupal, TYPO3, Contao, Nextcloud, phpMyAdmin, Matomo, MediaWiki, Shopware und
 Magento, abgeglichen mit den Herstellerquellen.

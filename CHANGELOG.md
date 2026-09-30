@@ -2,6 +2,45 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.42.0] – 2026-09-30
+
+Zwei weitere Arten von Herstellercode erkennt der Scanner als solche: Wrapper, die eine
+Bibliothek aus eigenem Text schreibt, und die Tests von Bibliotheken.
+
+### Hinzugefügt
+
+**Testordner von Bibliotheken.** In einem Testordner einer Bibliothek zählen die
+Hinweisregeln `php.exec.background`, `php.eval.variable` und `binary.elf` nicht: Tests
+starten Testserver im Hintergrund, enthalten Beispieldateien mit `eval` und bringen die
+Programme mit, die sie brauchen. Ein Testordner ist ein Ordner wie `test`, `tests`,
+`test-suite`, `testsuite`, `fixtures` oder `__tests__` innerhalb einer Bibliothek unterhalb
+von `vendor`, `vendors`, `node_modules` oder `bower_components`. Als Test gilt auch eine
+Datei, die die Bibliothek in ihrer `.gitignore` als Datei eines Testordners führt, etwa der
+Mock-Server Prism des SendGrid-SDK. Unterhalb eines Upload-Ordners gilt nichts als
+Bibliothek; Signaturen, Webshell-Regeln und alle Funde ab „hoch“ gelten auch in
+Testordnern. Scanner: `--test-dirs`, `--library-dirs`, `--test-rules`; eintragen lassen sich
+Regeln bis zur Stufe „mittel“ ohne selbsttätige Quarantäne.
+
+**Einstellungen unter Scanner > Einstellungen > Testordner von Bibliotheken:** Testordner,
+Bibliotheksordner und Regeln, die in Testordnern nicht zählen. Die Seite lehnt eine Regel
+ab, die der Regelkatalog als „hoch“, „kritisch“ oder mit selbsttätiger Quarantäne führt.
+
+### Geändert
+
+**Selbst geschriebene Wrapper sind kein Fund.** `php.eval.variable` und
+`php.remote.fetch_eval_indirect` lassen ein `eval` durch, das Code ausführt, den dieselbe
+Funktion aus eigenem Text schreibt: Die Variable entsteht dort aus Zeichenketten, die eine
+Funktions- oder Klassendefinition eröffnen, und aus nichts, was aus der Anfrage, einer
+Datei, dem Netz, einem Decoder oder einem Aufruf über eine Variable stammt. So schreibt die
+XML-RPC-Bibliothek phpxmlrpc ihre Wrapper, die SeedProd mitliefert. Ein `eval` auf einen
+Parameter, auf der obersten Ebene einer Datei oder auf dekodierten Text bleibt ein Fund.
+
+### Behoben
+
+**Leere Listen erreichen den Scanner leer.** Eine absichtlich geleerte Liste, bei der leer
+eine Wahl ist (erlaubte Skript-Hosts, Hosts für Archive, Regeln für Testordner), ersetzte
+der Server durch die Vorgabe.
+
 ## [0.41.0] – 2026-09-30
 
 Fehlalarme verschwinden durch Erkennung: Der Scanner gleicht mehr mit den Herstellern ab und
