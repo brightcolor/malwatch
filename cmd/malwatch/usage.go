@@ -59,6 +59,8 @@ Prüfstufen:
                            Schwachstellen-Datenbanken
   --no-verify-composer     Dateien mit Fund nicht mit dem Originalarchiv
                            ihres Composer-Pakets abgleichen
+  --no-verify-originals    abweichende Skriptdateien nicht mit der Datei des
+                           Herstellers vergleichen (Neubau oder Einschub)
   --verify-hosts=HOSTS     Hosts, von denen Archive geladen werden, durch
                            Komma getrennt (Vorgabe: codeload.github.com,
                            api.github.com, github.com, gitlab.com, bitbucket.org)

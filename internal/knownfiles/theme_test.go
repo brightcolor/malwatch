@@ -8,6 +8,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -93,5 +94,27 @@ func TestVerifiedTreesOnlyConfirm(t *testing.T) {
 	}
 	if st, _ := idx.Check("/web/wp-content/themes/twentyx/custom.php", []byte("<?php echo 1;")); st != Unknown {
 		t.Errorf("zusätzliche Datei: %v, erwartet Unknown", st)
+	}
+}
+
+// OriginOf names where the release's own version of a listed file lies, also
+// for the whole directories of a core install.
+func TestOriginOfNamesTheFileOfTheRelease(t *testing.T) {
+	idx := New()
+	idx.AddVendorTree("/web/wp-content/plugins/x", "Plugin x 1.0", map[string]string{"js/a.js": md5Of("a")})
+	idx.SetOrigin("/web/wp-content/plugins/x", "Plugin x 1.0", "https://plugins.svn.wordpress.org/x/tags/1.0/")
+	idx.AddCore("/web", "WordPress 6.5.5", map[string]string{"wp-admin/js/b.js": md5Of("b"), "index.php": md5Of("i")}, "wp-admin")
+	idx.SetOrigin("/web", "WordPress 6.5.5", "https://core.svn.wordpress.org/tags/6.5.5/")
+	for _, c := range []struct{ path, want string }{
+		{"/web/wp-content/plugins/x/js/a.js", "https://plugins.svn.wordpress.org/x/tags/1.0/js/a.js"},
+		{"/web/wp-admin/js/b.js", "https://core.svn.wordpress.org/tags/6.5.5/wp-admin/js/b.js"},
+		{"/web/index.php", "https://core.svn.wordpress.org/tags/6.5.5/index.php"},
+	} {
+		if got, ok := idx.OriginOf(filepath.FromSlash(c.path)); !ok || got != c.want {
+			t.Errorf("%s: %q %v, erwartet %q", c.path, got, ok, c.want)
+		}
+	}
+	if _, ok := idx.OriginOf(filepath.FromSlash("/web/wp-content/plugins/x/js/unlisted.js")); ok {
+		t.Error("nicht gelistete Datei hat eine Herkunft")
 	}
 }

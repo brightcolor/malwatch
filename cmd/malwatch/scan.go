@@ -50,6 +50,7 @@ func cmdScan(args []string) int {
 	fs.Var(&scriptHosts, "script-hosts", "")
 	fs.Var(&verifyHosts, "verify-hosts", "")
 	noVerifyComposer := fs.Bool("no-verify-composer", false, "")
+	noVerifyOriginals := fs.Bool("no-verify-originals", false, "")
 	verifyMaxDownloads := fs.Int("verify-max-downloads", composer.DefaultMaxDownloads, "")
 	verifyMaxMB := fs.Int("verify-max-mb", composer.DefaultMaxMB, "")
 	verifyTimeout := fs.Int("verify-timeout", composer.DefaultTimeoutSeconds, "")
@@ -140,6 +141,7 @@ func cmdScan(args []string) int {
 
 	verify := scanner.DefaultVerify()
 	verify.Composer = !*noVerifyComposer
+	verify.Originals = !*noVerifyOriginals
 	if len(verifyHosts) > 0 {
 		verify.Hosts = rules.ParseUploadDirs(verifyHosts)
 		for i := range verify.Hosts {

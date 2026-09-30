@@ -87,6 +87,8 @@ type Options struct {
 	verified *verifiedCount
 	// verifyTransport replaces the network of the check for the tests.
 	verifyTransport http.RoundTripper
+	// originals loads single files of a vendor's release, see rebuilt.
+	originals *originFetcher
 	// View limits what the report shows of a file with findings: its marks,
 	// its traits and the lines around them. The zero value reports neither
 	// marks nor code; the command line starts from fileview.Default.
@@ -172,6 +174,7 @@ func Run(opts Options) (*report.Report, error) {
 	}
 
 	opts.verified = &verifiedCount{m: map[string]int{}}
+	opts.originals = newOriginFetcher(&opts)
 	if !opts.NoMalwareScan {
 		if err := scanFiles(rep, &opts, sigDB, engine, known); err != nil {
 			return rep, err
@@ -364,7 +367,7 @@ func scanFile(f walk.File, sigDB *sigs.DB, engine *rules.Engine, known *knownfil
 	}
 
 	var out []report.Finding
-	if status == knownfiles.Modified && countsAsModified(f.Ext, opts.modifiedExts()) {
+	if status == knownfiles.Modified && countsAsModified(f.Ext, opts.modifiedExts()) && !opts.rebuilt(f.Path, f.Ext, content, known) {
 		out = append(out, report.Finding{
 			Path:     f.Path,
 			Rule:     "core.modified",
@@ -789,12 +792,15 @@ func loadChecksums(known *knownfiles.Index, fetcher *knownfiles.Fetcher, inst cm
 			// found wp-admin/wp-admin.php on a live site. The root stays
 			// partial: wp-config.php and wp-content are the site's own.
 			known.AddCore(inst.Path, label, files, "wp-admin", "wp-includes")
+			known.SetOrigin(inst.Path, label, "https://core.svn.wordpress.org/tags/"+inst.Version+"/")
 		}
 	case "plugin":
 		if files, err := fetcher.WordPressPlugin(inst.Slug, inst.Version); err == nil {
 			// Als ganzer Baum: was wordpress.org für dieses Plugin ausliefert,
 			// ist alles, was in dem Verzeichnis stehen sollte.
-			known.AddVendorTree(inst.Path, "Plugin "+inst.Slug+" "+inst.Version, files)
+			label := "Plugin " + inst.Slug + " " + inst.Version
+			known.AddVendorTree(inst.Path, label, files)
+			known.SetOrigin(inst.Path, label, "https://plugins.svn.wordpress.org/"+inst.Slug+"/tags/"+inst.Version+"/")
 		}
 	case "theme":
 		if files, err := fetcher.WordPressTheme(inst.Slug, inst.Version); err == nil {

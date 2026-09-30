@@ -60,6 +60,10 @@ const verifiedComposer = "Datei eines Composer-Pakets"
 type VerifyOptions struct {
 	// Composer confirms files of Composer packages against their archives.
 	Composer bool
+	// Originals weighs a script file that differs from its vendor list
+	// against the original from the vendor's repository: a rebuild is no
+	// core.modified, an added loader is.
+	Originals bool
 	// Hosts are the only hosts archives are loaded from.
 	Hosts []string
 	// MaxDownloads caps the archives one run loads, MaxMB the size of one,
@@ -75,6 +79,7 @@ type VerifyOptions struct {
 func DefaultVerify() VerifyOptions {
 	return VerifyOptions{
 		Composer:       true,
+		Originals:      true,
 		Hosts:          append([]string(nil), composer.DefaultHosts...),
 		MaxDownloads:   composer.DefaultMaxDownloads,
 		MaxMB:          composer.DefaultMaxMB,

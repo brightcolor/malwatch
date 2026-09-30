@@ -27,7 +27,7 @@ func TestScanRefusesBadVerifyValues(t *testing.T) {
 
 func TestScanTakesVerifyValues(t *testing.T) {
 	code := cmdScan([]string{"--path=" + t.TempDir(), "--quiet", "--offline", "--no-clamav", "--no-version-scan",
-		"--no-verify-composer", "--verify-hosts=codeload.github.com", "--verify-max-downloads=3",
+		"--no-verify-composer", "--no-verify-originals", "--verify-hosts=codeload.github.com", "--verify-max-downloads=3",
 		"--verify-max-mb=10", "--verify-timeout=20", "--verify-retry-hours=0"})
 	if code != report.ExitClean {
 		t.Errorf("Rückgabewert %d, erwartet %d", code, report.ExitClean)
@@ -35,7 +35,7 @@ func TestScanTakesVerifyValues(t *testing.T) {
 }
 
 func TestUsageNamesTheVerifySwitches(t *testing.T) {
-	for _, s := range []string{"--no-verify-composer", "--verify-hosts=HOSTS", "--verify-max-downloads=N",
+	for _, s := range []string{"--no-verify-composer", "--no-verify-originals", "--verify-hosts=HOSTS", "--verify-max-downloads=N",
 		"--verify-max-mb=N", "--verify-timeout=S", "--verify-retry-hours=N"} {
 		if !strings.Contains(usageText, s) {
 			t.Errorf("die Hilfe nennt %s nicht", s)

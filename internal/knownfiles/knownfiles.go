@@ -60,6 +60,9 @@ type entry struct {
 	// confirmOnly says the list may only confirm a file: one that differs or
 	// is missing from it says nothing, see AddVerified.
 	confirmOnly bool
+	// origin is where a single file of the release can be read, the path
+	// below root appended; empty when unknown. See OriginOf.
+	origin string
 }
 
 // New returns an empty index.
@@ -223,6 +226,46 @@ func (i *Index) Check(path string, content []byte) (Status, string) {
 		}
 	}
 	return Unknown, ""
+}
+
+// SetOrigin names where single files of the release registered for root can
+// be read: base with the path below root appended, such as a tag of a plugin
+// on plugins.svn.wordpress.org. It applies to the entries registered under
+// label; one below root - wp-admin of a core install - gets its directory
+// added to base.
+func (i *Index) SetOrigin(root, label, base string) {
+	root = filepath.Clean(root)
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	for _, e := range i.entries {
+		if e.label != label {
+			continue
+		}
+		if e.root == root {
+			e.origin = base
+		} else if sub, ok := relativeTo(root, e.root); ok {
+			e.origin = base + sub + "/"
+		}
+	}
+}
+
+// OriginOf returns where the release's own version of a listed file can be
+// read, for a file below a root with a known origin.
+func (i *Index) OriginOf(path string) (string, bool) {
+	i.mu.RLock()
+	entries := i.entries
+	i.mu.RUnlock()
+	clean := filepath.Clean(path)
+	for _, e := range entries {
+		rel, ok := relativeTo(e.root, clean)
+		if !ok {
+			continue
+		}
+		if _, listed := e.files[rel]; listed && e.origin != "" {
+			return e.origin + rel, true
+		}
+	}
+	return "", false
 }
 
 // Copy reports whether content is byte for byte a file of one of the
