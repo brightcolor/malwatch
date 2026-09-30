@@ -92,6 +92,10 @@ type Rule struct {
 	// of the match, or in the body of a function that body calls: two parts
 	// of a library that share a file but not a purpose describe no action.
 	SameScope bool
+	// DeadFrom is the PHP version from which the construct no longer runs:
+	// on a website with that PHP or newer the rule stays silent. The version
+	// comes from the PHP of the site (SetPHPVersion); unknown keeps it on.
+	DeadFrom string
 }
 
 // Place is where below the scanned root a rule looks.

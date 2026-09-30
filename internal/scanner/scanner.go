@@ -55,6 +55,10 @@ type Options struct {
 	// PHPBinary names the PHP of the website; the report then carries its
 	// version, so the panel can tell which releases the site can take.
 	PHPBinary string
+	// PHPVersion names the PHP version of the website directly and wins over
+	// the one read from PHPBinary. Rules about constructs that PHP no longer
+	// runs stay silent on a site whose PHP is newer (rules.Rule.DeadFrom).
+	PHPVersion string
 
 	IgnoreRules []string
 	Whitelist   map[string]bool
@@ -129,6 +133,11 @@ func Run(opts Options) (*report.Report, error) {
 
 	engine := rules.NewEngine(opts.IgnoreRules)
 	engine.SetMarkLimit(opts.View.MaxMarks)
+	if opts.PHPVersion != "" {
+		engine.SetPHPVersion(opts.PHPVersion)
+	} else {
+		engine.SetPHPVersion(rep.PHPVersion)
+	}
 	if len(opts.UploadDirs) > 0 {
 		if err := engine.SetUploadDirs(opts.UploadDirs); err != nil {
 			return nil, fmt.Errorf("--upload-dirs: %w", err)

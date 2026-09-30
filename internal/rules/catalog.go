@@ -74,8 +74,11 @@ var catalog = []*Rule{
 		CodeOnly:    true,
 		Severity:    report.SeverityCritical,
 		Description: "preg_replace mit dem Modifikator e führt Code aus",
-		Exts:        phpExts,
-		Match:       rx(`(?is)preg_replace\s*\(\s*(?:'[^'\n]{0,200}[/#~|!%][imsxuADSUXJ]*e[imsxuADSUXJ]*'|"[^"\n]{0,200}[/#~|!%][imsxuADSUXJ]*e[imsxuADSUXJ]*")`),
+		// PHP 7.0 dropped the modifier: the call fails instead of running
+		// code. Old releases of RevSlider, Jupiter and WPBakery still carry it.
+		DeadFrom: "7.0",
+		Exts:     phpExts,
+		Match:    rx(`(?is)preg_replace\s*\(\s*(?:'[^'\n]{0,200}[/#~|!%][imsxuADSUXJ]*e[imsxuADSUXJ]*'|"[^"\n]{0,200}[/#~|!%][imsxuADSUXJ]*e[imsxuADSUXJ]*")`),
 	},
 	{
 		ID:          "php.callback.request",

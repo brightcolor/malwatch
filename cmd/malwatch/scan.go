@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -65,6 +66,7 @@ func cmdScan(args []string) int {
 	noVuln := fs.Bool("no-vuln-scan", false, "")
 	wpscanTokenFile := fs.String("wpscan-token-file", "", "")
 	phpBinary := fs.String("php", "", "")
+	phpVersion := fs.String("php-version", "", "")
 	offline := fs.Bool("offline", false, "")
 
 	asJSON := fs.Bool("json", false, "")
@@ -121,6 +123,12 @@ func cmdScan(args []string) int {
 			fmt.Fprintf(os.Stderr, "--modified-exts: %v. Beispiel: --modified-exts=php,js,html\n", err)
 			return report.ExitError
 		}
+	}
+
+	if *phpVersion != "" && !phpVersionShape.MatchString(*phpVersion) {
+		fmt.Fprintf(os.Stderr, "--php-version: %q ist keine PHP-Version. Beispiel: --php-version=8.2 oder --php-version=7.4.33\n",
+			*phpVersion)
+		return report.ExitError
 	}
 
 	hosts := rules.ParseUploadDirs(scriptHosts)
@@ -182,6 +190,7 @@ func cmdScan(args []string) int {
 		WPScanToken:     os.Getenv("MALWATCH_WPSCAN_TOKEN"),
 		WPScanTokenFile: *wpscanTokenFile,
 		PHPBinary:       *phpBinary,
+		PHPVersion:      *phpVersion,
 		Offline:         *offline,
 		IgnoreRules:     ignore,
 		Whitelist:       whitelist,
@@ -341,3 +350,7 @@ func cmdWhitelist(args []string) int {
 	fmt.Printf("Freigegeben: %s\n%s\n", target, sum)
 	return 0
 }
+
+// phpVersionShape is a PHP version as --php-version takes it: up to three
+// numbers joined by dots.
+var phpVersionShape = regexp.MustCompile(`^[0-9]{1,2}(?:\.[0-9]{1,3}){0,2}$`)

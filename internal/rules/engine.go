@@ -26,6 +26,8 @@ type Engine struct {
 	// fingerprint.
 	scriptHosts    map[string]bool
 	scriptHostList []string
+	// phpVersion is the PHP version of the website, empty when unknown.
+	phpVersion string
 }
 
 // NewEngine returns an engine over the full catalog, minus the rule IDs in
@@ -77,7 +79,8 @@ func (e *Engine) RuleCount() int { return len(e.rules) }
 // and the upload directories. A clean file stays clean only under the same
 // fingerprint.
 func (e *Engine) Fingerprint() string {
-	return fmt.Sprintf("%d|%s|%s", len(e.rules), strings.Join(e.uploadDirs, ","), strings.Join(e.scriptHostList, ","))
+	return fmt.Sprintf("%d|%s|%s|%s", len(e.rules), strings.Join(e.uploadDirs, ","), strings.Join(e.scriptHostList, ","),
+		e.phpVersion)
 }
 
 // fits reports whether rel lies where the rule looks.
@@ -170,6 +173,9 @@ func (e *Engine) Scan(path, rel, ext string, content []byte) []report.Finding {
 			continue
 		}
 		if r.SkipInert && isInert() {
+			continue
+		}
+		if r.DeadFrom != "" && e.phpVersion != "" && versionAtLeast(e.phpVersion, r.DeadFrom) {
 			continue
 		}
 		if f, ok := e.apply(r, path, content, content, nil, linesOf, cv); ok {

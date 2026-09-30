@@ -34,6 +34,9 @@ Prüfumfang:
   --modified-exts=ENDUNGEN Endungen, bei denen eine Abweichung vom Hersteller
                            als core.modified zählt, durch Komma getrennt
                            (Vorgabe: PHP-Endungen, js, html, svg, htaccess, ini)
+  --php-version=VERSION    PHP-Version der Website, wenn --php sie nicht liefert;
+                           Regeln zu Konstrukten, die diese Version nicht mehr
+                           ausführt, schweigen dann
   --script-hosts=HOSTS     Hosts, von denen ein per document.write geschriebenes
                            Skript laden darf, durch Komma getrennt; leer heißt
                            nur die eigene Website (Vorgabe: Google Analytics,
