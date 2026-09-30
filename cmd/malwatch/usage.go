@@ -41,6 +41,15 @@ Prüfumfang:
                            Skript laden darf, durch Komma getrennt; leer heißt
                            nur die eigene Website (Vorgabe: Google Analytics,
                            ajax.googleapis.com, code.jquery.com)
+  --test-dirs=NAMEN        Namen von Testordnern, durch Komma getrennt, Groß-
+                           und Kleinschreibung egal (Vorgabe: test, tests,
+                           test-suite, testsuite, fixtures, __tests__)
+  --library-dirs=NAMEN     Ordner, in denen Bibliotheken liegen (Vorgabe: vendor,
+                           vendors, node_modules, bower_components)
+  --test-rules=REGELN      Regeln, die in Testordnern einer Bibliothek nicht
+                           zählen, bis zur Stufe mittel; leer heißt alle zählen
+                           (Vorgabe: php.exec.background, php.eval.variable,
+                           binary.elf)
   --ignore-chmod0          Dateien mit Rechten 000 auslassen
   --threads=N              Anzahl paralleler Arbeiter (Vorgabe: Kerne)
 

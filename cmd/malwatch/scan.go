@@ -41,12 +41,16 @@ func cmdScan(args []string) int {
 	fs.Usage = func() { usage(os.Stderr) }
 
 	var paths, excludes, excludeFrom, ignore, email, uploadDirs, modifiedExts, scriptHosts, verifyHosts stringList
+	var testDirs, libraryDirs, testRules stringList
 	fs.Var(&paths, "path", "")
 	fs.Var(&excludes, "exclude", "")
 	fs.Var(&excludeFrom, "exclude-from", "")
 	fs.Var(&ignore, "ignore", "")
 	fs.Var(&email, "email", "")
 	fs.Var(&uploadDirs, "upload-dirs", "")
+	fs.Var(&testDirs, "test-dirs", "")
+	fs.Var(&libraryDirs, "library-dirs", "")
+	fs.Var(&testRules, "test-rules", "")
 	fs.Var(&modifiedExts, "modified-exts", "")
 	fs.Var(&scriptHosts, "script-hosts", "")
 	fs.Var(&verifyHosts, "verify-hosts", "")
@@ -123,6 +127,22 @@ func cmdScan(args []string) int {
 			fmt.Fprintf(os.Stderr, "--upload-dirs: %v. Beispiel: --upload-dirs=uploads,attachments\n", err)
 			return report.ExitError
 		}
+	}
+
+	libTests := rules.DefaultLibraryTests()
+	if len(testDirs) > 0 {
+		libTests.TestDirs = rules.ParseUploadDirs(testDirs)
+	}
+	if len(libraryDirs) > 0 {
+		libTests.LibraryDirs = rules.ParseUploadDirs(libraryDirs)
+	}
+	if len(testRules) > 0 {
+		libTests.Rules = rules.ParseUploadDirs(testRules)
+	}
+	if err := libTests.Check(); err != nil {
+		fmt.Fprintf(os.Stderr, "Testordner von Bibliotheken: %v. Beispiel: --test-dirs=test,tests --library-dirs=vendor "+
+			"--test-rules=php.exec.background\n", err)
+		return report.ExitError
 	}
 
 	exts := rules.ParseUploadDirs(modifiedExts)
@@ -252,6 +272,10 @@ func cmdScan(args []string) int {
 		ModifiedExts:    exts,
 		ScriptHosts:     hosts,
 		ScriptHostsSet:  len(scriptHosts) > 0,
+		TestDirs:        libTests.TestDirs,
+		LibraryDirs:     libTests.LibraryDirs,
+		TestRules:       libTests.Rules,
+		TestRulesSet:    true,
 		Verify:          verify,
 		View:            view,
 		SignatureDir:    *sigDir,
