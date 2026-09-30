@@ -17,6 +17,7 @@ func TestScanRefusesBadVerifyValues(t *testing.T) {
 		"--verify-max-mb=0", "--verify-max-mb=501",
 		"--verify-timeout=0", "--verify-timeout=601",
 		"--verify-retry-hours=-1", "--verify-retry-hours=721",
+		"--hashlookup-url=http://hashlookup.circl.lu", "--hashlookup-url=hashlookup.circl.lu",
 	} {
 		code := cmdScan([]string{"--path=" + t.TempDir(), "--quiet", "--offline", "--no-clamav", arg})
 		if code != report.ExitError {
@@ -36,7 +37,7 @@ func TestScanTakesVerifyValues(t *testing.T) {
 
 func TestUsageNamesTheVerifySwitches(t *testing.T) {
 	for _, s := range []string{"--no-verify-composer", "--no-verify-originals", "--verify-hosts=HOSTS", "--verify-max-downloads=N",
-		"--verify-max-mb=N", "--verify-timeout=S", "--verify-retry-hours=N"} {
+		"--verify-max-mb=N", "--verify-timeout=S", "--verify-retry-hours=N", "--hashlookup-url=URL"} {
 		if !strings.Contains(usageText, s) {
 			t.Errorf("die Hilfe nennt %s nicht", s)
 		}

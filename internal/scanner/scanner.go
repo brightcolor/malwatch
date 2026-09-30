@@ -185,6 +185,7 @@ func Run(opts Options) (*report.Report, error) {
 	}
 
 	verifyComposer(rep, &opts)
+	verifyHashlookup(rep, &opts)
 	applyWhitelist(rep, opts.Whitelist)
 	if len(opts.verified.m) > 0 {
 		rep.Verified = opts.verified.m

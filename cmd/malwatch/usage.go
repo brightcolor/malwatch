@@ -61,6 +61,9 @@ Prüfstufen:
                            ihres Composer-Pakets abgleichen
   --no-verify-originals    abweichende Skriptdateien nicht mit der Datei des
                            Herstellers vergleichen (Neubau oder Einschub)
+  --hashlookup-url=URL     Dateien mit Fund bei einer Datenbank bekannter
+                           Dateien nachschlagen, etwa https://hashlookup.circl.lu;
+                           es gehen nur Prüfsummen hinaus (Vorgabe: aus)
   --verify-hosts=HOSTS     Hosts, von denen Archive geladen werden, durch
                            Komma getrennt (Vorgabe: codeload.github.com,
                            api.github.com, github.com, gitlab.com, bitbucket.org)

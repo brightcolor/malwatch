@@ -1,12 +1,17 @@
 package scanner
 
 import (
+	"crypto/sha1"
+	"crypto/sha256"
+	"encoding/hex"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/brightcolor/malwatch/internal/composer"
+	"github.com/brightcolor/malwatch/internal/hashlookup"
 	"github.com/brightcolor/malwatch/internal/report"
 	"github.com/brightcolor/malwatch/internal/rules"
 )
@@ -54,6 +59,10 @@ func keepPlace(out []report.Finding) []report.Finding {
 // their Composer package.
 const verifiedComposer = "Datei eines Composer-Pakets"
 
+// verifiedHashlookup is the source of files a database of known files has as
+// part of published software.
+const verifiedHashlookup = "in einer Datenbank bekannter Dateien"
+
 // VerifyOptions steer the check of files with findings against the sources
 // that know them: the archives of Composer packages and, when an address is
 // set, a database of known file hashes.
@@ -73,6 +82,10 @@ type VerifyOptions struct {
 	MaxMB          int
 	TimeoutSeconds int
 	RetryHours     int
+	// HashlookupURL asks a database of known files, such as CIRCL
+	// hashlookup, about the files with findings that nothing else confirmed.
+	// Only their sums leave the server. Empty asks nobody.
+	HashlookupURL string
 }
 
 // DefaultVerify returns the check as the command line starts from it.
@@ -200,4 +213,62 @@ func packageOf(file string, roots []string, vendors map[string][]composer.Packag
 		}
 	}
 	return nil, ""
+}
+
+// verifyHashlookup asks the database of known files about the files with
+// content findings that are left, and drops those findings for a file it has
+// as part of published software. Only sums leave the server.
+func verifyHashlookup(rep *report.Report, opts *Options) {
+	if opts.Offline || opts.Verify.HashlookupURL == "" {
+		return
+	}
+	var files []hashlookup.File
+	byPath := map[string]string{}
+	for _, f := range rep.Findings {
+		if !contentFinding(f) {
+			continue
+		}
+		if _, seen := byPath[f.Path]; seen {
+			continue
+		}
+		sum256 := f.SHA256
+		raw, err := os.ReadFile(f.Path)
+		if err != nil {
+			byPath[f.Path] = ""
+			continue
+		}
+		if sum256 == "" {
+			s := sha256.Sum256(raw)
+			sum256 = hex.EncodeToString(s[:])
+		}
+		s1 := sha1.Sum(raw)
+		byPath[f.Path] = sum256
+		files = append(files, hashlookup.File{SHA1: hex.EncodeToString(s1[:]), SHA256: sum256})
+	}
+	if len(files) == 0 {
+		return
+	}
+	client := hashlookup.New(opts.Verify.HashlookupURL, time.Duration(opts.Verify.TimeoutSeconds)*time.Second, opts.verifyTransport)
+	known, err := client.Known(files)
+	if err != nil {
+		rep.Errors = append(rep.Errors, "Datenbank bekannter Dateien: "+err.Error())
+	}
+	if len(known) == 0 {
+		return
+	}
+	confirmed := map[string]bool{}
+	for path, sum := range byPath {
+		if _, ok := known[sum]; ok && sum != "" {
+			confirmed[path] = true
+			opts.count(verifiedHashlookup)
+		}
+	}
+	kept := rep.Findings[:0]
+	for _, f := range rep.Findings {
+		if confirmed[f.Path] && contentFinding(f) {
+			continue
+		}
+		kept = append(kept, f)
+	}
+	rep.Findings = kept
 }

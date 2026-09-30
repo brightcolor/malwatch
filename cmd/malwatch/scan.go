@@ -11,6 +11,7 @@ import (
 
 	"github.com/brightcolor/malwatch/internal/composer"
 	"github.com/brightcolor/malwatch/internal/fileview"
+	"github.com/brightcolor/malwatch/internal/hashlookup"
 	"github.com/brightcolor/malwatch/internal/mail"
 	"github.com/brightcolor/malwatch/internal/progress"
 	"github.com/brightcolor/malwatch/internal/report"
@@ -51,6 +52,7 @@ func cmdScan(args []string) int {
 	fs.Var(&verifyHosts, "verify-hosts", "")
 	noVerifyComposer := fs.Bool("no-verify-composer", false, "")
 	noVerifyOriginals := fs.Bool("no-verify-originals", false, "")
+	hashlookupURL := fs.String("hashlookup-url", "", "")
 	verifyMaxDownloads := fs.Int("verify-max-downloads", composer.DefaultMaxDownloads, "")
 	verifyMaxMB := fs.Int("verify-max-mb", composer.DefaultMaxMB, "")
 	verifyTimeout := fs.Int("verify-timeout", composer.DefaultTimeoutSeconds, "")
@@ -142,6 +144,13 @@ func cmdScan(args []string) int {
 	verify := scanner.DefaultVerify()
 	verify.Composer = !*noVerifyComposer
 	verify.Originals = !*noVerifyOriginals
+	if *hashlookupURL != "" {
+		if err := hashlookup.CheckURL(*hashlookupURL); err != nil {
+			fmt.Fprintln(os.Stderr, "--hashlookup-url: "+err.Error())
+			return report.ExitError
+		}
+		verify.HashlookupURL = *hashlookupURL
+	}
 	if len(verifyHosts) > 0 {
 		verify.Hosts = rules.ParseUploadDirs(verifyHosts)
 		for i := range verify.Hosts {
