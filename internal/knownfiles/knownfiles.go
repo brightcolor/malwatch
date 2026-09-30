@@ -57,6 +57,9 @@ type entry struct {
 	// complete says the list covers everything the vendor puts in this
 	// directory, so anything else below it does not come from the vendor.
 	complete bool
+	// confirmOnly says the list may only confirm a file: one that differs or
+	// is missing from it says nothing, see AddVerified.
+	confirmOnly bool
 }
 
 // New returns an empty index.
@@ -71,7 +74,7 @@ func New() *Index {
 // is simply unknown. That is the right reading for a CMS core, whose
 // directory also holds the configuration, the uploads and every plugin.
 func (i *Index) AddInstall(root, label string, files map[string]string) {
-	i.add(root, label, files, false)
+	i.add(root, label, files, false, false)
 }
 
 // AddVendorTree registers a directory the vendor ships as a whole - a plugin
@@ -83,7 +86,15 @@ func (i *Index) AddInstall(root, label string, files map[string]string) {
 // belong here - needs no pattern and cannot produce a false positive from a
 // clever disguise, which is what makes it worth asking.
 func (i *Index) AddVendorTree(root, label string, files map[string]string) {
-	i.add(root, label, files, true)
+	i.add(root, label, files, true, false)
+}
+
+// AddVerified registers a list that may only confirm a file as the vendor's.
+// A theme is often adapted to its site - functions.php edited, a template
+// added - so a file that differs from the release or is not part of it says
+// nothing there; one that matches needs no further look.
+func (i *Index) AddVerified(root, label string, files map[string]string) {
+	i.add(root, label, files, false, true)
 }
 
 // AddCore registers the checksum list of a CMS core whose directories
@@ -96,7 +107,7 @@ func (i *Index) AddVendorTree(root, label string, files map[string]string) {
 // some other way. wp-cli verify-checksums asks the same question of the same
 // two directories.
 func (i *Index) AddCore(root, label string, files map[string]string, wholeDirs ...string) {
-	i.add(root, label, files, false)
+	i.add(root, label, files, false, false)
 	for _, dir := range wholeDirs {
 		prefix := strings.Trim(dir, "/") + "/"
 		below := make(map[string]string)
@@ -105,11 +116,11 @@ func (i *Index) AddCore(root, label string, files map[string]string, wholeDirs .
 				below[path[len(prefix):]] = sum
 			}
 		}
-		i.add(filepath.Join(root, filepath.FromSlash(dir)), label, below, true)
+		i.add(filepath.Join(root, filepath.FromSlash(dir)), label, below, true, false)
 	}
 }
 
-func (i *Index) add(root, label string, files map[string]string, complete bool) {
+func (i *Index) add(root, label string, files map[string]string, complete, confirmOnly bool) {
 	if len(files) == 0 {
 		return
 	}
@@ -125,10 +136,11 @@ func (i *Index) add(root, label string, files map[string]string, complete bool) 
 		}
 	}
 	i.entries = append(i.entries, &entry{
-		root:     filepath.Clean(root),
-		label:    label,
-		files:    files,
-		complete: complete,
+		root:        filepath.Clean(root),
+		label:       label,
+		files:       files,
+		complete:    complete,
+		confirmOnly: confirmOnly,
 	})
 	sort.SliceStable(i.entries, func(a, b int) bool {
 		return len(i.entries[a].root) > len(i.entries[b].root)
@@ -181,6 +193,9 @@ func (i *Index) Check(path string, content []byte) (Status, string) {
 		}
 		want, ok := e.files[rel]
 		if !ok {
+			if e.confirmOnly {
+				continue
+			}
 			if e.complete {
 				// Inside a directory the vendor ships whole, and not part of
 				// it. The caller decides what to make of that; the index only
@@ -194,6 +209,9 @@ func (i *Index) Check(path string, content []byte) (Status, string) {
 		sum := md5.Sum(content)
 		if SumMatches(want, hex.EncodeToString(sum[:])) {
 			return Original, e.label
+		}
+		if e.confirmOnly {
+			continue
 		}
 		return Modified, e.label
 	}

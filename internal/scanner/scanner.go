@@ -796,14 +796,15 @@ func loadChecksums(known *knownfiles.Index, fetcher *knownfiles.Fetcher, inst cm
 			// ist alles, was in dem Verzeichnis stehen sollte.
 			known.AddVendorTree(inst.Path, "Plugin "+inst.Slug+" "+inst.Version, files)
 		}
+	case "theme":
+		if files, err := fetcher.WordPressTheme(inst.Slug, inst.Version); err == nil {
+			// Nur zur Bestätigung: ein Theme wird oft an die Website angepasst,
+			// eine geänderte oder zusätzliche Datei sagt dort nichts.
+			known.AddVerified(inst.Path, "Theme "+inst.Slug+" "+inst.Version, files)
+		}
 	}
 }
 
-// runnableExt reports whether the web server would hand this file to PHP.
-//
-// Die Liste ist absichtlich dieselbe, die auch die Regeln als phpExts
-// benutzen, ohne .js: eine erzeugte JavaScript-Datei im Plugin-Verzeichnis
-// ist gewöhnlich, und ob eine fremde davon vorkommt, ist nicht gemessen.
 // inertFile reports whether a file can do nothing when requested or included,
 // see phpcode.Inert. Plugins write such files into their own directories at
 // run time - guards, plain text, data behind an exit - and a file the vendor
@@ -813,6 +814,11 @@ func inertFile(content []byte) bool {
 	return inert
 }
 
+// runnableExt reports whether the web server would hand this file to PHP.
+//
+// Die Liste ist absichtlich dieselbe, die auch die Regeln als phpExts
+// benutzen, ohne .js: eine erzeugte JavaScript-Datei im Plugin-Verzeichnis
+// ist gewöhnlich, und ob eine fremde davon vorkommt, ist nicht gemessen.
 func runnableExt(ext string) bool {
 	switch ext {
 	case "php", "php3", "php4", "php5", "php7", "php8", "phtml", "phps", "inc", "module":

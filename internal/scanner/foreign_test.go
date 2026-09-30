@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/brightcolor/malwatch/internal/cms"
 	"github.com/brightcolor/malwatch/internal/fileview"
 	"github.com/brightcolor/malwatch/internal/knownfiles"
 	"github.com/brightcolor/malwatch/internal/rules"
@@ -173,5 +174,32 @@ func TestCopiesOfVerifiedFilesKeepOnlyTheirPlace(t *testing.T) {
 	}
 	if got := scanRules(t, root, "wp-content/other/tool", program+"x", known); !has(got, "binary.elf") {
 		t.Errorf("anderes Programm: %v, erwartet binary.elf", got)
+	}
+}
+
+// A theme from wordpress.org is confirmed against its release archive: a file
+// that matches needs no further look, one the site adapted is read by the
+// rules as before and is no core.modified.
+func TestThemesFromWordPressOrgConfirmTheirFiles(t *testing.T) {
+	root := t.TempDir()
+	theme := filepath.Join(root, "wp-content", "themes", "twentyx")
+	ev := "ev" + "al"
+	original := "<?php $tpl = load(); " + ev + "($tpl);\n"
+	cache := t.TempDir()
+	m := md5.Sum([]byte(original))
+	list := `{"functions.php":"` + hex.EncodeToString(m[:]) + `"}`
+	if err := os.WriteFile(filepath.Join(cache, "wordpress-theme-twentyx-1.2.json"), []byte(list), 0o640); err != nil {
+		t.Fatal(err)
+	}
+	known := knownfiles.New()
+	loadChecksums(known, knownfiles.NewFetcher(cache, time.Second),
+		cms.Install{Path: theme, Product: "wordpress", Kind: "theme", Slug: "twentyx", Version: "1.2"})
+
+	if got := scanRules(t, root, "wp-content/themes/twentyx/functions.php", original, known); len(got) != 0 {
+		t.Errorf("Datei wie im Archiv: %v, erwartet keinen Fund", got)
+	}
+	got := scanRules(t, root, "wp-content/themes/twentyx/functions.php", original+"// angepasst\n", known)
+	if has(got, "core.modified") || !has(got, "php.eval.variable") {
+		t.Errorf("angepasste Datei: %v, erwartet php.eval.variable ohne core.modified", got)
 	}
 }
