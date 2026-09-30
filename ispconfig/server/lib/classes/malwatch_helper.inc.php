@@ -40,6 +40,56 @@ class malwatch_helper
 	/** How long a view outlives its last finding, in days: default and bounds. */
 	const VIEW_KEEP_DAYS = array(1, 365, 30);
 
+	/**
+	 * The numbers of the check against the vendors (0.41.0), with the bounds
+	 * and defaults the scanner has (internal/composer):
+	 * key => array(min, max, default, switch). The panel has the same
+	 * (malwatch_verify_settings()).
+	 */
+	const VERIFY_SETTINGS = array(
+		'verify_max_downloads' => array(1, 1000, 50, '--verify-max-downloads'),
+		'verify_max_mb' => array(1, 500, 50, '--verify-max-mb'),
+		'verify_timeout' => array(1, 600, 60, '--verify-timeout'),
+		'verify_retry_hours' => array(0, 720, 24, '--verify-retry-hours'),
+	);
+
+	/** A host name as the lists of hosts take it. */
+	const HOST_PATTERN = '/^[a-z0-9]([a-z0-9-]{0,62}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,62}[a-z0-9])?)+$/';
+
+	/**
+	 * The lists the scanner takes as comma separated switches:
+	 * key => array(switch, most items, longest item, pattern of one item,
+	 * fewest items). An empty list of hosts is a choice - only the site itself,
+	 * or load nothing; the extensions need one. The panel has the same
+	 * (malwatch_list_settings()).
+	 */
+	const LIST_SETTINGS = array(
+		'modified_exts' => array('--modified-exts', 40, 12, '/^[a-z0-9]+$/', 1),
+		'script_hosts' => array('--script-hosts', 32, 100, self::HOST_PATTERN, 0),
+		'verify_hosts' => array('--verify-hosts', 16, 100, self::HOST_PATTERN, 0),
+	);
+
+	/**
+	 * The hourly part of the cron job: key => array(min, max, default). The
+	 * minute of the hour it runs at, how long finished jobs and fixed findings
+	 * stay, and how many open findings one run checks for a file that is gone
+	 * (0 turns that check off). The panel has the same
+	 * (malwatch_housekeeping_settings()).
+	 */
+	const HOUSEKEEPING_SETTINGS = array(
+		'housekeeping_minute' => array(0, 59, 7),
+		'keep_job_days' => array(1, 3650, 30),
+		'keep_fixed_days' => array(1, 3650, 90),
+		'vanished_check_rows' => array(0, 10000, 500),
+	);
+
+	/**
+	 * The address of the database of known files: https, a host name, a port
+	 * and a path if need be, and no login, because the scanner gets it on its
+	 * command line. The panel checks with the same (malwatch_hashlookup_url_regex()).
+	 */
+	const HASHLOOKUP_URL_PATTERN = '#^https://[a-zA-Z0-9.-]{1,120}(?::[0-9]{1,5})?(?:/[a-zA-Z0-9._~%/-]{0,80})?$#';
+
 	private $config = null;
 
 	/** Returns the global settings, with defaults for a missing row. */
@@ -93,7 +143,128 @@ class malwatch_helper
 			'mail_format' => 'html',
 			'mail_from_name' => 'malwatch',
 			'mail_smtp_verify' => 'y',
+			'modified_exts' => 'php,php3,php4,php5,php7,php8,phtml,phps,phar,inc,module,tpl,twig,js,mjs,cjs,html,htm,svg,htaccess,ini',
+			'script_hosts' => 'google-analytics.com,www.google-analytics.com,ssl.google-analytics.com,ajax.googleapis.com,code.jquery.com',
+			'verify_composer' => 'y',
+			'verify_originals' => 'y',
+			'verify_hosts' => 'codeload.github.com,api.github.com,github.com,gitlab.com,bitbucket.org',
+			'verify_max_downloads' => 50,
+			'verify_max_mb' => 50,
+			'verify_timeout' => 60,
+			'verify_retry_hours' => 24,
+			'hashlookup' => 'n',
+			'hashlookup_url' => 'https://hashlookup.circl.lu',
+			'housekeeping_minute' => 7,
+			'keep_job_days' => 30,
+			'keep_fixed_days' => 90,
+			'vanished_check_rows' => 500,
 		);
+	}
+
+	/**
+	 * The switches of the check against the vendors (0.41.0). A stored value
+	 * the settings page would refuse holds no scan up: it gets the default,
+	 * because the scanner refuses a value out of its bounds and the whole scan
+	 * with it.
+	 */
+	public function verify_arguments($config)
+	{
+		$defaults = $this->config_defaults();
+		$args = array();
+		foreach (self::LIST_SETTINGS as $key => $setting) {
+			list($switch, $max_items, $max_length, $pattern, $min_items) = $setting;
+			$items = $this->list_items(isset($config[$key]) ? $config[$key] : $defaults[$key], $max_items, $max_length, $pattern);
+			if ($items === null || count($items) < $min_items) {
+				$items = $this->list_items($defaults[$key], $max_items, $max_length, $pattern);
+			}
+			$args[] = $switch . '=' . implode(',', $items);
+		}
+		foreach (self::VERIFY_SETTINGS as $key => $setting) {
+			list($min, $max, $default, $switch) = $setting;
+			$value = isset($config[$key]) && is_numeric($config[$key]) ? (int) $config[$key] : $default;
+			if ($value < $min || $value > $max) {
+				$value = $default;
+			}
+			$args[] = $switch . '=' . $value;
+		}
+		if (isset($config['verify_composer']) && $config['verify_composer'] === 'n') {
+			$args[] = '--no-verify-composer';
+		}
+		if (isset($config['verify_originals']) && $config['verify_originals'] === 'n') {
+			$args[] = '--no-verify-originals';
+		}
+		$url = isset($config['hashlookup_url']) ? trim((string) $config['hashlookup_url']) : '';
+		if (isset($config['hashlookup']) && $config['hashlookup'] === 'y' && preg_match(self::HASHLOOKUP_URL_PATTERN, $url)) {
+			$args[] = '--hashlookup-url=' . $url;
+		}
+		return $args;
+	}
+
+	/**
+	 * The items of a stored list, lower case, without spaces and empty ones;
+	 * null when one of them breaks the pattern or the list is too long.
+	 */
+	private function list_items($value, $max_items, $max_length, $pattern)
+	{
+		$items = array();
+		foreach (explode(',', strtolower((string) $value)) as $item) {
+			$item = ltrim(trim($item), '.');
+			if ($item === '') {
+				continue;
+			}
+			if (strlen($item) > $max_length || !preg_match($pattern, $item)) {
+				return null;
+			}
+			$items[] = $item;
+		}
+		return count($items) > $max_items ? null : $items;
+	}
+
+	/**
+	 * A setting of the hourly part (HOUSEKEEPING_SETTINGS) as a whole number
+	 * within its bounds. A stored value the settings page would refuse gets the
+	 * default.
+	 */
+	public function housekeeping_value($config, $key)
+	{
+		list($min, $max, $default) = self::HOUSEKEEPING_SETTINGS[$key];
+		$value = isset($config[$key]) && is_numeric($config[$key]) && (string) (int) $config[$key] === trim((string) $config[$key])
+			? (int) $config[$key] : $default;
+		return ($value < $min || $value > $max) ? $default : $value;
+	}
+
+	/**
+	 * The ids of the open findings in $rows (finding_id, file_path,
+	 * document_root) whose file is gone, for the cron job to close.
+	 *
+	 * A scan closes the findings of its website that it no longer sees. A
+	 * website nobody scans any more - switched off in ISPConfig, or with
+	 * scan_days 0 - keeps its findings open, even after its files were
+	 * deleted, and they stand in every list and count. This closes those.
+	 * Something still at the path - a file, a directory, a link that points
+	 * nowhere - keeps its finding. So does a website whose web root is missing
+	 * while ISPConfig still has it: an unmounted disk or a move in progress.
+	 * A website ISPConfig no longer has (document_root null) went with its
+	 * files.
+	 */
+	public function vanished_ids(array $rows)
+	{
+		$ids = array();
+		foreach ($rows as $row) {
+			$path = isset($row['file_path']) ? (string) $row['file_path'] : '';
+			if ($path === '' || $path[0] !== '/') {
+				continue;
+			}
+			if (file_exists($path) || is_link($path)) {
+				continue;
+			}
+			$root = isset($row['document_root']) ? (string) $row['document_root'] : '';
+			if ($root !== '' && !is_dir($root)) {
+				continue;
+			}
+			$ids[] = (int) $row['finding_id'];
+		}
+		return $ids;
 	}
 
 	/**

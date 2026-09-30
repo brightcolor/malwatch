@@ -1433,3 +1433,30 @@ SET @mw := (SELECT IF(COUNT(*) = 0,
   FROM information_schema.COLUMNS
   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_config' AND COLUMN_NAME = 'mail_format');
 PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- --------------------------------------------------------
+-- Abgleich mit den Herstellern (0.41.0)
+--
+-- modified_exts: the extensions where a vendor file that differs from the
+-- release is reported (DefaultModifiedExts in internal/scanner/modified.go;
+-- 40 extensions of 12 characters, commas between them, fit in 520).
+-- script_hosts: the hosts a script written by document.write may load from
+-- (DefaultScriptHosts in internal/rules/harmless.go). verify_*: the check of
+-- Composer packages and theme and plugin files against the vendor's archive
+-- (internal/composer). hashlookup, hashlookup_url: the database of known files,
+-- off until switched on. The two lists of hosts take up to 3231 and 1615
+-- characters; as text columns they keep the row below its 64 KB, and a new
+-- column gets the default of the scanner once, right after it was added.
+-- housekeeping_minute, keep_job_days, keep_fixed_days, vanished_check_rows:
+-- the hourly part of the cron job (malwatch_helper::HOUSEKEEPING_SETTINGS).
+-- --------------------------------------------------------
+SET @mw_verify_new := (SELECT COUNT(*) = 0 FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_config' AND COLUMN_NAME = 'modified_exts');
+SET @mw := IF(@mw_verify_new,
+  'ALTER TABLE `malwatch_config` ADD COLUMN `modified_exts` varchar(520) CHARACTER SET ascii NOT NULL DEFAULT ''php,php3,php4,php5,php7,php8,phtml,phps,phar,inc,module,tpl,twig,js,mjs,cjs,html,htm,svg,htaccess,ini'', ADD COLUMN `script_hosts` text CHARACTER SET ascii, ADD COLUMN `verify_composer` enum(''y'',''n'') NOT NULL DEFAULT ''y'', ADD COLUMN `verify_originals` enum(''y'',''n'') NOT NULL DEFAULT ''y'', ADD COLUMN `verify_hosts` text CHARACTER SET ascii, ADD COLUMN `verify_max_downloads` int(11) unsigned NOT NULL DEFAULT ''50'', ADD COLUMN `verify_max_mb` int(11) unsigned NOT NULL DEFAULT ''50'', ADD COLUMN `verify_timeout` int(11) unsigned NOT NULL DEFAULT ''60'', ADD COLUMN `verify_retry_hours` int(11) unsigned NOT NULL DEFAULT ''24'', ADD COLUMN `hashlookup` enum(''n'',''y'') NOT NULL DEFAULT ''n'', ADD COLUMN `hashlookup_url` varchar(255) CHARACTER SET ascii NOT NULL DEFAULT ''https://hashlookup.circl.lu'', ADD COLUMN `housekeeping_minute` int(11) unsigned NOT NULL DEFAULT ''7'', ADD COLUMN `keep_job_days` int(11) unsigned NOT NULL DEFAULT ''30'', ADD COLUMN `keep_fixed_days` int(11) unsigned NOT NULL DEFAULT ''90'', ADD COLUMN `vanished_check_rows` int(11) unsigned NOT NULL DEFAULT ''500''',
+  'DO 0');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @mw := IF(@mw_verify_new,
+  'UPDATE `malwatch_config` SET `script_hosts` = ''google-analytics.com,www.google-analytics.com,ssl.google-analytics.com,ajax.googleapis.com,code.jquery.com'', `verify_hosts` = ''codeload.github.com,api.github.com,github.com,gitlab.com,bitbucket.org''',
+  'DO 0');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;

@@ -112,6 +112,87 @@
 	</div>
 </div>
 
+<p class="mw-sec">{tmpl_var name='verify_head_txt'}</p>
+<p>{tmpl_var name='verify_intro_txt'}</p>
+
+<div class="form-group">
+	<label for="modified_exts" class="col-sm-3 control-label">{tmpl_var name='modified_exts_txt'}</label>
+	<div class="col-sm-9">
+		<input type="text" name="modified_exts" id="modified_exts" value="{tmpl_var name='modified_exts'}" maxlength="520" class="form-control" />
+		<span class="help-block">{tmpl_var name='modified_exts_hint_txt'}</span>
+	</div>
+</div>
+<div class="form-group">
+	<label for="script_hosts" class="col-sm-3 control-label">{tmpl_var name='script_hosts_txt'}</label>
+	<div class="col-sm-9">
+		<input type="text" name="script_hosts" id="script_hosts" value="{tmpl_var name='script_hosts'}" maxlength="3231" class="form-control" />
+		<span class="help-block">{tmpl_var name='script_hosts_hint_txt'}</span>
+	</div>
+</div>
+<div class="form-group">
+	<label class="col-sm-3 control-label">{tmpl_var name='verify_composer_txt'}</label>
+	<div class="col-sm-9">
+		{tmpl_var name='verify_composer'}
+		<span class="help-block">{tmpl_var name='verify_composer_hint_txt'}</span>
+	</div>
+</div>
+<div class="form-group">
+	<label class="col-sm-3 control-label">{tmpl_var name='verify_originals_txt'}</label>
+	<div class="col-sm-9">
+		{tmpl_var name='verify_originals'}
+		<span class="help-block">{tmpl_var name='verify_originals_hint_txt'}</span>
+	</div>
+</div>
+<div class="form-group">
+	<label for="verify_hosts" class="col-sm-3 control-label">{tmpl_var name='verify_hosts_txt'}</label>
+	<div class="col-sm-9">
+		<input type="text" name="verify_hosts" id="verify_hosts" value="{tmpl_var name='verify_hosts'}" maxlength="1615" class="form-control" />
+		<span class="help-block">{tmpl_var name='verify_hosts_hint_txt'}</span>
+	</div>
+</div>
+<div class="form-group">
+	<label for="verify_max_downloads" class="col-sm-3 control-label">{tmpl_var name='verify_max_downloads_txt'}</label>
+	<div class="col-sm-9">
+		<input type="text" name="verify_max_downloads" id="verify_max_downloads" value="{tmpl_var name='verify_max_downloads'}" class="form-control" />
+		<span class="help-block">{tmpl_var name='verify_max_downloads_hint_txt'}</span>
+	</div>
+</div>
+<div class="form-group">
+	<label for="verify_max_mb" class="col-sm-3 control-label">{tmpl_var name='verify_max_mb_txt'}</label>
+	<div class="col-sm-9">
+		<input type="text" name="verify_max_mb" id="verify_max_mb" value="{tmpl_var name='verify_max_mb'}" class="form-control" />
+		<span class="help-block">{tmpl_var name='verify_max_mb_hint_txt'}</span>
+	</div>
+</div>
+<div class="form-group">
+	<label for="verify_timeout" class="col-sm-3 control-label">{tmpl_var name='verify_timeout_txt'}</label>
+	<div class="col-sm-9">
+		<input type="text" name="verify_timeout" id="verify_timeout" value="{tmpl_var name='verify_timeout'}" class="form-control" />
+		<span class="help-block">{tmpl_var name='verify_timeout_hint_txt'}</span>
+	</div>
+</div>
+<div class="form-group">
+	<label for="verify_retry_hours" class="col-sm-3 control-label">{tmpl_var name='verify_retry_hours_txt'}</label>
+	<div class="col-sm-9">
+		<input type="text" name="verify_retry_hours" id="verify_retry_hours" value="{tmpl_var name='verify_retry_hours'}" class="form-control" />
+		<span class="help-block">{tmpl_var name='verify_retry_hours_hint_txt'}</span>
+	</div>
+</div>
+<div class="form-group">
+	<label class="col-sm-3 control-label">{tmpl_var name='hashlookup_txt'}</label>
+	<div class="col-sm-9">
+		{tmpl_var name='hashlookup'}
+		<span class="help-block">{tmpl_var name='hashlookup_hint_txt'}</span>
+	</div>
+</div>
+<div class="form-group">
+	<label for="hashlookup_url" class="col-sm-3 control-label">{tmpl_var name='hashlookup_url_txt'}</label>
+	<div class="col-sm-9">
+		<input type="text" name="hashlookup_url" id="hashlookup_url" value="{tmpl_var name='hashlookup_url'}" maxlength="255" class="form-control" />
+		<span class="help-block">{tmpl_var name='hashlookup_url_hint_txt'}</span>
+	</div>
+</div>
+
 <p class="mw-sec">{tmpl_var name='limits_head_txt'}</p>
 
 <div class="form-group">
@@ -123,11 +204,45 @@
 </div>
 <div class="form-group">
 	<label for="job_timeout_hours" class="col-sm-3 control-label">{tmpl_var name='job_timeout_hours_txt'}</label>
-	<div class="col-sm-9"><input type="text" name="job_timeout_hours" id="job_timeout_hours" value="{tmpl_var name='job_timeout_hours'}" class="form-control" /></div>
+	<div class="col-sm-9">
+		<input type="text" name="job_timeout_hours" id="job_timeout_hours" value="{tmpl_var name='job_timeout_hours'}" class="form-control" />
+		<span class="help-block">{tmpl_var name='job_timeout_hours_hint_txt'}</span>
+	</div>
 </div>
 <div class="form-group">
 	<label for="keep_scans" class="col-sm-3 control-label">{tmpl_var name='keep_scans_txt'}</label>
-	<div class="col-sm-9"><input type="text" name="keep_scans" id="keep_scans" value="{tmpl_var name='keep_scans'}" class="form-control" /></div>
+	<div class="col-sm-9">
+		<input type="text" name="keep_scans" id="keep_scans" value="{tmpl_var name='keep_scans'}" class="form-control" />
+		<span class="help-block">{tmpl_var name='keep_scans_hint_txt'}</span>
+	</div>
+</div>
+<div class="form-group">
+	<label for="keep_job_days" class="col-sm-3 control-label">{tmpl_var name='keep_job_days_txt'}</label>
+	<div class="col-sm-9">
+		<input type="text" name="keep_job_days" id="keep_job_days" value="{tmpl_var name='keep_job_days'}" class="form-control" />
+		<span class="help-block">{tmpl_var name='keep_job_days_hint_txt'}</span>
+	</div>
+</div>
+<div class="form-group">
+	<label for="keep_fixed_days" class="col-sm-3 control-label">{tmpl_var name='keep_fixed_days_txt'}</label>
+	<div class="col-sm-9">
+		<input type="text" name="keep_fixed_days" id="keep_fixed_days" value="{tmpl_var name='keep_fixed_days'}" class="form-control" />
+		<span class="help-block">{tmpl_var name='keep_fixed_days_hint_txt'}</span>
+	</div>
+</div>
+<div class="form-group">
+	<label for="vanished_check_rows" class="col-sm-3 control-label">{tmpl_var name='vanished_check_rows_txt'}</label>
+	<div class="col-sm-9">
+		<input type="text" name="vanished_check_rows" id="vanished_check_rows" value="{tmpl_var name='vanished_check_rows'}" class="form-control" />
+		<span class="help-block">{tmpl_var name='vanished_check_rows_hint_txt'}</span>
+	</div>
+</div>
+<div class="form-group">
+	<label for="housekeeping_minute" class="col-sm-3 control-label">{tmpl_var name='housekeeping_minute_txt'}</label>
+	<div class="col-sm-9">
+		<input type="text" name="housekeeping_minute" id="housekeeping_minute" value="{tmpl_var name='housekeeping_minute'}" class="form-control" />
+		<span class="help-block">{tmpl_var name='housekeeping_minute_hint_txt'}</span>
+	</div>
 </div>
 <div class="form-group">
 	<label for="poll_seconds" class="col-sm-3 control-label">{tmpl_var name='poll_seconds_txt'}</label>

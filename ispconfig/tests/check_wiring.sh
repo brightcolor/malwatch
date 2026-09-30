@@ -2284,6 +2284,213 @@ grep -qF "template_file(\$template, \$language, 'html')" "$root/server/lib/class
 grep -qF 'php ispconfig/tests/mail_html_test.php' "$root/../.github/workflows/ci.yml" \
 	|| fail "die CI führt mail_html_test.php nicht aus"
 
+# 105. Der Abgleich mit den Herstellern und die stündlichen Aufräumarbeiten
+#      (0.41.0): Scanner, Panel und Server kennen dieselben Vorgaben und
+#      Grenzen, das Schema legt die Spalten mit den Vorgaben des Scanners an,
+#      die Einstellungsseite prüft jedes Feld und zeigt es mit Hinweis, der
+#      Runner gibt die Werte an den Scanner, und der Cron-Job liest seine
+#      Werte aus den Einstellungen.
+go_list() {
+	awk -v start="var $2 = []string{" '
+		index($0, start) == 1 { on = 1 }
+		on { buf = buf $0; if ($0 ~ /}[[:space:]]*$/) on = 0 }
+		END { print buf }' "$1" \
+		| sed 's/^var [A-Za-z]* = \[\]string{//; s/}[[:space:]]*$//' | tr -d '" \t' | sed 's/,$//'
+}
+go_const() {
+	sed -n "s/^[[:space:]]*$2 *= *\([0-9][0-9]*\)[[:space:]]*$/\1/p" "$1" | head -n 1
+}
+php -r '
+	require $argv[1];
+	require $argv[2];
+	$h = new malwatch_helper();
+	$s = $h->config_defaults();
+	$p = malwatch_config_defaults();
+	$keys = array_merge(array_keys(malwatch_list_settings()), array_keys(malwatch_verify_settings()),
+		array_keys(malwatch_housekeeping_settings()), array("verify_composer", "verify_originals", "hashlookup", "hashlookup_url"));
+	foreach ($keys as $k) {
+		echo "panel.$k=", $p[$k], "\n", "server.$k=", $s[$k], "\n";
+	}
+	foreach (malwatch_list_settings() as $k => $v) {
+		echo "panel_limits.$k=$v[0],$v[1],$v[3]\n";
+	}
+	foreach (malwatch_helper::LIST_SETTINGS as $k => $v) {
+		echo "server_limits.$k=$v[1],$v[2],$v[4]\n", "server_switch.$k=$v[0]\n";
+	}
+	foreach (malwatch_verify_settings() as $k => $v) {
+		echo "panel_range.$k=$v[0],$v[1],$v[2]\n";
+	}
+	foreach (malwatch_helper::VERIFY_SETTINGS as $k => $v) {
+		echo "server_range.$k=$v[0],$v[1],$v[2]\n", "server_switch.$k=$v[3]\n";
+	}
+	echo "panel_url_pattern=", malwatch_hashlookup_url_regex(), "\n";
+	echo "server_url_pattern=", malwatch_helper::HASHLOOKUP_URL_PATTERN, "\n";
+' "$root/interface/lib/malwatch_lib.inc.php" "$root/server/lib/classes/malwatch_helper.inc.php" > "$tmpdir/php105" \
+	|| fail "malwatch_lib.inc.php und malwatch_helper.inc.php lassen sich nicht zusammen laden"
+val105() {
+	sed -n "s/^$1=//p" "$tmpdir/php105"
+}
+# The entry of a switch in the help of the scanner: its line and the indented
+# lines that carry its text on.
+usage_entry105() {
+	awk -v sw="  $1=" '
+		index($0, sw) == 1 { on = 1; print; next }
+		on && index($0, "                    ") == 1 { print; next }
+		{ on = 0 }' "$root/../cmd/malwatch/usage.go"
+}
+tform105="$root/interface/form/malwatch_config.tform.php"
+tmpl105="$root/interface/templates/malwatch_config_edit.htm"
+# A field of the settings page: shown with its hint, and both texts in both languages.
+page105() {
+	grep -qF "'$1' => array(" "$tform105" \
+		|| fail "malwatch_config.tform.php kennt $1 nicht"
+	grep -qF "name='$1_hint_txt'" "$tmpl105" \
+		&& { grep -qF "name=\"$1\"" "$tmpl105" || grep -qF "{tmpl_var name='$1'}" "$tmpl105"; } \
+		|| fail "malwatch_config_edit.htm zeigt $1 oder seinen Hinweis nicht"
+	for lang in de en; do
+		for suffix in _txt _hint_txt $2; do
+			grep -qF "\$wb['$1$suffix']" "$root/interface/lang/${lang}_malwatch_config.lng" \
+				|| fail "${lang}_malwatch_config.lng: $1$suffix fehlt"
+		done
+	done
+}
+
+for spec in \
+	modified_exts:internal/scanner/modified.go:DefaultModifiedExts:MaxModifiedExts:MaxModifiedExtLength:1 \
+	script_hosts:internal/rules/harmless.go:DefaultScriptHosts:MaxScriptHosts:MaxScriptHostLength:0 \
+	verify_hosts:internal/composer/composer.go:DefaultHosts:MaxHosts:MaxHostLength:0; do
+	IFS=: read -r key file var max len min <<EOF
+$spec
+EOF
+	go_file="$root/../$file"
+	def=$(go_list "$go_file" "$var")
+	max_n=$(go_const "$go_file" "$max")
+	len_n=$(go_const "$go_file" "$len")
+	if [ -z "$def" ] || [ -z "$max_n" ] || [ -z "$len_n" ]; then
+		fail "$file: Vorgabe oder Grenzen von $var nicht lesbar"
+		continue
+	fi
+	[ "$(val105 "panel.$key")" = "$def" ] && [ "$(val105 "server.$key")" = "$def" ] \
+		|| fail "$key: die Vorgabe in Panel oder Server weicht von $var im Scanner ab ($def)"
+	[ "$(val105 "panel_limits.$key")" = "$max_n,$len_n,$min" ] && [ "$(val105 "server_limits.$key")" = "$max_n,$len_n,$min" ] \
+		|| fail "$key: die Grenzen in Panel oder Server weichen vom Scanner ab ($max_n Einträge, $len_n Zeichen, mindestens $min)"
+	switch="--$(printf '%s' "$key" | sed 's/_/-/g')"
+	[ "$(val105 "server_switch.$key")" = "$switch" ] \
+		|| fail "malwatch_helper::LIST_SETTINGS gibt $key nicht als $switch weiter"
+	grep -qF -- "$switch=" "$root/../cmd/malwatch/usage.go" \
+		|| fail "die Hilfe des Scanners nennt $switch nicht"
+	if [ "$key" = modified_exts ]; then
+		grep -qF "ADD COLUMN \`modified_exts\` varchar(520) CHARACTER SET ascii NOT NULL DEFAULT ''$def''" "$schema" \
+			|| fail "schema.sql legt modified_exts nicht mit der Vorgabe des Scanners an"
+	else
+		grep -qF "ADD COLUMN \`$key\` text CHARACTER SET ascii" "$schema" \
+			&& grep -qF "\`$key\` = ''$def''" "$schema" \
+			|| fail "schema.sql legt $key nicht an oder setzt die Vorgabe des Scanners nicht"
+	fi
+	sed -n "/'$key' => array(/,/'maxlength'/p" "$tform105" > "$tmpdir/field105"
+	grep -qF "'regex' => malwatch_list_regex('$key')," "$tmpdir/field105" \
+		&& grep -qF "'errmsg' => '${key}_error_regex'" "$tmpdir/field105" \
+		|| fail "malwatch_config.tform.php: $key prüft nicht mit malwatch_list_regex()"
+	page105 "$key" _error_regex
+	sed -n "s/^\$wb\['${key}_error_regex'\] = //p" "$root/interface/lang/de_malwatch_config.lng" | grep -q "$max_n.*höchstens $len_n" \
+		&& sed -n "s/^\$wb\['${key}_error_regex'\] = //p" "$root/interface/lang/en_malwatch_config.lng" | grep -q "$max_n.*at most $len_n" \
+		|| fail "die Fehlermeldungen zu $key nennen andere Grenzen als der Scanner"
+done
+
+go_composer="$root/../internal/composer/composer.go"
+for spec in \
+	verify_max_downloads:DefaultMaxDownloads:MaxDownloadsCap \
+	verify_max_mb:DefaultMaxMB:MaxMBCap \
+	verify_timeout:DefaultTimeoutSeconds:MaxTimeoutCap \
+	verify_retry_hours:DefaultRetryHours:MaxRetryCap; do
+	IFS=: read -r key def_name cap_name <<EOF
+$spec
+EOF
+	switch="--$(printf '%s' "$key" | sed 's/_/-/g')"
+	def=$(go_const "$go_composer" "$def_name")
+	cap=$(go_const "$go_composer" "$cap_name")
+	min=$(sed -n "s/^[[:space:]]*{\"$switch\", [A-Za-z]*, \([0-9]*\), composer\.$cap_name, .*$/\1/p" "$root/../cmd/malwatch/scan.go")
+	if [ -z "$def" ] || [ -z "$cap" ] || [ -z "$min" ]; then
+		fail "Vorgabe oder Grenzen von $switch im Scanner nicht lesbar"
+		continue
+	fi
+	[ "$(val105 "panel_range.$key")" = "$min,$cap,$def" ] && [ "$(val105 "server_range.$key")" = "$min,$cap,$def" ] \
+		|| fail "$key: Panel oder Server nennen andere Grenzen oder Vorgaben als der Scanner ($min bis $cap, Vorgabe $def)"
+	[ "$(val105 "panel.$key")" = "$def" ] && [ "$(val105 "server.$key")" = "$def" ] \
+		|| fail "$key: config_defaults() in Panel oder Server weicht vom Scanner ab ($def)"
+	[ "$(val105 "server_switch.$key")" = "$switch" ] \
+		|| fail "malwatch_helper::VERIFY_SETTINGS gibt $key nicht als $switch weiter"
+	usage_entry105 "$switch" | grep -qF "(Vorgabe: $def)" \
+		|| fail "die Hilfe des Scanners nennt $switch nicht mit der Vorgabe $def"
+	grep -qF "ADD COLUMN \`$key\` int(11) unsigned NOT NULL DEFAULT ''$def''" "$schema" \
+		|| fail "schema.sql legt $key nicht mit der Vorgabe des Scanners an"
+	sed -n "/'$key' => array(/,/'maxlength'/p" "$tform105" > "$tmpdir/field105"
+	grep -qF "'range' => malwatch_verify_range('$key')," "$tmpdir/field105" \
+		&& grep -qF "'errmsg' => '${key}_error_range'" "$tmpdir/field105" \
+		|| fail "malwatch_config.tform.php: $key prüft nicht mit malwatch_verify_range()"
+	page105 "$key" _error_range
+done
+
+for spec in verify_composer:y verify_originals:y hashlookup:n; do
+	key=${spec%%:*}
+	def=${spec#*:}
+	[ "$(val105 "panel.$key")" = "$def" ] && [ "$(val105 "server.$key")" = "$def" ] \
+		|| fail "$key: Panel oder Server haben eine andere Vorgabe als $def"
+	grep -qE "ADD COLUMN \`$key\` enum\(''[yn]'',''[yn]''\) NOT NULL DEFAULT ''$def''" "$schema" \
+		|| fail "schema.sql legt $key nicht mit der Vorgabe $def an"
+	sed -n "/'$key' => array(/,/'value'/p" "$tform105" | grep -qF "'formtype' => 'CHECKBOX'," \
+		|| fail "malwatch_config.tform.php: $key ist kein Haken"
+	page105 "$key" ""
+done
+grep -qF "'--no-verify-composer'" "$root/server/lib/classes/malwatch_helper.inc.php" \
+	&& grep -qF "'--no-verify-originals'" "$root/server/lib/classes/malwatch_helper.inc.php" \
+	&& grep -qF -- "--no-verify-composer" "$root/../cmd/malwatch/usage.go" \
+	&& grep -qF -- "--no-verify-originals" "$root/../cmd/malwatch/usage.go" \
+	|| fail "die Haken für den Abgleich erreichen den Scanner nicht als --no-verify-composer und --no-verify-originals"
+
+go_url=$(sed -n 's/^const DefaultURL = "\(.*\)"$/\1/p' "$root/../internal/hashlookup/hashlookup.go")
+[ -n "$go_url" ] && [ "$(val105 panel.hashlookup_url)" = "$go_url" ] && [ "$(val105 server.hashlookup_url)" = "$go_url" ] \
+	&& grep -qF "ADD COLUMN \`hashlookup_url\` varchar(255) CHARACTER SET ascii NOT NULL DEFAULT ''$go_url''" "$schema" \
+	|| fail "hashlookup_url: Scanner, Panel, Server und Schema nennen verschiedene Vorgaben"
+[ -n "$(val105 panel_url_pattern)" ] && [ "$(val105 panel_url_pattern)" = "$(val105 server_url_pattern)" ] \
+	|| fail "malwatch_hashlookup_url_regex() und malwatch_helper::HASHLOOKUP_URL_PATTERN prüfen die Adresse verschieden"
+sed -n "/'hashlookup_url' => array(/,/'maxlength'/p" "$tform105" | grep -qF "'regex' => malwatch_hashlookup_url_regex()," \
+	|| fail "malwatch_config.tform.php: hashlookup_url prüft nicht mit malwatch_hashlookup_url_regex()"
+page105 hashlookup_url _error_regex
+grep -qF -- "'--hashlookup-url=' . \$url" "$root/server/lib/classes/malwatch_helper.inc.php" \
+	&& grep -qF -- "--hashlookup-url=URL" "$root/../cmd/malwatch/usage.go" \
+	|| fail "die Adresse der Datenbank bekannter Dateien erreicht den Scanner nicht als --hashlookup-url"
+
+grep -qF 'verify_arguments($config)' "$root/server/lib/classes/malwatch_runner.inc.php" \
+	|| fail "der Runner gibt dem Scanner die Einstellungen des Abgleichs nicht mit"
+grep -qF 'malwatch_list_tidy(' "$root/interface/malwatch_config_edit.php" \
+	|| fail "malwatch_config_edit.php speichert die Listen des Abgleichs ungeglättet"
+
+for key in housekeeping_minute keep_job_days keep_fixed_days vanished_check_rows; do
+	def=$(val105 "panel.$key")
+	[ -n "$def" ] && [ "$(val105 "server.$key")" = "$def" ] \
+		|| fail "$key: Panel und Server nennen verschiedene Vorgaben"
+	grep -qF "ADD COLUMN \`$key\` int(11) unsigned NOT NULL DEFAULT ''$def''" "$schema" \
+		|| fail "schema.sql legt $key nicht mit der Vorgabe $def an"
+	sed -n "/'$key' => array(/,/'maxlength'/p" "$tform105" > "$tmpdir/field105"
+	grep -qF "'range' => malwatch_housekeeping_range('$key')," "$tmpdir/field105" \
+		&& grep -qF "'errmsg' => '${key}_error_range'" "$tmpdir/field105" \
+		|| fail "malwatch_config.tform.php: $key prüft nicht mit malwatch_housekeeping_range()"
+	page105 "$key" _error_range
+	grep -qF "housekeeping_value(\$config, '$key')" "$cron_job" \
+		|| fail "560-malwatch.inc.php liest $key nicht aus den Einstellungen"
+done
+if grep -nE "INTERVAL (30|90) DAY|date\('i'\)\) !== [0-9]" "$cron_job" > "$tmpdir/fixed105"; then
+	fail "560-malwatch.inc.php räumt noch nach festen Werten auf: Zeile $(cut -d: -f1 "$tmpdir/fixed105" | tr '\n' ' ')"
+fi
+grep -qF '$this->clean_vanished($config);' "$cron_job" \
+	|| fail "560-malwatch.inc.php schließt keine Funde, deren Datei fehlt"
+
+for test in verify_settings_test.php housekeeping_test.php; do
+	grep -qF "php ispconfig/tests/$test" "$root/../.github/workflows/ci.yml" \
+		|| fail "die CI führt $test nicht aus"
+done
+
 if [ "$status" -eq 0 ]; then
 	printf 'Wiring OK\n'
 fi
