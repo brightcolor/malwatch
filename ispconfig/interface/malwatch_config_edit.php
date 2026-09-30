@@ -316,8 +316,9 @@ class page_action extends tform_actions
 		// method runs, and saves from that copy. Both values set above have to
 		// reach it. The upload directories and the lists of the check against
 		// the vendors go in without the spaces around their commas, the
-		// address of the database of known files without the spaces around it;
-		// tform checks them afterwards.
+		// addresses of the database of known files and of the register of
+		// Composer packages without the spaces around them; tform checks them
+		// afterwards.
 		if (is_array($this->dataRecord)) {
 			$this->dataRecord['auto_preset_id'] = $_POST['auto_preset_id'];
 			$this->dataRecord['wpscan_token'] = $token;
@@ -329,8 +330,10 @@ class page_action extends tform_actions
 					$this->dataRecord[$key] = malwatch_list_tidy($this->dataRecord[$key]);
 				}
 			}
-			if (isset($this->dataRecord['hashlookup_url'])) {
-				$this->dataRecord['hashlookup_url'] = trim((string) $this->dataRecord['hashlookup_url']);
+			foreach (array('hashlookup_url', 'verify_packagist_url') as $key) {
+				if (isset($this->dataRecord[$key])) {
+					$this->dataRecord[$key] = trim((string) $this->dataRecord[$key]);
+				}
 			}
 		}
 

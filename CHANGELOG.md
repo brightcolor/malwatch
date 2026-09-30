@@ -11,8 +11,10 @@ ordnet ein, was eine Datei tatsächlich tun kann.
 
 **Abgleich mit den Herstellern.** Themes von wordpress.org prüft der Scanner gegen das
 veröffentlichte Archiv, so wie Kern und Plugins. Eine Datei mit Fund in einem Composer-Paket
-(`vendor/composer/installed.json`) vergleicht er mit dem Originalarchiv des Pakets; stimmt sie
-überein, entfällt der Fund. Eine abweichende Skriptdatei (JS, CSS, HTML) eines Plugins oder
+vergleicht er mit dem Originalarchiv des Pakets; stimmt sie überein, entfällt der Fund.
+`vendor/composer/installed.json` liefert dafür nur Paket und Stand, das Archiv nennt das
+Paketregister (`--verify-packagist-url`, Vorgabe https://repo.packagist.org): Eine veränderte
+`installed.json` kann so kein eigenes Archiv unterschieben. Eine abweichende Skriptdatei (JS, CSS, HTML) eines Plugins oder
 Themes vergleicht er mit der Datei im SVN von wordpress.org: Ein eingefügter Block, der lädt
 oder ausführt, bleibt ein Fund der Stufe „hoch“; eine durchgehend neu gebaute Datei gilt als
 Werk des Herstellers. Eine Kopie einer geprüften Datei an anderem Ort, etwa neben einem
@@ -28,8 +30,8 @@ Adresse mit Anmeldedaten lehnen Scanner und Einstellungsseite ab, weil sie auf d
 Befehlszeile steht.
 
 **Einstellungen unter Scanner > Einstellungen > Abgleich mit den Herstellern:** Endungen für
-Abweichungen, erlaubte Skript-Hosts, Composer-Pakete und Originaldateien abgleichen, Hosts
-für Archive, Abrufe je Prüfung (50), Größe je Abruf (50 MB), Wartezeit je Abruf
+Abweichungen, erlaubte Skript-Hosts, Composer-Pakete und Originaldateien abgleichen,
+Paketregister, Hosts für Archive, Abrufe je Prüfung (50), Größe je Abruf (50 MB), Wartezeit je Abruf
 (60 Sekunden), neuer Versuch nach (24 Stunden), Datenbank bekannter Dateien fragen (aus) und
 ihre Adresse.
 

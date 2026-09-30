@@ -129,6 +129,83 @@ func TestFilesKeepsToTheLimits(t *testing.T) {
 	}
 }
 
+// register serves the metadata of acme/lib the way repo.packagist.org does:
+// minified, every entry lists what changed against the one before.
+func register(t *testing.T) (*httptest.Server, *int32) {
+	t.Helper()
+	var hits int32
+	var srv *httptest.Server
+	srv = httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&hits, 1)
+		switch r.URL.Path {
+		case "/p2/acme/lib.json":
+			_, _ = w.Write([]byte(`{"minified":"composer/2.0","packages":{"acme/lib":[` +
+				`{"name":"acme/lib","version":"1.1.0","license":["MIT"],"dist":{"type":"zip","url":"` + srv.URL + `/zip/bbb","reference":"bbb"}},` +
+				`{"version":"1.0.0","dist":{"type":"zip","url":"` + srv.URL + `/zip/aaa","reference":"aaa"}},` +
+				`{"version":"0.9.0","license":"__unset","dist":"__unset"}]}}`))
+		case "/p2/acme/lib~dev.json":
+			_, _ = w.Write([]byte(`{"minified":"composer/2.0","packages":{"acme/lib":[` +
+				`{"name":"acme/lib","version":"dev-main","dist":{"type":"zip","url":"` + srv.URL + `/zip/ccc","reference":"ccc"}}]}}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	return srv, &hits
+}
+
+// The address of an archive in vendor/composer/installed.json is the website's
+// own word: whoever can write a file there can point it at an archive of their
+// own making, and their code would pass as the package's. The register the
+// maintainers publish to names the archive of each commit instead.
+func TestPublishedTakesTheArchiveFromTheRegister(t *testing.T) {
+	srv, hits := register(t)
+	f := NewFetcher(Options{CacheDir: t.TempDir(), Hosts: []string{hostOf(t, srv.URL)}, MaxDownloads: 5, MaxMB: 5,
+		Timeout: 5 * time.Second, Transport: tr(srv), PackagistURL: srv.URL})
+	for _, c := range []struct{ name, version, reference, want string }{
+		{"Version aus dem Register", "1.0.0", "aaa", srv.URL + "/zip/aaa"},
+		{"neueste Version", "v1.1.0", "BBB", srv.URL + "/zip/bbb"},
+		{"Entwicklungsstand", "dev-main", "ccc", srv.URL + "/zip/ccc"},
+	} {
+		got, err := f.Published("acme/lib", c.version, c.reference)
+		if err != nil || got != c.want {
+			t.Errorf("%s: %q, %v, erwartet %q", c.name, got, err, c.want)
+		}
+	}
+	for _, c := range []struct{ name, pkg, version, reference string }{
+		{"Stand, den das Register nicht kennt", "acme/lib", "1.0.0", "evil"},
+		{"Eintrag ohne Archiv", "acme/lib", "0.9.0", ""},
+		{"Paket, das das Register nicht kennt", "evil/lib", "1.0.0", "aaa"},
+	} {
+		if got, err := f.Published(c.pkg, c.version, c.reference); err == nil {
+			t.Errorf("%s: bestätigt mit %q", c.name, got)
+		}
+	}
+	before := atomic.LoadInt32(hits)
+	if _, err := f.Published("acme/lib", "1.0.0", "aaa"); err != nil {
+		t.Fatal(err)
+	}
+	if atomic.LoadInt32(hits) != before {
+		t.Error("das Register wurde für einen bekannten Stand erneut gefragt")
+	}
+	g := NewFetcher(Options{CacheDir: t.TempDir(), Hosts: []string{hostOf(t, srv.URL)}, MaxDownloads: 5, MaxMB: 5,
+		Timeout: 5 * time.Second, Transport: tr(srv)})
+	if _, err := g.Published("acme/lib", "1.0.0", "aaa"); err == nil {
+		t.Error("ohne Register bestätigt")
+	}
+}
+
+func TestCheckPackagistURL(t *testing.T) {
+	for _, raw := range []string{"http://repo.packagist.org", "repo.packagist.org", "https://user:secret@repo.packagist.org", ""} {
+		if err := CheckPackagistURL(raw); err == nil {
+			t.Errorf("%q angenommen", raw)
+		}
+	}
+	if err := CheckPackagistURL(DefaultPackagistURL); err != nil {
+		t.Errorf("Vorgabe abgelehnt: %v", err)
+	}
+}
+
 func TestGitHubArchivesComeFromCodeload(t *testing.T) {
 	got := downloadURL("https://api.github.com/repos/Shardj/zf1-future/zipball/1a2b3c4d")
 	if got != "https://codeload.github.com/Shardj/zf1-future/legacy.zip/1a2b3c4d" {

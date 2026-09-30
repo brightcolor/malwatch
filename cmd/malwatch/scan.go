@@ -53,6 +53,7 @@ func cmdScan(args []string) int {
 	noVerifyComposer := fs.Bool("no-verify-composer", false, "")
 	noVerifyOriginals := fs.Bool("no-verify-originals", false, "")
 	hashlookupURL := fs.String("hashlookup-url", "", "")
+	packagistURL := fs.String("verify-packagist-url", composer.DefaultPackagistURL, "")
 	verifyMaxDownloads := fs.Int("verify-max-downloads", composer.DefaultMaxDownloads, "")
 	verifyMaxMB := fs.Int("verify-max-mb", composer.DefaultMaxMB, "")
 	verifyTimeout := fs.Int("verify-timeout", composer.DefaultTimeoutSeconds, "")
@@ -151,6 +152,11 @@ func cmdScan(args []string) int {
 		}
 		verify.HashlookupURL = *hashlookupURL
 	}
+	if err := composer.CheckPackagistURL(*packagistURL); err != nil {
+		fmt.Fprintln(os.Stderr, "--verify-packagist-url: "+err.Error())
+		return report.ExitError
+	}
+	verify.PackagistURL = *packagistURL
 	if len(verifyHosts) > 0 {
 		verify.Hosts = rules.ParseUploadDirs(verifyHosts)
 		for i := range verify.Hosts {

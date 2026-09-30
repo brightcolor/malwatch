@@ -209,6 +209,23 @@ $form['tabs']['settings'] = array(
 			'width' => '60',
 			'maxlength' => '1615'
 		),
+		// The register that names the archive of each commit of a Composer
+		// package; the address in the website's installed.json does not count.
+		'verify_packagist_url' => array(
+			'datatype' => 'VARCHAR',
+			'formtype' => 'TEXT',
+			'default' => malwatch_config_defaults()['verify_packagist_url'],
+			'validators' => array(
+				array(
+					'type' => 'REGEX',
+					'regex' => malwatch_service_url_regex(),
+					'errmsg' => 'verify_packagist_url_error_regex'
+				)
+			),
+			'value' => '',
+			'width' => '60',
+			'maxlength' => '255'
+		),
 		'verify_max_downloads' => array(
 			'datatype' => 'INTEGER',
 			'formtype' => 'TEXT',
@@ -285,7 +302,7 @@ $form['tabs']['settings'] = array(
 			'validators' => array(
 				array(
 					'type' => 'REGEX',
-					'regex' => malwatch_hashlookup_url_regex(),
+					'regex' => malwatch_service_url_regex(),
 					'errmsg' => 'hashlookup_url_error_regex'
 				)
 			),

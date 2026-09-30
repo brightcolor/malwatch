@@ -69,10 +69,14 @@ Fund gegen das, was ihr Hersteller veröffentlicht hat:
 
 - Themes von wordpress.org gegen das veröffentlichte Archiv, so wie Kern und
   Plugins.
-- Dateien in Composer-Paketen (`vendor/composer/installed.json`) gegen das
-  Originalarchiv des Pakets, geladen von den Hosts aus `--verify-hosts`
-  (Vorgabe: codeload.github.com, api.github.com, github.com, gitlab.com,
-  bitbucket.org).
+- Dateien in Composer-Paketen gegen das Originalarchiv des Pakets.
+  `vendor/composer/installed.json` liefert nur Paket und Stand; welches Archiv
+  dazu gehört, sagt das Paketregister (`--verify-packagist-url`, Vorgabe
+  https://repo.packagist.org). So kann eine veränderte `installed.json` kein
+  eigenes Archiv unterschieben. Geladen wird von den Hosts aus
+  `--verify-hosts` (Vorgabe: codeload.github.com, api.github.com, github.com,
+  gitlab.com, bitbucket.org). Ein Paket, das das Register nicht kennt, bleibt
+  ungeprüft.
 - Eine abweichende Skriptdatei (JS, CSS, HTML) eines Plugins oder Themes gegen
   die Datei im SVN von wordpress.org: Ein eingefügter Block, der lädt oder
   ausführt, bleibt ein Fund; eine durchgehend neu gebaute Datei gilt als Werk

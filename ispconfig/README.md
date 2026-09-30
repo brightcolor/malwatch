@@ -83,6 +83,7 @@ Scanner eine Datei des Herstellers von einem Fund unterscheidet:
 | Erlaubte Skript-Hosts | Google Analytics, ajax.googleapis.com, code.jquery.com |
 | Composer-Pakete abgleichen | an |
 | Originaldateien abgleichen | an |
+| Paketregister | https://repo.packagist.org |
 | Hosts für Archive | codeload.github.com, api.github.com, github.com, gitlab.com, bitbucket.org |
 | Abrufe je Prüfung | 50 |
 | Größe je Abruf | 50 MB |

@@ -64,6 +64,11 @@ Prüfstufen:
   --hashlookup-url=URL     Dateien mit Fund bei einer Datenbank bekannter
                            Dateien nachschlagen, etwa https://hashlookup.circl.lu;
                            es gehen nur Prüfsummen hinaus (Vorgabe: aus)
+  --verify-packagist-url=URL
+                           Paketregister, das zu jedem Stand eines Composer-
+                           Pakets das Archiv nennt (Vorgabe:
+                           https://repo.packagist.org); die Adresse in
+                           installed.json zählt nicht
   --verify-hosts=HOSTS     Hosts, von denen Archive geladen werden, durch
                            Komma getrennt (Vorgabe: codeload.github.com,
                            api.github.com, github.com, gitlab.com, bitbucket.org)

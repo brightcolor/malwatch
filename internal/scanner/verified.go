@@ -75,6 +75,9 @@ type VerifyOptions struct {
 	Originals bool
 	// Hosts are the only hosts archives are loaded from.
 	Hosts []string
+	// PackagistURL is the register that names the archive of each commit of
+	// a Composer package; installed.json only names the commit.
+	PackagistURL string
 	// MaxDownloads caps the archives one run loads, MaxMB the size of one,
 	// TimeoutSeconds one download; RetryHours is how long a failed archive
 	// is not asked for again.
@@ -94,6 +97,7 @@ func DefaultVerify() VerifyOptions {
 		Composer:       true,
 		Originals:      true,
 		Hosts:          append([]string(nil), composer.DefaultHosts...),
+		PackagistURL:   composer.DefaultPackagistURL,
 		MaxDownloads:   composer.DefaultMaxDownloads,
 		MaxMB:          composer.DefaultMaxMB,
 		TimeoutSeconds: composer.DefaultTimeoutSeconds,
@@ -128,6 +132,7 @@ func verifyComposer(rep *report.Report, opts *Options) {
 		MaxMB:        opts.Verify.MaxMB,
 		Timeout:      time.Duration(opts.Verify.TimeoutSeconds) * time.Second,
 		RetryHours:   opts.Verify.RetryHours,
+		PackagistURL: opts.Verify.PackagistURL,
 		Transport:    opts.verifyTransport,
 	})
 	vendors := map[string][]composer.Package{}
@@ -142,7 +147,13 @@ func verifyComposer(rep *report.Report, opts *Options) {
 		if pkg == nil {
 			continue
 		}
-		files, err := fetcher.Files(pkg.URL, pkg.Reference)
+		// The archive comes from the register, never from installed.json:
+		// that file is the website's own word, see package composer.
+		archive, err := fetcher.Published(pkg.Name, pkg.Version, pkg.Reference)
+		if err != nil {
+			continue
+		}
+		files, err := fetcher.Files(archive, pkg.Reference)
 		if err != nil {
 			continue
 		}

@@ -2307,7 +2307,8 @@ php -r '
 	$s = $h->config_defaults();
 	$p = malwatch_config_defaults();
 	$keys = array_merge(array_keys(malwatch_list_settings()), array_keys(malwatch_verify_settings()),
-		array_keys(malwatch_housekeeping_settings()), array("verify_composer", "verify_originals", "hashlookup", "hashlookup_url"));
+		array_keys(malwatch_housekeeping_settings()), array("verify_composer", "verify_originals", "hashlookup", "hashlookup_url",
+		"verify_packagist_url"));
 	foreach ($keys as $k) {
 		echo "panel.$k=", $p[$k], "\n", "server.$k=", $s[$k], "\n";
 	}
@@ -2323,8 +2324,8 @@ php -r '
 	foreach (malwatch_helper::VERIFY_SETTINGS as $k => $v) {
 		echo "server_range.$k=$v[0],$v[1],$v[2]\n", "server_switch.$k=$v[3]\n";
 	}
-	echo "panel_url_pattern=", malwatch_hashlookup_url_regex(), "\n";
-	echo "server_url_pattern=", malwatch_helper::HASHLOOKUP_URL_PATTERN, "\n";
+	echo "panel_url_pattern=", malwatch_service_url_regex(), "\n";
+	echo "server_url_pattern=", malwatch_helper::SERVICE_URL_PATTERN, "\n";
 ' "$root/interface/lib/malwatch_lib.inc.php" "$root/server/lib/classes/malwatch_helper.inc.php" > "$tmpdir/php105" \
 	|| fail "malwatch_lib.inc.php und malwatch_helper.inc.php lassen sich nicht zusammen laden"
 val105() {
@@ -2453,13 +2454,25 @@ go_url=$(sed -n 's/^const DefaultURL = "\(.*\)"$/\1/p' "$root/../internal/hashlo
 	&& grep -qF "ADD COLUMN \`hashlookup_url\` varchar(255) CHARACTER SET ascii NOT NULL DEFAULT ''$go_url''" "$schema" \
 	|| fail "hashlookup_url: Scanner, Panel, Server und Schema nennen verschiedene Vorgaben"
 [ -n "$(val105 panel_url_pattern)" ] && [ "$(val105 panel_url_pattern)" = "$(val105 server_url_pattern)" ] \
-	|| fail "malwatch_hashlookup_url_regex() und malwatch_helper::HASHLOOKUP_URL_PATTERN prüfen die Adresse verschieden"
-sed -n "/'hashlookup_url' => array(/,/'maxlength'/p" "$tform105" | grep -qF "'regex' => malwatch_hashlookup_url_regex()," \
-	|| fail "malwatch_config.tform.php: hashlookup_url prüft nicht mit malwatch_hashlookup_url_regex()"
-page105 hashlookup_url _error_regex
+	|| fail "malwatch_service_url_regex() und malwatch_helper::SERVICE_URL_PATTERN prüfen Adressen verschieden"
+for key in hashlookup_url verify_packagist_url; do
+	sed -n "/'$key' => array(/,/'maxlength'/p" "$tform105" > "$tmpdir/field105"
+	grep -qF "'regex' => malwatch_service_url_regex()," "$tmpdir/field105" \
+		&& grep -qF "'errmsg' => '${key}_error_regex'" "$tmpdir/field105" \
+		|| fail "malwatch_config.tform.php: $key prüft nicht mit malwatch_service_url_regex() und ${key}_error_regex"
+	page105 "$key" _error_regex
+done
 grep -qF -- "'--hashlookup-url=' . \$url" "$root/server/lib/classes/malwatch_helper.inc.php" \
 	&& grep -qF -- "--hashlookup-url=URL" "$root/../cmd/malwatch/usage.go" \
 	|| fail "die Adresse der Datenbank bekannter Dateien erreicht den Scanner nicht als --hashlookup-url"
+go_register=$(sed -n 's/^[[:space:]]*DefaultPackagistURL = "\(.*\)"$/\1/p' "$go_composer")
+[ -n "$go_register" ] && [ "$(val105 panel.verify_packagist_url)" = "$go_register" ] \
+	&& [ "$(val105 server.verify_packagist_url)" = "$go_register" ] \
+	&& grep -qF "ADD COLUMN \`verify_packagist_url\` varchar(255) CHARACTER SET ascii NOT NULL DEFAULT ''$go_register''" "$schema" \
+	|| fail "verify_packagist_url: Scanner, Panel, Server und Schema nennen verschiedene Vorgaben"
+grep -qF -- "'--verify-packagist-url=' . \$register" "$root/server/lib/classes/malwatch_helper.inc.php" \
+	&& usage_entry105 --verify-packagist-url | grep -qF "(Vorgabe:" \
+	|| fail "die Adresse des Paketregisters erreicht den Scanner nicht als --verify-packagist-url"
 
 grep -qF 'verify_arguments($config)' "$root/server/lib/classes/malwatch_runner.inc.php" \
 	|| fail "der Runner gibt dem Scanner die Einstellungen des Abgleichs nicht mit"

@@ -84,11 +84,12 @@ class malwatch_helper
 	);
 
 	/**
-	 * The address of the database of known files: https, a host name, a port
-	 * and a path if need be, and no login, because the scanner gets it on its
-	 * command line. The panel checks with the same (malwatch_hashlookup_url_regex()).
+	 * The address of a service the scanner asks - the database of known
+	 * files, the register of Composer packages: https, a host name, a port and
+	 * a path if need be, and no login, because the scanner gets it on its
+	 * command line. The panel checks with the same (malwatch_service_url_regex()).
 	 */
-	const HASHLOOKUP_URL_PATTERN = '#^https://[a-zA-Z0-9.-]{1,120}(?::[0-9]{1,5})?(?:/[a-zA-Z0-9._~%/-]{0,80})?$#';
+	const SERVICE_URL_PATTERN = '#^https://[a-zA-Z0-9.-]{1,120}(?::[0-9]{1,5})?(?:/[a-zA-Z0-9._~%/-]{0,80})?$#';
 
 	private $config = null;
 
@@ -148,6 +149,7 @@ class malwatch_helper
 			'verify_composer' => 'y',
 			'verify_originals' => 'y',
 			'verify_hosts' => 'codeload.github.com,api.github.com,github.com,gitlab.com,bitbucket.org',
+			'verify_packagist_url' => 'https://repo.packagist.org',
 			'verify_max_downloads' => 50,
 			'verify_max_mb' => 50,
 			'verify_timeout' => 60,
@@ -179,6 +181,11 @@ class malwatch_helper
 			}
 			$args[] = $switch . '=' . implode(',', $items);
 		}
+		$register = isset($config['verify_packagist_url']) ? trim((string) $config['verify_packagist_url']) : '';
+		if (!preg_match(self::SERVICE_URL_PATTERN, $register)) {
+			$register = $defaults['verify_packagist_url'];
+		}
+		$args[] = '--verify-packagist-url=' . $register;
 		foreach (self::VERIFY_SETTINGS as $key => $setting) {
 			list($min, $max, $default, $switch) = $setting;
 			$value = isset($config[$key]) && is_numeric($config[$key]) ? (int) $config[$key] : $default;
@@ -194,7 +201,7 @@ class malwatch_helper
 			$args[] = '--no-verify-originals';
 		}
 		$url = isset($config['hashlookup_url']) ? trim((string) $config['hashlookup_url']) : '';
-		if (isset($config['hashlookup']) && $config['hashlookup'] === 'y' && preg_match(self::HASHLOOKUP_URL_PATTERN, $url)) {
+		if (isset($config['hashlookup']) && $config['hashlookup'] === 'y' && preg_match(self::SERVICE_URL_PATTERN, $url)) {
 			$args[] = '--hashlookup-url=' . $url;
 		}
 		return $args;

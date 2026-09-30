@@ -50,6 +50,7 @@ function malwatch_config_defaults()
 		'verify_composer' => 'y',
 		'verify_originals' => 'y',
 		'verify_hosts' => 'codeload.github.com,api.github.com,github.com,gitlab.com,bitbucket.org',
+		'verify_packagist_url' => 'https://repo.packagist.org',
 		'verify_max_downloads' => 50,
 		'verify_max_mb' => 50,
 		'verify_timeout' => 60,
@@ -148,13 +149,14 @@ function malwatch_verify_range($key)
 }
 
 /**
- * The pattern the address of the database of known files is checked with:
- * https, a host name, a port and a path if need be. A login has no place in
- * it, because the address goes to the scanner on its command line, where every
- * user of the server can read it. The server side has the same
- * (malwatch_helper::HASHLOOKUP_URL_PATTERN).
+ * The pattern the address of a service the scanner asks is checked with - the
+ * database of known files, the register of Composer packages: https, a host
+ * name, a port and a path if need be. A login has no place in it, because the
+ * address goes to the scanner on its command line, where every user of the
+ * server can read it. The server side has the same
+ * (malwatch_helper::SERVICE_URL_PATTERN).
  */
-function malwatch_hashlookup_url_regex()
+function malwatch_service_url_regex()
 {
 	return '#^https://[a-zA-Z0-9.-]{1,120}(?::[0-9]{1,5})?(?:/[a-zA-Z0-9._~%/-]{0,80})?$#';
 }

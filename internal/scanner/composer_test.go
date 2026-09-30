@@ -34,19 +34,33 @@ func TestFilesOfComposerPackagesAreConfirmedAgainstTheirArchive(t *testing.T) {
 	if err := zw.Close(); err != nil {
 		t.Fatal(err)
 	}
-	srv := httptest.NewTLSServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-		_, _ = rw.Write(buf.Bytes())
+	// The register lists acme/lib and nothing else. evil/lib names an archive
+	// of its own in installed.json, one that holds its file byte for byte.
+	var srv *httptest.Server
+	srv = httptest.NewTLSServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/p2/acme/lib.json":
+			_, _ = rw.Write([]byte(`{"minified":"composer/2.0","packages":{"acme/lib":[{"name":"acme/lib","version":"1.0.0",` +
+				`"dist":{"type":"zip","url":"` + srv.URL + `/zip/1a2b3c","reference":"1a2b3c"}}]}}`))
+		case "/zip/1a2b3c", "/zip/e7e7e7":
+			_, _ = rw.Write(buf.Bytes())
+		default:
+			http.NotFound(rw, r)
+		}
 	}))
 	defer srv.Close()
 	host := func() string { u, _ := url.Parse(srv.URL); return u.Hostname() }()
 
 	root := t.TempDir()
 	installed := `{"packages":[{"name":"acme/lib","version":"1.0.0","dist":{"type":"zip","url":"` + srv.URL +
-		`/zip/1a2b3c","reference":"1a2b3c"},"install-path":"../acme/lib"}]}`
+		`/zip/1a2b3c","reference":"1a2b3c"},"install-path":"../acme/lib"},` +
+		`{"name":"evil/lib","version":"1.0.0","dist":{"type":"zip","url":"` + srv.URL +
+		`/zip/e7e7e7","reference":"e7e7e7"},"install-path":"../evil/lib"}]}`
 	files := map[string]string{
 		"vendor/composer/installed.json":    installed,
 		"vendor/acme/lib/src/Rule.inc":      original,
 		"vendor/acme/lib/src/Changed.inc":   original + "// changed\n",
+		"vendor/evil/lib/src/Rule.inc":      original,
 		"wp-content/themes/x/functions.php": original,
 	}
 	for rel, body := range files {
@@ -67,7 +81,7 @@ func TestFilesOfComposerPackagesAreConfirmedAgainstTheirArchive(t *testing.T) {
 		StateDir:      t.TempDir(),
 		View:          fileview.Default,
 		Verify: VerifyOptions{
-			Composer: true, Hosts: []string{host}, MaxDownloads: composer.DefaultMaxDownloads,
+			Composer: true, Hosts: []string{host}, PackagistURL: srv.URL, MaxDownloads: composer.DefaultMaxDownloads,
 			MaxMB: composer.DefaultMaxMB, TimeoutSeconds: 5, RetryHours: 1,
 		},
 		verifyTransport: srv.Client().Transport,
@@ -83,7 +97,7 @@ func TestFilesOfComposerPackagesAreConfirmedAgainstTheirArchive(t *testing.T) {
 	if reported["vendor/acme/lib/src/Rule.inc"] {
 		t.Error("Datei des Pakets gemeldet, obwohl sie dem Archiv gleicht")
 	}
-	for _, rel := range []string{"vendor/acme/lib/src/Changed.inc", "wp-content/themes/x/functions.php"} {
+	for _, rel := range []string{"vendor/acme/lib/src/Changed.inc", "vendor/evil/lib/src/Rule.inc", "wp-content/themes/x/functions.php"} {
 		if !reported[rel] {
 			t.Errorf("%s nicht mehr gemeldet", rel)
 		}

@@ -18,6 +18,7 @@ func TestScanRefusesBadVerifyValues(t *testing.T) {
 		"--verify-timeout=0", "--verify-timeout=601",
 		"--verify-retry-hours=-1", "--verify-retry-hours=721",
 		"--hashlookup-url=http://hashlookup.circl.lu", "--hashlookup-url=hashlookup.circl.lu",
+		"--verify-packagist-url=http://repo.packagist.org", "--verify-packagist-url=https://user:secret@repo.packagist.org",
 	} {
 		code := cmdScan([]string{"--path=" + t.TempDir(), "--quiet", "--offline", "--no-clamav", arg})
 		if code != report.ExitError {
@@ -29,7 +30,8 @@ func TestScanRefusesBadVerifyValues(t *testing.T) {
 func TestScanTakesVerifyValues(t *testing.T) {
 	code := cmdScan([]string{"--path=" + t.TempDir(), "--quiet", "--offline", "--no-clamav", "--no-version-scan",
 		"--no-verify-composer", "--no-verify-originals", "--verify-hosts=codeload.github.com", "--verify-max-downloads=3",
-		"--verify-max-mb=10", "--verify-timeout=20", "--verify-retry-hours=0"})
+		"--verify-max-mb=10", "--verify-timeout=20", "--verify-retry-hours=0",
+		"--verify-packagist-url=https://packages.example.org/composer"})
 	if code != report.ExitClean {
 		t.Errorf("Rückgabewert %d, erwartet %d", code, report.ExitClean)
 	}
@@ -37,7 +39,7 @@ func TestScanTakesVerifyValues(t *testing.T) {
 
 func TestUsageNamesTheVerifySwitches(t *testing.T) {
 	for _, s := range []string{"--no-verify-composer", "--no-verify-originals", "--verify-hosts=HOSTS", "--verify-max-downloads=N",
-		"--verify-max-mb=N", "--verify-timeout=S", "--verify-retry-hours=N", "--hashlookup-url=URL"} {
+		"--verify-max-mb=N", "--verify-timeout=S", "--verify-retry-hours=N", "--hashlookup-url=URL", "--verify-packagist-url=URL"} {
 		if !strings.Contains(usageText, s) {
 			t.Errorf("die Hilfe nennt %s nicht", s)
 		}

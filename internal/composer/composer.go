@@ -1,12 +1,17 @@
 // Package composer confirms files of Composer packages against the archives
 // they were installed from.
 //
-// vendor/composer/installed.json names every package with the address of its
-// archive and the commit it was built from. A file below a package that is
-// byte for byte the one in that archive is the package's own, whatever a rule
-// thinks of its content: the test files of PHP_CodeSniffer, the PHAR of
-// Zend's scaffolder, the CA bundle of composer/ca-bundle. The archive of a
-// commit never changes, so its sums are kept for good once loaded.
+// vendor/composer/installed.json names every package with the commit it was
+// built from. The register the maintainers publish to, repo.packagist.org,
+// names the archive of that commit. A file below a package that is byte for
+// byte the one in that archive is the package's own, whatever a rule thinks
+// of its content: the test files of PHP_CodeSniffer, the PHAR of Zend's
+// scaffolder, the CA bundle of composer/ca-bundle. The archive of a commit
+// never changes, so its sums are kept for good once loaded.
+//
+// The address of the archive in installed.json is not used: whoever can write
+// a file of the website can write that one too, and point it at an archive of
+// their own making.
 package composer
 
 import (
@@ -36,7 +41,31 @@ const (
 	DefaultMaxMB          = 50
 	DefaultTimeoutSeconds = 60
 	DefaultRetryHours     = 24
+	// DefaultPackagistURL is the register of Composer packages, as Composer
+	// itself asks it (malwatch_config verify_packagist_url).
+	DefaultPackagistURL = "https://repo.packagist.org"
 )
+
+// CheckPackagistURL says in German why the address of a register cannot be
+// used, or returns nil. The address travels on the command line of the
+// scanner, where every user of the server can read it, so a login in it is
+// refused and shown masked.
+func CheckPackagistURL(raw string) error {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return fmt.Errorf("die Adresse des Paketregisters ist nicht lesbar; erwartet wird eine https-Adresse wie %s",
+			DefaultPackagistURL)
+	}
+	if u.User != nil {
+		return fmt.Errorf("die Adresse %s enthält Anmeldedaten. Sie steht auf der Befehlszeile des Scanners, "+
+			"die jeder Benutzer des Servers lesen kann; bitte eine Adresse ohne Benutzer und Passwort angeben",
+			u.Redacted())
+	}
+	if u.Scheme != "https" || u.Host == "" || len(raw) > 200 {
+		return fmt.Errorf("%q ist keine https-Adresse wie %s", raw, DefaultPackagistURL)
+	}
+	return nil
+}
 
 // Limits of the settings.
 const (
@@ -152,6 +181,9 @@ type Options struct {
 	Timeout time.Duration
 	// RetryHours is how long a failed archive is not asked for again.
 	RetryHours int
+	// PackagistURL is the register that names the archive of every commit,
+	// such as https://repo.packagist.org; empty confirms nothing.
+	PackagistURL string
 	// Transport replaces the network for the tests; nil is the default.
 	Transport http.RoundTripper
 }
@@ -163,6 +195,8 @@ type Fetcher struct {
 	client    *http.Client
 	downloads int
 	failures  []string
+	// asked holds the files of the register loaded in this run.
+	asked map[string]bool
 }
 
 // NewFetcher returns a fetcher for opts.
@@ -189,6 +223,160 @@ func NewFetcher(opts Options) *Fetcher {
 
 // Failures lists the archives that could not be loaded in this run.
 func (f *Fetcher) Failures() []string { return f.failures }
+
+// Published returns the address of the archive the register lists for package
+// name at reference, the commit the website says it installed. A reference the
+// register does not list confirms nothing: a package of the website's own, or
+// an address someone put into installed.json. Tagged versions and development
+// branches stand in two files of the register; both are asked.
+func (f *Fetcher) Published(name, version, reference string) (string, error) {
+	if f.opts.PackagistURL == "" {
+		return "", errors.New("kein Paketregister eingestellt")
+	}
+	name = strings.ToLower(name)
+	if !packageName.MatchString(name) || reference == "" {
+		return "", fmt.Errorf("%s: kein Paket mit Stand", name)
+	}
+	files := []string{name + ".json", name + "~dev.json"}
+	if strings.HasPrefix(version, "dev-") || strings.HasSuffix(version, "-dev") {
+		files[0], files[1] = files[1], files[0]
+	}
+	for _, file := range files {
+		dists, err := f.register(file, name, reference)
+		if err != nil {
+			return "", err
+		}
+		for _, d := range dists {
+			if d.URL != "" && strings.EqualFold(d.Reference, reference) {
+				return d.URL, nil
+			}
+		}
+	}
+	return "", fmt.Errorf("%s: das Paketregister kennt den Stand %s nicht", name, reference)
+}
+
+// dist is the archive of one version in the register.
+type dist struct {
+	Type      string `json:"type"`
+	URL       string `json:"url"`
+	Reference string `json:"reference"`
+}
+
+// register returns the archives one file of the register lists for name. The
+// copy in the cache serves as long as it lists reference; a reference it lacks
+// is asked for anew once a run, since a new version may have come out since.
+// A package the register does not know is no failure, only no confirmation.
+func (f *Fetcher) register(file, name, reference string) ([]dist, error) {
+	key := cacheKey("packagist", file)
+	if raw, err := os.ReadFile(f.cachePath(key, ".register")); err == nil && f.cachePath(key, ".register") != "" {
+		if dists, err := parseRegister(raw, name); err == nil && (listsReference(dists, reference) || f.asked[file]) {
+			return dists, nil
+		}
+	}
+	if f.asked == nil {
+		f.asked = map[string]bool{}
+	}
+	if f.asked[file] {
+		return nil, nil
+	}
+	f.asked[file] = true
+	if f.recentlyFailed(key) {
+		return nil, fmt.Errorf("Paketregister für %s ist zuletzt gescheitert, nächster Versuch nach %d Stunden",
+			name, f.opts.RetryHours)
+	}
+	if f.downloads >= f.opts.MaxDownloads {
+		return nil, fmt.Errorf("die Grenze von %d Abrufen je Lauf ist erreicht", f.opts.MaxDownloads)
+	}
+	f.downloads++
+	raw, found, err := f.fetchRegister(strings.TrimRight(f.opts.PackagistURL, "/") + "/p2/" + file)
+	if err != nil {
+		f.failures = append(f.failures, "Paketregister "+file+": "+err.Error())
+		f.markFailed(key)
+		return nil, err
+	}
+	if !found {
+		return nil, nil
+	}
+	if p := f.cachePath(key, ".register"); p != "" && os.MkdirAll(f.opts.CacheDir, 0o750) == nil {
+		tmp := p + ".tmp"
+		if os.WriteFile(tmp, raw, 0o640) == nil {
+			_ = os.Rename(tmp, p)
+		}
+	}
+	return parseRegister(raw, name)
+}
+
+// fetchRegister loads one file of the register. found is false when the
+// register answers that it has no such package.
+func (f *Fetcher) fetchRegister(raw string) ([]byte, bool, error) {
+	req, err := http.NewRequest(http.MethodGet, raw, nil)
+	if err != nil {
+		return nil, false, err
+	}
+	req.Header.Set("User-Agent", "malwatch")
+	resp, err := f.client.Do(req)
+	if err != nil {
+		return nil, false, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, false, nil
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, false, fmt.Errorf("HTTP %d", resp.StatusCode)
+	}
+	max := int64(f.opts.MaxMB) * 1024 * 1024
+	body, err := io.ReadAll(io.LimitReader(resp.Body, max+1))
+	if err != nil {
+		return nil, false, err
+	}
+	if int64(len(body)) > max {
+		return nil, false, fmt.Errorf("Antwort größer als %d MB", f.opts.MaxMB)
+	}
+	return body, true, nil
+}
+
+// parseRegister reads the archives of name from a file of the register. In the
+// minified form every entry lists what changed against the one before, and
+// "__unset" removes a field.
+func parseRegister(raw []byte, name string) ([]dist, error) {
+	var doc struct {
+		Minified string                                  `json:"minified"`
+		Packages map[string][]map[string]json.RawMessage `json:"packages"`
+	}
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		return nil, fmt.Errorf("Antwort des Paketregisters nicht lesbar: %w", err)
+	}
+	var out []dist
+	cur := map[string]json.RawMessage{}
+	for _, entry := range doc.Packages[name] {
+		if doc.Minified == "" {
+			cur = map[string]json.RawMessage{}
+		}
+		for k, v := range entry {
+			if string(v) == `"__unset"` {
+				delete(cur, k)
+			} else {
+				cur[k] = v
+			}
+		}
+		var d dist
+		if v, ok := cur["dist"]; ok {
+			_ = json.Unmarshal(v, &d)
+		}
+		out = append(out, d)
+	}
+	return out, nil
+}
+
+func listsReference(dists []dist, reference string) bool {
+	for _, d := range dists {
+		if d.URL != "" && strings.EqualFold(d.Reference, reference) {
+			return true
+		}
+	}
+	return false
+}
 
 // Files returns the SHA-256 of every file of the archive at distURL, by its
 // path below the top directory of the archive.
