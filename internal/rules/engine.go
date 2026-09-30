@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/brightcolor/malwatch/internal/phpcode"
 	"github.com/brightcolor/malwatch/internal/report"
 	"github.com/brightcolor/malwatch/internal/textpos"
 )
@@ -130,6 +131,17 @@ func (e *Engine) Scan(path, rel, ext string, content []byte) []report.Finding {
 
 	looks := look(content)
 
+	// Whether the file can do anything at all, decided once and only for a
+	// file a SkipInert rule looks at.
+	inertKnown, inert := false, false
+	isInert := func() bool {
+		if !inertKnown {
+			inert, _ = phpcode.Inert(content)
+			inertKnown = true
+		}
+		return inert
+	}
+
 	// The line index for the marks, built once and only for a file that
 	// matches at all.
 	var lines *textpos.Lines
@@ -143,6 +155,9 @@ func (e *Engine) Scan(path, rel, ext string, content []byte) []report.Finding {
 	var out []report.Finding
 	for _, r := range e.rules {
 		if !r.AppliesTo(rel, ext, looks) || !e.fits(r, rel) {
+			continue
+		}
+		if r.SkipInert && isInert() {
 			continue
 		}
 		if f, ok := e.apply(r, path, content, content, nil, linesOf); ok {

@@ -20,6 +20,7 @@ import (
 	"github.com/brightcolor/malwatch/internal/cms"
 	"github.com/brightcolor/malwatch/internal/fileview"
 	"github.com/brightcolor/malwatch/internal/knownfiles"
+	"github.com/brightcolor/malwatch/internal/phpcode"
 	"github.com/brightcolor/malwatch/internal/phpinfo"
 	"github.com/brightcolor/malwatch/internal/report"
 	"github.com/brightcolor/malwatch/internal/rules"
@@ -334,7 +335,7 @@ func scanFile(f walk.File, sigDB *sigs.DB, engine *rules.Engine, known *knownfil
 			Excerpt:  "weicht von der Auslieferung ab (" + label + ")",
 		})
 	}
-	if status == knownfiles.Foreign && runnableExt(f.Ext) {
+	if status == knownfiles.Foreign && runnableExt(f.Ext) && !inertFile(content) {
 		// Die andere Frage: nicht ob eine Datei verdächtig aussieht, sondern
 		// ob sie überhaupt dorthin gehört. Ein Plugin-Verzeichnis enthält das
 		// Plugin; was der Hersteller nicht ausliefert, ist auf einem anderen
@@ -746,6 +747,15 @@ func loadChecksums(known *knownfiles.Index, fetcher *knownfiles.Fetcher, inst cm
 // Die Liste ist absichtlich dieselbe, die auch die Regeln als phpExts
 // benutzen, ohne .js: eine erzeugte JavaScript-Datei im Plugin-Verzeichnis
 // ist gewöhnlich, und ob eine fremde davon vorkommt, ist nicht gemessen.
+// inertFile reports whether a file can do nothing when requested or included,
+// see phpcode.Inert. Plugins write such files into their own directories at
+// run time - guards, plain text, data behind an exit - and a file the vendor
+// does not ship is only a way in when it can run something.
+func inertFile(content []byte) bool {
+	inert, _ := phpcode.Inert(content)
+	return inert
+}
+
 func runnableExt(ext string) bool {
 	switch ext {
 	case "php", "php3", "php4", "php5", "php7", "php8", "phtml", "phps", "inc", "module":

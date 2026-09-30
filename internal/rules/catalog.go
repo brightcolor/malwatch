@@ -990,7 +990,12 @@ var catalog = []*Rule{
 		// but an upload form in plain HTML, which is the visible half of a
 		// shell and one appended line away from being the whole of it.
 		Where: InUploads,
-		Match: rx(`(?i)<\?(?:php|=|\s)|enctype\s*=\s*["']?multipart/form-data`),
+		// A file that can do nothing is no way in: the "Silence is golden"
+		// guards plugins put into their directories, the data Sucuri and
+		// BackupBuddy keep behind an exit, the icon tables of font packs. On
+		// 2026-09-30 they were 75 of the 77 open findings of this rule.
+		SkipInert: true,
+		Match:     rx(`(?i)<\?(?:php|=|\s)|enctype\s*=\s*["']?multipart/form-data`),
 	},
 	{
 		ID:          "php.disguised_as_image",

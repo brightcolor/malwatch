@@ -69,6 +69,11 @@ type Rule struct {
 	// well, with just their start, so a program padded past the limit still
 	// shows up.
 	HeadOnly bool
+	// SkipInert lets a PHP file pass that can do nothing when it is requested
+	// or included: only comments, an unconditional exit first, or nothing but
+	// fixed data (phpcode.Inert). For rules that ask whether a file can be a
+	// way in by where it lies, not what it contains.
+	SkipInert bool
 }
 
 // Place is where below the scanned root a rule looks.
