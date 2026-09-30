@@ -95,8 +95,9 @@ Abruf.
 
 **Was die Heuristik als harmlos einordnet.** Eine Datei ohne Wirkung — nur
 Kommentare, ein `exit` am Anfang, nur feste Daten wie Übersetzungstabellen.
-Regeln zu PHP-Konstrukten werten Treffer im ausführbaren Code; ein `eval(` in
-einem Kommentar, einer Zeichenkette oder im HTML-Teil zählt als Text. Abruf und
+Regeln zu PHP-Konstrukten werten Treffer, die PHP ausführen kann: im Code und in
+Zeichenketten, die eine Datei an `eval` geben oder in eine Datei schreiben kann.
+Ein `eval(` in einem Kommentar oder im HTML-Teil zählt als Text. Abruf und
 Ausführung gehören zu einer Aktion, wenn sie in derselben Funktion stehen oder
 die eine die andere direkt aufruft. Kodierte Blöcke werden dekodiert: Bilder,
 Zertifikate, Schlüssel, Archive, Schriften und PDF sind Daten, ein Skript per

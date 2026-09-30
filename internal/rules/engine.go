@@ -290,10 +290,17 @@ func (c *codeView) source() *phpcode.Source {
 	return c.src
 }
 
-// code reports whether offset at of the file is PHP code.
+// code reports whether offset at of the file counts as PHP code for a rule
+// that weighs code only: the code itself and every string in it. A string runs
+// once the file hands it to eval or writes it into a file, and droppers keep
+// their loader exactly there: $k = '...'; eval($k). What PHP never runs does
+// not count: comments and the text around the tags.
 func (c *codeView) code(at int) bool {
 	s := c.source()
-	return s.Broken() || s.IsCode(at)
+	if s.Broken() || s.IsCode(at) {
+		return true
+	}
+	return s.KindAt(at) == phpcode.String
 }
 
 // scopedMatch returns the first match of a SameScope rule whose supporting

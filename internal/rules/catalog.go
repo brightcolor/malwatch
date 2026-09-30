@@ -634,7 +634,10 @@ var catalog = []*Rule{
 		AutoSafe:    true,
 		Description: "bindet eine Datei von einer fremden Adresse ein",
 		Exts:        phpExts,
-		Match:       rx(`(?is)\b(?:include|require)(?:_once)?\s*\(?\s*(?:'https?://|"https?://)`),
+		// An address goes on after the scheme, written out or appended:
+		// 'http://' . $host counts, a help text that asks to write "http://"
+		// does not (Salient).
+		Match: rx(`(?is)\b(?:include|require)(?:_once)?\s*\(?\s*(?:'https?://|"https?://)(?:[^'"\s]|['"]\s*\.)`),
 	},
 	{
 		ID:          "php.remote.fetch_eval",

@@ -79,11 +79,13 @@ type Rule struct {
 	// not. A block that decodes to a picture is data; a picture next to a
 	// block that decodes to code hides nothing.
 	Harmless func(e *Engine, hay []byte, loc []int) bool
-	// CodeOnly counts a match only where it starts in PHP code: not in a
-	// comment, not in a quoted string or heredoc, not in the text around the
-	// PHP tags. For rules whose pattern names a construct - eval, include,
-	// preg_replace, a variable called - which in prose is a word. A file
-	// without any PHP tag is code throughout, as a payload passed to eval is.
+	// CodeOnly counts a match only where PHP can run it: in code or in a
+	// quoted string or heredoc, which runs once the file hands it to eval or
+	// writes it into a file. A match in a comment or in the text around the
+	// PHP tags does not count. For rules whose pattern names a construct -
+	// eval, include, preg_replace, a variable called - which in a comment is
+	// a word. A file without any PHP tag is code throughout, as a payload
+	// passed to eval is.
 	CodeOnly bool
 	// SupportInCode asks the same of Requires and AlsoRequires: a comment
 	// that mentions curl_exec makes no downloader.

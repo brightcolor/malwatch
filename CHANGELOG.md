@@ -48,11 +48,20 @@ prüfen (500, 0 schaltet ab).
 feste Daten wie Übersetzungstabellen und Konfigurationsarrays, auch hinter einer
 ABSPATH-Sperre. Das betrifft PHP im Upload-Ordner und fremde Dateien im Kern von WordPress.
 
-**Regeln zu PHP-Konstrukten werten Treffer im ausführbaren Code.** Ein `eval(` in einem
-Kommentar, einer Zeichenkette oder im HTML-Teil einer Datei zählt als Text. Abruf und
-Ausführung gehören zu einer Aktion, wenn sie in derselben Funktion stehen oder die eine die
-andere direkt aufruft; so meldete die Regel `php.remote.fetch_eval_indirect` zuvor die
-XML-RPC-Bibliothek von SeedProd.
+**Regeln zu PHP-Konstrukten werten Treffer, die PHP ausführen kann:** im Code und in
+Zeichenketten, die eine Datei an `eval` geben oder in eine Datei schreiben kann. Ein `eval(`
+in einem Kommentar oder im HTML-Teil einer Datei zählt als Text; so meldete der Scanner
+zuvor eine auskommentierte Zeile von RevSlider als kritisch. `include "http://"` zählt mit
+einer Adresse dahinter; ein Hilfetext, der dazu auffordert, „http://“ einzutragen, zählt
+nicht (Salient). Abruf und Ausführung gehören zu einer Aktion, wenn sie in derselben
+Funktion stehen oder die eine die andere direkt aufruft; so meldete die Regel
+`php.remote.fetch_eval_indirect` zuvor die XML-RPC-Bibliothek von SeedProd.
+
+**Der PHP-Leser verliert den Faden seltener.** Ein eingesetzter Wert `{$name}` in einer
+Zeichenkette endet an seiner eigenen Klammer; zuvor las der Scanner bis zur nächsten
+geschweiften Klammer der Datei weiter und hielt den Code dazwischen für Text. `<?` öffnet PHP
+auch ohne folgendes Leerzeichen, wie PHP es mit eingeschalteten Short-Tags tut; die
+XML-Deklaration `<?xml` bleibt Text.
 
 **Kodiertes wird dekodiert und eingeordnet.** Bilder, Zertifikate, Schlüssel, Archive,
 Schriften und PDF in base64 sind Daten, ebenso alles hinter `__halt_compiler` in einem PHAR.
