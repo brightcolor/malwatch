@@ -628,6 +628,31 @@ var catalog = []*Rule{
 		Requires: rx(`(?i)\bdefine\s*\(\s*['"]FM_(?:SESSION_ID|SELF_URL|USE_AUTH)['"]`),
 	},
 	{
+		// PHP File Manager (Den1xxx) keeps its settings in one JSON line at
+		// its head, and "authorize":"0" switches the login off. Then whoever
+		// opens the file can upload, edit and run files on the website, as
+		// the owner of the website. Unlike a Tiny File Manager behind its
+		// login there is nobody this could be meant for: the rule reports it
+		// as critical and moves it on its own.
+		//
+		// Seen on 2026-09-30: six copies, each in a plugin folder with a
+		// made-up name, uploaded through a stolen WordPress login. The rules
+		// then in place reported them as high for writing files.
+		//
+		// The settings keys of the tool have to stand nearby, so that another
+		// program's $authorization with a field authorize is no match; a
+		// security plugin that lists the name has no such line in code.
+		ID:            "php.tool.file_manager_open",
+		CodeOnly:      true,
+		SupportInCode: true,
+		Severity:      report.SeverityCritical,
+		AutoSafe:      true,
+		Description:   "Datei-Manager ohne Anmeldung (PHP File Manager)",
+		Exts:          phpExts,
+		Match:         rx(`(?is)\$authorization\s*=\s*'\s*\{\s*"authorize"\s*:\s*"0"`),
+		Requires:      rx(`(?is)"(?:cookie_name|days_authorization)"\s*:[^\n]{0,400}"(?:cookie_name|days_authorization)"`),
+	},
+	{
 		ID:          "php.include.remote",
 		CodeOnly:    true,
 		Severity:    report.SeverityHigh,

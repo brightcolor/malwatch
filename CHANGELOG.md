@@ -35,6 +35,13 @@ Paketregister, Hosts für Archive, Abrufe je Prüfung (50), Größe je Abruf (50
 (60 Sekunden), neuer Versuch nach (24 Stunden), Datenbank bekannter Dateien fragen (aus) und
 ihre Adresse.
 
+**Regel `php.tool.file_manager_open` (kritisch, selbsttätige Quarantäne):** der quelloffene
+PHP File Manager mit abgeschalteter Anmeldung (`"authorize":"0"`). Wer die Datei aufruft, kann
+ohne Kennwort Dateien hochladen, ändern und ausführen. Am 30.09.2026 lagen sechs Kopien auf
+einer Website, jede in einem Plugin-Ordner mit ausgedachtem Namen, hochgeladen über eine
+gestohlene WordPress-Anmeldung; die Regeln bis dahin meldeten sie nur als „hoch“, und die
+automatische Quarantäne ließ sie liegen.
+
 **Funde verschwundener Dateien.** Stündlich prüft der Server bis zu 500 offene Funde darauf,
 ob ihre Datei noch da ist, und schließt die Funde verschwundener Dateien. Das hält vor allem
 Websites aktuell, die abgeschaltet sind und deshalb nicht mehr geprüft werden. Die Liste der
