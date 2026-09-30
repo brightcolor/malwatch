@@ -20,6 +20,11 @@
  * (DefaultUploadDirs in internal/rules/uploads.go), the server side as well.
  * view_*: what the finding page shows of a file, see malwatch_view_settings().
  * panel_url: the address of the panel, for the links in the mails.
+ * modified_exts, script_hosts, verify_*, hashlookup*: how the scanner tells a
+ * vendor's file from a finding (0.41.0), see malwatch_list_settings() and
+ * malwatch_verify_settings(); the scanner and the server side have the same.
+ * housekeeping_minute, keep_job_days, keep_fixed_days, vanished_check_rows:
+ * the hourly part of the cron job, see malwatch_housekeeping_settings().
  */
 function malwatch_config_defaults()
 {
@@ -40,7 +45,134 @@ function malwatch_config_defaults()
 		'mail_format' => 'html',
 		'mail_from_name' => 'malwatch',
 		'mail_smtp_verify' => 'y',
+		'modified_exts' => 'php,php3,php4,php5,php7,php8,phtml,phps,phar,inc,module,tpl,twig,js,mjs,cjs,html,htm,svg,htaccess,ini',
+		'script_hosts' => 'google-analytics.com,www.google-analytics.com,ssl.google-analytics.com,ajax.googleapis.com,code.jquery.com',
+		'verify_composer' => 'y',
+		'verify_originals' => 'y',
+		'verify_hosts' => 'codeload.github.com,api.github.com,github.com,gitlab.com,bitbucket.org',
+		'verify_packagist_url' => 'https://repo.packagist.org',
+		'verify_max_downloads' => 50,
+		'verify_max_mb' => 50,
+		'verify_timeout' => 60,
+		'verify_retry_hours' => 24,
+		'hashlookup' => 'n',
+		'hashlookup_url' => 'https://hashlookup.circl.lu',
+		'housekeeping_minute' => 7,
+		'keep_job_days' => 30,
+		'keep_fixed_days' => 90,
+		'vanished_check_rows' => 500,
 	);
+}
+
+/**
+ * The lists of the check against the vendors: key => array(most items,
+ * longest item, pattern of one item, fewest items). The scanner and the
+ * server side (malwatch_helper::LIST_SETTINGS) have the same.
+ */
+function malwatch_list_settings()
+{
+	$host = '[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)+';
+	return array(
+		'modified_exts' => array(40, 12, '[a-z0-9]+', 1),
+		'script_hosts' => array(32, 100, $host, 0),
+		'verify_hosts' => array(16, 100, $host, 0),
+	);
+}
+
+/**
+ * The pattern the settings page checks a list with, once malwatch_list_tidy()
+ * has cleaned it: the items of malwatch_list_settings(), separated by commas.
+ */
+function malwatch_list_regex($key)
+{
+	$settings = malwatch_list_settings();
+	list($max_items, $max_length, $item, $min_items) = $settings[$key];
+	$one = '(?=[^,]{1,' . $max_length . '}(?:,|$))' . $item;
+	$list = $one . '(?:,' . $one . '){0,' . ($max_items - 1) . '}';
+	return '/^' . ($min_items > 0 ? $list : '(?:' . $list . ')?') . '$/';
+}
+
+/** A list as the page stores it: lower case, no spaces, no dots in front, no empty items. */
+function malwatch_list_tidy($text)
+{
+	$items = array();
+	foreach (explode(',', strtolower((string) $text)) as $item) {
+		$item = ltrim(trim($item), '.');
+		if ($item !== '') {
+			$items[] = $item;
+		}
+	}
+	return implode(',', $items);
+}
+
+/**
+ * The numbers of the check against the vendors: key => array(min, max,
+ * default). The server side (malwatch_helper::VERIFY_SETTINGS) and the scanner
+ * have the same.
+ */
+function malwatch_verify_settings()
+{
+	return array(
+		'verify_max_downloads' => array(1, 1000, 50),
+		'verify_max_mb' => array(1, 500, 50),
+		'verify_timeout' => array(1, 600, 60),
+		'verify_retry_hours' => array(0, 720, 24),
+	);
+}
+
+/**
+ * The hourly part of the cron job: key => array(min, max, default). The
+ * server side has the same (malwatch_helper::HOUSEKEEPING_SETTINGS).
+ */
+function malwatch_housekeeping_settings()
+{
+	return array(
+		'housekeeping_minute' => array(0, 59, 7),
+		'keep_job_days' => array(1, 3650, 30),
+		'keep_fixed_days' => array(1, 3650, 90),
+		'vanished_check_rows' => array(0, 10000, 500),
+	);
+}
+
+/** The range of such a number as a tform RANGE validator takes it, e.g. '0:59'. */
+function malwatch_housekeeping_range($key)
+{
+	$settings = malwatch_housekeeping_settings();
+	return $settings[$key][0] . ':' . $settings[$key][1];
+}
+
+/** The range of such a number as a tform RANGE validator takes it, e.g. '1:600'. */
+function malwatch_verify_range($key)
+{
+	$settings = malwatch_verify_settings();
+	return $settings[$key][0] . ':' . $settings[$key][1];
+}
+
+/**
+ * The pattern the address of a service the scanner asks is checked with - the
+ * database of known files, the register of Composer packages: https, a host
+ * name, a port and a path if need be. A login has no place in it, because the
+ * address goes to the scanner on its command line, where every user of the
+ * server can read it. The server side has the same
+ * (malwatch_helper::SERVICE_URL_PATTERN).
+ */
+function malwatch_service_url_regex()
+{
+	return '#^https://[a-zA-Z0-9.-]{1,120}(?::[0-9]{1,5})?(?:/[a-zA-Z0-9._~%/-]{0,80})?$#';
+}
+
+/**
+ * How a website stands in ISPConfig, for the finding list: 'inactive' when it
+ * is switched off, 'gone' when ISPConfig no longer has it ($web is no row), ''
+ * otherwise. The scheduler scans active websites only, so the findings of the
+ * other two stay as the last scan left them.
+ */
+function malwatch_site_state($web)
+{
+	if (!is_array($web)) {
+		return 'gone';
+	}
+	return isset($web['active']) && $web['active'] === 'n' ? 'inactive' : '';
 }
 
 /**

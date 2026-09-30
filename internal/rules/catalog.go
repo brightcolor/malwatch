@@ -41,6 +41,7 @@ var catalog = []*Rule{
 	// ---------------------------------------------------------------- eval
 	{
 		ID:          "php.eval.encoded",
+		CodeOnly:    true,
 		Severity:    report.SeverityCritical,
 		AutoSafe:    true,
 		Description: "eval auf entschlüsseltem Inhalt",
@@ -49,6 +50,8 @@ var catalog = []*Rule{
 	},
 	{
 		ID:          "php.eval.request",
+		GuardLowers: true,
+		CodeOnly:    true,
 		Severity:    report.SeverityCritical,
 		AutoSafe:    true,
 		Description: "eval auf Daten aus der Anfrage",
@@ -69,13 +72,19 @@ var catalog = []*Rule{
 	},
 	{
 		ID:          "php.preg_replace.eval",
+		CodeOnly:    true,
 		Severity:    report.SeverityCritical,
 		Description: "preg_replace mit dem Modifikator e führt Code aus",
-		Exts:        phpExts,
-		Match:       rx(`(?is)preg_replace\s*\(\s*(?:'[^'\n]{0,200}[/#~|!%][imsxuADSUXJ]*e[imsxuADSUXJ]*'|"[^"\n]{0,200}[/#~|!%][imsxuADSUXJ]*e[imsxuADSUXJ]*")`),
+		// PHP 7.0 dropped the modifier: the call fails instead of running
+		// code. Old releases of RevSlider, Jupiter and WPBakery still carry it.
+		DeadFrom: "7.0",
+		Exts:     phpExts,
+		Match:    rx(`(?is)preg_replace\s*\(\s*(?:'[^'\n]{0,200}[/#~|!%][imsxuADSUXJ]*e[imsxuADSUXJ]*'|"[^"\n]{0,200}[/#~|!%][imsxuADSUXJ]*e[imsxuADSUXJ]*")`),
 	},
 	{
 		ID:          "php.callback.request",
+		GuardLowers: true,
+		CodeOnly:    true,
 		Severity:    report.SeverityCritical,
 		AutoSafe:    true,
 		Description: "Rückruffunktion direkt aus der Anfrage",
@@ -84,6 +93,8 @@ var catalog = []*Rule{
 	},
 	{
 		ID:          "php.dynamic.request_call",
+		GuardLowers: true,
+		CodeOnly:    true,
 		Severity:    report.SeverityCritical,
 		AutoSafe:    true,
 		Description: "Funktionsname kommt aus der Anfrage",
@@ -92,6 +103,7 @@ var catalog = []*Rule{
 	},
 	{
 		ID:          "php.eval.variable",
+		CodeOnly:    true,
 		Severity:    report.SeverityMedium,
 		Description: "eval auf einer Variablen",
 		Exts:        phpExts,
@@ -104,6 +116,7 @@ var catalog = []*Rule{
 		// für Widgets benutzt. Gemeint ist der zweite Parameter - der
 		// Funktionsrumpf -, wenn er entschlüsselt oder aus der Anfrage kommt.
 		ID:          "php.eval.create_function",
+		CodeOnly:    true,
 		Severity:    report.SeverityCritical,
 		AutoSafe:    true,
 		Description: "create_function mit verschleiertem Rumpf",
@@ -114,6 +127,7 @@ var catalog = []*Rule{
 	},
 	{
 		ID:          "php.eval.variable_call",
+		CodeOnly:    true,
 		Severity:    report.SeverityCritical,
 		AutoSafe:    true,
 		Description: "eval auf dem Ergebnis eines Variablenaufrufs",
@@ -125,9 +139,11 @@ var catalog = []*Rule{
 		Match: rx(`(?is)\beval\s*\(\s*(?:@\s*)?\$[a-zA-Z_]\w{0,40}\s*\(`),
 	},
 	{
-		ID:          "php.silence.preamble",
-		Severity:    report.SeverityHigh,
-		Description: "Fehlerausgabe und Fehlerprotokoll zusammen abgeschaltet",
+		ID:            "php.silence.preamble",
+		CodeOnly:      true,
+		SupportInCode: true,
+		Severity:      report.SeverityHigh,
+		Description:   "Fehlerausgabe und Fehlerprotokoll zusammen abgeschaltet",
 		// Silencing the output happens in honest code often enough. Silencing
 		// the error log as well means nobody is supposed to see what this file
 		// does - and it stood at the top of every payload of that infection.
@@ -148,9 +164,15 @@ var catalog = []*Rule{
 		RawOnly:  true,
 		Match:    rx(`[A-Za-z0-9+/]{260,}={0,2}`),
 		Requires: rx(`(?i)base64_decode|gzinflate|gzuncompress|str_rot13`),
+		// Each block is decoded. A picture, a font, a PDF, a certificate or
+		// key, or the data part of a PHAR archive holds no code: on
+		// 2026-09-30 seven of the eight open findings were such blocks.
+		// Decoded PHP, compressed data and anything unknown stay findings.
+		Harmless: harmlessBlob,
 	},
 	{
 		ID:          "php.include.decoy_guard",
+		CodeOnly:    true,
 		Severity:    report.SeverityCritical,
 		AutoSafe:    true,
 		Description: "Einbindung hinter einer Schein-Abfrage",
@@ -189,6 +211,7 @@ var catalog = []*Rule{
 	},
 	{
 		ID:          "php.obfuscation.name_in_variable",
+		CodeOnly:    true,
 		Severity:    report.SeverityHigh,
 		AutoSafe:    true,
 		Description: "gewöhnliche Funktionsnamen in Variablen geparkt",
@@ -269,6 +292,7 @@ var catalog = []*Rule{
 	},
 	{
 		ID:          "php.obfuscation.substr_of_nothing",
+		CodeOnly:    true,
 		Severity:    report.SeverityHigh,
 		Description: "Leerstring umständlich erzeugt",
 		Exts:        phpExts,
@@ -344,6 +368,7 @@ var catalog = []*Rule{
 	},
 	{
 		ID:          "php.obfuscation.goto_spaghetti",
+		CodeOnly:    true,
 		Severity:    report.SeverityHigh,
 		Description: "Ablauf in Sprungmarken zerlegt",
 		// goto exists in PHP and is rare, but it is not unused: the WordPress
@@ -405,6 +430,7 @@ var catalog = []*Rule{
 	},
 	{
 		ID:          "php.obfuscation.variable_function",
+		CodeOnly:    true,
 		Severity:    report.SeverityHigh,
 		AutoSafe:    true,
 		Description: "Funktionsaufruf über eine zusammengesetzte Variable",
@@ -426,6 +452,8 @@ var catalog = []*Rule{
 	},
 	{
 		ID:          "php.globals.extract_request",
+		GuardLowers: true,
+		CodeOnly:    true,
 		Severity:    report.SeverityHigh,
 		Description: "extract() auf Anfragedaten überschreibt beliebige Variablen",
 		Exts:        phpExts,
@@ -435,6 +463,8 @@ var catalog = []*Rule{
 	// ---------------------------------------------------------- execution
 	{
 		ID:          "php.exec.request",
+		GuardLowers: true,
+		CodeOnly:    true,
 		Severity:    report.SeverityCritical,
 		Description: "Systembefehl mit Anteilen aus der Anfrage",
 		Exts:        phpExts,
@@ -442,6 +472,7 @@ var catalog = []*Rule{
 	},
 	{
 		ID:          "php.backtick.request",
+		CodeOnly:    true,
 		Severity:    report.SeverityCritical,
 		Description: "Shell-Aufruf in Backticks mit Anfragedaten",
 		Exts:        phpExts,
@@ -453,6 +484,8 @@ var catalog = []*Rule{
 	},
 	{
 		ID:          "php.dropper.write_code",
+		GuardLowers: true,
+		CodeOnly:    true,
 		Severity:    report.SeverityHigh,
 		Description: "schreibt dekodierten oder übermittelten Inhalt in eine Datei",
 		Exts:        phpExts,
@@ -516,6 +549,7 @@ var catalog = []*Rule{
 	},
 	{
 		ID:          "shell.in_uploads",
+		ByPlace:     true,
 		Severity:    report.SeverityHigh,
 		Description: "Shell-Skript in einem Verzeichnis für hochgeladene Dateien",
 		Exts:        shellExts,
@@ -527,6 +561,7 @@ var catalog = []*Rule{
 	},
 	{
 		ID:          "php.include.assembled_path",
+		CodeOnly:    true,
 		Severity:    report.SeverityCritical,
 		AutoSafe:    true,
 		Description: "Pfad einer Einbindung aus Array-Zugriffen zusammengesetzt",
@@ -540,6 +575,7 @@ var catalog = []*Rule{
 	},
 	{
 		ID:          "php.include.stream_wrapper",
+		CodeOnly:    true,
 		Severity:    report.SeverityCritical,
 		AutoSafe:    true,
 		Description: "Code wird aus einem Archiv oder Datenstrom nachgeladen",
@@ -564,9 +600,11 @@ var catalog = []*Rule{
 		Match: rx(`(?is)leafmailer|orvx\.pw`),
 	},
 	{
-		ID:          "php.tool.file_manager",
-		Severity:    report.SeverityMedium,
-		Description: "eigenständiger Datei-Manager (Tiny File Manager)",
+		ID:            "php.tool.file_manager",
+		CodeOnly:      true,
+		SupportInCode: true,
+		Severity:      report.SeverityMedium,
+		Description:   "eigenständiger Datei-Manager (Tiny File Manager)",
 		// A web shell does not have to be written by an attacker. Tiny File
 		// Manager is honest open source: one PHP file that lists, uploads,
 		// edits and deletes whatever the web user may touch. Dropped next to a
@@ -590,15 +628,45 @@ var catalog = []*Rule{
 		Requires: rx(`(?i)\bdefine\s*\(\s*['"]FM_(?:SESSION_ID|SELF_URL|USE_AUTH)['"]`),
 	},
 	{
+		// PHP File Manager (Den1xxx) keeps its settings in one JSON line at
+		// its head, and "authorize":"0" switches the login off. Then whoever
+		// opens the file can upload, edit and run files on the website, as
+		// the owner of the website. Unlike a Tiny File Manager behind its
+		// login there is nobody this could be meant for: the rule reports it
+		// as critical and moves it on its own.
+		//
+		// Seen on 2026-09-30: six copies, each in a plugin folder with a
+		// made-up name, uploaded through a stolen WordPress login. The rules
+		// then in place reported them as high for writing files.
+		//
+		// The settings keys of the tool have to stand nearby, so that another
+		// program's $authorization with a field authorize is no match; a
+		// security plugin that lists the name has no such line in code.
+		ID:            "php.tool.file_manager_open",
+		CodeOnly:      true,
+		SupportInCode: true,
+		Severity:      report.SeverityCritical,
+		AutoSafe:      true,
+		Description:   "Datei-Manager ohne Anmeldung (PHP File Manager)",
+		Exts:          phpExts,
+		Match:         rx(`(?is)\$authorization\s*=\s*'\s*\{\s*"authorize"\s*:\s*"0"`),
+		Requires:      rx(`(?is)"(?:cookie_name|days_authorization)"\s*:[^\n]{0,400}"(?:cookie_name|days_authorization)"`),
+	},
+	{
 		ID:          "php.include.remote",
+		CodeOnly:    true,
 		Severity:    report.SeverityHigh,
 		AutoSafe:    true,
 		Description: "bindet eine Datei von einer fremden Adresse ein",
 		Exts:        phpExts,
-		Match:       rx(`(?is)\b(?:include|require)(?:_once)?\s*\(?\s*(?:'https?://|"https?://)`),
+		// An address goes on after the scheme, written out or appended:
+		// 'http://' . $host counts, a help text that asks to write "http://"
+		// does not (Salient).
+		Match: rx(`(?is)\b(?:include|require)(?:_once)?\s*\(?\s*(?:'https?://|"https?://)(?:[^'"\s]|['"]\s*\.)`),
 	},
 	{
 		ID:          "php.remote.fetch_eval",
+		CodeOnly:    true,
 		Severity:    report.SeverityHigh,
 		AutoSafe:    true,
 		Description: "führt aus, was von einer fremden Adresse geladen wurde",
@@ -623,7 +691,13 @@ var catalog = []*Rule{
 		// infusionsoft/xmlrpc-2.0/lib/xmlrpc.inc auf vier Websites selbst in
 		// die Quarantäne gelegt. Sie meldet weiter kritisch, verschieben
 		// entscheidet ein Mensch.
-		ID:          "php.remote.fetch_eval_indirect",
+		ID:            "php.remote.fetch_eval_indirect",
+		CodeOnly:      true,
+		SupportInCode: true,
+		// Fetch and eval in one body, or eval next to a call of the helper
+		// that fetches. SeedProd's XML-RPC library fetches in its client and
+		// evaluates a generated wrapper in a function that never calls it.
+		SameScope:   true,
 		Severity:    report.SeverityCritical,
 		Description: "lädt von einer fremden Adresse und führt es danach aus",
 		Exts:        phpExts,
@@ -641,7 +715,11 @@ var catalog = []*Rule{
 		// 1nv1s1bl3 and "Sole Sad & Invisible" are the signatures this
 		// campaign leaves in its droppers and its .htaccess files. The leet
 		// spelling and the fixed phrase do not occur in honest code.
-		Match: rx(`(?i)(?:c99shell|r57shell|wso\s?shell|b374k|weevely|IndoXploit|AnonymousFox|SyRiAn\s?Sh3ll|MiniShell|Mini\s?Shell|priv8\s?shell|FilesMan|by\s+Orb|IndoSec|Alfa\s?Team\s?Shell|Sh3ll\s?Uploader|1nv1s1bl3|Sole\s?Sad\s?(?:&|and)\s?Invisible)`),
+		Match: webshellNames,
+		// Security tools name shells to find them: Wordfence keeps
+		// '#^anonymousfox#i' in the rules file of its firewall. A name in a
+		// search pattern or in a list of rivals is no shell naming itself.
+		Harmless: harmlessMarker,
 	},
 	{
 		// Der ALFA-Lader trägt seinen Rumpf als eine lange Zeichenkette und
@@ -651,13 +729,15 @@ var catalog = []*Rule{
 		// ist die Handschrift. Für sich ist das Matrixarbeit; erst mit eval im
 		// selben File ist es ein Lader. v0.28.3 sah nur eval auf einer
 		// Variablen und meldete „mittel“.
-		ID:          "php.webshell.column_cipher",
-		Severity:    report.SeverityCritical,
-		AutoSafe:    true,
-		Description: "Webshell-Lader mit Spaltentransposition",
-		Exts:        phpExts,
-		Match:       rx(`(?is)\$\w+\s*\[\s*\$\w+\s*\]\s*\.=\s*\$\w+\s*\[\s*\$\w+\s*\+\s*\$\w+\s*\*\s*\$\w+\s*\]`),
-		Requires:    rx(`(?i)\beval\s*\(`),
+		ID:            "php.webshell.column_cipher",
+		CodeOnly:      true,
+		SupportInCode: true,
+		Severity:      report.SeverityCritical,
+		AutoSafe:      true,
+		Description:   "Webshell-Lader mit Spaltentransposition",
+		Exts:          phpExts,
+		Match:         rx(`(?is)\$\w+\s*\[\s*\$\w+\s*\]\s*\.=\s*\$\w+\s*\[\s*\$\w+\s*\+\s*\$\w+\s*\*\s*\$\w+\s*\]`),
+		Requires:      rx(`(?i)\beval\s*\(`),
 	},
 	{
 		// torrios.de, Herbst 2024: rund 25 KB mit kopierten Doc-Kommentaren
@@ -668,6 +748,7 @@ var catalog = []*Rule{
 		// den Block hat er nicht. Außerhalb von wp-admin und wp-includes sah
 		// malwatch diese Dateien bisher gar nicht.
 		ID:          "php.webshell.include_wrapper",
+		CodeOnly:    true,
 		Severity:    report.SeverityCritical,
 		AutoSafe:    true,
 		Description: "Einbinde-Hülle mit verschlüsseltem Block",
@@ -697,10 +778,12 @@ var catalog = []*Rule{
 		// Upload über $_FILES und auf ?del löscht sich die Datei selbst, damit
 		// nach getaner Arbeit nichts liegen bleibt. Installer löschen sich
 		// auch, aber am Ende ihres Laufs und nicht auf Zuruf von außen.
-		ID:          "php.backdoor.self_delete",
-		Severity:    report.SeverityCritical,
-		Description: "Upload-Skript, das sich auf Zuruf selbst löscht",
-		Exts:        phpExts,
+		ID:            "php.backdoor.self_delete",
+		CodeOnly:      true,
+		SupportInCode: true,
+		Severity:      report.SeverityCritical,
+		Description:   "Upload-Skript, das sich auf Zuruf selbst löscht",
+		Exts:          phpExts,
 		Match: rx(`(?is)\bif\s*\(\s*isset\s*\(\s*\$_(?:GET|POST|REQUEST|COOKIE)\s*\[\s*['"][^'"]{1,40}['"]\s*\]\s*\)\s*\)` +
 			`\s*\{?\s*@?\s*unlink\s*\(\s*__FILE__\s*\)`),
 		Requires: rx(`(?i)\b(?:move_uploaded_file|file_put_contents|fwrite|copy)\s*\(`),
@@ -722,6 +805,7 @@ var catalog = []*Rule{
 		// statements. Up to two statements may sit between the steps, for an
 		// fopen or an fclose; [^;] keeps each gap inside one statement.
 		ID:          "php.dropper.temp_include",
+		CodeOnly:    true,
 		Severity:    report.SeverityCritical,
 		AutoSafe:    true,
 		Description: "erzeugt eine Temp-Datei und bindet sie als Code ein",
@@ -782,16 +866,19 @@ var catalog = []*Rule{
 		Requires:  rx(`(?im)^\s*(?:Allow\s+from\s+all|Require\s+all\s+granted)\b`),
 	},
 	{
-		ID:          "php.webshell.password_gate",
-		Severity:    report.SeverityCritical,
-		AutoSafe:    true,
-		Description: "Kennwortabfrage, die anschließend Code ausführt",
-		Exts:        phpExts,
-		Match:       rx(`(?is)\b(?:md5|sha1|crypt|password_verify)\s*\(\s*\$(?:_GET|_POST|_REQUEST|_COOKIE)\s*\[[^\]]{0,40}\]\s*\)\s*(?:==|===|!=|!==)`),
-		Requires:    rx(`(?is)\b(?:eval|assert|system|shell_exec|passthru|proc_open)\s*\(`),
+		ID:            "php.webshell.password_gate",
+		CodeOnly:      true,
+		SupportInCode: true,
+		Severity:      report.SeverityCritical,
+		AutoSafe:      true,
+		Description:   "Kennwortabfrage, die anschließend Code ausführt",
+		Exts:          phpExts,
+		Match:         rx(`(?is)\b(?:md5|sha1|crypt|password_verify)\s*\(\s*\$(?:_GET|_POST|_REQUEST|_COOKIE)\s*\[[^\]]{0,40}\]\s*\)\s*(?:==|===|!=|!==)`),
+		Requires:      rx(`(?is)\b(?:eval|assert|system|shell_exec|passthru|proc_open)\s*\(`),
 	},
 	{
 		ID:          "php.webshell.hardcoded_gate",
+		CodeOnly:    true,
 		Severity:    report.SeverityCritical,
 		AutoSafe:    true,
 		Description: "Kennwortabfrage gegen einen fest eingetragenen Hash",
@@ -812,12 +899,15 @@ var catalog = []*Rule{
 			`file_put_contents|move_uploaded_file|curl_exec|fsockopen|fwrite)\s*\(`),
 	},
 	{
-		ID:          "php.webshell.file_manager",
-		Severity:    report.SeverityHigh,
-		Description: "Dateiverwaltung über die Anfrage",
-		Exts:        phpExts,
-		Match:       rx(`(?is)\b(?:unlink|rename|copy|chmod|mkdir|rmdir)\s*\(\s*\$(?:_GET|_POST|_REQUEST|_COOKIE)\s*\[`),
-		Requires:    rx(`(?is)\b(?:move_uploaded_file|opendir|scandir|readdir|fopen)\s*\(`),
+		ID:            "php.webshell.file_manager",
+		GuardLowers:   true,
+		CodeOnly:      true,
+		SupportInCode: true,
+		Severity:      report.SeverityHigh,
+		Description:   "Dateiverwaltung über die Anfrage",
+		Exts:          phpExts,
+		Match:         rx(`(?is)\b(?:unlink|rename|copy|chmod|mkdir|rmdir)\s*\(\s*\$(?:_GET|_POST|_REQUEST|_COOKIE)\s*\[`),
+		Requires:      rx(`(?is)\b(?:move_uploaded_file|opendir|scandir|readdir|fopen)\s*\(`),
 	},
 	{
 		// $auth_pass ist die Kennwortzeile der WSO-Familie und ihrer
@@ -827,6 +917,7 @@ var catalog = []*Rule{
 		// und nicht nur das Wort, damit ein Text, der über Webshells
 		// schreibt, nicht als eine gilt.
 		ID:          "php.webshell.auth_pass",
+		CodeOnly:    true,
 		Severity:    report.SeverityCritical,
 		AutoSafe:    true,
 		Description: "Kennwortzeile bekannter Webshells",
@@ -835,6 +926,8 @@ var catalog = []*Rule{
 	},
 	{
 		ID:          "php.upload.unchecked",
+		GuardLowers: true,
+		CodeOnly:    true,
 		Severity:    report.SeverityMedium,
 		Description: "Datei-Upload ohne erkennbare Prüfung des Ziels",
 		Exts:        phpExts,
@@ -855,6 +948,8 @@ var catalog = []*Rule{
 	},
 	{
 		ID:          "php.mailer.request",
+		GuardLowers: true,
+		CodeOnly:    true,
 		Severity:    report.SeverityMedium,
 		Description: "Massenversand mit Empfänger und Text aus der Anfrage",
 		Exts:        phpExts,
@@ -873,10 +968,12 @@ var catalog = []*Rule{
 		// für Bots nicht greift, eine Statistik, die sie herausrechnet. Die
 		// Nebenbedingung verlangt deshalb, dass danach auch etwas geschieht,
 		// das den Inhalt verändert.
-		ID:          "php.cloaking.search_bot",
-		Severity:    report.SeverityHigh,
-		Description: "zeigt Suchmaschinen etwas anderes als Besuchern",
-		Exts:        phpExts,
+		ID:            "php.cloaking.search_bot",
+		CodeOnly:      true,
+		SupportInCode: true,
+		Severity:      report.SeverityHigh,
+		Description:   "zeigt Suchmaschinen etwas anderes als Besuchern",
+		Exts:          phpExts,
 		Match: rx(`(?is)\$_SERVER\s*\[\s*["']HTTP_USER_AGENT["']\s*\].{0,200}?` +
 			`(?:googlebot|bingbot|yandexbot|baiduspider|duckduckbot|slurp)`),
 		// include und require stehen bewusst nicht in dieser Liste, obwohl ein
@@ -895,6 +992,7 @@ var catalog = []*Rule{
 		// Zeitstempel aus demselben Grund wieder her, aus dem ein Angreifer
 		// sie fälscht - damit hinterher steht, was vorher stand.
 		ID:          "php.stealth.touch_mtime",
+		CodeOnly:    true,
 		Severity:    report.SeverityHigh,
 		Description: "setzt den Zeitstempel einer Datei auf den einer anderen",
 		Exts:        phpExts,
@@ -954,11 +1052,18 @@ var catalog = []*Rule{
 		Description: "schreibt entschlüsselten Text in die Seite",
 		Exts:        webExts,
 		Match:       rx(`(?is)document\.write\s*\(\s*(?:unescape|atob|decodeURIComponent|String\.fromCharCode)\s*\(`),
+		// Old sites wrote their jQuery fallback and the Google Analytics
+		// snippet this way. A written text that only links or loads scripts
+		// from the site itself or from a host of the list is that; one that
+		// is computed, carries a script of its own or loads from elsewhere
+		// is what injected code does.
+		Harmless: harmlessWrite,
 	},
 
 	// ------------------------------------------------------------ by place
 	{
 		ID:          "malware.alfa_toolkit",
+		ByPlace:     true,
 		Severity:    report.SeverityCritical,
 		Description: "Datei des ALFA-Baukastens",
 		// The ALFA web shell keeps its CGI helpers in a directory called
@@ -973,6 +1078,7 @@ var catalog = []*Rule{
 	},
 	{
 		ID:          "php.in_uploads",
+		ByPlace:     true,
 		Severity:    report.SeverityHigh,
 		Description: "PHP-Datei in einem Verzeichnis für hochgeladene Dateien",
 		Exts:        phpExts,
@@ -990,10 +1096,16 @@ var catalog = []*Rule{
 		// but an upload form in plain HTML, which is the visible half of a
 		// shell and one appended line away from being the whole of it.
 		Where: InUploads,
-		Match: rx(`(?i)<\?(?:php|=|\s)|enctype\s*=\s*["']?multipart/form-data`),
+		// A file that can do nothing is no way in: the "Silence is golden"
+		// guards plugins put into their directories, the data Sucuri and
+		// BackupBuddy keep behind an exit, the icon tables of font packs. On
+		// 2026-09-30 they were 75 of the 77 open findings of this rule.
+		SkipInert: true,
+		Match:     rx(`(?i)<\?(?:php|=|\s)|enctype\s*=\s*["']?multipart/form-data`),
 	},
 	{
 		ID:          "php.disguised_as_image",
+		ByPlace:     true,
 		Severity:    report.SeverityCritical,
 		Description: "Ausführbare Endung hinter einem Bildnamen versteckt",
 		// Group-36-1-300x49.php sat among the thumbnails of a media library and
@@ -1046,6 +1158,7 @@ var catalog = []*Rule{
 	// grounds to move it on its own, so neither rule is AutoSafe.
 	{
 		ID:          "binary.elf_in_uploads",
+		ByPlace:     true,
 		Severity:    report.SeverityCritical,
 		Description: "Linux-Programm in einem Verzeichnis für hochgeladene Dateien",
 		RawOnly:     true,

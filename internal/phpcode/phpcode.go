@@ -1,0 +1,863 @@
+// Package phpcode reads PHP source as far as PHP itself does to tell code
+// from comments, strings and the text around the tags, and to find the
+// function a position belongs to.
+//
+// The rules need both. A pattern that names a PHP construct means code, and a
+// match inside a help text ("Remember to include "http://"!") or a commented
+// out line is prose. Rules made of several parts only describe one action when
+// the parts sit in the same function: a library that fetches in its client
+// class and evaluates a generated wrapper two thousand lines further down does
+// not run what it fetched.
+//
+// It is a lexer, not a parser, and it errs towards code: a construct it does
+// not know stays code, so a rule keeps seeing it.
+package phpcode
+
+import (
+	"bytes"
+	"strings"
+)
+
+// Kind says what a byte of the source is to PHP.
+type Kind uint8
+
+const (
+	// Text is outside the PHP tags: output, not code.
+	Text Kind = iota
+	// Code is PHP code, including the tags and backtick commands.
+	Code
+	// Comment is a line or block comment.
+	Comment
+	// String is a quoted string or the body of a heredoc or nowdoc.
+	String
+)
+
+func (k Kind) String() string {
+	switch k {
+	case Code:
+		return "Code"
+	case Comment:
+		return "Kommentar"
+	case String:
+		return "Text in Anführungszeichen"
+	}
+	return "Text außerhalb von PHP"
+}
+
+// Scope is the body of a function, closure or method: the offsets of its
+// opening and closing brace.
+type Scope struct {
+	Start, End int
+	// Name is the name of the function or method, lower case; empty for a
+	// closure.
+	Name string
+}
+
+// Source is the classified source of one file.
+type Source struct {
+	src    []byte
+	kinds  []Kind
+	scopes []Scope
+	toks   []token
+	// broken says the lexer lost track: a string, comment or heredoc that
+	// never ends. PHP refuses such a file; the classification up to that
+	// point stands, but nothing may be concluded from its end.
+	broken bool
+	// tagged says the file opens PHP somewhere. A file without any tag is
+	// read as code throughout: a payload that is loaded and passed to eval
+	// carries none.
+	tagged bool
+}
+
+// Parse classifies src.
+func Parse(src []byte) *Source {
+	s := &Source{src: src, kinds: make([]Kind, len(src))}
+	s.lex()
+	return s
+}
+
+// KindAt returns the kind of the byte at offset i. Offsets outside the source
+// count as text.
+func (s *Source) KindAt(i int) Kind {
+	if i < 0 || i >= len(s.kinds) {
+		return Text
+	}
+	return s.kinds[i]
+}
+
+// IsCode reports whether the byte at offset i is PHP code.
+func (s *Source) IsCode(i int) bool { return s.KindAt(i) == Code }
+
+// Broken reports whether a string, comment or heredoc runs to the end of the
+// file.
+func (s *Source) Broken() bool { return s.broken }
+
+// scopeIndex returns the innermost function body around offset i, or -1 for
+// the top level of the file.
+func (s *Source) scopeIndex(i int) int {
+	for k := len(s.scopes) - 1; k >= 0; k-- {
+		sc := s.scopes[k]
+		if sc.Start <= i && i <= sc.End {
+			return k
+		}
+	}
+	return -1
+}
+
+// ScopeOf returns the innermost function body around offset i. ok is false at
+// the top level of the file.
+func (s *Source) ScopeOf(i int) (Scope, bool) {
+	k := s.scopeIndex(i)
+	if k < 0 {
+		return Scope{}, false
+	}
+	return s.scopes[k], true
+}
+
+// SameScope reports whether offsets i and j belong to the same function body,
+// or both to the top level of the file.
+func (s *Source) SameScope(i, j int) bool { return s.scopeIndex(i) == s.scopeIndex(j) }
+
+// Functions returns the bodies of the functions and methods called name.
+func (s *Source) Functions(name string) []Scope {
+	var out []Scope
+	for _, sc := range s.scopes {
+		if sc.Name != "" && sc.Name == name {
+			out = append(out, sc)
+		}
+	}
+	return out
+}
+
+// notCalls are words followed by a parenthesis that call no function.
+var notCalls = map[string]bool{
+	"function": true, "fn": true, "if": true, "elseif": true, "while": true, "for": true, "foreach": true,
+	"switch": true, "match": true, "catch": true, "array": true, "list": true, "isset": true, "empty": true,
+	"unset": true, "echo": true, "print": true, "return": true, "include": true, "include_once": true,
+	"require": true, "require_once": true, "and": true, "or": true, "new": true, "use": true, "declare": true,
+}
+
+// CallsIn returns the names the function body around offset at calls, lower
+// case and each once; for the top level, what is called outside of every
+// function. A method call $x->name() and a static call X::name() count by
+// their name.
+func (s *Source) CallsIn(at int) []string {
+	k := s.scopeIndex(at)
+	seen := map[string]bool{}
+	var out []string
+	for i := 0; i+1 < len(s.toks); i++ {
+		t := s.toks[i]
+		if t.kind != tIdent || notCalls[t.val] || s.toks[i+1].kind != tPunct || s.toks[i+1].val != "(" {
+			continue
+		}
+		if definesFunction(s.toks, i) {
+			continue
+		}
+		if s.scopeIndex(t.pos) != k || seen[t.val] {
+			continue
+		}
+		seen[t.val] = true
+		out = append(out, t.val)
+	}
+	return out
+}
+
+// tokKind is what a token of code is.
+type tokKind uint8
+
+const (
+	tIdent  tokKind = iota // a name or keyword, lower case in val
+	tVar                   // a variable, $name
+	tStr                   // a string without anything PHP fills in
+	tStrDyn                // a string with a variable or expression inside
+	tNum                   // a number
+	tPunct                 // an operator or punctuation, one or two bytes
+	tEnd                   // ?>, which ends a statement like ;
+	tText                  // text outside PHP that is more than white space
+	tShell                 // a backtick command
+)
+
+type token struct {
+	kind tokKind
+	val  string
+	pos  int
+}
+
+func (s *Source) mark(from, to int, k Kind) {
+	if to > len(s.kinds) {
+		to = len(s.kinds)
+	}
+	for i := from; i < to; i++ {
+		s.kinds[i] = k
+	}
+}
+
+func (s *Source) emit(k tokKind, val string, pos int) {
+	s.toks = append(s.toks, token{kind: k, val: val, pos: pos})
+}
+
+// lex walks the source once and fills kinds, scopes and toks.
+func (s *Source) lex() {
+	src := s.src
+	n := len(src)
+	s.tagged = openTagAt(src, 0) >= 0
+	inPHP := !s.tagged
+
+	type open struct{ scope, depth int }
+	var stack []open
+	braces := 0
+	// pending is set by the keyword function and cleared by the brace that
+	// opens its body, or by a semicolon: an abstract method has none.
+	pending := false
+	parens := 0
+	// name is the name that follows the keyword function, until the
+	// parenthesis of its parameters opens.
+	name, wantName := "", false
+
+	i := 0
+	for i < n {
+		if !inPHP {
+			at := openTagAt(src, i)
+			if at < 0 {
+				s.text(i, n)
+				break
+			}
+			s.text(i, at)
+			end := at + tagLength(src, at)
+			s.mark(at, end, Code)
+			i = end
+			inPHP = true
+			continue
+		}
+
+		c := src[i]
+		switch {
+		case c == '?' && i+1 < n && src[i+1] == '>':
+			s.mark(i, i+2, Code)
+			s.emit(tEnd, "?>", i)
+			i += 2
+			inPHP = false
+			continue
+
+		case (c == '/' && i+1 < n && src[i+1] == '/') || (c == '#' && !(i+1 < n && src[i+1] == '[')):
+			// A line comment ends at the line break or at a closing tag.
+			j := i
+			for j < n && src[j] != '\n' && !(src[j] == '?' && j+1 < n && src[j+1] == '>') {
+				j++
+			}
+			s.mark(i, j, Comment)
+			i = j
+			continue
+
+		case c == '/' && i+1 < n && src[i+1] == '*':
+			end := bytes.Index(src[i+2:], []byte("*/"))
+			if end < 0 {
+				s.mark(i, n, Comment)
+				s.broken = true
+				i = n
+				continue
+			}
+			j := i + 2 + end + 2
+			s.mark(i, j, Comment)
+			i = j
+			continue
+
+		case c == '\'' || c == '"':
+			j := stringEnd(src, i)
+			if j < 0 {
+				s.mark(i, n, String)
+				s.broken = true
+				i = n
+				continue
+			}
+			s.mark(i, j, String)
+			body := src[i+1 : j-1]
+			if c == '"' && interpolates(body) {
+				s.emit(tStrDyn, string(body), i)
+			} else {
+				s.emit(tStr, string(body), i)
+			}
+			i = j
+			continue
+
+		case c == '`':
+			// A shell command. It is code - PHP runs it - but its content is
+			// not PHP, so it is stepped over as a whole.
+			j := stringEnd(src, i)
+			if j < 0 {
+				j = n
+				s.broken = true
+			}
+			s.mark(i, j, Code)
+			s.emit(tShell, "`", i)
+			i = j
+			continue
+
+		case c == '<' && i+2 < n && src[i+1] == '<' && src[i+2] == '<':
+			end, nowdoc, body, ok := heredocEnd(src, i)
+			if !ok {
+				s.mark(i, n, String)
+				s.broken = true
+				i = n
+				continue
+			}
+			s.mark(i, end, String)
+			if !nowdoc && interpolates(body) {
+				s.emit(tStrDyn, string(body), i)
+			} else {
+				s.emit(tStr, string(body), i)
+			}
+			i = end
+			continue
+		}
+
+		s.kinds[i] = Code
+		switch {
+		case c == '$' && i+1 < n && isIdentStart(src[i+1]):
+			j := i + 1
+			for j < n && isIdentByte(src[j]) {
+				j++
+			}
+			s.mark(i, j, Code)
+			s.emit(tVar, string(src[i:j]), i)
+			i = j
+			continue
+
+		case isIdentStart(c):
+			j := i
+			for j < n && (isIdentByte(src[j]) || src[j] == '\\') {
+				j++
+			}
+			s.mark(i, j, Code)
+			word := string(bytes.ToLower(src[i:j]))
+			s.emit(tIdent, word, i)
+			switch {
+			case word == "function" && !afterAccess(src, i):
+				pending = true
+				parens = 0
+				name, wantName = "", true
+			case wantName:
+				name, wantName = word, false
+			}
+			i = j
+			continue
+
+		case c >= '0' && c <= '9':
+			j := i
+			for j < n && (isIdentByte(src[j]) || src[j] == '.') {
+				j++
+			}
+			s.mark(i, j, Code)
+			s.emit(tNum, string(src[i:j]), i)
+			i = j
+			continue
+		}
+
+		switch c {
+		case '(':
+			if pending {
+				parens++
+				wantName = false
+			}
+		case ')':
+			if pending && parens > 0 {
+				parens--
+			}
+		case ';':
+			if pending && parens == 0 {
+				pending = false
+			}
+		case '{':
+			if pending && parens == 0 {
+				s.scopes = append(s.scopes, Scope{Start: i, End: n - 1, Name: name})
+				stack = append(stack, open{scope: len(s.scopes) - 1, depth: braces})
+				pending = false
+			}
+			braces++
+		case '}':
+			braces--
+			if len(stack) > 0 && stack[len(stack)-1].depth == braces {
+				s.scopes[stack[len(stack)-1].scope].End = i
+				stack = stack[:len(stack)-1]
+			}
+		}
+		if !isSpace(c) {
+			if i+1 < n && isTwoByteOp(c, src[i+1]) {
+				s.kinds[i+1] = Code
+				s.emit(tPunct, string(src[i:i+2]), i)
+				i += 2
+				continue
+			}
+			s.emit(tPunct, string(c), i)
+		}
+		i++
+	}
+}
+
+// text marks the bytes from..to as text outside PHP and records a token when
+// they are more than white space.
+func (s *Source) text(from, to int) {
+	s.mark(from, to, Text)
+	out := s.src[from:to]
+	if from == 0 {
+		// A byte order mark in front of the tag is what an editor leaves.
+		out = bytes.TrimPrefix(out, []byte("\xef\xbb\xbf"))
+	}
+	if len(bytes.TrimSpace(out)) > 0 {
+		s.emit(tText, "", from)
+	}
+}
+
+// openTagAt returns the offset of the first PHP open tag at or after i, or -1.
+func openTagAt(src []byte, i int) int {
+	for {
+		k := bytes.Index(src[i:], []byte("<?"))
+		if k < 0 {
+			return -1
+		}
+		at := i + k
+		if tagLength(src, at) > 0 {
+			return at
+		}
+		i = at + 2
+	}
+}
+
+// tagLength returns the length of the open tag at offset at, or 0 when the
+// bytes there open none. <?php and <?= open code, and so does a bare <?
+// whatever follows it: where short_open_tag is on, PHP runs <?eval(...) as
+// well as <? eval(...), and which setting a website has is unknown here. The
+// XML declaration <?xml is the one form that stays text.
+func tagLength(src []byte, at int) int {
+	rest := src[at+2:]
+	switch {
+	case len(rest) >= 3 && bytes.EqualFold(rest[:3], []byte("php")) && (len(rest) == 3 || !isIdentByte(rest[3])):
+		return 5
+	case len(rest) >= 1 && rest[0] == '=':
+		return 3
+	case len(rest) >= 3 && bytes.EqualFold(rest[:3], []byte("xml")) && (len(rest) == 3 || !isIdentByte(rest[3])):
+		return 0
+	}
+	return 2
+}
+
+// stringEnd returns the offset just past the closing quote of the string that
+// opens at i, or -1 when it never closes.
+//
+// In a double quoted string and a backtick command PHP fills in {$...} and
+// ${...}, and a quote inside those braces does not end the string:
+// "{$a["x"]}" is one string. Reading the inner quote as its end would take
+// the code after it for text, which is where code could hide from the rules.
+func stringEnd(src []byte, i int) int {
+	q := src[i]
+	for j := i + 1; j < len(src); j++ {
+		switch src[j] {
+		case '\\':
+			j++
+		case q:
+			return j + 1
+		case '{', '$':
+			if q == '\'' || j+1 >= len(src) {
+				continue
+			}
+			// braceEnd starts at the opening brace itself: {$ at j, ${ at j+1.
+			// Handed the dollar sign of {$, it went on to the next brace in the
+			// file and read everything up to there as part of the string.
+			open := j
+			if src[j] == '$' {
+				open = j + 1
+			}
+			if (src[j] == '{' && src[j+1] == '$') || (src[j] == '$' && src[j+1] == '{') {
+				end := braceEnd(src, open)
+				if end < 0 {
+					return -1
+				}
+				j = end
+			}
+		}
+	}
+	return -1
+}
+
+// braceEnd returns the offset of the brace that closes the one at or after
+// offset i, stepping over strings inside, or -1.
+func braceEnd(src []byte, i int) int {
+	for i < len(src) && src[i] != '{' {
+		i++
+	}
+	depth := 0
+	for j := i; j < len(src); j++ {
+		switch src[j] {
+		case '{':
+			depth++
+		case '}':
+			depth--
+			if depth == 0 {
+				return j
+			}
+		case '\'', '"':
+			end := stringEnd(src, j)
+			if end < 0 {
+				return -1
+			}
+			j = end - 1
+		}
+	}
+	return -1
+}
+
+// heredocEnd returns the offset just past the closing label of the heredoc or
+// nowdoc that opens at i, whether it is a nowdoc, and its body.
+func heredocEnd(src []byte, i int) (int, bool, []byte, bool) {
+	j := i + 3
+	for j < len(src) && (src[j] == ' ' || src[j] == '\t') {
+		j++
+	}
+	quote := byte(0)
+	if j < len(src) && (src[j] == '\'' || src[j] == '"') {
+		quote = src[j]
+		j++
+	}
+	start := j
+	for j < len(src) && isIdentByte(src[j]) {
+		j++
+	}
+	if j == start {
+		return 0, false, nil, false
+	}
+	label := src[start:j]
+	if quote != 0 {
+		if j >= len(src) || src[j] != quote {
+			return 0, false, nil, false
+		}
+		j++
+	}
+	for j < len(src) && src[j] != '\n' {
+		j++
+	}
+	bodyStart := j
+	for k := j; k < len(src); k++ {
+		if src[k] != '\n' {
+			continue
+		}
+		m := k + 1
+		for m < len(src) && (src[m] == ' ' || src[m] == '\t') {
+			m++
+		}
+		if m+len(label) > len(src) || !bytes.Equal(src[m:m+len(label)], label) {
+			continue
+		}
+		after := m + len(label)
+		if after < len(src) && isIdentByte(src[after]) {
+			continue
+		}
+		return after, quote == '\'', src[bodyStart:k], true
+	}
+	return 0, false, nil, false
+}
+
+// interpolates reports whether PHP fills something into a double quoted
+// string or heredoc body: $name or {$ not escaped by a backslash.
+func interpolates(body []byte) bool {
+	for i := 0; i < len(body); i++ {
+		switch body[i] {
+		case '\\':
+			i++
+		case '$':
+			if i+1 < len(body) && (isIdentStart(body[i+1]) || body[i+1] == '{') {
+				return true
+			}
+		case '{':
+			if i+1 < len(body) && body[i+1] == '$' {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// afterAccess reports whether the name at offset i follows -> or ::, where
+// "function" is a method or constant name rather than the keyword.
+func afterAccess(src []byte, i int) bool {
+	j := i - 1
+	for j >= 0 && isSpace(src[j]) {
+		j--
+	}
+	if j >= 1 && ((src[j] == '>' && src[j-1] == '-') || (src[j] == ':' && src[j-1] == ':')) {
+		return true
+	}
+	return false
+}
+
+func isTwoByteOp(a, b byte) bool {
+	switch string([]byte{a, b}) {
+	case "=>", "||", "&&", "::", "->", "==", "!=", "<=", ">=", ".=", "+=", "-=", "??":
+		return true
+	}
+	return false
+}
+
+func isIdentStart(b byte) bool {
+	return b == '_' || (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') || b >= 0x80
+}
+
+func isIdentByte(b byte) bool { return isIdentStart(b) || (b >= '0' && b <= '9') }
+
+func isSpace(b byte) bool {
+	return b == ' ' || b == '\t' || b == '\r' || b == '\n' || b == '\f' || b == '\v'
+}
+
+// definesFunction reports whether the name at token i follows the keyword
+// function, directly or after the & of a reference: a definition, no call.
+func definesFunction(toks []token, i int) bool {
+	j := i - 1
+	if j >= 0 && toks[j].kind == tPunct && toks[j].val == "&" {
+		j--
+	}
+	return j >= 0 && toks[j].kind == tIdent && toks[j].val == "function"
+}
+
+// Guard names the functions GuardedAt looks for, lower case: the checks of a
+// user's rights, the checks of a nonce, the nonce checks that end the request
+// by themselves when the nonce is wrong, and the words that leave a function
+// or the request.
+type Guard struct {
+	Rights, Nonces, Dying, Leave map[string]bool
+}
+
+// GuardedAt reports whether the code at offset at only runs after a check of
+// the user's rights and a check of a nonce, each of which decides whether it
+// is reached (see gates): both stand before it in its function body, or the
+// function around it is only ever registered as a callback or called behind
+// such checks. The rules use this to lower a finding, never to drop it.
+func (s *Source) GuardedAt(at int, g Guard) bool {
+	if s.checksBefore(at, g) {
+		return true
+	}
+	k := s.scopeIndex(at)
+	if k < 0 || s.scopes[k].Name == "" {
+		return false
+	}
+	name := s.scopes[k].Name
+	refs := 0
+	for i, t := range s.toks {
+		callback := t.kind == tStr && strings.EqualFold(t.val, name)
+		call := t.kind == tIdent && t.val == name && i+1 < len(s.toks) && s.toks[i+1].kind == tPunct &&
+			s.toks[i+1].val == "(" && !definesFunction(s.toks, i)
+		if !callback && !call {
+			continue
+		}
+		refs++
+		if !s.checksBefore(t.pos, g) {
+			return false
+		}
+	}
+	return refs > 0
+}
+
+// checksBefore reports whether a check of the rights and a check of a nonce
+// stand before offset at in the same function body, each deciding whether at
+// is reached.
+func (s *Source) checksBefore(at int, g Guard) bool {
+	k := s.scopeIndex(at)
+	right, nonce := false, false
+	for i, t := range s.toks {
+		if t.pos >= at {
+			break
+		}
+		if t.kind != tIdent || i+1 >= len(s.toks) || s.toks[i+1].kind != tPunct || s.toks[i+1].val != "(" {
+			continue
+		}
+		isRight, isNonce := g.Rights[t.val], g.Nonces[t.val]
+		if !isRight && !isNonce {
+			continue
+		}
+		if s.scopeIndex(t.pos) != k {
+			continue
+		}
+		dying := isNonce && g.Dying[t.val] && !s.thirdArgFalse(i+1)
+		if !s.gates(i, at, dying, g.Leave) {
+			continue
+		}
+		right = right || isRight
+		nonce = nonce || isNonce
+	}
+	return right && nonce
+}
+
+// gates reports whether the check called at token i decides whether offset at
+// is reached. Three shapes do:
+//
+//	if ( check(...) ) { ... at ... }        the check wraps the code
+//	if ( ! check(...) ) { exit; } ... at    the check turns away before it
+//	check_admin_referer( 'x' ); ... at      a nonce check that ends the request itself
+//
+// A check whose answer nobody reads protects nothing, and neither does one
+// joined by || to another condition around the code, or by && in front of a
+// branch that turns away: either lets the code run without it.
+func (s *Source) gates(i, at int, dying bool, leave map[string]bool) bool {
+	toks := s.toks
+	cond := s.conditionOf(i)
+	if cond < 0 {
+		return dying
+	}
+	end := s.closing(cond)
+	if end < 0 || end+1 >= len(toks) {
+		return false
+	}
+	// The branch: a block, or a single statement such as return;. from and to
+	// are the tokens of its content, to exclusive; open is the offset it starts
+	// after.
+	body := end + 1
+	var open, from, to int
+	if toks[body].kind == tPunct && toks[body].val == "{" {
+		open, from, to = toks[body].pos, body+1, s.closing(body)
+	} else {
+		open, from, to = toks[body].pos-1, body, s.statementEnd(body)
+	}
+	if to < 0 {
+		return false
+	}
+	negated := i > 0 && toks[i-1].kind == tPunct && toks[i-1].val == "!"
+	if !negated {
+		return !s.joined(cond, end, "||", "or") && at > open && at < toks[to].pos
+	}
+	return !s.joined(cond, end, "&&", "and") && at > toks[to].pos && s.leaves(from, to, leave)
+}
+
+// conditionOf returns the index of the parenthesis that opens the if or
+// elseif condition the call at token i stands in, or -1.
+func (s *Source) conditionOf(i int) int {
+	depth := 0
+	for j := i - 1; j >= 0; j-- {
+		t := s.toks[j]
+		if t.kind != tPunct {
+			continue
+		}
+		switch t.val {
+		case ")", "]":
+			depth++
+		case "(", "[":
+			if depth > 0 {
+				depth--
+				continue
+			}
+			if t.val == "(" && j > 0 && s.toks[j-1].kind == tIdent &&
+				(s.toks[j-1].val == "if" || s.toks[j-1].val == "elseif") {
+				return j
+			}
+		case ";", "{", "}":
+			if depth == 0 {
+				return -1
+			}
+		}
+	}
+	return -1
+}
+
+// closing returns the index of the token that closes the parenthesis or brace
+// at token open, or -1.
+func (s *Source) closing(open int) int {
+	o := s.toks[open].val
+	c := ")"
+	if o == "{" {
+		c = "}"
+	}
+	depth := 0
+	for j := open; j < len(s.toks); j++ {
+		t := s.toks[j]
+		if t.kind != tPunct {
+			continue
+		}
+		switch t.val {
+		case o:
+			depth++
+		case c:
+			depth--
+			if depth == 0 {
+				return j
+			}
+		}
+	}
+	return -1
+}
+
+// statementEnd returns the index of the semicolon that ends the statement
+// starting at token from, or -1.
+func (s *Source) statementEnd(from int) int {
+	depth := 0
+	for j := from; j < len(s.toks); j++ {
+		t := s.toks[j]
+		if t.kind != tPunct {
+			continue
+		}
+		switch t.val {
+		case "(", "[", "{":
+			depth++
+		case ")", "]", "}":
+			depth--
+		case ";":
+			if depth == 0 {
+				return j
+			}
+		}
+	}
+	return -1
+}
+
+// joined reports whether the condition between the tokens from and to holds
+// one of the operators ops.
+func (s *Source) joined(from, to int, ops ...string) bool {
+	for j := from + 1; j < to; j++ {
+		t := s.toks[j]
+		for _, op := range ops {
+			if (t.kind == tPunct || t.kind == tIdent) && t.val == op {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// leaves reports whether the tokens from from up to to, exclusive, hold a word
+// of leave, such as exit, return or wp_die.
+func (s *Source) leaves(from, to int, leave map[string]bool) bool {
+	for j := from; j < to; j++ {
+		if t := s.toks[j]; t.kind == tIdent && leave[t.val] {
+			return true
+		}
+	}
+	return false
+}
+
+// thirdArgFalse reports whether the call whose parenthesis opens at token open
+// passes false as its third argument: check_ajax_referer then returns its
+// answer instead of ending the request.
+func (s *Source) thirdArgFalse(open int) bool {
+	depth, commas := 0, 0
+	for j := open; j < len(s.toks); j++ {
+		t := s.toks[j]
+		if t.kind == tPunct {
+			switch t.val {
+			case "(", "[", "{":
+				depth++
+				continue
+			case ")", "]", "}":
+				depth--
+				if depth == 0 {
+					return false
+				}
+				continue
+			case ",":
+				if depth == 1 {
+					commas++
+				}
+				continue
+			}
+		}
+		if depth == 1 && commas == 2 {
+			return t.kind == tIdent && t.val == "false"
+		}
+	}
+	return false
+}

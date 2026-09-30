@@ -707,10 +707,25 @@ class malwatch_actions
 			}
 		}
 
-		$base = rtrim((string) $scan['scan_path'], '/');
+		return $this->select_auto($new, $mode, $rule_ids, (string) $scan['scan_path']);
+	}
+
+	/**
+	 * The files of $new the automatic quarantine moves, relative to $base:
+	 * by level in mode critical, by the rules of $rule_ids in the modes safe
+	 * and preset. Only findings of a high level move: the scanner lowers a
+	 * finding behind the capability and nonce checks of WordPress to medium,
+	 * and such an admin action of a plugin is no way in to move without a look.
+	 */
+	public function select_auto(array $new, $mode, $rule_ids, $base)
+	{
+		$base = rtrim((string) $base, '/');
 		$paths = array();
 		foreach ($new as $finding) {
 			if ($mode === 'critical' && $finding['severity'] !== 'critical') {
+				continue;
+			}
+			if (!in_array($finding['severity'], array('high', 'critical'), true)) {
 				continue;
 			}
 			if ($rule_ids !== null && !isset($rule_ids[$finding['rule_id']])) {

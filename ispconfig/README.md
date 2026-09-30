@@ -72,6 +72,49 @@ Zeichen). Liegt darunter eine PHP-Datei, ein Shell-Skript oder ein Linux-Program
 der Scanner das eigens, ein Programm dort als „kritisch“. Das Addon gibt die Liste bei
 jeder Prüfung als `--upload-dirs` an den Scanner.
 
+## Abgleich mit den Herstellern
+
+**Security > Scanner > Einstellungen > Abgleich mit den Herstellern** legt fest, wie der
+Scanner eine Datei des Herstellers von einem Fund unterscheidet:
+
+| Einstellung | Vorgabe |
+|---|---|
+| Endungen für Abweichungen | PHP-Endungen, js, mjs, cjs, html, htm, svg, htaccess, ini |
+| Erlaubte Skript-Hosts | Google Analytics, ajax.googleapis.com, code.jquery.com |
+| Composer-Pakete abgleichen | an |
+| Originaldateien abgleichen | an |
+| Paketregister | https://repo.packagist.org |
+| Hosts für Archive | codeload.github.com, api.github.com, github.com, gitlab.com, bitbucket.org |
+| Abrufe je Prüfung | 50 |
+| Größe je Abruf | 50 MB |
+| Wartezeit je Abruf | 60 Sekunden |
+| Neuer Versuch nach | 24 Stunden |
+| Datenbank bekannter Dateien fragen | aus |
+| Adresse der Datenbank | https://hashlookup.circl.lu |
+
+Die Werte gehen bei jeder Prüfung an den Scanner. An die Datenbank bekannter Dateien gehen
+ausschließlich die SHA-1-Summen der Dateien mit Fund. Ihre Adresse steht auf der
+Befehlszeile des Scanners, die jeder Benutzer des Servers lesen kann; die Seite nimmt
+deshalb Adressen ohne Benutzer und Passwort an.
+
+Die automatische Maßnahme nach einem geplanten Lauf verschiebt Funde der Stufen „hoch“ und
+„kritisch“. Eine Admin-Aktion eines Plugins hinter einer Rechte- und einer Nonce-Prüfung
+meldet der Scanner als „mittel“; sie bleibt für einen Menschen liegen.
+
+## Aufräumen
+
+Einmal je Stunde, in der Minute aus „Minute der stündlichen Aufräumarbeiten“ (Vorgabe 7),
+räumt der Server auf: Prüfläufe über „Aufbewahrte Prüfläufe je Website“ hinaus, erledigte
+Aufträge nach „Erledigte Aufträge behalten“ (30 Tage) und behobene Funde nach „Behobene
+Funde behalten“ (90 Tage nach der letzten Prüfung, die sie sah).
+
+Dazu prüft er bis zu „Funde je Stunde auf fehlende Dateien prüfen“ (500) offene Funde
+darauf, ob ihre Datei noch da ist, und schließt die Funde verschwundener Dateien. Das hält
+vor allem Websites aktuell, die abgeschaltet sind und deshalb nicht mehr geprüft werden;
+die Liste der Funde kennzeichnet sie mit „abgeschaltet“ oder „gelöscht“. Fehlt der
+Webordner einer Website, die ISPConfig noch führt, bleiben ihre Funde offen. 0 schaltet die
+Prüfung ab.
+
 ## Fundansicht
 
 Jede gemeldete Datei hat eine eigene Seite, erreichbar aus der Liste der Funde

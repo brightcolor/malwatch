@@ -64,6 +64,53 @@ untergeschobene `wp-admin/wp-admin.php` auffällt. Die Wurzel bleibt teilweise
 bekannt: dort liegen die Konfiguration und `wp-content`, die der Website
 gehören.
 
+**Abgleich mit den Herstellern.** Seit 0.41.0 prüft der Scanner Dateien mit
+Fund gegen das, was ihr Hersteller veröffentlicht hat:
+
+- Themes von wordpress.org gegen das veröffentlichte Archiv, so wie Kern und
+  Plugins.
+- Dateien in Composer-Paketen gegen das Originalarchiv des Pakets.
+  `vendor/composer/installed.json` liefert nur Paket und Stand; welches Archiv
+  dazu gehört, sagt das Paketregister (`--verify-packagist-url`, Vorgabe
+  https://repo.packagist.org). So kann eine veränderte `installed.json` kein
+  eigenes Archiv unterschieben. Geladen wird von den Hosts aus
+  `--verify-hosts` (Vorgabe: codeload.github.com, api.github.com, github.com,
+  gitlab.com, bitbucket.org). Ein Paket, das das Register nicht kennt, bleibt
+  ungeprüft.
+- Eine abweichende Skriptdatei (JS, CSS, HTML) eines Plugins oder Themes gegen
+  die Datei im SVN von wordpress.org: Ein eingefügter Block, der lädt oder
+  ausführt, bleibt ein Fund; eine durchgehend neu gebaute Datei gilt als Werk
+  des Herstellers.
+- Eine Kopie einer geprüften Datei an anderem Ort gilt als geprüft. Regeln, die
+  nach dem Ort urteilen, etwa PHP im Upload-Ordner, melden sie weiter.
+- Auf Wunsch eine Datenbank bekannter Dateien wie CIRCL hashlookup
+  (`--hashlookup-url=https://hashlookup.circl.lu`). An den Dienst gehen
+  ausschließlich SHA-1-Summen; ein Eintrag zählt mit passender SHA-256-Summe,
+  und ein als schädlich markierter bestätigt nichts.
+
+Je Lauf lädt der Scanner höchstens `--verify-max-downloads` Archive und Dateien
+(Vorgabe 50) mit je `--verify-max-mb` (50) und wartet `--verify-timeout`
+Sekunden (60); ein gescheitertes Archiv fragt er nach `--verify-retry-hours`
+(24) erneut an. Einmal Geladenes bleibt im Zustandsordner. Abweichungen vom
+Hersteller zählen bei den Endungen aus `--modified-exts`: bei allem, was PHP,
+der Webserver oder ein Browser ausführt. `--no-verify-composer` und
+`--no-verify-originals` schalten die beiden Abgleiche ab, `--offline` jeden
+Abruf.
+
+**Was die Heuristik als harmlos einordnet.** Eine Datei ohne Wirkung — nur
+Kommentare, ein `exit` am Anfang, nur feste Daten wie Übersetzungstabellen.
+Regeln zu PHP-Konstrukten werten Treffer, die PHP ausführen kann: im Code und in
+Zeichenketten, die eine Datei an `eval` geben oder in eine Datei schreiben kann.
+Ein `eval(` in einem Kommentar oder im HTML-Teil zählt als Text. Abruf und
+Ausführung gehören zu einer Aktion, wenn sie in derselben Funktion stehen oder
+die eine die andere direkt aufruft. Kodierte Blöcke werden dekodiert: Bilder,
+Zertifikate, Schlüssel, Archive, Schriften und PDF sind Daten, ein Skript per
+`document.write` von einem Host aus `--script-hosts` ebenso. Eine Admin-Aktion
+in WordPress hinter einer Rechte- und einer Nonce-Prüfung sinkt auf „mittel“.
+Konstrukte, die das PHP der Website nicht mehr ausführt, etwa `preg_replace`
+mit `/e` ab PHP 7, bleiben still; die Version kommt von `--php` oder
+`--php-version`.
+
 **Veraltete Installationen** von WordPress samt Plugins und Themes, Joomla,
 Drupal, TYPO3, Contao, Nextcloud, phpMyAdmin, Matomo, MediaWiki, Shopware und
 Magento, abgeglichen mit den Herstellerquellen.

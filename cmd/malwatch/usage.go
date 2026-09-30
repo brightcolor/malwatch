@@ -31,6 +31,16 @@ Prüfumfang:
   --upload-dirs=NAMEN      Ordner nur für hochgeladene Dateien, durch Komma
                            getrennt (Vorgabe: uploads, attachments, avatars,
                            thumbs, userfiles, user_uploads, file_uploads)
+  --modified-exts=ENDUNGEN Endungen, bei denen eine Abweichung vom Hersteller
+                           als core.modified zählt, durch Komma getrennt
+                           (Vorgabe: PHP-Endungen, js, html, svg, htaccess, ini)
+  --php-version=VERSION    PHP-Version der Website, wenn --php sie nicht liefert;
+                           Regeln zu Konstrukten, die diese Version nicht mehr
+                           ausführt, schweigen dann
+  --script-hosts=HOSTS     Hosts, von denen ein per document.write geschriebenes
+                           Skript laden darf, durch Komma getrennt; leer heißt
+                           nur die eigene Website (Vorgabe: Google Analytics,
+                           ajax.googleapis.com, code.jquery.com)
   --ignore-chmod0          Dateien mit Rechten 000 auslassen
   --threads=N              Anzahl paralleler Arbeiter (Vorgabe: Kerne)
 
@@ -47,6 +57,26 @@ Prüfstufen:
                            MALWATCH_WPSCAN_TOKEN
   --offline                keine Abfragen bei Herstellern und
                            Schwachstellen-Datenbanken
+  --no-verify-composer     Dateien mit Fund nicht mit dem Originalarchiv
+                           ihres Composer-Pakets abgleichen
+  --no-verify-originals    abweichende Skriptdateien nicht mit der Datei des
+                           Herstellers vergleichen (Neubau oder Einschub)
+  --hashlookup-url=URL     Dateien mit Fund bei einer Datenbank bekannter
+                           Dateien nachschlagen, etwa https://hashlookup.circl.lu;
+                           es gehen nur Prüfsummen hinaus (Vorgabe: aus)
+  --verify-packagist-url=URL
+                           Paketregister, das zu jedem Stand eines Composer-
+                           Pakets das Archiv nennt (Vorgabe:
+                           https://repo.packagist.org); die Adresse in
+                           installed.json zählt nicht
+  --verify-hosts=HOSTS     Hosts, von denen Archive geladen werden, durch
+                           Komma getrennt (Vorgabe: codeload.github.com,
+                           api.github.com, github.com, gitlab.com, bitbucket.org)
+  --verify-max-downloads=N höchstens so viele Archive je Lauf (Vorgabe: 50)
+  --verify-max-mb=N        höchstens so viele MB je Archiv (Vorgabe: 50)
+  --verify-timeout=S       Sekunden je Abruf (Vorgabe: 60)
+  --verify-retry-hours=N   ein gescheitertes Archiv erst nach so vielen Stunden
+                           wieder abrufen (Vorgabe: 24)
   --ignore=REGEL           diese Regel nicht anwenden, mehrfach angebbar
 
 Ausgabe:
