@@ -3,6 +3,7 @@ package phpcode
 import (
 	"strings"
 	"testing"
+	"time"
 )
 
 // ownCodeAt reports OwnCode for the n-th eval (0-based) of src.
@@ -141,6 +142,45 @@ func TestForeignCodeIsNoOwnCode(t *testing.T) {
 			t.Errorf("%s: als selbst geschriebener Code durchgelassen", c.name)
 		}
 	}
+}
+
+// A file built to stall the scanner: five thousand evals in one function.
+// Each function body is read once, however many evals it holds.
+func TestManyEvalsStayFast(t *testing.T) {
+	var b strings.Builder
+	b.WriteString("<?php function f($p) {\n")
+	for i := 0; i < 5000; i++ {
+		b.WriteString("$v" + strings.Repeat("x", i%7) + itoa(i) + " = 'function x() {}' . $p;\n")
+	}
+	for i := 0; i < 5000; i++ {
+		b.WriteString(ev + "($v" + strings.Repeat("x", i%7) + itoa(i) + ");\n")
+	}
+	b.WriteString("}\n")
+	src := b.String()
+	s := Parse([]byte(src))
+	start := time.Now()
+	for at := strings.Index(src, ev+"("); at >= 0; {
+		s.OwnCode(at)
+		next := strings.Index(src[at+1:], ev+"(")
+		if next < 0 {
+			break
+		}
+		at += 1 + next
+	}
+	if d := time.Since(start); d > 10*time.Second {
+		t.Errorf("5000 evals brauchten %v", d)
+	}
+}
+
+func itoa(i int) string {
+	if i == 0 {
+		return "0"
+	}
+	var d []byte
+	for ; i > 0; i /= 10 {
+		d = append([]byte{byte('0' + i%10)}, d...)
+	}
+	return string(d)
 }
 
 // OwnCode answers for an eval only.

@@ -24,11 +24,15 @@ func (s *Source) OwnCode(at int) bool {
 	if k < 0 {
 		return false
 	}
-	b, ok := s.body(k)
-	if !ok {
-		return false
+	if s.bodies == nil {
+		s.bodies = map[int]*funcBody{}
 	}
-	return b.writes(name, s.toks[e].pos)
+	b, seen := s.bodies[k]
+	if !seen {
+		b = s.body(k)
+		s.bodies[k] = b
+	}
+	return b != nil && b.writes(name, s.toks[e].pos)
 }
 
 // tokenAt returns the index of the token that starts at offset at, or -1.
@@ -66,21 +70,41 @@ func (s *Source) evaluated(e int) (string, bool) {
 }
 
 // funcBody is the code of one function: its tokens without those of the
-// functions and closures defined inside it, and the names it gets from
-// outside - its parameters and the variables of a closure's use list.
+// functions and closures defined inside it, the names it gets from outside -
+// its parameters and the variables of a closure's use list - and what OwnCode
+// works out once for all of its variables. A file can hold thousands of evals
+// in one function; each of them only looks the answer up.
 type funcBody struct {
 	toks    []token
 	outside map[string]bool
+	// unplain holds the variables the body does more with than read them or
+	// assign them as a whole; allUnplain says it can set any variable.
+	unplain    map[string]bool
+	allUnplain bool
+	assigns    []assignment
+	// byTarget lists, per variable, the assignments that give it a value.
+	byTarget map[string][]int
+	tainted  map[string]bool
+	// verdicts are the answers so far, per variable.
+	verdicts map[string]verdict
 }
 
-// body collects the function body of scope k.
-func (s *Source) body(k int) (*funcBody, bool) {
+// verdict says whether the body writes a variable itself, and from which
+// offset on.
+type verdict struct {
+	own   bool
+	first int
+}
+
+// body collects the function body of scope k and reads it once; nil when the
+// head of the function is not found.
+func (s *Source) body(k int) *funcBody {
 	sc := s.scopes[k]
 	open := s.tokenAt(sc.Start)
 	if open < 0 {
-		return nil, false
+		return nil
 	}
-	b := &funcBody{outside: map[string]bool{}}
+	b := &funcBody{outside: map[string]bool{}, verdicts: map[string]verdict{}}
 	head := open - 1
 	for head >= 0 && !(s.toks[head].kind == tIdent && (s.toks[head].val == "function" || s.toks[head].val == "fn")) {
 		if s.toks[head].kind == tVar {
@@ -89,7 +113,7 @@ func (s *Source) body(k int) (*funcBody, bool) {
 		head--
 	}
 	if head < 0 {
-		return nil, false
+		return nil
 	}
 	var inner []Scope
 	for j, other := range s.scopes {
@@ -110,7 +134,16 @@ func (s *Source) body(k int) (*funcBody, bool) {
 			b.toks = append(b.toks, s.toks[i])
 		}
 	}
-	return b, true
+	b.scanUses()
+	b.assigns = b.assignments()
+	b.byTarget = map[string][]int{}
+	for k, a := range b.assigns {
+		for _, t := range a.targets {
+			b.byTarget[t] = append(b.byTarget[t], k)
+		}
+	}
+	b.tainted = b.taint()
+	return b
 }
 
 // definitionWords open the definition of a function or class, the only
@@ -178,57 +211,68 @@ type assignment struct {
 // writes reports whether the body writes the variable name itself, as
 // OwnCode describes, before the eval at offset at.
 func (b *funcBody) writes(name string, at int) bool {
-	if b.outside[name] || !b.plain(name) {
-		return false
+	v, seen := b.verdicts[name]
+	if !seen {
+		v = b.judge(name)
+		b.verdicts[name] = v
 	}
-	assigns := b.assignments()
-	tainted := b.tainted(assigns)
-	var own []assignment
-	for _, a := range assigns {
-		for _, t := range a.targets {
-			if t == name {
-				own = append(own, a)
-			}
-		}
-	}
-	if len(own) == 0 || own[0].pos > at || own[0].op != "=" || len(own[0].rhs) == 0 ||
-		!opensDefinition(own[0].rhs[0]) {
-		return false
-	}
-	for _, a := range own {
-		if len(a.targets) != 1 || (a.op != "=" && a.op != ".=") || !b.template(a.rhs, tainted) {
-			return false
-		}
-	}
-	return true
+	return v.own && v.first < at
 }
 
-// plain reports whether the body only ever reads name or assigns it as a
-// whole: no reference to it, no global or static declaration, no element or
-// property written, no loop, catch or parameter list that fills it, no call
-// that may write into it, and no construct that sets variables by name.
-func (b *funcBody) plain(name string) bool {
+// judge works out whether the body writes name itself: it only ever reads
+// it or assigns it as a whole, the first assignment opens a definition with
+// quoted text, and every assignment is a template of untainted parts.
+func (b *funcBody) judge(name string) verdict {
+	if b.outside[name] || b.allUnplain || b.unplain[name] {
+		return verdict{}
+	}
+	own := b.byTarget[name]
+	if len(own) == 0 {
+		return verdict{}
+	}
+	first := b.assigns[own[0]]
+	if first.op != "=" || len(first.rhs) == 0 || !opensDefinition(first.rhs[0]) {
+		return verdict{}
+	}
+	for _, k := range own {
+		a := b.assigns[k]
+		if len(a.targets) != 1 || (a.op != "=" && a.op != ".=") || !b.template(a.rhs, b.tainted) {
+			return verdict{}
+		}
+	}
+	return verdict{own: true, first: first.pos}
+}
+
+// scanUses reads the body once and notes every variable it does more with
+// than read it or assign it as a whole: a reference to it, a global or
+// static declaration, an element or property written, a loop, catch or
+// parameter list that fills it, a call that may write into it. A construct
+// that sets variables by name makes that true of all of them.
+func (b *funcBody) scanUses() {
+	b.unplain = map[string]bool{}
 	toks := b.toks
 	var parens []int
 	for i, t := range toks {
 		switch {
 		case isPunct(t, "$"):
-			return false
+			b.allUnplain = true
+			return
 		case t.kind == tIdent && (t.val == "extract" || t.val == "parse_str" || t.val == "mb_parse_str" ||
 			t.val == "import_request_variables"):
-			return false
+			b.allUnplain = true
+			return
 		case t.kind == tIdent && (t.val == "global" || t.val == "static") && i+1 < len(toks) && toks[i+1].kind == tVar:
 			for j := i + 1; j < len(toks) && !isPunct(toks[j], ";"); j++ {
-				if toks[j].kind == tVar && toks[j].val == name {
-					return false
+				if toks[j].kind == tVar {
+					b.unplain[toks[j].val] = true
 				}
 			}
 		case t.kind == tIdent && (t.val == "function" || t.val == "fn" || t.val == "catch"):
 			if j := indexOf(toks, i+1, "("); j >= 0 {
 				if end := closing(toks, j); end > j {
 					for _, u := range toks[j:end] {
-						if u.kind == tVar && u.val == name {
-							return false
+						if u.kind == tVar {
+							b.unplain[u.val] = true
 						}
 					}
 				}
@@ -240,38 +284,44 @@ func (b *funcBody) plain(name string) bool {
 				parens = parens[:len(parens)-1]
 			}
 		}
-		if t.kind != tVar || t.val != name {
+		if t.kind != tVar || b.unplain[t.val] {
 			continue
 		}
-		if i > 0 && (isPunct(toks[i-1], "&") || isIdent(toks[i-1], "as") || isPunct(toks[i-1], "=>")) {
+		if !b.onlyRead(i, parens) {
+			b.unplain[t.val] = true
+		}
+	}
+}
+
+// onlyRead reports whether the variable at token i is read there or assigned
+// as a whole; parens are the open parentheses around it.
+func (b *funcBody) onlyRead(i int, parens []int) bool {
+	toks := b.toks
+	if i > 0 && (isPunct(toks[i-1], "&") || isIdent(toks[i-1], "as") || isPunct(toks[i-1], "=>")) {
+		return false
+	}
+	if len(parens) > 0 && !b.readingCall(parens[len(parens)-1]) {
+		return false
+	}
+	next := i + 1
+	for next < len(toks) && isPunct(toks[next], "[") {
+		end := closing(toks, next)
+		if end < 0 {
 			return false
 		}
-		if len(parens) > 0 && !b.readingCall(parens[len(parens)-1]) {
-			return false
-		}
-		next := i + 1
-		for next < len(toks) && isPunct(toks[next], "[") {
-			end := closing(toks, next)
-			if end < 0 {
-				return false
-			}
-			next = end + 1
-			if next >= len(toks) || assigns(toks, next) {
-				return false
-			}
-		}
-		if next < len(toks) && (isPunct(toks[next], "->") || isPunct(toks[next], "::")) {
-			return false
-		}
-		if next < len(toks) && (isPunct(toks[next], ")") || isPunct(toks[next], "]") || isPunct(toks[next], ",")) &&
-			partOfTarget(toks, next) {
-			return false
-		}
-		if next < len(toks) && compound(toks, next) {
+		next = end + 1
+		if next >= len(toks) || assigns(toks, next) {
 			return false
 		}
 	}
-	return true
+	if next < len(toks) && (isPunct(toks[next], "->") || isPunct(toks[next], "::")) {
+		return false
+	}
+	if next < len(toks) && (isPunct(toks[next], ")") || isPunct(toks[next], "]") || isPunct(toks[next], ",")) &&
+		partOfTarget(toks, next) {
+		return false
+	}
+	return !(next < len(toks) && compound(toks, next))
 }
 
 // readingCall reports whether the parenthesis at open belongs to something
@@ -533,23 +583,73 @@ func opening(toks []token, close int) int {
 	return -1
 }
 
-// tainted returns the variables of the body that can carry foreign data:
-// those assigned from the request, a file, the network, a decoder, a call
-// through a variable or a global, and those assigned from one of them, as
-// often as it takes.
-func (b *funcBody) tainted(assigns []assignment) map[string]bool {
+// taint returns the variables of the body that can carry foreign data: those
+// assigned from the request, a file, the network, a decoder, a call through a
+// variable or a global, and those assigned from one of them, as often as it
+// takes. Each assignment is weighed once; a newly tainted variable passes
+// the taint on to the assignments that read it.
+func (b *funcBody) taint() map[string]bool {
 	out := map[string]bool{}
-	for changed := true; changed; {
-		changed = false
-		for _, a := range assigns {
-			if !(a.op == "global" || foreignValue(a.rhs, out)) {
-				continue
+	readers := map[string][]int{}
+	var queue []string
+	mark := func(names []string) {
+		for _, n := range names {
+			if !out[n] {
+				out[n] = true
+				queue = append(queue, n)
 			}
-			for _, t := range a.targets {
-				if !out[t] {
-					out[t] = true
-					changed = true
-				}
+		}
+	}
+	for k, a := range b.assigns {
+		if a.op == "global" || foreignValue(a.rhs, nil) {
+			mark(a.targets)
+			continue
+		}
+		for _, n := range readNames(a.rhs) {
+			readers[n] = append(readers[n], k)
+		}
+	}
+	for len(queue) > 0 {
+		n := queue[0]
+		queue = queue[1:]
+		for _, k := range readers[n] {
+			mark(b.assigns[k].targets)
+		}
+	}
+	return out
+}
+
+// readNames lists the variables a value reads, also those PHP fills into a
+// quoted string.
+func readNames(toks []token) []string {
+	var out []string
+	for _, t := range toks {
+		switch t.kind {
+		case tVar:
+			out = append(out, t.val)
+		case tStrDyn:
+			out = append(out, textNames(t.val)...)
+		}
+	}
+	return out
+}
+
+// textNames lists the variables named in the body of a double quoted string
+// or heredoc, escaped ones left out.
+func textNames(body string) []string {
+	var out []string
+	for i := 0; i < len(body); i++ {
+		switch body[i] {
+		case '\\':
+			i++
+		case '$':
+			j := i + 1
+			for j < len(body) && isIdentByte(body[j]) {
+				j++
+			}
+			if j > i+1 && isIdentStart(body[i+1]) {
+				out = append(out, body[i:j])
+				i = j - 1
 			}
 		}
 	}

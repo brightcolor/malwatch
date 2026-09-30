@@ -67,6 +67,9 @@ type Source struct {
 	// read as code throughout: a payload that is loaded and passed to eval
 	// carries none.
 	tagged bool
+	// bodies keeps the function bodies OwnCode has read, by scope; nil for a
+	// body whose head was not found.
+	bodies map[int]*funcBody
 }
 
 // Parse classifies src.
