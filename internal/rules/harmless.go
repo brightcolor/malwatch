@@ -12,9 +12,10 @@ import (
 	"github.com/brightcolor/malwatch/internal/phpcode"
 )
 
-// maxHarmlessChecks caps how many matches of one rule are weighed in a file.
-// A file with more blocks than this is reported on the first ones.
-const maxHarmlessChecks = 200
+// maxWeighedMatches caps how many matches of one rule are weighed in a file,
+// for a rule with Harmless, CodeOnly or SupportInCode. A file with more
+// matches than this is judged on the first ones.
+const maxWeighedMatches = 5000
 
 // DefaultScriptHosts are the hosts a script tag written by document.write may
 // load from without a finding: the addresses of the old Google Analytics

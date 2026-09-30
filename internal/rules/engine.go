@@ -103,7 +103,7 @@ func (e *Engine) ScanHead(path, rel, ext string, head []byte) []report.Finding {
 		if !r.HeadOnly || !r.AppliesTo(rel, ext, looks) || !e.fits(r, rel) {
 			continue
 		}
-		if f, ok := e.apply(r, path, head, head, nil, nil); ok {
+		if f, ok := e.apply(r, path, head, head, nil, nil, everywhereCode); ok {
 			out = append(out, f)
 		}
 	}
@@ -150,6 +150,18 @@ func (e *Engine) Scan(path, rel, ext string, content []byte) []report.Finding {
 		return inert
 	}
 
+	// What of the file is PHP code, read once and only for a file where a
+	// rule about code or about its supporting conditions matched at all. A
+	// file the reader loses track in counts as code throughout: a construct
+	// it does not know must never hide a match.
+	var src *phpcode.Source
+	codeAt := func(at int) bool {
+		if src == nil {
+			src = phpcode.Parse(content)
+		}
+		return src.Broken() || src.IsCode(at)
+	}
+
 	// The line index for the marks, built once and only for a file that
 	// matches at all.
 	var lines *textpos.Lines
@@ -168,7 +180,7 @@ func (e *Engine) Scan(path, rel, ext string, content []byte) []report.Finding {
 		if r.SkipInert && isInert() {
 			continue
 		}
-		if f, ok := e.apply(r, path, content, content, nil, linesOf); ok {
+		if f, ok := e.apply(r, path, content, content, nil, linesOf, codeAt); ok {
 			out = append(out, f)
 			continue
 		}
@@ -180,7 +192,7 @@ func (e *Engine) Scan(path, rel, ext string, content []byte) []report.Finding {
 			built = true
 		}
 		if joined != nil {
-			if f, ok := e.apply(r, path, joined, content, index, linesOf); ok {
+			if f, ok := e.apply(r, path, joined, content, index, linesOf, codeAt); ok {
 				out = append(out, f)
 			}
 		}
@@ -191,16 +203,28 @@ func (e *Engine) Scan(path, rel, ext string, content []byte) []report.Finding {
 // apply runs one rule over hay. raw and index translate a position in hay back
 // to the file, so a finding names the line someone can actually open; index is
 // nil when hay is the file itself. linesOf gives the line index of raw for the
-// marks; nil leaves the finding without marks.
-func (e *Engine) apply(r *Rule, path string, hay, raw []byte, index []int32, linesOf func() *textpos.Lines) (report.Finding, bool) {
-	loc := e.firstMatch(r, hay)
+// marks; nil leaves the finding without marks. codeAt says whether an offset of
+// raw is PHP code.
+func (e *Engine) apply(r *Rule, path string, hay, raw []byte, index []int32, linesOf func() *textpos.Lines,
+	codeAt func(int) bool) (report.Finding, bool) {
+	inCode := func(loc []int) bool {
+		at := loc[0]
+		if index != nil {
+			if at >= len(index) {
+				return false
+			}
+			at = int(index[at])
+		}
+		return codeAt(at)
+	}
+	loc := e.firstMatch(r, hay, inCode)
 	if loc == nil {
 		return report.Finding{}, false
 	}
-	if r.Requires != nil && !r.Requires.Match(hay) {
+	if r.Requires != nil && !supported(r, r.Requires, hay, inCode) {
 		return report.Finding{}, false
 	}
-	if r.AlsoRequires != nil && !r.AlsoRequires.Match(hay) {
+	if r.AlsoRequires != nil && !supported(r, r.AlsoRequires, hay, inCode) {
 		return report.Finding{}, false
 	}
 	at := loc[0]
@@ -224,22 +248,44 @@ func (e *Engine) apply(r *Rule, path string, hay, raw []byte, index []int32, lin
 		Excerpt: excerpt(hay[loc[0]:loc[1]]),
 	}
 	if e.markLimit > 0 && linesOf != nil {
-		f.Marks = e.marks(r, hay, index, linesOf())
+		f.Marks = e.marks(r, hay, index, linesOf(), inCode)
 	}
 	return f, true
 }
 
+// everywhereCode takes every offset for code, for the start of a file that is
+// not read as a whole.
+func everywhereCode(int) bool { return true }
+
+// supported reports whether a supporting condition holds: anywhere in the
+// file, or for a rule with SupportInCode somewhere in its code.
+func supported(r *Rule, re *regexp.Regexp, hay []byte, inCode func([]int) bool) bool {
+	if !r.SupportInCode {
+		return re.Match(hay)
+	}
+	for _, loc := range re.FindAllIndex(hay, maxWeighedMatches) {
+		if inCode(loc) {
+			return true
+		}
+	}
+	return false
+}
+
 // firstMatch returns the first match of the rule's pattern that counts: the
-// first one at all, or for a rule with Harmless the first one it does not
-// excuse. nil means none counts.
-func (e *Engine) firstMatch(r *Rule, hay []byte) []int {
-	if r.Harmless == nil {
+// first one at all, for a rule with CodeOnly the first one in code, and for a
+// rule with Harmless the first one it does not excuse. nil means none counts.
+func (e *Engine) firstMatch(r *Rule, hay []byte, inCode func([]int) bool) []int {
+	if r.Harmless == nil && !r.CodeOnly {
 		return r.Match.FindIndex(hay)
 	}
-	for _, loc := range r.Match.FindAllIndex(hay, maxHarmlessChecks) {
-		if !r.Harmless(e, hay, loc) {
-			return loc
+	for _, loc := range r.Match.FindAllIndex(hay, maxWeighedMatches) {
+		if r.CodeOnly && !inCode(loc) {
+			continue
 		}
+		if r.Harmless != nil && r.Harmless(e, hay, loc) {
+			continue
+		}
+		return loc
 	}
 	return nil
 }
@@ -248,7 +294,7 @@ func (e *Engine) firstMatch(r *Rule, hay []byte) []int {
 // the limit, then the first match of each supporting condition, since those
 // are part of the reason as well. Positions in the reassembled view are taken
 // back to the file through index.
-func (e *Engine) marks(r *Rule, hay []byte, index []int32, lines *textpos.Lines) []report.Mark {
+func (e *Engine) marks(r *Rule, hay []byte, index []int32, lines *textpos.Lines, inCode func([]int) bool) []report.Mark {
 	var out []report.Mark
 	add := func(re *regexp.Regexp, n int) {
 		for _, loc := range re.FindAllIndex(hay, n) {
@@ -257,6 +303,10 @@ func (e *Engine) marks(r *Rule, hay []byte, index []int32, lines *textpos.Lines)
 			}
 			if re == r.Match && r.Harmless != nil && r.Harmless(e, hay, loc) {
 				// A picture next to the block of code is no place to look at.
+				continue
+			}
+			if (re == r.Match && r.CodeOnly || re != r.Match && r.SupportInCode) && !inCode(loc) {
+				// A comment that mentions the construct is no place either.
 				continue
 			}
 			start, end := loc[0], loc[1]

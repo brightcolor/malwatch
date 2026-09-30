@@ -382,6 +382,11 @@ func tagLength(src []byte, at int) int {
 
 // stringEnd returns the offset just past the closing quote of the string that
 // opens at i, or -1 when it never closes.
+//
+// In a double quoted string and a backtick command PHP fills in {$...} and
+// ${...}, and a quote inside those braces does not end the string:
+// "{$a["x"]}" is one string. Reading the inner quote as its end would take
+// the code after it for text, which is where code could hide from the rules.
 func stringEnd(src []byte, i int) int {
 	q := src[i]
 	for j := i + 1; j < len(src); j++ {
@@ -390,6 +395,44 @@ func stringEnd(src []byte, i int) int {
 			j++
 		case q:
 			return j + 1
+		case '{', '$':
+			if q == '\'' || j+1 >= len(src) {
+				continue
+			}
+			if (src[j] == '{' && src[j+1] == '$') || (src[j] == '$' && src[j+1] == '{') {
+				end := braceEnd(src, j+1)
+				if end < 0 {
+					return -1
+				}
+				j = end
+			}
+		}
+	}
+	return -1
+}
+
+// braceEnd returns the offset of the brace that closes the one at or after
+// offset i, stepping over strings inside, or -1.
+func braceEnd(src []byte, i int) int {
+	for i < len(src) && src[i] != '{' {
+		i++
+	}
+	depth := 0
+	for j := i; j < len(src); j++ {
+		switch src[j] {
+		case '{':
+			depth++
+		case '}':
+			depth--
+			if depth == 0 {
+				return j
+			}
+		case '\'', '"':
+			end := stringEnd(src, j)
+			if end < 0 {
+				return -1
+			}
+			j = end - 1
 		}
 	}
 	return -1

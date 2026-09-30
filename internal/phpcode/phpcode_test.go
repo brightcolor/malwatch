@@ -163,3 +163,14 @@ func TestLiveFiles(t *testing.T) {
 		}
 	}
 }
+
+func TestInterpolationKeepsTheStringOpen(t *testing.T) {
+	src := "<?php $s = \"{$a['x\"y']} and ${b['y']}\"; " + ev + "($z); $t = 'q';"
+	s := Parse([]byte(src))
+	if got := kindOf(t, s, src, ev, 0); got != Code {
+		t.Fatalf("Code nach einem String mit eingesetztem Wert: %v, erwartet Code", got)
+	}
+	if got := kindOf(t, s, src, "and", 0); got != String {
+		t.Fatalf("Text zwischen den eingesetzten Werten: %v, erwartet String", got)
+	}
+}
