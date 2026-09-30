@@ -1461,3 +1461,24 @@ SET @mw := IF(@mw_verify_new,
   'UPDATE `malwatch_config` SET `script_hosts` = ''google-analytics.com,www.google-analytics.com,ssl.google-analytics.com,ajax.googleapis.com,code.jquery.com'', `verify_hosts` = ''codeload.github.com,api.github.com,github.com,gitlab.com,bitbucket.org''',
   'DO 0');
 PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- --------------------------------------------------------
+-- Testordner von Bibliotheken (0.42.0)
+--
+-- test_dirs, library_dirs: the names of test folders and of the folders
+-- libraries are installed into; test_rules: the rules that do not count below
+-- a test folder of a library (DefaultTestDirs, DefaultLibraryDirs and
+-- DefaultTestRules in internal/rules/libtests.go). Text columns like the
+-- lists of 0.41.0; a new column gets the default of the scanner once, right
+-- after it was added.
+-- --------------------------------------------------------
+SET @mw_libtests_new := (SELECT COUNT(*) = 0 FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_config' AND COLUMN_NAME = 'test_dirs');
+SET @mw := IF(@mw_libtests_new,
+  'ALTER TABLE `malwatch_config` ADD COLUMN `test_dirs` text CHARACTER SET ascii, ADD COLUMN `library_dirs` text CHARACTER SET ascii, ADD COLUMN `test_rules` text CHARACTER SET ascii',
+  'DO 0');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @mw := IF(@mw_libtests_new,
+  'UPDATE `malwatch_config` SET `test_dirs` = ''test,tests,test-suite,testsuite,fixtures,__tests__'', `library_dirs` = ''vendor,vendors,node_modules,bower_components'', `test_rules` = ''php.exec.background,php.eval.variable,binary.elf''',
+  'DO 0');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;

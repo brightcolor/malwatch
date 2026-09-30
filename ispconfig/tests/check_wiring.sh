@@ -2359,7 +2359,10 @@ page105() {
 for spec in \
 	modified_exts:internal/scanner/modified.go:DefaultModifiedExts:MaxModifiedExts:MaxModifiedExtLength:1 \
 	script_hosts:internal/rules/harmless.go:DefaultScriptHosts:MaxScriptHosts:MaxScriptHostLength:0 \
-	verify_hosts:internal/composer/composer.go:DefaultHosts:MaxHosts:MaxHostLength:0; do
+	verify_hosts:internal/composer/composer.go:DefaultHosts:MaxHosts:MaxHostLength:0 \
+	test_dirs:internal/rules/libtests.go:DefaultTestDirs:MaxLibraryTestNames:MaxLibraryTestNameLength:1 \
+	library_dirs:internal/rules/libtests.go:DefaultLibraryDirs:MaxLibraryTestNames:MaxLibraryTestNameLength:1 \
+	test_rules:internal/rules/libtests.go:DefaultTestRules:MaxLibraryTestRules:MaxLibraryTestRuleLength:0; do
 	IFS=: read -r key file var max len min <<EOF
 $spec
 EOF

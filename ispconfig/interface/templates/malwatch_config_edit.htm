@@ -112,6 +112,31 @@
 	</div>
 </div>
 
+<p class="mw-sec">{tmpl_var name='library_tests_head_txt'}</p>
+<p>{tmpl_var name='library_tests_intro_txt'}</p>
+
+<div class="form-group">
+	<label for="test_dirs" class="col-sm-3 control-label">{tmpl_var name='test_dirs_txt'}</label>
+	<div class="col-sm-9">
+		<input type="text" name="test_dirs" id="test_dirs" value="{tmpl_var name='test_dirs'}" maxlength="495" class="form-control" />
+		<span class="help-block">{tmpl_var name='test_dirs_hint_txt'}</span>
+	</div>
+</div>
+<div class="form-group">
+	<label for="library_dirs" class="col-sm-3 control-label">{tmpl_var name='library_dirs_txt'}</label>
+	<div class="col-sm-9">
+		<input type="text" name="library_dirs" id="library_dirs" value="{tmpl_var name='library_dirs'}" maxlength="495" class="form-control" />
+		<span class="help-block">{tmpl_var name='library_dirs_hint_txt'}</span>
+	</div>
+</div>
+<div class="form-group">
+	<label for="test_rules" class="col-sm-3 control-label">{tmpl_var name='test_rules_txt'}</label>
+	<div class="col-sm-9">
+		<input type="text" name="test_rules" id="test_rules" value="{tmpl_var name='test_rules'}" maxlength="1039" class="form-control" />
+		<span class="help-block">{tmpl_var name='test_rules_hint_txt'}</span>
+	</div>
+</div>
+
 <p class="mw-sec">{tmpl_var name='verify_head_txt'}</p>
 <p>{tmpl_var name='verify_intro_txt'}</p>
 

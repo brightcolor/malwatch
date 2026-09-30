@@ -230,3 +230,16 @@ $wb['vanished_check_rows_error_range'] = 'Funde je Stunde auf fehlende Dateien p
 $wb['housekeeping_minute_txt'] = 'Minute der stündlichen Aufräumarbeiten';
 $wb['housekeeping_minute_hint_txt'] = 'In dieser Minute jeder Stunde räumt der Server alte Prüfläufe, Aufträge, Funde und Ansichten auf. Erlaubt: 0 bis 59.';
 $wb['housekeeping_minute_error_range'] = 'Minute der stündlichen Aufräumarbeiten: Erlaubt sind ganze Zahlen von 0 bis 59. Bitte den Wert anpassen und erneut speichern.';
+// Testordner von Bibliotheken (0.42.0)
+$wb['library_tests_head_txt'] = 'Testordner von Bibliotheken';
+$wb['library_tests_intro_txt'] = 'Bibliotheken bringen ihre Tests mit: Die starten Testserver im Hintergrund, enthalten Beispieldateien mit eval und liefern die Programme mit, die sie dafür brauchen. In diesen Ordnern zählen die unten genannten Hinweisregeln nicht. Signaturen, Webshell-Regeln und alle Funde ab „hoch“ gelten dort weiter.';
+$wb['test_dirs_txt'] = 'Testordner';
+$wb['test_dirs_hint_txt'] = 'Namen von Testordnern, durch Komma getrennt; Groß- und Kleinschreibung ist egal. Ein Testordner zählt innerhalb einer Bibliothek unterhalb eines Bibliotheksordners, etwa vendor/phpmailer/phpmailer/test. Nennt eine Bibliothek eine Datei in ihrer .gitignore als Datei eines Testordners, gilt diese Datei ebenfalls als Test. Erlaubt: 1 bis 16 Namen mit je höchstens 30 Zeichen.';
+$wb['test_dirs_error_regex'] = 'Testordner: Erlaubt sind 1 bis 16 Namen mit je höchstens 30 Zeichen aus Buchstaben, Ziffern, Punkt, Unterstrich und Bindestrich, durch Komma getrennt, etwa test,tests. Bitte die Liste anpassen und erneut speichern.';
+$wb['library_dirs_txt'] = 'Bibliotheksordner';
+$wb['library_dirs_hint_txt'] = 'Ordner, in denen Bibliotheken liegen, durch Komma getrennt; Groß- und Kleinschreibung ist egal. Unterhalb eines Ordners für hochgeladene Dateien gilt nichts als Bibliothek. Erlaubt: 1 bis 16 Namen mit je höchstens 30 Zeichen.';
+$wb['library_dirs_error_regex'] = 'Bibliotheksordner: Erlaubt sind 1 bis 16 Namen mit je höchstens 30 Zeichen aus Buchstaben, Ziffern, Punkt, Unterstrich und Bindestrich, durch Komma getrennt, etwa vendor,node_modules. Bitte die Liste anpassen und erneut speichern.';
+$wb['test_rules_txt'] = 'Regeln, die in Testordnern nicht zählen';
+$wb['test_rules_hint_txt'] = 'Kennungen von Regeln, durch Komma getrennt. Eintragen lassen sich Regeln bis zur Stufe „mittel“, die keine Datei selbst verschieben. Leer lässt jede Regel auch in Testordnern zählen. Erlaubt: bis zu 16 Regeln mit je höchstens 64 Zeichen.';
+$wb['test_rules_error_regex'] = 'Regeln, die in Testordnern nicht zählen: Erlaubt sind bis zu 16 Kennungen wie php.exec.background mit je höchstens 64 Zeichen, durch Komma getrennt. Bitte die Liste anpassen und erneut speichern.';
+$wb['test_rules_error_rule'] = 'Regeln, die in Testordnern nicht zählen: %s lässt sich nicht eintragen. Erlaubt sind Regeln des Scanners bis zur Stufe „mittel“, die keine Datei selbst verschieben. Bitte die Liste anpassen und erneut speichern.';

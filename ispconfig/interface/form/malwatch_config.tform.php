@@ -146,6 +146,57 @@ $form['tabs']['settings'] = array(
 			'width' => '60',
 			'maxlength' => '512'
 		),
+		// The tests of libraries and the rules that do not count in them
+		// (0.42.0), handed to the scanner by malwatch_helper::verify_arguments().
+		// Defaults and limits: malwatch_config_defaults() and
+		// malwatch_list_settings(); test_rules is also checked against the rule
+		// catalog (malwatch_test_rules_refused()). Stored tidied, see
+		// malwatch_config_edit.php.
+		'test_dirs' => array(
+			'datatype' => 'VARCHAR',
+			'formtype' => 'TEXT',
+			'default' => malwatch_config_defaults()['test_dirs'],
+			'validators' => array(
+				array(
+					'type' => 'REGEX',
+					'regex' => malwatch_list_regex('test_dirs'),
+					'errmsg' => 'test_dirs_error_regex'
+				)
+			),
+			'value' => '',
+			'width' => '60',
+			'maxlength' => '495'
+		),
+		'library_dirs' => array(
+			'datatype' => 'VARCHAR',
+			'formtype' => 'TEXT',
+			'default' => malwatch_config_defaults()['library_dirs'],
+			'validators' => array(
+				array(
+					'type' => 'REGEX',
+					'regex' => malwatch_list_regex('library_dirs'),
+					'errmsg' => 'library_dirs_error_regex'
+				)
+			),
+			'value' => '',
+			'width' => '60',
+			'maxlength' => '495'
+		),
+		'test_rules' => array(
+			'datatype' => 'VARCHAR',
+			'formtype' => 'TEXT',
+			'default' => malwatch_config_defaults()['test_rules'],
+			'validators' => array(
+				array(
+					'type' => 'REGEX',
+					'regex' => malwatch_list_regex('test_rules'),
+					'errmsg' => 'test_rules_error_regex'
+				)
+			),
+			'value' => '',
+			'width' => '60',
+			'maxlength' => '1039'
+		),
 		// How the scanner tells a vendor's file from a finding (Abgleich mit
 		// den Herstellern, 0.41.0). The runner hands every value to the
 		// scanner (malwatch_helper::verify_arguments()); defaults and limits:

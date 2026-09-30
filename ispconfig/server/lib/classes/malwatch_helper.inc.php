@@ -67,6 +67,9 @@ class malwatch_helper
 		'modified_exts' => array('--modified-exts', 40, 12, '/^[a-z0-9]+$/', 1),
 		'script_hosts' => array('--script-hosts', 32, 100, self::HOST_PATTERN, 0),
 		'verify_hosts' => array('--verify-hosts', 16, 100, self::HOST_PATTERN, 0),
+		'test_dirs' => array('--test-dirs', 16, 30, '/^[a-z0-9_-][a-z0-9._-]*$/', 1),
+		'library_dirs' => array('--library-dirs', 16, 30, '/^[a-z0-9_-][a-z0-9._-]*$/', 1),
+		'test_rules' => array('--test-rules', 16, 64, '/^[a-z0-9_]+(\.[a-z0-9_]+)+$/', 0),
 	);
 
 	/**
@@ -106,7 +109,10 @@ class malwatch_helper
 			$row = array();
 		}
 		foreach ($this->config_defaults() as $key => $value) {
-			if (!isset($row[$key]) || $row[$key] === '' || $row[$key] === null) {
+			// An empty list that may be empty is a choice: no hosts, no rules.
+			$may_be_empty = isset(self::LIST_SETTINGS[$key]) && self::LIST_SETTINGS[$key][4] === 0
+				&& isset($row[$key]) && $row[$key] === '';
+			if (!$may_be_empty && (!isset($row[$key]) || $row[$key] === '' || $row[$key] === null)) {
 				$row[$key] = $value;
 			}
 		}
@@ -160,14 +166,17 @@ class malwatch_helper
 			'keep_job_days' => 30,
 			'keep_fixed_days' => 90,
 			'vanished_check_rows' => 500,
+			'test_dirs' => 'test,tests,test-suite,testsuite,fixtures,__tests__',
+			'library_dirs' => 'vendor,vendors,node_modules,bower_components',
+			'test_rules' => 'php.exec.background,php.eval.variable,binary.elf',
 		);
 	}
 
 	/**
-	 * The switches of the check against the vendors (0.41.0). A stored value
-	 * the settings page would refuse holds no scan up: it gets the default,
-	 * because the scanner refuses a value out of its bounds and the whole scan
-	 * with it.
+	 * The switches of the check against the vendors (0.41.0) and of the tests
+	 * of libraries (0.42.0). A stored value the settings page would refuse
+	 * holds no scan up: it gets the default, because the scanner refuses a
+	 * value out of its bounds and the whole scan with it.
 	 */
 	public function verify_arguments($config)
 	{
@@ -176,7 +185,7 @@ class malwatch_helper
 		foreach (self::LIST_SETTINGS as $key => $setting) {
 			list($switch, $max_items, $max_length, $pattern, $min_items) = $setting;
 			$items = $this->list_items(isset($config[$key]) ? $config[$key] : $defaults[$key], $max_items, $max_length, $pattern);
-			if ($items === null || count($items) < $min_items) {
+			if ($items === null || count($items) < $min_items || ($key === 'test_rules' && !$this->silenceable($items))) {
 				$items = $this->list_items($defaults[$key], $max_items, $max_length, $pattern);
 			}
 			$args[] = $switch . '=' . implode(',', $items);
@@ -205,6 +214,34 @@ class malwatch_helper
 			$args[] = '--hashlookup-url=' . $url;
 		}
 		return $args;
+	}
+
+	/**
+	 * Whether the scanner takes these rules for the tests of libraries: the
+	 * rule catalog (malwatch_rule) knows each of them as a rule up to medium
+	 * that moves no file on its own. Without the catalog nothing is known yet,
+	 * and the defaults go to the scanner.
+	 */
+	private function silenceable($ids)
+	{
+		global $app;
+
+		if (count($ids) === 0) {
+			return true;
+		}
+		$rows = $app->dbmaster->queryAllRecords('SELECT rule_id, severity, auto_safe FROM malwatch_rule');
+		$ok = array();
+		foreach ((array) $rows as $row) {
+			if (in_array((string) $row['severity'], array('low', 'medium'), true) && (string) $row['auto_safe'] !== 'y') {
+				$ok[(string) $row['rule_id']] = true;
+			}
+		}
+		foreach ($ids as $id) {
+			if (!isset($ok[$id])) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	/**

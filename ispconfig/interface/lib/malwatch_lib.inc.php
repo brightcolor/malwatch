@@ -25,6 +25,9 @@
  * malwatch_verify_settings(); the scanner and the server side have the same.
  * housekeeping_minute, keep_job_days, keep_fixed_days, vanished_check_rows:
  * the hourly part of the cron job, see malwatch_housekeeping_settings().
+ * test_dirs, library_dirs, test_rules: the tests of libraries and the rules
+ * that do not count in them (0.42.0), see malwatch_list_settings() and
+ * malwatch_test_rules_refused(); the scanner and the server side have the same.
  */
 function malwatch_config_defaults()
 {
@@ -61,22 +64,60 @@ function malwatch_config_defaults()
 		'keep_job_days' => 30,
 		'keep_fixed_days' => 90,
 		'vanished_check_rows' => 500,
+		'test_dirs' => 'test,tests,test-suite,testsuite,fixtures,__tests__',
+		'library_dirs' => 'vendor,vendors,node_modules,bower_components',
+		'test_rules' => 'php.exec.background,php.eval.variable,binary.elf',
 	);
 }
 
 /**
- * The lists of the check against the vendors: key => array(most items,
- * longest item, pattern of one item, fewest items). The scanner and the
- * server side (malwatch_helper::LIST_SETTINGS) have the same.
+ * The lists the scanner takes as comma separated switches: key => array(most
+ * items, longest item, pattern of one item, fewest items). The scanner and
+ * the server side (malwatch_helper::LIST_SETTINGS) have the same.
  */
 function malwatch_list_settings()
 {
 	$host = '[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)+';
+	$folder = '[a-z0-9_-][a-z0-9._-]*';
 	return array(
 		'modified_exts' => array(40, 12, '[a-z0-9]+', 1),
 		'script_hosts' => array(32, 100, $host, 0),
 		'verify_hosts' => array(16, 100, $host, 0),
+		'test_dirs' => array(16, 30, $folder, 1),
+		'library_dirs' => array(16, 30, $folder, 1),
+		'test_rules' => array(16, 64, '[a-z0-9_]+(?:\.[a-z0-9_]+)+', 0),
 	);
+}
+
+/**
+ * The rules of a stored test_rules the scanner would refuse: those the rule
+ * catalog ($rules, rows of malwatch_rule) does not know, those that report
+ * high or critical and those that move files on their own. Only hints may
+ * fall silent in the tests of a library; the scanner checks the same
+ * (rules.LibraryTests.Check). An empty catalog knows no rule yet and refuses
+ * nothing.
+ */
+function malwatch_test_rules_refused($rules, $value)
+{
+	$known = array();
+	foreach ((array) $rules as $row) {
+		$known[(string) $row['rule_id']] = $row;
+	}
+	if (count($known) === 0) {
+		return array();
+	}
+	$refused = array();
+	foreach (explode(',', malwatch_list_tidy($value)) as $id) {
+		if ($id === '') {
+			continue;
+		}
+		$row = isset($known[$id]) ? $known[$id] : null;
+		if ($row === null || !in_array((string) $row['severity'], array('low', 'medium'), true)
+			|| (string) $row['auto_safe'] === 'y') {
+			$refused[] = $id;
+		}
+	}
+	return $refused;
 }
 
 /**

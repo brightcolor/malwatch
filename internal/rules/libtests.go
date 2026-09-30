@@ -14,18 +14,19 @@ import (
 // fixtures that contain eval and ship the programs they run; that is what
 // they are for. The ISPConfig addon has the same lists as the defaults of its
 // settings (malwatch_config_defaults()).
-var (
-	DefaultTestDirs    = []string{"test", "tests", "test-suite", "testsuite", "fixtures", "__tests__"}
-	DefaultLibraryDirs = []string{"vendor", "vendors", "node_modules", "bower_components"}
-	DefaultTestRules   = []string{"php.exec.background", "php.eval.variable", "binary.elf"}
-)
+var DefaultTestDirs = []string{"test", "tests", "test-suite", "testsuite", "fixtures", "__tests__"}
 
-// The limits of the lists: so many names, each so long, and so many rules.
-// The addon has the same (malwatch_library_tests_limits()).
+var DefaultLibraryDirs = []string{"vendor", "vendors", "node_modules", "bower_components"}
+
+var DefaultTestRules = []string{"php.exec.background", "php.eval.variable", "binary.elf"}
+
+// The limits of the lists: so many folder names, each so long, and so many
+// rules, each so long. The addon has the same (malwatch_list_settings()).
 const (
 	MaxLibraryTestNames      = 16
 	MaxLibraryTestNameLength = 30
 	MaxLibraryTestRules      = 16
+	MaxLibraryTestRuleLength = 64
 )
 
 // LibraryTests says which files are the tests of a library and which rules
@@ -60,7 +61,7 @@ func (l LibraryTests) Check() error {
 	}
 	for _, id := range l.Rules {
 		r := ByID(id)
-		if r == nil {
+		if r == nil || len(id) > MaxLibraryTestRuleLength {
 			return fmt.Errorf("die Regel %q gibt es nicht; welche es gibt, zeigt „malwatch rules“", id)
 		}
 		if r.AutoSafe || r.Severity.AtLeast(report.SeverityHigh) {
