@@ -230,8 +230,13 @@ type Report struct {
 	FinishedAt time.Time         `json:"finished_at"`
 	Paths      []string          `json:"paths"`
 	Engines    map[string]string `json:"engines"`
-	Stats      Stats             `json:"stats"`
-	Findings   []Finding         `json:"findings"`
+	// Verified counts the files with findings whose content a source
+	// confirmed as a vendor's - a copy of a verified file, a file of a
+	// Composer package, a file a hash database knows - and whose content
+	// findings were dropped therefore.
+	Verified map[string]int `json:"verified,omitempty"`
+	Stats    Stats          `json:"stats"`
+	Findings []Finding      `json:"findings"`
 	// Files holds one view per file with findings, keyed by the SHA256 the
 	// findings carry. A file that sits on many websites is described once.
 	Files    map[string]*FileView `json:"files,omitempty"`

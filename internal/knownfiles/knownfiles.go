@@ -42,6 +42,10 @@ type Index struct {
 	// generic holds SHA-256 sums of vendor files whose location does not
 	// matter, built from the release archives of the other CMS.
 	generic map[string]bool
+
+	// copies maps the MD5 of every file of a registered list to where it
+	// comes from, so a copy elsewhere is known by its content (see Copy).
+	copies map[string]string
 }
 
 type entry struct {
@@ -57,7 +61,7 @@ type entry struct {
 
 // New returns an empty index.
 func New() *Index {
-	return &Index{generic: map[string]bool{}}
+	return &Index{generic: map[string]bool{}, copies: map[string]string{}}
 }
 
 // AddInstall registers the checksum list of one installation. root is the
@@ -111,6 +115,15 @@ func (i *Index) add(root, label string, files map[string]string, complete bool) 
 	}
 	i.mu.Lock()
 	defer i.mu.Unlock()
+	for path, sums := range files {
+		for _, sum := range strings.Split(sums, ",") {
+			if sum != "" {
+				if _, seen := i.copies[sum]; !seen {
+					i.copies[sum] = label + ": " + path
+				}
+			}
+		}
+	}
 	i.entries = append(i.entries, &entry{
 		root:     filepath.Clean(root),
 		label:    label,
@@ -192,6 +205,25 @@ func (i *Index) Check(path string, content []byte) (Status, string) {
 		}
 	}
 	return Unknown, ""
+}
+
+// Copy reports whether content is byte for byte a file of one of the
+// registered lists, wherever it lies now, and names that file. A plugin that
+// copies its own bundled files elsewhere at run time - EWWW Image Optimizer
+// puts its programs into wp-content/ewww - leaves copies the vendor shipped.
+// Where a copy lies can still be a question of its own; Copy only answers
+// what it is.
+func (i *Index) Copy(content []byte) (string, bool) {
+	sum := md5.Sum(content)
+	return i.CopySum(hex.EncodeToString(sum[:]))
+}
+
+// CopySum is Copy for a file whose MD5 is known already, as lower case hex.
+func (i *Index) CopySum(sum string) (string, bool) {
+	i.mu.RLock()
+	defer i.mu.RUnlock()
+	label, ok := i.copies[sum]
+	return label, ok
 }
 
 // SumMatches reports whether sum is one of the MD5 values of a checksum list

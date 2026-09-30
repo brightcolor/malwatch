@@ -549,6 +549,7 @@ var catalog = []*Rule{
 	},
 	{
 		ID:          "shell.in_uploads",
+		ByPlace:     true,
 		Severity:    report.SeverityHigh,
 		Description: "Shell-Skript in einem Verzeichnis für hochgeladene Dateien",
 		Exts:        shellExts,
@@ -1034,6 +1035,7 @@ var catalog = []*Rule{
 	// ------------------------------------------------------------ by place
 	{
 		ID:          "malware.alfa_toolkit",
+		ByPlace:     true,
 		Severity:    report.SeverityCritical,
 		Description: "Datei des ALFA-Baukastens",
 		// The ALFA web shell keeps its CGI helpers in a directory called
@@ -1048,6 +1050,7 @@ var catalog = []*Rule{
 	},
 	{
 		ID:          "php.in_uploads",
+		ByPlace:     true,
 		Severity:    report.SeverityHigh,
 		Description: "PHP-Datei in einem Verzeichnis für hochgeladene Dateien",
 		Exts:        phpExts,
@@ -1074,6 +1077,7 @@ var catalog = []*Rule{
 	},
 	{
 		ID:          "php.disguised_as_image",
+		ByPlace:     true,
 		Severity:    report.SeverityCritical,
 		Description: "Ausführbare Endung hinter einem Bildnamen versteckt",
 		// Group-36-1-300x49.php sat among the thumbnails of a media library and
@@ -1126,6 +1130,7 @@ var catalog = []*Rule{
 	// grounds to move it on its own, so neither rule is AutoSafe.
 	{
 		ID:          "binary.elf_in_uploads",
+		ByPlace:     true,
 		Severity:    report.SeverityCritical,
 		Description: "Linux-Programm in einem Verzeichnis für hochgeladene Dateien",
 		RawOnly:     true,

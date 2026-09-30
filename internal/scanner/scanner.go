@@ -4,6 +4,7 @@ package scanner
 
 import (
 	"bytes"
+	"crypto/md5"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -74,6 +75,10 @@ type Options struct {
 	// is true, because an empty list is a choice too: only the site itself.
 	ScriptHosts    []string
 	ScriptHostsSet bool
+
+	// verified counts the files whose content a source confirmed; Run
+	// creates it and puts the counts into the report.
+	verified *verifiedCount
 	// View limits what the report shows of a file with findings: its marks,
 	// its traits and the lines around them. The zero value reports neither
 	// marks nor code; the command line starts from fileview.Default.
@@ -158,6 +163,7 @@ func Run(opts Options) (*report.Report, error) {
 		rep.Engines["herstellerdateien"] = fmt.Sprintf("%d Installationen, %d Prüfsummen", installs, sums)
 	}
 
+	opts.verified = &verifiedCount{m: map[string]int{}}
 	if !opts.NoMalwareScan {
 		if err := scanFiles(rep, &opts, sigDB, engine, known); err != nil {
 			return rep, err
@@ -168,6 +174,9 @@ func Run(opts Options) (*report.Report, error) {
 	}
 
 	applyWhitelist(rep, opts.Whitelist)
+	if len(opts.verified.m) > 0 {
+		rep.Verified = opts.verified.m
+	}
 	pruneViews(rep)
 	rep.FinishedAt = time.Now()
 	rep.Sort()
@@ -256,7 +265,7 @@ func scanFiles(rep *report.Report, opts *Options, sigDB *sigs.DB, engine *rules.
 	// first bytes, though, so the rules that decide from the start of a file
 	// get just that, and a program padded past the limit still shows up.
 	large := func(f walk.File) {
-		got, ferr := scanHead(f, engine, opts)
+		got, ferr := scanHead(f, engine, known, opts)
 		if len(got) > 0 || ferr != "" {
 			mu.Lock()
 			findings = append(findings, got...)
@@ -384,6 +393,14 @@ func scanFile(f walk.File, sigDB *sigs.DB, engine *rules.Engine, known *knownfil
 	out = append(out, sigDB.Scan(f.Path, f.Size, content)...)
 	out = append(out, engine.Scan(f.Path, f.Rel, f.Ext, content)...)
 
+	if len(out) > 0 {
+		if _, ok := known.Copy(content); ok {
+			// A copy of a file the vendor shipped: its content is confirmed,
+			// where it lies stays a question.
+			out = keepPlace(out)
+			opts.count(verifiedCopy)
+		}
+	}
 	if len(out) == 0 {
 		return nil, nil, ""
 	}
@@ -404,7 +421,7 @@ func scanFile(f walk.File, sigDB *sigs.DB, engine *rules.Engine, known *knownfil
 
 // scanHead asks the rules for the start of a file about one the size limit
 // keeps from being read, see rules.HeadSize.
-func scanHead(f walk.File, engine *rules.Engine, opts *Options) ([]report.Finding, string) {
+func scanHead(f walk.File, engine *rules.Engine, known *knownfiles.Index, opts *Options) ([]report.Finding, string) {
 	file, err := os.Open(f.Path)
 	if err != nil {
 		return nil, "nicht lesbar: " + f.Path + " (" + err.Error() + ")"
@@ -425,12 +442,20 @@ func scanHead(f walk.File, engine *rules.Engine, opts *Options) ([]report.Findin
 		return nil, "nicht lesbar: " + f.Path + " (" + err.Error() + ")"
 	}
 	hash := sha256.New()
-	if _, err := io.Copy(hash, file); err != nil {
+	sum5 := md5.New()
+	if _, err := io.Copy(io.MultiWriter(hash, sum5), file); err != nil {
 		return nil, "nicht lesbar: " + f.Path + " (" + err.Error() + ")"
 	}
 	hexSum := hex.EncodeToString(hash.Sum(nil))
 	if opts.Whitelist[hexSum] {
 		return nil, ""
+	}
+	if _, ok := known.CopySum(hex.EncodeToString(sum5.Sum(nil))); ok {
+		// As in scanFile: the content is confirmed, the place is not.
+		opts.count(verifiedCopy)
+		if out = keepPlace(out); len(out) == 0 {
+			return nil, ""
+		}
 	}
 	mtime := f.MTime.Format(time.RFC3339)
 	for i := range out {

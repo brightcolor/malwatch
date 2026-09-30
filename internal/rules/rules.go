@@ -101,6 +101,12 @@ type Rule struct {
 	// admin action of a plugin, reachable only by someone who is an
 	// administrator already. The finding stays, without a mail.
 	GuardLowers bool
+	// ByPlace marks a rule that judges a file by where it lies - in a place
+	// for uploads, under the name of a picture, in the directory of a known
+	// toolkit - rather than by what it contains. A file whose content is
+	// confirmed as a vendor's keeps such a finding: a genuine file manager
+	// copied into the uploads is still a way in.
+	ByPlace bool
 }
 
 // Place is where below the scanned root a rule looks.

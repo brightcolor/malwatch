@@ -199,3 +199,22 @@ func TestAVendorTreeReportsWhatTheVendorDoesNotShip(t *testing.T) {
 		}
 	})
 }
+
+// A vendor file that a plugin copies elsewhere at run time is still the
+// vendor's file: EWWW Image Optimizer puts its bundled programs into
+// wp-content/ewww. Copy tells such a copy by its content, wherever it lies.
+func TestCopyKnowsTheContentOfEveryVerifiedFile(t *testing.T) {
+	idx := New()
+	sum := func(s string) string { m := md5.Sum([]byte(s)); return hex.EncodeToString(m[:]) }
+	idx.AddVendorTree("/web/wp-content/plugins/ewww", "Plugin ewww 8.0", map[string]string{
+		"binaries/cwebp-linux": sum("ELF cwebp") + "," + sum("ELF cwebp older build"),
+	})
+	for _, content := range []string{"ELF cwebp", "ELF cwebp older build"} {
+		if label, ok := idx.Copy([]byte(content)); !ok || label != "Plugin ewww 8.0: binaries/cwebp-linux" {
+			t.Errorf("%q: %q %v", content, label, ok)
+		}
+	}
+	if _, ok := idx.Copy([]byte("something else")); ok {
+		t.Error("unbekannter Inhalt als Kopie erkannt")
+	}
+}
