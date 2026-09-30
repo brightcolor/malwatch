@@ -62,6 +62,9 @@ type Options struct {
 	// rules that judge a file by lying below one. Empty means
 	// rules.DefaultUploadDirs.
 	UploadDirs []string
+	// ModifiedExts are the extensions where a vendor file that differs from
+	// the release counts as core.modified. Empty means DefaultModifiedExts.
+	ModifiedExts []string
 	// View limits what the report shows of a file with findings: its marks,
 	// its traits and the lines around them. The zero value reports neither
 	// marks nor code; the command line starts from fileview.Default.
@@ -155,7 +158,7 @@ func Run(opts Options) (*report.Report, error) {
 // scanFiles walks every path and applies the engines.
 func scanFiles(rep *report.Report, opts *Options, sigDB *sigs.DB, engine *rules.Engine, known *knownfiles.Index) error {
 	counters := &walk.Counters{}
-	cache := newCleanCache(opts.CacheFile, fingerprint(sigDB, engine))
+	cache := newCleanCache(opts.CacheFile, fingerprint(sigDB, engine, opts))
 
 	type job struct{ file walk.File }
 	jobs := make(chan job, opts.Threads*8)
@@ -324,7 +327,7 @@ func scanFile(f walk.File, sigDB *sigs.DB, engine *rules.Engine, known *knownfil
 	}
 
 	var out []report.Finding
-	if status == knownfiles.Modified {
+	if status == knownfiles.Modified && countsAsModified(f.Ext, opts.modifiedExts()) {
 		out = append(out, report.Finding{
 			Path:     f.Path,
 			Rule:     "core.modified",
@@ -478,8 +481,9 @@ func interesting(f walk.File) bool {
 
 // fingerprint identifies the detection state. Any change invalidates the
 // clean-file cache.
-func fingerprint(sigDB *sigs.DB, engine *rules.Engine) string {
-	return fmt.Sprintf("%s|%s|%s", version.Version, sigDB.Describe(), engine.Fingerprint())
+func fingerprint(sigDB *sigs.DB, engine *rules.Engine, opts *Options) string {
+	return fmt.Sprintf("%s|%s|%s|%s", version.Version, sigDB.Describe(), engine.Fingerprint(),
+		strings.Join(opts.modifiedExts(), ","))
 }
 
 // runClamAV adds the optional third engine.

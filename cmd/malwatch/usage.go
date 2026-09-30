@@ -31,6 +31,9 @@ Prüfumfang:
   --upload-dirs=NAMEN      Ordner nur für hochgeladene Dateien, durch Komma
                            getrennt (Vorgabe: uploads, attachments, avatars,
                            thumbs, userfiles, user_uploads, file_uploads)
+  --modified-exts=ENDUNGEN Endungen, bei denen eine Abweichung vom Hersteller
+                           als core.modified zählt, durch Komma getrennt
+                           (Vorgabe: PHP-Endungen, js, html, svg, htaccess, ini)
   --ignore-chmod0          Dateien mit Rechten 000 auslassen
   --threads=N              Anzahl paralleler Arbeiter (Vorgabe: Kerne)
 

@@ -37,13 +37,14 @@ func cmdScan(args []string) int {
 	fs.SetOutput(os.Stderr)
 	fs.Usage = func() { usage(os.Stderr) }
 
-	var paths, excludes, excludeFrom, ignore, email, uploadDirs stringList
+	var paths, excludes, excludeFrom, ignore, email, uploadDirs, modifiedExts stringList
 	fs.Var(&paths, "path", "")
 	fs.Var(&excludes, "exclude", "")
 	fs.Var(&excludeFrom, "exclude-from", "")
 	fs.Var(&ignore, "ignore", "")
 	fs.Var(&email, "email", "")
 	fs.Var(&uploadDirs, "upload-dirs", "")
+	fs.Var(&modifiedExts, "modified-exts", "")
 
 	maxAge := fs.Int("max-age", 0, "")
 	maxSize := fs.Int64("max-size", 0, "")
@@ -110,6 +111,17 @@ func cmdScan(args []string) int {
 		}
 	}
 
+	exts := rules.ParseUploadDirs(modifiedExts)
+	for i := range exts {
+		exts[i] = strings.ToLower(strings.TrimPrefix(exts[i], "."))
+	}
+	if len(modifiedExts) > 0 {
+		if err := scanner.CheckModifiedExts(exts); err != nil {
+			fmt.Fprintf(os.Stderr, "--modified-exts: %v. Beispiel: --modified-exts=php,js,html\n", err)
+			return report.ExitError
+		}
+	}
+
 	view := fileview.Options{
 		MaxLines:   *viewLines,
 		Context:    *viewContext,
@@ -162,6 +174,7 @@ func cmdScan(args []string) int {
 		IgnoreRules:     ignore,
 		Whitelist:       whitelist,
 		UploadDirs:      uploads,
+		ModifiedExts:    exts,
 		View:            view,
 		SignatureDir:    *sigDir,
 		StateDir:        *stateDir,
