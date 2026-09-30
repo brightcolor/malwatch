@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/brightcolor/malwatch/internal/composer"
 	"github.com/brightcolor/malwatch/internal/fileview"
 	"github.com/brightcolor/malwatch/internal/mail"
 	"github.com/brightcolor/malwatch/internal/progress"
@@ -38,7 +39,7 @@ func cmdScan(args []string) int {
 	fs.SetOutput(os.Stderr)
 	fs.Usage = func() { usage(os.Stderr) }
 
-	var paths, excludes, excludeFrom, ignore, email, uploadDirs, modifiedExts, scriptHosts stringList
+	var paths, excludes, excludeFrom, ignore, email, uploadDirs, modifiedExts, scriptHosts, verifyHosts stringList
 	fs.Var(&paths, "path", "")
 	fs.Var(&excludes, "exclude", "")
 	fs.Var(&excludeFrom, "exclude-from", "")
@@ -47,6 +48,12 @@ func cmdScan(args []string) int {
 	fs.Var(&uploadDirs, "upload-dirs", "")
 	fs.Var(&modifiedExts, "modified-exts", "")
 	fs.Var(&scriptHosts, "script-hosts", "")
+	fs.Var(&verifyHosts, "verify-hosts", "")
+	noVerifyComposer := fs.Bool("no-verify-composer", false, "")
+	verifyMaxDownloads := fs.Int("verify-max-downloads", composer.DefaultMaxDownloads, "")
+	verifyMaxMB := fs.Int("verify-max-mb", composer.DefaultMaxMB, "")
+	verifyTimeout := fs.Int("verify-timeout", composer.DefaultTimeoutSeconds, "")
+	verifyRetry := fs.Int("verify-retry-hours", composer.DefaultRetryHours, "")
 
 	maxAge := fs.Int("max-age", 0, "")
 	maxSize := fs.Int64("max-size", 0, "")
@@ -131,6 +138,36 @@ func cmdScan(args []string) int {
 		return report.ExitError
 	}
 
+	verify := scanner.DefaultVerify()
+	verify.Composer = !*noVerifyComposer
+	if len(verifyHosts) > 0 {
+		verify.Hosts = rules.ParseUploadDirs(verifyHosts)
+		for i := range verify.Hosts {
+			verify.Hosts[i] = strings.ToLower(verify.Hosts[i])
+		}
+		if err := composer.CheckHosts(verify.Hosts); err != nil {
+			fmt.Fprintf(os.Stderr, "--verify-hosts: %v. Beispiel: --verify-hosts=codeload.github.com,gitlab.com\n", err)
+			return report.ExitError
+		}
+	}
+	for _, c := range []struct {
+		name     string
+		value    *int
+		min, max int
+		into     *int
+	}{
+		{"--verify-max-downloads", verifyMaxDownloads, 1, composer.MaxDownloadsCap, &verify.MaxDownloads},
+		{"--verify-max-mb", verifyMaxMB, 1, composer.MaxMBCap, &verify.MaxMB},
+		{"--verify-timeout", verifyTimeout, 1, composer.MaxTimeoutCap, &verify.TimeoutSeconds},
+		{"--verify-retry-hours", verifyRetry, 0, composer.MaxRetryCap, &verify.RetryHours},
+	} {
+		if *c.value < c.min || *c.value > c.max {
+			fmt.Fprintf(os.Stderr, "%s: %d geht nicht, erlaubt sind %d bis %d\n", c.name, *c.value, c.min, c.max)
+			return report.ExitError
+		}
+		*c.into = *c.value
+	}
+
 	hosts := rules.ParseUploadDirs(scriptHosts)
 	for i := range hosts {
 		hosts[i] = strings.ToLower(hosts[i])
@@ -198,6 +235,7 @@ func cmdScan(args []string) int {
 		ModifiedExts:    exts,
 		ScriptHosts:     hosts,
 		ScriptHostsSet:  len(scriptHosts) > 0,
+		Verify:          verify,
 		View:            view,
 		SignatureDir:    *sigDir,
 		StateDir:        *stateDir,

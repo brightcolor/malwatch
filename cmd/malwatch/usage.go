@@ -57,6 +57,16 @@ Prüfstufen:
                            MALWATCH_WPSCAN_TOKEN
   --offline                keine Abfragen bei Herstellern und
                            Schwachstellen-Datenbanken
+  --no-verify-composer     Dateien mit Fund nicht mit dem Originalarchiv
+                           ihres Composer-Pakets abgleichen
+  --verify-hosts=HOSTS     Hosts, von denen Archive geladen werden, durch
+                           Komma getrennt (Vorgabe: codeload.github.com,
+                           api.github.com, github.com, gitlab.com, bitbucket.org)
+  --verify-max-downloads=N höchstens so viele Archive je Lauf (Vorgabe: 50)
+  --verify-max-mb=N        höchstens so viele MB je Archiv (Vorgabe: 50)
+  --verify-timeout=S       Sekunden je Abruf (Vorgabe: 60)
+  --verify-retry-hours=N   ein gescheitertes Archiv erst nach so vielen Stunden
+                           wieder abrufen (Vorgabe: 24)
   --ignore=REGEL           diese Regel nicht anwenden, mehrfach angebbar
 
 Ausgabe:

@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"runtime"
 	"sort"
@@ -76,9 +77,16 @@ type Options struct {
 	ScriptHosts    []string
 	ScriptHostsSet bool
 
+	// Verify steers the check of files with findings against the sources that
+	// know them; the zero value checks nothing, the command line starts from
+	// DefaultVerify.
+	Verify VerifyOptions
+
 	// verified counts the files whose content a source confirmed; Run
 	// creates it and puts the counts into the report.
 	verified *verifiedCount
+	// verifyTransport replaces the network of the check for the tests.
+	verifyTransport http.RoundTripper
 	// View limits what the report shows of a file with findings: its marks,
 	// its traits and the lines around them. The zero value reports neither
 	// marks nor code; the command line starts from fileview.Default.
@@ -173,6 +181,7 @@ func Run(opts Options) (*report.Report, error) {
 		}
 	}
 
+	verifyComposer(rep, &opts)
 	applyWhitelist(rep, opts.Whitelist)
 	if len(opts.verified.m) > 0 {
 		rep.Verified = opts.verified.m
