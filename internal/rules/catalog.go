@@ -148,6 +148,11 @@ var catalog = []*Rule{
 		RawOnly:  true,
 		Match:    rx(`[A-Za-z0-9+/]{260,}={0,2}`),
 		Requires: rx(`(?i)base64_decode|gzinflate|gzuncompress|str_rot13`),
+		// Each block is decoded. A picture, a font, a PDF, a certificate or
+		// key, or the data part of a PHAR archive holds no code: on
+		// 2026-09-30 seven of the eight open findings were such blocks.
+		// Decoded PHP, compressed data and anything unknown stay findings.
+		Harmless: harmlessBlob,
 	},
 	{
 		ID:          "php.include.decoy_guard",
@@ -641,7 +646,11 @@ var catalog = []*Rule{
 		// 1nv1s1bl3 and "Sole Sad & Invisible" are the signatures this
 		// campaign leaves in its droppers and its .htaccess files. The leet
 		// spelling and the fixed phrase do not occur in honest code.
-		Match: rx(`(?i)(?:c99shell|r57shell|wso\s?shell|b374k|weevely|IndoXploit|AnonymousFox|SyRiAn\s?Sh3ll|MiniShell|Mini\s?Shell|priv8\s?shell|FilesMan|by\s+Orb|IndoSec|Alfa\s?Team\s?Shell|Sh3ll\s?Uploader|1nv1s1bl3|Sole\s?Sad\s?(?:&|and)\s?Invisible)`),
+		Match: webshellNames,
+		// Security tools name shells to find them: Wordfence keeps
+		// '#^anonymousfox#i' in the rules file of its firewall. A name in a
+		// search pattern or in a list of rivals is no shell naming itself.
+		Harmless: harmlessMarker,
 	},
 	{
 		// Der ALFA-Lader trägt seinen Rumpf als eine lange Zeichenkette und
@@ -954,6 +963,12 @@ var catalog = []*Rule{
 		Description: "schreibt entschlüsselten Text in die Seite",
 		Exts:        webExts,
 		Match:       rx(`(?is)document\.write\s*\(\s*(?:unescape|atob|decodeURIComponent|String\.fromCharCode)\s*\(`),
+		// Old sites wrote their jQuery fallback and the Google Analytics
+		// snippet this way. A written text that only links or loads scripts
+		// from the site itself or from a host of the list is that; one that
+		// is computed, carries a script of its own or loads from elsewhere
+		// is what injected code does.
+		Harmless: harmlessWrite,
 	},
 
 	// ------------------------------------------------------------ by place

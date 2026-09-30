@@ -34,6 +34,10 @@ Prüfumfang:
   --modified-exts=ENDUNGEN Endungen, bei denen eine Abweichung vom Hersteller
                            als core.modified zählt, durch Komma getrennt
                            (Vorgabe: PHP-Endungen, js, html, svg, htaccess, ini)
+  --script-hosts=HOSTS     Hosts, von denen ein per document.write geschriebenes
+                           Skript laden darf, durch Komma getrennt; leer heißt
+                           nur die eigene Website (Vorgabe: Google Analytics,
+                           ajax.googleapis.com, code.jquery.com)
   --ignore-chmod0          Dateien mit Rechten 000 auslassen
   --threads=N              Anzahl paralleler Arbeiter (Vorgabe: Kerne)
 

@@ -65,6 +65,11 @@ type Options struct {
 	// ModifiedExts are the extensions where a vendor file that differs from
 	// the release counts as core.modified. Empty means DefaultModifiedExts.
 	ModifiedExts []string
+	// ScriptHosts are the hosts a script written by document.write may load
+	// from, see rules.DefaultScriptHosts. It only counts when ScriptHostsSet
+	// is true, because an empty list is a choice too: only the site itself.
+	ScriptHosts    []string
+	ScriptHostsSet bool
 	// View limits what the report shows of a file with findings: its marks,
 	// its traits and the lines around them. The zero value reports neither
 	// marks nor code; the command line starts from fileview.Default.
@@ -127,6 +132,11 @@ func Run(opts Options) (*report.Report, error) {
 	if len(opts.UploadDirs) > 0 {
 		if err := engine.SetUploadDirs(opts.UploadDirs); err != nil {
 			return nil, fmt.Errorf("--upload-dirs: %w", err)
+		}
+	}
+	if opts.ScriptHostsSet {
+		if err := engine.SetScriptHosts(opts.ScriptHosts); err != nil {
+			return nil, fmt.Errorf("--script-hosts: %w", err)
 		}
 	}
 	rep.Engines["heuristik"] = fmt.Sprintf("%d Regeln", engine.RuleCount())

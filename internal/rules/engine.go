@@ -21,6 +21,11 @@ type Engine struct {
 	uploads    *regexp.Regexp
 	// markLimit is the most marks a finding carries, 0 for none.
 	markLimit int
+	// scriptHosts are the hosts a script written by document.write may load
+	// from, see DefaultScriptHosts; scriptHostList keeps their order for the
+	// fingerprint.
+	scriptHosts    map[string]bool
+	scriptHostList []string
 }
 
 // NewEngine returns an engine over the full catalog, minus the rule IDs in
@@ -39,6 +44,9 @@ func NewEngine(ignore []string) *Engine {
 	}
 	e.uploadDirs = append([]string(nil), DefaultUploadDirs...)
 	e.uploads = uploadPattern(e.uploadDirs)
+	if err := e.SetScriptHosts(DefaultScriptHosts); err != nil {
+		panic("DefaultScriptHosts: " + err.Error())
+	}
 	return e
 }
 
@@ -69,7 +77,7 @@ func (e *Engine) RuleCount() int { return len(e.rules) }
 // and the upload directories. A clean file stays clean only under the same
 // fingerprint.
 func (e *Engine) Fingerprint() string {
-	return fmt.Sprintf("%d|%s", len(e.rules), strings.Join(e.uploadDirs, ","))
+	return fmt.Sprintf("%d|%s|%s", len(e.rules), strings.Join(e.uploadDirs, ","), strings.Join(e.scriptHostList, ","))
 }
 
 // fits reports whether rel lies where the rule looks.
@@ -185,7 +193,7 @@ func (e *Engine) Scan(path, rel, ext string, content []byte) []report.Finding {
 // nil when hay is the file itself. linesOf gives the line index of raw for the
 // marks; nil leaves the finding without marks.
 func (e *Engine) apply(r *Rule, path string, hay, raw []byte, index []int32, linesOf func() *textpos.Lines) (report.Finding, bool) {
-	loc := r.Match.FindIndex(hay)
+	loc := e.firstMatch(r, hay)
 	if loc == nil {
 		return report.Finding{}, false
 	}
@@ -221,6 +229,21 @@ func (e *Engine) apply(r *Rule, path string, hay, raw []byte, index []int32, lin
 	return f, true
 }
 
+// firstMatch returns the first match of the rule's pattern that counts: the
+// first one at all, or for a rule with Harmless the first one it does not
+// excuse. nil means none counts.
+func (e *Engine) firstMatch(r *Rule, hay []byte) []int {
+	if r.Harmless == nil {
+		return r.Match.FindIndex(hay)
+	}
+	for _, loc := range r.Match.FindAllIndex(hay, maxHarmlessChecks) {
+		if !r.Harmless(e, hay, loc) {
+			return loc
+		}
+	}
+	return nil
+}
+
 // marks lists the places behind a finding: every match of the pattern up to
 // the limit, then the first match of each supporting condition, since those
 // are part of the reason as well. Positions in the reassembled view are taken
@@ -231,6 +254,10 @@ func (e *Engine) marks(r *Rule, hay []byte, index []int32, lines *textpos.Lines)
 		for _, loc := range re.FindAllIndex(hay, n) {
 			if len(out) >= e.markLimit {
 				return
+			}
+			if re == r.Match && r.Harmless != nil && r.Harmless(e, hay, loc) {
+				// A picture next to the block of code is no place to look at.
+				continue
 			}
 			start, end := loc[0], loc[1]
 			if end <= start {

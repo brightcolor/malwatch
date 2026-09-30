@@ -74,6 +74,11 @@ type Rule struct {
 	// fixed data (phpcode.Inert). For rules that ask whether a file can be a
 	// way in by where it lies, not what it contains.
 	SkipInert bool
+	// Harmless, when set, weighs every match on its own: a match it calls
+	// harmless does not count, and the finding goes to the first one that is
+	// not. A block that decodes to a picture is data; a picture next to a
+	// block that decodes to code hides nothing.
+	Harmless func(e *Engine, hay []byte, loc []int) bool
 }
 
 // Place is where below the scanned root a rule looks.

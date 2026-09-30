@@ -37,7 +37,7 @@ func cmdScan(args []string) int {
 	fs.SetOutput(os.Stderr)
 	fs.Usage = func() { usage(os.Stderr) }
 
-	var paths, excludes, excludeFrom, ignore, email, uploadDirs, modifiedExts stringList
+	var paths, excludes, excludeFrom, ignore, email, uploadDirs, modifiedExts, scriptHosts stringList
 	fs.Var(&paths, "path", "")
 	fs.Var(&excludes, "exclude", "")
 	fs.Var(&excludeFrom, "exclude-from", "")
@@ -45,6 +45,7 @@ func cmdScan(args []string) int {
 	fs.Var(&email, "email", "")
 	fs.Var(&uploadDirs, "upload-dirs", "")
 	fs.Var(&modifiedExts, "modified-exts", "")
+	fs.Var(&scriptHosts, "script-hosts", "")
 
 	maxAge := fs.Int("max-age", 0, "")
 	maxSize := fs.Int64("max-size", 0, "")
@@ -122,6 +123,17 @@ func cmdScan(args []string) int {
 		}
 	}
 
+	hosts := rules.ParseUploadDirs(scriptHosts)
+	for i := range hosts {
+		hosts[i] = strings.ToLower(hosts[i])
+	}
+	if len(scriptHosts) > 0 {
+		if err := rules.CheckScriptHosts(hosts); err != nil {
+			fmt.Fprintf(os.Stderr, "--script-hosts: %v. Beispiel: --script-hosts=code.jquery.com,www.google-analytics.com\n", err)
+			return report.ExitError
+		}
+	}
+
 	view := fileview.Options{
 		MaxLines:   *viewLines,
 		Context:    *viewContext,
@@ -175,6 +187,8 @@ func cmdScan(args []string) int {
 		Whitelist:       whitelist,
 		UploadDirs:      uploads,
 		ModifiedExts:    exts,
+		ScriptHosts:     hosts,
+		ScriptHostsSet:  len(scriptHosts) > 0,
 		View:            view,
 		SignatureDir:    *sigDir,
 		StateDir:        *stateDir,
