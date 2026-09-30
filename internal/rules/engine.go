@@ -28,6 +28,9 @@ type Engine struct {
 	scriptHostList []string
 	// phpVersion is the PHP version of the website, empty when unknown.
 	phpVersion string
+	// libTests are the tests of libraries and the rules that do not count
+	// in them, see DropLibraryTests.
+	libTests LibraryTests
 }
 
 // NewEngine returns an engine over the full catalog, minus the rule IDs in
@@ -48,6 +51,9 @@ func NewEngine(ignore []string) *Engine {
 	e.uploads = uploadPattern(e.uploadDirs)
 	if err := e.SetScriptHosts(DefaultScriptHosts); err != nil {
 		panic("DefaultScriptHosts: " + err.Error())
+	}
+	if err := e.SetLibraryTests(DefaultLibraryTests()); err != nil {
+		panic("DefaultLibraryTests: " + err.Error())
 	}
 	return e
 }
@@ -75,12 +81,13 @@ func (e *Engine) SetMarkLimit(n int) {
 // RuleCount returns how many rules are active.
 func (e *Engine) RuleCount() int { return len(e.rules) }
 
-// Fingerprint identifies what the engine reports on a file: the active rules
-// and the upload directories. A clean file stays clean only under the same
-// fingerprint.
+// Fingerprint identifies what the engine reports on a file: the active rules,
+// the upload directories, the script hosts, the PHP version and the tests of
+// libraries. A clean file stays clean only under the same fingerprint.
 func (e *Engine) Fingerprint() string {
-	return fmt.Sprintf("%d|%s|%s|%s", len(e.rules), strings.Join(e.uploadDirs, ","), strings.Join(e.scriptHostList, ","),
-		e.phpVersion)
+	return fmt.Sprintf("%d|%s|%s|%s|%s;%s;%s", len(e.rules), strings.Join(e.uploadDirs, ","), strings.Join(e.scriptHostList, ","),
+		e.phpVersion, strings.Join(e.libTests.TestDirs, ","), strings.Join(e.libTests.LibraryDirs, ","),
+		strings.Join(e.libTests.Rules, ","))
 }
 
 // fits reports whether rel lies where the rule looks.

@@ -11,6 +11,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"runtime"
 	"sort"
 	"strings"
@@ -76,6 +77,15 @@ type Options struct {
 	// is true, because an empty list is a choice too: only the site itself.
 	ScriptHosts    []string
 	ScriptHostsSet bool
+	// TestDirs and LibraryDirs name the test folders and the folders
+	// libraries are installed into; TestRules are the rules that do not
+	// count below a test folder of a library (rules.LibraryTests). Empty
+	// folder lists mean the defaults; TestRules only count when TestRulesSet
+	// is true, because an empty list is a choice too: every rule counts.
+	TestDirs     []string
+	LibraryDirs  []string
+	TestRules    []string
+	TestRulesSet bool
 
 	// Verify steers the check of files with findings against the sources that
 	// know them; the zero value checks nothing, the command line starts from
@@ -162,6 +172,19 @@ func Run(opts Options) (*report.Report, error) {
 		if err := engine.SetScriptHosts(opts.ScriptHosts); err != nil {
 			return nil, fmt.Errorf("--script-hosts: %w", err)
 		}
+	}
+	libTests := rules.DefaultLibraryTests()
+	if len(opts.TestDirs) > 0 {
+		libTests.TestDirs = opts.TestDirs
+	}
+	if len(opts.LibraryDirs) > 0 {
+		libTests.LibraryDirs = opts.LibraryDirs
+	}
+	if opts.TestRulesSet {
+		libTests.Rules = opts.TestRules
+	}
+	if err := engine.SetLibraryTests(libTests); err != nil {
+		return nil, fmt.Errorf("Testordner von Bibliotheken: %w", err)
 	}
 	rep.Engines["heuristik"] = fmt.Sprintf("%d Regeln", engine.RuleCount())
 
@@ -405,6 +428,7 @@ func scanFile(f walk.File, sigDB *sigs.DB, engine *rules.Engine, known *knownfil
 
 	out = append(out, sigDB.Scan(f.Path, f.Size, content)...)
 	out = append(out, engine.Scan(f.Path, f.Rel, f.Ext, content)...)
+	out = engine.DropLibraryTests(f.Rel, out, gitignoreOf(f, opts))
 
 	if len(out) > 0 {
 		if _, ok := known.Copy(content); ok {
@@ -445,7 +469,7 @@ func scanHead(f walk.File, engine *rules.Engine, known *knownfiles.Index, opts *
 	if err != nil && err != io.ErrUnexpectedEOF {
 		return nil, "nicht lesbar: " + f.Path + " (" + err.Error() + ")"
 	}
-	out := engine.ScanHead(f.Path, f.Rel, f.Ext, head[:n])
+	out := engine.DropLibraryTests(f.Rel, engine.ScanHead(f.Path, f.Rel, f.Ext, head[:n]), gitignoreOf(f, opts))
 	if len(out) == 0 {
 		return nil, ""
 	}
@@ -819,6 +843,25 @@ func loadChecksums(known *knownfiles.Index, fetcher *knownfiles.Fetcher, inst cm
 func inertFile(content []byte) bool {
 	inert, _ := phpcode.Inert(content)
 	return inert
+}
+
+// gitignoreOf reads the .gitignore of a folder above f for
+// rules.Engine.DropLibraryTests; dir is the folder below the scanned root,
+// with slashes. A link or a file over the size limit counts as none.
+func gitignoreOf(f walk.File, opts *Options) func(dir string) []byte {
+	root := strings.TrimSuffix(filepath.ToSlash(f.Path), f.Rel)
+	return func(dir string) []byte {
+		p := filepath.FromSlash(root + dir + "/.gitignore")
+		info, err := os.Lstat(p)
+		if err != nil || !info.Mode().IsRegular() || info.Size() > opts.MaxSize {
+			return nil
+		}
+		raw, err := os.ReadFile(p)
+		if err != nil {
+			return nil
+		}
+		return raw
+	}
 }
 
 // runnableExt reports whether the web server would hand this file to PHP.
