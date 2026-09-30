@@ -2,6 +2,85 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.41.0] – 2026-09-30
+
+Fehlalarme verschwinden durch Erkennung: Der Scanner gleicht mehr mit den Herstellern ab und
+ordnet ein, was eine Datei tatsächlich tun kann.
+
+### Hinzugefügt
+
+**Abgleich mit den Herstellern.** Themes von wordpress.org prüft der Scanner gegen das
+veröffentlichte Archiv, so wie Kern und Plugins. Eine Datei mit Fund in einem Composer-Paket
+(`vendor/composer/installed.json`) vergleicht er mit dem Originalarchiv des Pakets; stimmt sie
+überein, entfällt der Fund. Eine abweichende Skriptdatei (JS, CSS, HTML) eines Plugins oder
+Themes vergleicht er mit der Datei im SVN von wordpress.org: Ein eingefügter Block, der lädt
+oder ausführt, bleibt ein Fund der Stufe „hoch“; eine durchgehend neu gebaute Datei gilt als
+Werk des Herstellers. Eine Kopie einer geprüften Datei an anderem Ort, etwa neben einem
+Bildoptimierer, gilt als geprüft; Regeln, die nach dem Ort urteilen, melden sie weiter.
+Scanner: `--no-verify-composer`, `--no-verify-originals`, `--verify-hosts`,
+`--verify-max-downloads`, `--verify-max-mb`, `--verify-timeout`, `--verify-retry-hours`.
+
+**Datenbank bekannter Dateien, ausgeschaltet.** Eingeschaltet schlägt der Scanner Dateien mit
+Fund, die kein anderer Abgleich bestätigt, per SHA-1-Summe in einer Datenbank wie CIRCL
+hashlookup nach (`--hashlookup-url`). An den Dienst gehen ausschließlich Prüfsummen; ein
+Eintrag zählt mit passender SHA-256-Summe, ein als schädlich markierter bestätigt nichts. Eine
+Adresse mit Anmeldedaten lehnen Scanner und Einstellungsseite ab, weil sie auf der
+Befehlszeile steht.
+
+**Einstellungen unter Scanner > Einstellungen > Abgleich mit den Herstellern:** Endungen für
+Abweichungen, erlaubte Skript-Hosts, Composer-Pakete und Originaldateien abgleichen, Hosts
+für Archive, Abrufe je Prüfung (50), Größe je Abruf (50 MB), Wartezeit je Abruf
+(60 Sekunden), neuer Versuch nach (24 Stunden), Datenbank bekannter Dateien fragen (aus) und
+ihre Adresse.
+
+**Funde verschwundener Dateien.** Stündlich prüft der Server bis zu 500 offene Funde darauf,
+ob ihre Datei noch da ist, und schließt die Funde verschwundener Dateien. Das hält vor allem
+Websites aktuell, die abgeschaltet sind und deshalb nicht mehr geprüft werden. Die Liste der
+Funde kennzeichnet solche Websites mit „abgeschaltet“ oder „gelöscht“.
+
+**Aufräumen einstellbar:** Minute der stündlichen Aufräumarbeiten (7), erledigte Aufträge
+behalten (30 Tage), behobene Funde behalten (90 Tage), Funde je Stunde auf fehlende Dateien
+prüfen (500, 0 schaltet ab).
+
+### Geändert
+
+**Dateien ohne Wirkung gelten als harmlos:** nur Kommentare, ein `exit` am Anfang oder nur
+feste Daten wie Übersetzungstabellen und Konfigurationsarrays, auch hinter einer
+ABSPATH-Sperre. Das betrifft PHP im Upload-Ordner und fremde Dateien im Kern von WordPress.
+
+**Regeln zu PHP-Konstrukten werten Treffer im ausführbaren Code.** Ein `eval(` in einem
+Kommentar, einer Zeichenkette oder im HTML-Teil einer Datei zählt als Text. Abruf und
+Ausführung gehören zu einer Aktion, wenn sie in derselben Funktion stehen oder die eine die
+andere direkt aufruft; so meldete die Regel `php.remote.fetch_eval_indirect` zuvor die
+XML-RPC-Bibliothek von SeedProd.
+
+**Kodiertes wird dekodiert und eingeordnet.** Bilder, Zertifikate, Schlüssel, Archive,
+Schriften und PDF in base64 sind Daten, ebenso alles hinter `__halt_compiler` in einem PHAR.
+`document.write` mit `unescape` wird entschlüsselt; ein mailto-Link, Text oder ein Skript von
+einem erlaubten Host ist harmlos. Listen und Suchmuster mit Namen bekannter Webshells, wie
+Sicherheits-Plugins sie führen, gelten als Daten.
+
+**Admin-Aktionen hinter Rechte- und Nonce-Prüfung** in WordPress meldet der Scanner als
+„mittel“ mit einem Hinweis auf die Prüfung. Die automatische Maßnahme verschiebt Funde der
+Stufen „hoch“ und „kritisch“.
+
+**Die PHP-Version der Website zählt:** `preg_replace` mit `/e` bleibt ab PHP 7 still, weil
+PHP es dort nicht mehr ausführt (`--php` oder `--php-version`).
+
+**Abweichungen vom Hersteller** zählen bei Endungen, die PHP, der Webserver oder ein Browser
+ausführt (`--modified-exts`); eine abweichende Readme oder Übersetzungsvorlage bleibt Sache
+des Herstellers.
+
+**Fehlermeldungen der Grenzen** auf der Einstellungsseite nennen das Feld, die erlaubten
+Werte und den nächsten Schritt; „Abbruch nach Stunden“ und „Aufbewahrte Prüfläufe je
+Website“ haben einen Hinweis.
+
+### Behoben
+
+**Zurückgeholte Einträge verlassen die Quarantäne.** Nach dem Wiederherstellen blieb der
+Eintrag im Speicher der Quarantäne stehen, und das Panel führte die Datei weiter als
+verschoben.
+
 ## [0.40.0] – 2026-09-30
 
 ### Hinzugefügt
