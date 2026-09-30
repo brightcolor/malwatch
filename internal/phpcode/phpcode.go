@@ -45,6 +45,9 @@ func (k Kind) String() string {
 // opening and closing brace.
 type Scope struct {
 	Start, End int
+	// Name is the name of the function or method, lower case; empty for a
+	// closure.
+	Name string
 }
 
 // Source is the classified source of one file.
@@ -112,6 +115,50 @@ func (s *Source) ScopeOf(i int) (Scope, bool) {
 // or both to the top level of the file.
 func (s *Source) SameScope(i, j int) bool { return s.scopeIndex(i) == s.scopeIndex(j) }
 
+// Functions returns the bodies of the functions and methods called name.
+func (s *Source) Functions(name string) []Scope {
+	var out []Scope
+	for _, sc := range s.scopes {
+		if sc.Name != "" && sc.Name == name {
+			out = append(out, sc)
+		}
+	}
+	return out
+}
+
+// notCalls are words followed by a parenthesis that call no function.
+var notCalls = map[string]bool{
+	"function": true, "fn": true, "if": true, "elseif": true, "while": true, "for": true, "foreach": true,
+	"switch": true, "match": true, "catch": true, "array": true, "list": true, "isset": true, "empty": true,
+	"unset": true, "echo": true, "print": true, "return": true, "include": true, "include_once": true,
+	"require": true, "require_once": true, "and": true, "or": true, "new": true, "use": true, "declare": true,
+}
+
+// CallsIn returns the names the function body around offset at calls, lower
+// case and each once; for the top level, what is called outside of every
+// function. A method call $x->name() and a static call X::name() count by
+// their name.
+func (s *Source) CallsIn(at int) []string {
+	k := s.scopeIndex(at)
+	seen := map[string]bool{}
+	var out []string
+	for i := 0; i+1 < len(s.toks); i++ {
+		t := s.toks[i]
+		if t.kind != tIdent || notCalls[t.val] || s.toks[i+1].kind != tPunct || s.toks[i+1].val != "(" {
+			continue
+		}
+		if definesFunction(s.toks, i) {
+			continue
+		}
+		if s.scopeIndex(t.pos) != k || seen[t.val] {
+			continue
+		}
+		seen[t.val] = true
+		out = append(out, t.val)
+	}
+	return out
+}
+
 // tokKind is what a token of code is.
 type tokKind uint8
 
@@ -160,6 +207,9 @@ func (s *Source) lex() {
 	// opens its body, or by a semicolon: an abstract method has none.
 	pending := false
 	parens := 0
+	// name is the name that follows the keyword function, until the
+	// parenthesis of its parameters opens.
+	name, wantName := "", false
 
 	i := 0
 	for i < n {
@@ -278,9 +328,13 @@ func (s *Source) lex() {
 			s.mark(i, j, Code)
 			word := string(bytes.ToLower(src[i:j]))
 			s.emit(tIdent, word, i)
-			if word == "function" && !afterAccess(src, i) {
+			switch {
+			case word == "function" && !afterAccess(src, i):
 				pending = true
 				parens = 0
+				name, wantName = "", true
+			case wantName:
+				name, wantName = word, false
 			}
 			i = j
 			continue
@@ -300,6 +354,7 @@ func (s *Source) lex() {
 		case '(':
 			if pending {
 				parens++
+				wantName = false
 			}
 		case ')':
 			if pending && parens > 0 {
@@ -311,7 +366,7 @@ func (s *Source) lex() {
 			}
 		case '{':
 			if pending && parens == 0 {
-				s.scopes = append(s.scopes, Scope{Start: i, End: n - 1})
+				s.scopes = append(s.scopes, Scope{Start: i, End: n - 1, Name: name})
 				stack = append(stack, open{scope: len(s.scopes) - 1, depth: braces})
 				pending = false
 			}
@@ -537,4 +592,14 @@ func isIdentByte(b byte) bool { return isIdentStart(b) || (b >= '0' && b <= '9')
 
 func isSpace(b byte) bool {
 	return b == ' ' || b == '\t' || b == '\r' || b == '\n' || b == '\f' || b == '\v'
+}
+
+// definesFunction reports whether the name at token i follows the keyword
+// function, directly or after the & of a reference: a definition, no call.
+func definesFunction(toks []token, i int) bool {
+	j := i - 1
+	if j >= 0 && toks[j].kind == tPunct && toks[j].val == "&" {
+		j--
+	}
+	return j >= 0 && toks[j].kind == tIdent && toks[j].val == "function"
 }

@@ -174,3 +174,23 @@ func TestInterpolationKeepsTheStringOpen(t *testing.T) {
 		t.Fatalf("Text zwischen den eingesetzten Werten: %v, erwartet String", got)
 	}
 }
+
+func TestFunctionsAndTheirCalls(t *testing.T) {
+	src := "<?php\nfunction get($u) { return fetch_it($u); }\n" +
+		"class L { public function &load($x) { $a = $this->get(1); return X::parse($a); } }\n" +
+		"$r = get('x'); if (isset($r)) { echo strtoupper($r); }\n"
+	s := Parse([]byte(src))
+	if got := s.Functions("get"); len(got) != 1 {
+		t.Fatalf("Functions(get): %v, erwartet eine", got)
+	}
+	if got := s.Functions("load"); len(got) != 1 {
+		t.Fatalf("Functions(load): %v, erwartet eine", got)
+	}
+	join := func(v []string) string { return strings.Join(v, ",") }
+	if got := join(s.CallsIn(strings.Index(src, "$a ="))); got != "get,parse" {
+		t.Errorf("Aufrufe in load: %q, erwartet get,parse", got)
+	}
+	if got := join(s.CallsIn(strings.Index(src, "$r ="))); got != "get,strtoupper" {
+		t.Errorf("Aufrufe auf oberster Ebene: %q, erwartet get,strtoupper", got)
+	}
+}

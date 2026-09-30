@@ -103,7 +103,7 @@ func (e *Engine) ScanHead(path, rel, ext string, head []byte) []report.Finding {
 		if !r.HeadOnly || !r.AppliesTo(rel, ext, looks) || !e.fits(r, rel) {
 			continue
 		}
-		if f, ok := e.apply(r, path, head, head, nil, nil, everywhereCode); ok {
+		if f, ok := e.apply(r, path, head, head, nil, nil, &codeView{content: head}); ok {
 			out = append(out, f)
 		}
 	}
@@ -151,16 +151,8 @@ func (e *Engine) Scan(path, rel, ext string, content []byte) []report.Finding {
 	}
 
 	// What of the file is PHP code, read once and only for a file where a
-	// rule about code or about its supporting conditions matched at all. A
-	// file the reader loses track in counts as code throughout: a construct
-	// it does not know must never hide a match.
-	var src *phpcode.Source
-	codeAt := func(at int) bool {
-		if src == nil {
-			src = phpcode.Parse(content)
-		}
-		return src.Broken() || src.IsCode(at)
-	}
+	// rule about code matched at all.
+	cv := &codeView{content: content}
 
 	// The line index for the marks, built once and only for a file that
 	// matches at all.
@@ -180,7 +172,7 @@ func (e *Engine) Scan(path, rel, ext string, content []byte) []report.Finding {
 		if r.SkipInert && isInert() {
 			continue
 		}
-		if f, ok := e.apply(r, path, content, content, nil, linesOf, codeAt); ok {
+		if f, ok := e.apply(r, path, content, content, nil, linesOf, cv); ok {
 			out = append(out, f)
 			continue
 		}
@@ -192,7 +184,7 @@ func (e *Engine) Scan(path, rel, ext string, content []byte) []report.Finding {
 			built = true
 		}
 		if joined != nil {
-			if f, ok := e.apply(r, path, joined, content, index, linesOf, codeAt); ok {
+			if f, ok := e.apply(r, path, joined, content, index, linesOf, cv); ok {
 				out = append(out, f)
 			}
 		}
@@ -203,28 +195,37 @@ func (e *Engine) Scan(path, rel, ext string, content []byte) []report.Finding {
 // apply runs one rule over hay. raw and index translate a position in hay back
 // to the file, so a finding names the line someone can actually open; index is
 // nil when hay is the file itself. linesOf gives the line index of raw for the
-// marks; nil leaves the finding without marks. codeAt says whether an offset of
-// raw is PHP code.
+// marks; nil leaves the finding without marks. cv reads the PHP structure of
+// raw.
 func (e *Engine) apply(r *Rule, path string, hay, raw []byte, index []int32, linesOf func() *textpos.Lines,
-	codeAt func(int) bool) (report.Finding, bool) {
-	inCode := func(loc []int) bool {
-		at := loc[0]
-		if index != nil {
-			if at >= len(index) {
-				return false
-			}
-			at = int(index[at])
+	cv *codeView) (report.Finding, bool) {
+	// rawAt takes an offset of hay back to the file.
+	rawAt := func(at int) (int, bool) {
+		if index == nil {
+			return at, true
 		}
-		return codeAt(at)
+		if at >= len(index) {
+			return 0, false
+		}
+		return int(index[at]), true
 	}
-	loc := e.firstMatch(r, hay, inCode)
+	inCode := func(loc []int) bool {
+		at, ok := rawAt(loc[0])
+		return ok && cv.code(at)
+	}
+	var loc []int
+	if r.SameScope {
+		loc = e.scopedMatch(r, hay, rawAt, inCode, cv)
+	} else {
+		loc = e.firstMatch(r, hay, inCode)
+		if loc != nil && r.Requires != nil && !supported(r, r.Requires, hay, inCode) {
+			loc = nil
+		}
+		if loc != nil && r.AlsoRequires != nil && !supported(r, r.AlsoRequires, hay, inCode) {
+			loc = nil
+		}
+	}
 	if loc == nil {
-		return report.Finding{}, false
-	}
-	if r.Requires != nil && !supported(r, r.Requires, hay, inCode) {
-		return report.Finding{}, false
-	}
-	if r.AlsoRequires != nil && !supported(r, r.AlsoRequires, hay, inCode) {
 		return report.Finding{}, false
 	}
 	at := loc[0]
@@ -253,9 +254,95 @@ func (e *Engine) apply(r *Rule, path string, hay, raw []byte, index []int32, lin
 	return f, true
 }
 
-// everywhereCode takes every offset for code, for the start of a file that is
-// not read as a whole.
-func everywhereCode(int) bool { return true }
+// codeView reads the PHP structure of one file, once and only when a rule
+// asks. A file the reader loses track in counts as code throughout: a
+// construct it does not know must never hide a match.
+type codeView struct {
+	content []byte
+	src     *phpcode.Source
+}
+
+func (c *codeView) source() *phpcode.Source {
+	if c.src == nil {
+		c.src = phpcode.Parse(c.content)
+	}
+	return c.src
+}
+
+// code reports whether offset at of the file is PHP code.
+func (c *codeView) code(at int) bool {
+	s := c.source()
+	return s.Broken() || s.IsCode(at)
+}
+
+// scopedMatch returns the first match of a SameScope rule whose supporting
+// conditions sit in the same function body, or in the body of a function
+// defined in the file that this body calls. nil means none.
+func (e *Engine) scopedMatch(r *Rule, hay []byte, rawAt func(int) (int, bool), inCode func([]int) bool,
+	cv *codeView) []int {
+	positions := func(re *regexp.Regexp) []int {
+		var out []int
+		for _, loc := range re.FindAllIndex(hay, maxWeighedMatches) {
+			if r.SupportInCode && !inCode(loc) {
+				continue
+			}
+			if at, ok := rawAt(loc[0]); ok {
+				out = append(out, at)
+			}
+		}
+		return out
+	}
+	var req, also []int
+	if r.Requires != nil {
+		if req = positions(r.Requires); len(req) == 0 {
+			return nil
+		}
+	}
+	if r.AlsoRequires != nil {
+		if also = positions(r.AlsoRequires); len(also) == 0 {
+			return nil
+		}
+	}
+	src := cv.source()
+	for _, loc := range r.Match.FindAllIndex(hay, maxWeighedMatches) {
+		if r.CodeOnly && !inCode(loc) {
+			continue
+		}
+		if r.Harmless != nil && r.Harmless(e, hay, loc) {
+			continue
+		}
+		at, ok := rawAt(loc[0])
+		if !ok {
+			continue
+		}
+		if (r.Requires == nil || reaches(src, at, req)) && (r.AlsoRequires == nil || reaches(src, at, also)) {
+			return loc
+		}
+	}
+	return nil
+}
+
+// reaches reports whether one of the offsets lies in the function body around
+// at, or in the body of a function that body calls. One call deep: a helper
+// that downloads for the code that runs it is the common shape of a
+// downloader; a library whose unrelated parts happen to share a file is not.
+func reaches(src *phpcode.Source, at int, offsets []int) bool {
+	for _, o := range offsets {
+		if src.SameScope(at, o) {
+			return true
+		}
+	}
+	for _, name := range src.CallsIn(at) {
+		for _, fn := range src.Functions(name) {
+			for _, o := range offsets {
+				if fn.Start <= o && o <= fn.End {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
 
 // supported reports whether a supporting condition holds: anywhere in the
 // file, or for a rule with SupportInCode somewhere in its code.

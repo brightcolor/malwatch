@@ -656,11 +656,15 @@ var catalog = []*Rule{
 		ID:            "php.remote.fetch_eval_indirect",
 		CodeOnly:      true,
 		SupportInCode: true,
-		Severity:      report.SeverityCritical,
-		Description:   "lädt von einer fremden Adresse und führt es danach aus",
-		Exts:          phpExts,
-		Match:         rx(`(?is)\b(?:eval|assert)\s*\(\s*(?:@\s*)?\$[a-zA-Z_]\w{0,40}\s*[;)]`),
-		Requires:      rx(`(?is)\b(?:curl_exec\s*\(|curl_setopt\s*\([^,]{1,60},\s*CURLOPT_URL|file_get_contents\s*\(\s*["']https?://|fsockopen\s*\()`),
+		// Fetch and eval in one body, or eval next to a call of the helper
+		// that fetches. SeedProd's XML-RPC library fetches in its client and
+		// evaluates a generated wrapper in a function that never calls it.
+		SameScope:   true,
+		Severity:    report.SeverityCritical,
+		Description: "lädt von einer fremden Adresse und führt es danach aus",
+		Exts:        phpExts,
+		Match:       rx(`(?is)\b(?:eval|assert)\s*\(\s*(?:@\s*)?\$[a-zA-Z_]\w{0,40}\s*[;)]`),
+		Requires:    rx(`(?is)\b(?:curl_exec\s*\(|curl_setopt\s*\([^,]{1,60},\s*CURLOPT_URL|file_get_contents\s*\(\s*["']https?://|fsockopen\s*\()`),
 	},
 
 	// ----------------------------------------------------- webshell marks

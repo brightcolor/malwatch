@@ -88,6 +88,10 @@ type Rule struct {
 	// SupportInCode asks the same of Requires and AlsoRequires: a comment
 	// that mentions curl_exec makes no downloader.
 	SupportInCode bool
+	// SameScope asks Requires and AlsoRequires to sit in the function body
+	// of the match, or in the body of a function that body calls: two parts
+	// of a library that share a file but not a purpose describe no action.
+	SameScope bool
 }
 
 // Place is where below the scanned root a rule looks.
