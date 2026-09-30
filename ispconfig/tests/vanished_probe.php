@@ -118,7 +118,8 @@ foreach ($want as $name => $state) {
 		is_array($row) ? $row['finding_state'] : 'Zeile fehlt');
 }
 $log = is_file($conf['log_file']) ? (string) file_get_contents($conf['log_file']) : '';
-expect_true('das Protokoll nennt die geschlossenen Funde', substr_count($log, 'offene Funde geschlossen') === 2, trim($log));
+expect_true('das Protokoll nennt jeden geschlossenen Fund',
+	substr_count($log, 'malwatch: 1 offener Fund geschlossen, weil seine Datei nicht mehr da ist.') === 2, trim($log));
 
 // 0 turns the check off: nothing changes, the cursor stays.
 file_put_contents($cursor_file, "5\n");

@@ -639,7 +639,9 @@ class cronjob_malwatch extends cronjob
 			$app->log('malwatch: ' . $cursor_file . ' ließ sich nicht schreiben; die Suche nach Funden, deren Datei '
 				. 'fehlt, beginnt deshalb jedes Mal von vorn. Bitte die Rechte des Ordners prüfen.', LOGLEVEL_WARN);
 		}
-		if (count($ids) > 0) {
+		if (count($ids) === 1) {
+			$app->log('malwatch: 1 offener Fund geschlossen, weil seine Datei nicht mehr da ist.', LOGLEVEL_DEBUG);
+		} elseif (count($ids) > 1) {
 			$app->log('malwatch: ' . count($ids) . ' offene Funde geschlossen, weil ihre Datei nicht mehr da ist.',
 				LOGLEVEL_DEBUG);
 		}
