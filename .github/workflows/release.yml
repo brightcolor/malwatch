@@ -24,15 +24,31 @@ jobs:
           go-version: "1.24"
           cache: true
 
+      # The tag reaches the shell as an environment variable: an expression in
+      # a run step is pasted into the script text before bash reads it, and a
+      # git tag may hold a quote or $(...).
+      # The Makefile pastes VERSION into a command line of its own, so the
+      # value also has to have the form of a version number.
       - name: Resolve version
         id: ver
-        run: echo "version=${GITHUB_REF_NAME:-${{ github.event.inputs.tag }}}" >> "$GITHUB_OUTPUT"
+        env:
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+        run: |
+          version="${GITHUB_REF_NAME:-$INPUT_TAG}"
+          pattern='^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$'
+          if ! [[ "$version" =~ $pattern ]]; then
+            echo "::error::„${version}“ ist keine Versionsnummer der Form v1.2.3. Ein Release entsteht aus einem Tag dieser Form; beim Start von Hand unter „Use workflow from“ den Tag wählen."
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - name: Test
         run: go test ./...
 
       - name: Build binaries and the extension package
-        run: make checksums VERSION=${{ steps.ver.outputs.version }}
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: make checksums VERSION="$VERSION"
 
       - name: List artifacts
         run: ls -l dist/

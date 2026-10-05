@@ -4,14 +4,15 @@ package quarantine
 
 import "os"
 
-// chownPath tolerates a permission error, the same way repair.applyOwnership
+// chownFile tolerates a permission error, the same way repair.applyOwnership
 // does: restoring the exact original owner needs a privilege quarantine may
 // not run with, and that must not turn a successful restore into a failure.
-func chownPath(path string, uid, gid int) error {
+// It changes the owner through the open file, see readArchive.
+func chownFile(f *os.File, uid, gid int) error {
 	if uid < 0 || gid < 0 {
 		return nil
 	}
-	if err := os.Chown(path, uid, gid); err != nil && !os.IsPermission(err) {
+	if err := f.Chown(uid, gid); err != nil && !os.IsPermission(err) {
 		return err
 	}
 	return nil

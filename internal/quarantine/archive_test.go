@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 )
 
@@ -209,5 +210,153 @@ func TestReadArchiveRefusesAnEntryThatEscapesDestRoot(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(base, "escaped.txt")); !os.IsNotExist(err) {
 		t.Errorf("readArchive wrote outside destRoot despite refusing: stat err = %v", err)
+	}
+}
+
+// tarEntry is one entry for writeTar: a symlink to link when link is set,
+// otherwise a regular file holding body.
+type tarEntry struct {
+	name string
+	link string
+	body string
+}
+
+// writeTar builds a gzipped tar from entries in their order. writeEvilTar
+// takes a map, which has no order and no symlinks; an archive that plants a
+// link and then writes through it needs both.
+func writeTar(t *testing.T, dst string, entries []tarEntry) {
+	t.Helper()
+	fh, err := os.Create(dst)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer fh.Close()
+	gz := gzip.NewWriter(fh)
+	tw := tar.NewWriter(gz)
+	for _, e := range entries {
+		hdr := &tar.Header{Typeflag: tar.TypeReg, Name: e.name, Mode: 0o644, Size: int64(len(e.body))}
+		if e.link != "" {
+			hdr = &tar.Header{Typeflag: tar.TypeSymlink, Name: e.name, Linkname: e.link, Mode: 0o777}
+		}
+		if err := tw.WriteHeader(hdr); err != nil {
+			t.Fatal(err)
+		}
+		if e.link == "" {
+			if _, err := tw.Write([]byte(e.body)); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	if err := tw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := gz.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestReadArchiveNeverWritesThroughASymlinkOut covers both ways a link in the
+// archive could carry a later entry out of destRoot: a link to a directory and
+// a dangling link to a file that does not exist yet. Both are refused, and
+// nothing is created outside.
+func TestReadArchiveNeverWritesThroughASymlinkOut(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlinks need privileges on Windows")
+	}
+	cases := []struct {
+		name    string
+		entries func(outside string) []tarEntry
+		escaped string
+	}{
+		{
+			name: "dangling link to a file",
+			entries: func(outside string) []tarEntry {
+				return []tarEntry{
+					{name: "wp-content/cache", link: filepath.Join(outside, "cron-job")},
+					{name: "wp-content/cache", body: "* * * * * root sh /tmp/x\n"},
+				}
+			},
+			escaped: "cron-job",
+		},
+		{
+			name: "link to a directory",
+			entries: func(outside string) []tarEntry {
+				return []tarEntry{
+					{name: "uploads", link: outside},
+					{name: "uploads/shell.php", body: "<?php"},
+				}
+			},
+			escaped: "shell.php",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			base := t.TempDir()
+			outside := filepath.Join(base, "outside")
+			if err := os.MkdirAll(outside, 0o750); err != nil {
+				t.Fatal(err)
+			}
+			payload := filepath.Join(base, "payload.tar.gz")
+			writeTar(t, payload, tc.entries(outside))
+
+			err := readArchive(payload, filepath.Join(base, "web"))
+			if err == nil {
+				t.Fatal("readArchive accepted an entry behind a symlink that leads out of destRoot")
+			}
+			// The message is all the panel shows: it has to name the link.
+			if !strings.Contains(err.Error(), "symbolischen Link") {
+				t.Errorf("error = %q, want it to name the symlink", err)
+			}
+			if _, err := os.Lstat(filepath.Join(outside, tc.escaped)); !os.IsNotExist(err) {
+				t.Errorf("readArchive wrote outside destRoot: lstat err = %v", err)
+			}
+		})
+	}
+}
+
+// TestRemoveAllInStaysBelowTheRoot: Store and a forced Restore remove through
+// removeBelow and removeAllIn. A link inside the tree goes and what it points
+// at stays, the same as with os.RemoveAll; a name below a link that leads out
+// is refused, where os.RemoveAll, running as root, would delete the target.
+func TestRemoveAllInStaysBelowTheRoot(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlinks need privileges on Windows")
+	}
+	base := t.TempDir()
+	web := filepath.Join(base, "web")
+	outside := filepath.Join(base, "outside")
+	keep := filepath.Join(outside, "keep.txt")
+	writeTestFile(t, keep, []byte("bleibt"), 0o640)
+	writeTestFile(t, filepath.Join(web, "plugin", "sub", "a.php"), []byte("<?php"), 0o640)
+	if err := os.Symlink(outside, filepath.Join(web, "plugin", "shared")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(web, "uploads")); err != nil {
+		t.Fatal(err)
+	}
+	root, err := os.OpenRoot(web)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer root.Close()
+
+	if err := removeAllIn(root, "plugin"); err != nil {
+		t.Fatalf("removeAllIn(plugin) failed: %v", err)
+	}
+	if _, err := os.Lstat(filepath.Join(web, "plugin")); !os.IsNotExist(err) {
+		t.Errorf("plugin survived: lstat err = %v", err)
+	}
+	if _, err := os.Stat(keep); err != nil {
+		t.Fatalf("the target of a link inside the tree was removed: %v", err)
+	}
+
+	err = removeBelow(web, "uploads/keep.txt")
+	if err == nil {
+		t.Error("removeBelow followed a symlink out of the root")
+	} else if !strings.Contains(err.Error(), "symbolischen Link") {
+		t.Errorf("error = %q, want it to name the symlink", err)
+	}
+	if _, err := os.Stat(keep); err != nil {
+		t.Errorf("a file outside the root was removed: %v", err)
 	}
 }

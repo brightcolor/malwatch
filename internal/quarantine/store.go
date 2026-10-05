@@ -4,7 +4,9 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
@@ -170,11 +172,57 @@ func Store(storeRoot string, src Source) (Entry, error) {
 	if err != nil {
 		return Entry{}, err
 	}
-	full := filepath.Join(src.Root, filepath.FromSlash(src.RelPath))
-	if err := os.RemoveAll(full); err != nil {
+	if err := removeBelow(src.Root, src.RelPath); err != nil {
 		return Entry{}, err
 	}
 	return entry, nil
+}
+
+// removeBelow removes rel below root with everything in it, see removeAllIn.
+func removeBelow(root, rel string) error {
+	r, err := os.OpenRoot(root)
+	if err != nil {
+		return err
+	}
+	defer r.Close()
+	if err := removeAllIn(r, filepath.FromSlash(rel)); err != nil {
+		if escapesRoot(err) {
+			return fmt.Errorf("%s liegt hinter einem symbolischen Link, der aus %s herausführt, und bleibt stehen (%v). "+
+				"Den Link prüfen und entfernen, danach den Auftrag erneut starten", rel, root, err)
+		}
+		return fmt.Errorf("%s lässt sich unter %s nicht entfernen: %w", rel, root, err)
+	}
+	return nil
+}
+
+// removeAllIn removes name below root with everything in it. Like
+// os.RemoveAll it removes a symlink itself and leaves its target alone. In
+// addition, every step goes through root, so the removal stays below root.
+func removeAllIn(root *os.Root, name string) error {
+	info, err := root.Lstat(name)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil
+		}
+		return err
+	}
+	if info.IsDir() {
+		dir, err := root.Open(name)
+		if err != nil {
+			return err
+		}
+		children, err := dir.ReadDir(-1)
+		dir.Close()
+		if err != nil {
+			return err
+		}
+		for _, child := range children {
+			if err := removeAllIn(root, filepath.Join(name, child.Name())); err != nil {
+				return err
+			}
+		}
+	}
+	return root.Remove(name)
 }
 
 // readMeta reads one entry directory's meta.json.
@@ -309,7 +357,7 @@ func Restore(storeRoot, id string, force bool) error {
 			return fmt.Errorf("quarantäne-archiv %s ist unlesbar, %s bleibt unangetastet: %w",
 				payload, target, err)
 		}
-		if err := os.RemoveAll(target); err != nil {
+		if err := removeBelow(entry.Root, entry.RelPath); err != nil {
 			return err
 		}
 	}
