@@ -423,6 +423,11 @@ oder zurückholt. Dieselbe Ablage steht auch von der Kommandozeile aus über
 `malwatch quarantine` offen (siehe oben) — das Addon bedient sie nur, es hält
 keine eigene Kopie.
 
+Ablegen, Zurückholen und Herunterladen prüfen vorher den Platz am Ziel (siehe
+„Platz am Ziel“ oben), auch die automatische Maßnahme. Die Reserve steht unter
+**Security > Scanner > Einstellungen > Quarantäne**; ein Auftrag, für den der
+Platz nicht reicht, erscheint mit seiner Meldung über der Liste.
+
 ### Abwehr
 
 **Security > Abwehr > Übersicht** schaltet die Web Application Firewall (ModSecurity mit dem

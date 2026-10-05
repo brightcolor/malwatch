@@ -284,6 +284,25 @@ Listen stehen unter Abwehr > Einstellungen. Das Sperrprotokoll (Vorgabe
 `/var/log/waf/blocked.log`) zählt, was seither abgeprallt ist.
 `waf-switch ban off` macht ohne Panel wieder auf.
 
+## Quarantäne
+
+Bevor die Quarantäne schreibt, misst der Scanner den freien Platz am Ziel: beim
+Ablegen das Archiv und die Kopie, die er zur Kontrolle entpackt, im
+Arbeitsverzeichnis; beim Zurückholen die Dateien im Webordner, bei der
+Rücknahme eines Updates dazu eine Zwischenkopie im Arbeitsverzeichnis; beim
+Herunterladen das ZIP. Dazu kommt die Reserve aus **Security > Scanner >
+Einstellungen > Quarantäne** (Vorgabe 256 MiB, erlaubt 0 bis 1048576), die
+immer frei bleibt, damit Webserver, Datenbank und Mail weiterschreiben können.
+
+Reicht der Platz nicht, bricht der Schritt ab: Dateien und Einträge bleiben, wie
+sie sind, und die Meldung sagt, wie viel frei ist, wie viel gebraucht wird und
+was zu tun ist. Bei Aufträgen der Quarantäne, auch bei der automatischen
+Maßnahme nach einem geplanten Lauf, steht sie auf der Seite **Quarantäne** über
+der Liste; Wiederherstellungen und Updates nennen sie in ihrem Ergebnis. Das
+Addon gibt die Reserve bei jedem dieser Aufträge als `--quarantine-reserve` an
+den Scanner; ein gespeicherter Wert außerhalb der Grenzen geht als Vorgabe
+hinaus.
+
 ## Aktionen
 
 Je Website einzeln schaltbar, jede mit eigener Mindeststufe:

@@ -184,6 +184,11 @@ class malwatch_runner
 			foreach ((array) (isset($options['only']) ? $options['only'] : array()) as $only) {
 				$repair[] = '--only=' . $only;
 			}
+			// The room the quarantine leaves free (Scanner > Einstellungen >
+			// Quarantäne), for every tree the repair files away.
+			foreach ($app->malwatch_helper->quarantine_arguments($config) as $switch) {
+				$repair[] = $switch;
+			}
 			$repair[] = '--progress=' . $progress;
 			$repair[] = '--json';
 			$repair[] = '--out=' . $result_file;
@@ -214,6 +219,11 @@ class malwatch_runner
 				'--json',
 				'--out=' . $result_file,
 			);
+			// The room the quarantine leaves free when it stores, restores
+			// or packs a sample; the automatic measure is an add job as well.
+			foreach ($app->malwatch_helper->quarantine_arguments($config) as $switch) {
+				$quarantine[] = $switch;
+			}
 
 			if ($action === 'add') {
 				$quarantine[] = '--path=' . $path;
@@ -500,6 +510,11 @@ class malwatch_runner
 		);
 		if (!empty($options['dry_run'])) {
 			$upgrade[] = '--dry-run';
+		}
+		// The room the quarantine leaves free for the old releases, the
+		// database export and a rollback.
+		foreach ($helper->quarantine_arguments($config) as $switch) {
+			$upgrade[] = $switch;
 		}
 		return $upgrade;
 	}

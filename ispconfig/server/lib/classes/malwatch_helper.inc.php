@@ -24,6 +24,14 @@ class malwatch_helper
 	const UPLOAD_DIR_LENGTH_MAX = 30;
 
 	/**
+	 * The reserve of the quarantine in MiB: array(min, max, default, switch of
+	 * the scanner). The scanner has the same bounds and default
+	 * (internal/quarantine/space.go), the panel as well
+	 * (malwatch_quarantine_settings()).
+	 */
+	const QUARANTINE_RESERVE = array(0, 1048576, 256, '--quarantine-reserve');
+
+	/**
 	 * The settings of the finding view: column => array(min, max, default,
 	 * switch of the scanner). The scanner has the same bounds and defaults
 	 * (Limits and Default in internal/fileview/fileview.go), the panel as well
@@ -89,6 +97,7 @@ class malwatch_helper
 			'view_marks' => 20,
 			'view_budget' => 32,
 			'view_keep_days' => 30,
+			'quarantine_reserve' => 256,
 			'panel_url' => '',
 			'mail_format' => 'html',
 			'mail_from_name' => 'malwatch',
@@ -145,6 +154,23 @@ class malwatch_helper
 		list($min, $max, $default) = self::VIEW_KEEP_DAYS;
 		$days = isset($config['view_keep_days']) && is_numeric($config['view_keep_days']) ? (int) $config['view_keep_days'] : $default;
 		return ($days < $min || $days > $max) ? $default : $days;
+	}
+
+	/**
+	 * The switches that hand the reserve of the quarantine to the scanner, for
+	 * every job that writes into the quarantine: quarantine, repair, upgrade.
+	 * A stored value the settings page would refuse gets the default, because
+	 * the scanner refuses a value out of its bounds and the job with it.
+	 */
+	public function quarantine_arguments($config)
+	{
+		list($min, $max, $default, $switch) = self::QUARANTINE_RESERVE;
+		$value = isset($config['quarantine_reserve']) && is_numeric($config['quarantine_reserve'])
+			? (int) $config['quarantine_reserve'] : $default;
+		if ($value < $min || $value > $max) {
+			$value = $default;
+		}
+		return array($switch . '=' . $value);
 	}
 
 	/**
