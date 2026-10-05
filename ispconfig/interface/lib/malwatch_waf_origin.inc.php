@@ -930,6 +930,25 @@ function waf_origin_external($settings)
 	return $net === 'proxycheck' ? 'proxycheck' : '';
 }
 
+/**
+ * The marks the lookup in the range files writes. Without an external source
+ * that is every mark. With one, VPN and data centre belong to its answer, and
+ * so do country, provider and Tor where no local source is chosen for them.
+ */
+function waf_origin_local_fields($settings)
+{
+	if (waf_origin_external($settings) === '') {
+		return array('country', 'asn', 'as_org', 'is_tor', 'is_vpn', 'is_hosting');
+	}
+	$geo = isset($settings['waf_origin_geo']) ? (string) $settings['waf_origin_geo'] : 'off';
+	$tor = isset($settings['waf_origin_tor']) ? (string) $settings['waf_origin_tor'] : 'off';
+	$fields = $geo !== 'off' ? array('country', 'asn', 'as_org') : array();
+	if ($tor !== 'off') {
+		$fields[] = 'is_tor';
+	}
+	return $fields;
+}
+
 /** 'y' when the answer marked the address, 'n' otherwise. */
 function waf_origin_mark($value)
 {

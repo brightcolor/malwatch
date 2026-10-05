@@ -1290,15 +1290,23 @@ class malwatch_waf
 		}
 		$readers = waf_origin_readers($this->ensure_dirs() . '/origin', $chosen);
 		$now = $this->now();
+		// A mark that belongs to the external service stays as its answer left it.
+		// Until the service has answered, the lookup writes the empty value there,
+		// so an address keeps no mark of a list that is switched off.
+		$local = waf_origin_local_fields($settings);
+		$updates = array();
+		foreach (array('country', 'asn', 'as_org', 'is_tor', 'is_vpn', 'is_hosting') as $field) {
+			$updates[] = in_array($field, $local, true) ? $field . ' = VALUES(' . $field . ')'
+				: $field . " = IF(external_state = 'done', " . $field . ', VALUES(' . $field . '))';
+		}
 		$done = 0;
 		foreach ($rows as $row) {
 			$ip = (string) $row['client_ip'];
 			$facts = waf_origin_facts($readers, $ip);
 			$app->dbmaster->query(
 				'INSERT INTO malwatch_waf_ip (server_id, ip, country, asn, as_org, is_tor, is_vpn, is_hosting, local_at) '
-				. 'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE country = VALUES(country), '
-				. 'asn = VALUES(asn), as_org = VALUES(as_org), is_tor = VALUES(is_tor), is_vpn = VALUES(is_vpn), '
-				. 'is_hosting = VALUES(is_hosting), local_at = VALUES(local_at)',
+				. 'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE ' . implode(', ', $updates)
+				. ', local_at = VALUES(local_at)',
 				$conf['server_id'], $ip, $facts['country'], (int) $facts['asn'], $facts['as_org'],
 				$facts['is_tor'], $facts['is_vpn'], $facts['is_hosting'], $now);
 			$done++;

@@ -76,6 +76,23 @@ expect_same('the limit is reached',
 expect_same('without a row nothing was asked yet', waf_origin_quota(null, '2026-09-18', 500),
 	array('day' => '2026-09-18', 'queries' => 0, 'daily' => 500, 'left' => 500));
 
+// --- Who writes which mark ----------------------------------------------------
+
+expect_same('without the service the local lookup writes every mark',
+	waf_origin_local_fields(array('waf_origin_geo' => 'dbip', 'waf_origin_tor' => 'torproject', 'waf_origin_net' => 'x4b')),
+	array('country', 'asn', 'as_org', 'is_tor', 'is_vpn', 'is_hosting'));
+expect_same('with the service VPN and data centre belong to its answer',
+	waf_origin_local_fields(array('waf_origin_geo' => 'maxmind', 'waf_origin_tor' => 'torproject', 'waf_origin_net' => 'proxycheck')),
+	array('country', 'asn', 'as_org', 'is_tor'));
+expect_same('country and provider belong to the service when no local source has them',
+	waf_origin_local_fields(array('waf_origin_geo' => 'off', 'waf_origin_tor' => 'torproject', 'waf_origin_net' => 'proxycheck')),
+	array('is_tor'));
+expect_same('Tor belongs to the service when the Tor list is off',
+	waf_origin_local_fields(array('waf_origin_geo' => 'dbip', 'waf_origin_tor' => 'off', 'waf_origin_net' => 'proxycheck')),
+	array('country', 'asn', 'as_org'));
+expect_same('nothing chosen, the local lookup writes every mark',
+	waf_origin_local_fields(array()), array('country', 'asn', 'as_org', 'is_tor', 'is_vpn', 'is_hosting'));
+
 // --- summary -----------------------------------------------------------------
 
 if ($failures > 0) {

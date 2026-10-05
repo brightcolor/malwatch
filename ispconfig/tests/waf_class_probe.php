@@ -667,6 +667,23 @@ $state = $db->queryOneRecord("SELECT * FROM malwatch_waf_origin_source WHERE sou
 expect_same('the state counts queries and answers',
 	array((int) $state['queries'], (int) $state['entries'], $state['error']), array(3, 2, ''));
 
+// Eine neu geladene Tor-Liste schlägt jede Adresse noch einmal nach. Was der
+// Dienst beantwortet hat, bleibt dabei stehen. Eine Adresse ohne Antwort trägt
+// kein Merkmal einer abgeschalteten Liste weiter; hier steht 198.51.100.9 noch
+// mit VPN und Rechenzentrum aus der Zeit vor dem Umschalten.
+$db->query("UPDATE malwatch_waf_ip SET is_vpn = 'y', is_hosting = 'y' WHERE ip = '198.51.100.9'");
+$db->query('UPDATE malwatch_waf_ip SET local_at = DATE_SUB(local_at, INTERVAL 1 HOUR)');
+expect_same('a new Tor list looks every address up again', $waf->origin_lookup(10), 3);
+$kept = $db->queryOneRecord("SELECT * FROM malwatch_waf_ip WHERE ip = '192.0.2.10'");
+expect_same('the answer of the service survives the local lookup',
+	array($kept['is_vpn'], $kept['is_hosting'], $kept['is_proxy'], $kept['vpn_operator'], $kept['country'],
+		(int) $kept['asn'], $kept['as_org'], $kept['external_state']),
+	array('y', 'n', 'y', 'Beispiel VPN', 'DE', 64496, 'Beispiel Netz GmbH', 'done'));
+expect_same('the Tor list still marks the address', $kept['is_tor'], 'y');
+$leftover = $db->queryOneRecord("SELECT is_vpn, is_hosting FROM malwatch_waf_ip WHERE ip = '198.51.100.9'");
+expect_same('an address without an answer keeps no mark of a list that is off',
+	array($leftover['is_vpn'], $leftover['is_hosting']), array('n', 'n'));
+
 // Das Tageslimit ist erreicht: wartende Adressen kommen am nächsten Tag dran.
 $db->query("UPDATE malwatch_waf_ip SET external_state = 'pending', external_at = NULL WHERE ip = '198.51.100.9'");
 $asked = array();
