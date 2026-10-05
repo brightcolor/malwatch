@@ -48,7 +48,8 @@ type entry struct {
 	root  string
 	label string
 	// files maps a slash separated relative path to one or more lower case
-	// MD5 values, separated by commas (see SumMatches).
+	// hex sums, separated by commas: SHA-256 where the vendor publishes it,
+	// MD5 otherwise (see Matches).
 	files map[string]string
 	// complete says the list covers everything the vendor puts in this
 	// directory, so anything else below it does not come from the vendor.
@@ -178,8 +179,7 @@ func (i *Index) Check(path string, content []byte) (Status, string) {
 			// an upload, a cache file, a plugin. Nothing is claimed about it.
 			continue
 		}
-		sum := md5.Sum(content)
-		if SumMatches(want, hex.EncodeToString(sum[:])) {
+		if Matches(want, content) {
 			return Original, e.label
 		}
 		return Modified, e.label
@@ -194,7 +194,41 @@ func (i *Index) Check(path string, content []byte) (Status, string) {
 	return Unknown, ""
 }
 
-// SumMatches reports whether sum is one of the MD5 values of a checksum list
+// Lengths of a sum in hex digits; the length of a listed value names its kind.
+const (
+	md5Hex    = 2 * md5.Size
+	sha256Hex = 2 * sha256.Size
+)
+
+// Matches reports whether content is one of the files a checksum list entry
+// allows. A value of 64 hex digits is a SHA-256, one of 32 an MD5: wordpress.org
+// publishes SHA-256 for plugin files and only MD5 for the core.
+func Matches(entry string, content []byte) bool {
+	var withSHA256, withMD5 bool
+	for _, want := range strings.Split(entry, ",") {
+		switch len(want) {
+		case sha256Hex:
+			withSHA256 = true
+		case md5Hex:
+			withMD5 = true
+		}
+	}
+	if withSHA256 {
+		sum := sha256.Sum256(content)
+		if SumMatches(entry, hex.EncodeToString(sum[:])) {
+			return true
+		}
+	}
+	if withMD5 {
+		sum := md5.Sum(content)
+		if SumMatches(entry, hex.EncodeToString(sum[:])) {
+			return true
+		}
+	}
+	return false
+}
+
+// SumMatches reports whether sum is one of the values of a checksum list
 // entry. wordpress.org lists several for a plugin file that changed between
 // two builds of the same release; the entry holds them separated by commas.
 func SumMatches(entry, sum string) bool {

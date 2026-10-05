@@ -1,8 +1,6 @@
 package upgrade
 
 import (
-	"crypto/md5"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
@@ -22,8 +20,9 @@ type Checksums interface {
 }
 
 // VerifyTree holds a staged tree against a checksum list: every file the list
-// names has to be there with that MD5. The list decides what it covers; the
-// core list leaves out wp-content, for instance.
+// names has to be there with one of its sums, SHA-256 where wordpress.org
+// publishes it and MD5 otherwise (knownfiles.Matches). The list decides what it
+// covers; the core list leaves out wp-content, for instance.
 func VerifyTree(dir string, sums map[string]string) error {
 	names := make([]string, 0, len(sums))
 	for name := range sums {
@@ -39,8 +38,7 @@ func VerifyTree(dir string, sums map[string]string) error {
 		if err != nil {
 			return fmt.Errorf("%s fehlt im geladenen Archiv", name)
 		}
-		sum := md5.Sum(raw)
-		if !knownfiles.SumMatches(strings.ToLower(sums[name]), hex.EncodeToString(sum[:])) {
+		if !knownfiles.Matches(strings.ToLower(sums[name]), raw) {
 			return fmt.Errorf("%s weicht von der Prüfsumme ab", name)
 		}
 	}

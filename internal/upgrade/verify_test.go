@@ -2,6 +2,7 @@ package upgrade
 
 import (
 	"crypto/md5"
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"path/filepath"
@@ -13,6 +14,11 @@ import (
 
 func md5Of(s string) string {
 	sum := md5.Sum([]byte(s))
+	return hex.EncodeToString(sum[:])
+}
+
+func sha256Of(s string) string {
+	sum := sha256.Sum256([]byte(s))
 	return hex.EncodeToString(sum[:])
 }
 
@@ -99,5 +105,22 @@ func TestVerifyTreeAcceptsAnyListedSum(t *testing.T) {
 	other := md5Of("readme build 1") + "," + md5Of("readme build 3")
 	if err := VerifyTree(dir, map[string]string{"readme.txt": other}); err == nil {
 		t.Error("a file matching no listed sum verified")
+	}
+}
+
+// A plugin list carries SHA-256 values; the staged file has to match the
+// SHA-256 itself.
+func TestVerifyTreeComparesBySHA256WherePublished(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "akismet.php"), "<?php // 5.3.3")
+
+	if err := VerifyTree(dir, map[string]string{"akismet.php": sha256Of("<?php // 5.3.3")}); err != nil {
+		t.Errorf("a file matching its SHA-256 failed: %v", err)
+	}
+	if err := VerifyTree(dir, map[string]string{"akismet.php": strings.ToUpper(sha256Of("<?php // 5.3.3"))}); err != nil {
+		t.Errorf("a SHA-256 in upper case failed: %v", err)
+	}
+	if err := VerifyTree(dir, map[string]string{"akismet.php": sha256Of("<?php // anders")}); err == nil {
+		t.Error("a file that differs from its SHA-256 verified")
 	}
 }
