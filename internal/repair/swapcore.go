@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/brightcolor/malwatch/internal/rootio"
 )
 
 // coreDirs are the directories that belong to the core alone and are replaced
@@ -17,6 +19,10 @@ var coreDirs = []string{"wp-admin", "wp-includes"}
 // back one by one, by name, so wp-config.php, wp-content and anything foreign
 // stay. The foreign ones are the point - the scan after the repair is supposed
 // to report them.
+//
+// Every write goes through an os.Root on root, so a directory the website's
+// user swaps for a symlink while the run works cannot steer a placement out of
+// the web root (see Swap and writeLooseRootFiles).
 func SwapCore(root, stagedDir string) (int, error) {
 	if err := InsideRoot(root, stagedDir); err == nil {
 		// Staging inside the web root would make the new files part of what
@@ -24,24 +30,31 @@ func SwapCore(root, stagedDir string) (int, error) {
 		return 0, fmt.Errorf("das Bereitstellungsverzeichnis %s darf nicht im Webstamm liegen", stagedDir)
 	}
 
+	r, err := os.OpenRoot(root)
+	if err != nil {
+		return 0, err
+	}
+	defer r.Close()
+
 	replaced := 0
 	for _, dir := range coreDirs {
 		src := filepath.Join(stagedDir, dir)
 		if _, err := os.Stat(src); err != nil {
 			continue
 		}
-		dst := filepath.Join(root, dir)
-		if err := InsideRoot(root, dst); err != nil {
-			return replaced, err
-		}
-		if _, err := os.Stat(dst); err == nil {
-			if err := Swap(root, dst, src); err != nil {
+		switch _, err := r.Stat(dir); {
+		case err == nil:
+			if err := Swap(root, filepath.Join(root, dir), src); err != nil {
 				return replaced, err
 			}
-		} else if err := os.Rename(src, dst); err != nil {
+		case os.IsNotExist(err):
+			if _, err := rootio.CopyTreeInto(r, dir, src, 0o755, 0o644, -1, -1); err != nil {
+				return replaced, swapError(root, filepath.Join(root, dir), "angelegt", err)
+			}
+		default:
 			return replaced, err
 		}
-		replaced += countFiles(dst)
+		replaced += countFiles(filepath.Join(root, dir))
 	}
 
 	n, err := writeLooseRootFiles(root, stagedDir)
@@ -57,6 +70,12 @@ func SwapCore(root, stagedDir string) (int, error) {
 // whole release, in the mode that leaves the old tree standing and therefore
 // keeps whatever was planted in it.
 func writeLooseRootFiles(root, stagedDir string) (int, error) {
+	r, err := os.OpenRoot(root)
+	if err != nil {
+		return 0, err
+	}
+	defer r.Close()
+
 	entries, err := os.ReadDir(stagedDir)
 	if err != nil {
 		return 0, err
@@ -67,25 +86,32 @@ func writeLooseRootFiles(root, stagedDir string) (int, error) {
 		if entry.IsDir() {
 			continue
 		}
-		dst := filepath.Join(root, entry.Name())
-		if err := InsideRoot(root, dst); err != nil {
-			return written, err
-		}
-		// InsideRoot resolves the path and would catch a link pointing out of
-		// the web root, but one pointing back inside passes - and os.WriteFile
-		// follows it, so index.php could be made to overwrite wp-config.php.
-		// A loose core file is a file; a link in its place is not something to
-		// write through.
-		if lst, err := os.Lstat(dst); err == nil && lst.Mode()&os.ModeSymlink != 0 {
+		name := entry.Name()
+		// os.Root resolves the name and would refuse a link pointing out of
+		// the web root, but one pointing back inside it is followed - and that
+		// would let index.php overwrite wp-config.php. A loose core file is a
+		// file; a link in its place is not something to write through.
+		switch lst, err := r.Lstat(name); {
+		case err == nil && lst.Mode()&os.ModeSymlink != 0:
 			return written, fmt.Errorf("%s ist eine Verknüpfung und wird nicht überschrieben - "+
-				"eine Kerndatei ist keine Verknüpfung", dst)
+				"eine Kerndatei ist keine Verknüpfung", filepath.Join(root, name))
+		case err != nil && !os.IsNotExist(err):
+			return written, swapError(root, filepath.Join(root, name), "geschrieben", err)
 		}
-		raw, err := os.ReadFile(filepath.Join(stagedDir, entry.Name()))
+		raw, err := os.ReadFile(filepath.Join(stagedDir, name))
 		if err != nil {
 			return written, err
 		}
-		if err := os.WriteFile(dst, raw, 0o644); err != nil {
-			return written, err
+		out, err := r.OpenFile(name, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o644)
+		if err != nil {
+			return written, swapError(root, filepath.Join(root, name), "geschrieben", err)
+		}
+		_, werr := out.Write(raw)
+		if cerr := out.Close(); werr == nil {
+			werr = cerr
+		}
+		if werr != nil {
+			return written, werr
 		}
 		written++
 	}

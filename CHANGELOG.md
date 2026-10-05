@@ -21,6 +21,16 @@ Weg und bleibt im Webstamm.
 und muss die Form v1.2.3 haben, ein Zusatz wie -rc.1 ist erlaubt. Gemeldet von Semgrep
 (run-shell-injection).
 
+**Reparatur, Overlay, Upgrade-Rücknahme und das Ablegen in die Quarantäne greifen über
+`os.Root` zu, wie die Wiederherstellung.** `repair.Swap`, `SwapCore` und `Overlay`, die
+Rücknahme eines Upgrades (`upgrade.rollBack`) und das Packen eines Baums in die Quarantäne
+(`quarantine.writeArchive`) gehen jeden Schritt über ein `os.Root` auf dem Webstamm, das einen
+Weg hinaus im Moment des Zugriffs abweist. Rechte und Besitzer setzt der Scanner über den
+Dateideskriptor, das Löschen und das Lesen gehen über `os.Root`. Die gemeinsamen Helfer liegen
+jetzt in `internal/rootio`, das auch die Wiederherstellung aus der Quarantäne nutzt. Ein Link,
+der im Webstamm bleibt, wird weiter verfolgt; ein geteilter Upload-Ordner als Link bleibt
+erhalten, wie er war.
+
 ### Tests
 
 - `internal/quarantine/archive_test.go`: ein Archiv mit einem Link ins Leere und danach
@@ -28,6 +38,14 @@ und muss die Form v1.2.3 haben, ein Zusatz wie -rc.1 ist erlaubt. Gemeldet von S
   Datei darunter. Beide weist `readArchive` ab, außerhalb entsteht nichts, die Meldung nennt
   den Link. `removeAllIn` entfernt einen Link im Baum samt Ordner und lässt sein Ziel stehen;
   einen Namen hinter einem Link nach außen weist es ab.
+- `internal/quarantine/archive_test.go`: `writeArchive` über einen Ordner, der zu einem Link
+  aus dem Webstamm gewechselt ist, liest nichts von außen und meldet den Link.
+- `internal/repair/rootsafe_test.go`: `Swap` legt einen bereitgestellten Baum über `os.Root`
+  ab und weist einen Baum hinter einem Link aus dem Webstamm ab; `SwapCore` legt ein frisches
+  Kernverzeichnis an; `Overlay` hält an einem Link, der aus dem Webstamm führt, und schreibt
+  nichts dahinter.
+- `internal/upgrade/rollback_root_test.go`: `removeAdded` entfernt das vom Release Angelegte
+  über `os.Root` und lässt eine Datei hinter einem Link aus der Installation stehen.
 
 ## [0.40.0] – 2026-09-30
 

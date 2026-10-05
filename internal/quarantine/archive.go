@@ -3,15 +3,14 @@ package quarantine
 import (
 	"archive/tar"
 	"compress/gzip"
-	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"os"
 	"path/filepath"
-	"strings"
-	"syscall"
+	"sort"
 	"time"
+
+	"github.com/brightcolor/malwatch/internal/rootio"
 )
 
 // writeArchive packs whatever sits at root+rel - a single file or a whole
@@ -20,9 +19,11 @@ import (
 // the name: unpacking the result against root reproduces root+rel exactly,
 // which is the layout Restore needs back.
 //
-// Symlinks are stored as links and never followed, the same as
-// repair.Backup: following one would pull whatever it points at into the
-// archive instead of the link that was actually planted.
+// Every step reads through an os.Root opened on root, which resolves each step
+// at the moment it is read and refuses one that leaves root, so the walk stays
+// inside the web root even if the tree changes while it runs. A symlink is
+// stored as the link it is and never followed, the same as before: a shared
+// upload folder comes back as the link it was.
 func writeArchive(dst string, root, rel string) (files int, bytes int64, err error) {
 	if err := os.MkdirAll(filepath.Dir(dst), 0o750); err != nil {
 		return 0, 0, err
@@ -36,45 +37,16 @@ func writeArchive(dst string, root, rel string) (files int, bytes int64, err err
 	gz := gzip.NewWriter(fh)
 	tw := tar.NewWriter(gz)
 
-	start := filepath.Join(root, filepath.FromSlash(rel))
-	walkErr := filepath.Walk(start, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		name, err := filepath.Rel(root, path)
-		if err != nil {
-			return err
-		}
+	src, err := os.OpenRoot(root)
+	if err != nil {
+		return 0, 0, err
+	}
+	defer src.Close()
 
-		link := ""
-		if info.Mode()&os.ModeSymlink != 0 {
-			if link, err = os.Readlink(path); err != nil {
-				return err
-			}
-		}
-		hdr, err := tar.FileInfoHeader(info, link)
-		if err != nil {
-			return err
-		}
-		hdr.Name = filepath.ToSlash(name)
-		if err := tw.WriteHeader(hdr); err != nil {
-			return err
-		}
-		if !info.Mode().IsRegular() {
-			return nil
-		}
-		files++
-		bytes += info.Size()
-		in, err := os.Open(path)
-		if err != nil {
-			return err
-		}
-		defer in.Close()
-		_, err = io.Copy(tw, in)
-		return err
-	})
-	if walkErr != nil {
-		return 0, 0, walkErr
+	name := filepath.Clean(filepath.FromSlash(rel))
+	files, bytes, err = packEntry(tw, src, name)
+	if err != nil {
+		return 0, 0, err
 	}
 	if err := tw.Close(); err != nil {
 		return 0, 0, err
@@ -83,6 +55,74 @@ func writeArchive(dst string, root, rel string) (files int, bytes int64, err err
 		return 0, 0, err
 	}
 	return files, bytes, nil
+}
+
+// packEntry writes name below src into the tar and, when name is a directory,
+// everything under it. It counts regular files and their bytes, the same
+// figures the old filepath.Walk returned. Children are sorted by name, so an
+// archive of the same tree comes out byte for byte the same.
+func packEntry(tw *tar.Writer, src *os.Root, name string) (files int, bytes int64, err error) {
+	info, err := src.Lstat(name)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	link := ""
+	if info.Mode()&os.ModeSymlink != 0 {
+		if link, err = rootio.ReadlinkIn(src, name); err != nil {
+			return 0, 0, err
+		}
+	}
+	hdr, err := tar.FileInfoHeader(info, link)
+	if err != nil {
+		return 0, 0, err
+	}
+	hdr.Name = filepath.ToSlash(name)
+	if err := tw.WriteHeader(hdr); err != nil {
+		return 0, 0, err
+	}
+
+	switch {
+	case info.Mode()&os.ModeSymlink != 0:
+		return 0, 0, nil
+
+	case info.IsDir():
+		d, err := src.Open(name)
+		if err != nil {
+			return 0, 0, err
+		}
+		children, err := d.ReadDir(-1)
+		d.Close()
+		if err != nil {
+			return 0, 0, err
+		}
+		sort.Slice(children, func(i, j int) bool { return children[i].Name() < children[j].Name() })
+		for _, c := range children {
+			f, b, err := packEntry(tw, src, filepath.Join(name, c.Name()))
+			if err != nil {
+				return files, bytes, err
+			}
+			files += f
+			bytes += b
+		}
+		return files, bytes, nil
+
+	case info.Mode().IsRegular():
+		in, err := src.Open(name)
+		if err != nil {
+			return 0, 0, err
+		}
+		defer in.Close()
+		if _, err := io.Copy(tw, in); err != nil {
+			return 0, 0, err
+		}
+		return 1, info.Size(), nil
+
+	default:
+		// A socket, device or pipe: its header is written, like the old walk
+		// did, and nothing is read from it.
+		return 0, 0, nil
+	}
 }
 
 // pendingDir is a directory whose mode and timestamp are applied only after
@@ -105,7 +145,9 @@ type pendingDir struct {
 // Every write goes through an os.Root opened on destRoot, which resolves a
 // name one step at a time at the moment of the write and refuses every step
 // that leaves destRoot. Mode, times and owner are set through the open file,
-// so they apply to exactly the file that was written.
+// so they apply to exactly the file that was written. The steps os.Root in
+// Go 1.24 does not offer (a symlink, its owner, a file's times) run through a
+// descriptor in internal/rootio.
 func readArchive(src string, destRoot string) error {
 	// os.OpenRoot needs destRoot to exist. It does for a real restore - it is
 	// the web root - but not for the scratch directory StoreCopy verifies a
@@ -157,7 +199,7 @@ func readArchive(src string, destRoot string) error {
 		case tar.TypeDir:
 			// A permissive mode for now: the walk that produced this
 			// archive may still need to create files below it.
-			if err := mkdirAllIn(root, name); err != nil {
+			if err := rootio.MkdirAllIn(root, name); err != nil {
 				return rootError(hdr.Name, destRoot, err)
 			}
 			dirs = append(dirs, pendingDir{
@@ -166,7 +208,7 @@ func readArchive(src string, destRoot string) error {
 			})
 
 		case tar.TypeSymlink:
-			if err := mkdirAllIn(root, filepath.Dir(name)); err != nil {
+			if err := rootio.MkdirAllIn(root, filepath.Dir(name)); err != nil {
 				return rootError(hdr.Name, destRoot, err)
 			}
 			// The link comes back pointing wherever it pointed when it was
@@ -176,12 +218,12 @@ func readArchive(src string, destRoot string) error {
 			// destRoot, because os.Root never follows a link there. Neither
 			// Chmod nor Chtimes has a portable, symlink-specific form in the
 			// standard library; only ownership follows.
-			if err := symlinkIn(root, hdr.Linkname, name, hdr.Uid, hdr.Gid); err != nil {
+			if err := rootio.SymlinkIn(root, hdr.Linkname, name, hdr.Uid, hdr.Gid); err != nil {
 				return rootError(hdr.Name, destRoot, err)
 			}
 
 		case tar.TypeReg:
-			if err := mkdirAllIn(root, filepath.Dir(name)); err != nil {
+			if err := rootio.MkdirAllIn(root, filepath.Dir(name)); err != nil {
 				return rootError(hdr.Name, destRoot, err)
 			}
 			out, err := root.OpenFile(name, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o640)
@@ -192,7 +234,7 @@ func readArchive(src string, destRoot string) error {
 				out.Close()
 				return err
 			}
-			if err := finishEntry(out, mode.Perm(), modTimeOrFallback(hdr), hdr.ModTime, hdr.Uid, hdr.Gid); err != nil {
+			if err := rootio.FinishEntry(out, mode.Perm(), modTimeOrFallback(hdr), hdr.ModTime, hdr.Uid, hdr.Gid); err != nil {
 				out.Close()
 				return err
 			}
@@ -213,7 +255,7 @@ func readArchive(src string, destRoot string) error {
 		if err != nil {
 			return rootError(d.entry, destRoot, err)
 		}
-		err = finishEntry(dir, d.mode, d.mod, d.mod, d.uid, d.gid)
+		err = rootio.FinishEntry(dir, d.mode, d.mod, d.mod, d.uid, d.gid)
 		if closeErr := dir.Close(); err == nil {
 			err = closeErr
 		}
@@ -224,69 +266,14 @@ func readArchive(src string, destRoot string) error {
 	return nil
 }
 
-// mkdirAllIn creates name and every missing parent below root, one step at a
-// time through root. Whatever already stands at one of these names has to be
-// a directory.
-func mkdirAllIn(root *os.Root, name string) error {
-	if name == "." {
-		return nil
-	}
-	err := isDirIn(root, name)
-	if !errors.Is(err, fs.ErrNotExist) {
-		return err
-	}
-	if err := mkdirAllIn(root, filepath.Dir(name)); err != nil {
-		return err
-	}
-	if err := root.Mkdir(name, 0o750); err != nil {
-		if !errors.Is(err, fs.ErrExist) {
-			return err
-		}
-		// Created in the meantime: fine, as long as it is a directory.
-		return isDirIn(root, name)
-	}
-	return nil
-}
-
-// isDirIn returns nil when name below root is a directory.
-func isDirIn(root *os.Root, name string) error {
-	info, err := root.Stat(name)
-	if err != nil {
-		return err
-	}
-	if !info.IsDir() {
-		return &os.PathError{Op: "mkdir", Path: name, Err: syscall.ENOTDIR}
-	}
-	return nil
-}
-
-// finishEntry gives a restored file or directory its mode, times and owner,
-// all three through f.
-func finishEntry(f *os.File, perm os.FileMode, atime, mtime time.Time, uid, gid int) error {
-	if err := f.Chmod(perm); err != nil {
-		return err
-	}
-	if err := setTimes(f, atime, mtime); err != nil {
-		return err
-	}
-	return chownFile(f, uid, gid)
-}
-
 // rootError says why an entry could not be written below destRoot; any cause
 // other than a step out of the root comes with Go's own description.
 func rootError(entry, destRoot string, err error) error {
-	if escapesRoot(err) {
+	if rootio.EscapesRoot(err) {
 		return fmt.Errorf("archiveintrag %q führt über einen symbolischen Link aus %s heraus und wurde nicht geschrieben (%v). "+
 			"Den Link prüfen und entfernen, danach den Auftrag erneut starten", entry, destRoot, err)
 	}
 	return fmt.Errorf("archiveintrag %q lässt sich unter %s nicht anlegen: %w", entry, destRoot, err)
-}
-
-// escapesRoot reports whether err is os.Root refusing a step out of its
-// root. Go names that case "path escapes from parent" and keeps the error
-// value to itself, so its text is the only way to tell it apart.
-func escapesRoot(err error) bool {
-	return err != nil && strings.Contains(err.Error(), "path escapes from parent")
 }
 
 // modTimeOrFallback covers archives written on a platform that never filled
