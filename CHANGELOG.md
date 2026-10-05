@@ -2,6 +2,57 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [Unveröffentlicht]
+
+### Geändert
+
+**Plugin-Dateien werden über SHA-256 verglichen.** Wo wordpress.org für eine Plugin-Datei einen
+SHA-256 veröffentlicht, vergleicht malwatch über ihn, wie `wp plugin verify-checksums`: beim
+Abgleich der Herstellerdateien im Scan und bei der Prüfung eines geladenen Archivs in
+`upgrade`. MD5 gilt für Listen, die nur MD5 tragen, etwa die des WordPress-Kerns. Gemeldet von
+Semgrep (use-of-md5).
+
+**`--smtp-tls=starttls`, die Vorgabe, verschickt eine Mail nur nach STARTTLS.** Bietet der
+Server kein STARTTLS an, bricht der Versand mit einer Meldung ab, die die Wege nennt: STARTTLS
+am Server, `--smtp-tls=tls` oder `--smtp-tls=none`. An einen Server auf derselben Maschine
+(`localhost`, `127.0.0.1`, `::1`) geht die Mail auch ohne STARTTLS. Für `starttls` und `tls` ist
+TLS 1.2 die Untergrenze. Das gilt für `malwatch scan --email` und `malwatch send-mail`.
+Gemeldet von Semgrep (missing-ssl-minversion).
+
+**Workflows:** `ci.yml` gibt dem Token jedes Jobs Leserechte auf das Repository. Jede Action in
+`ci.yml` und `release.yml` ist auf den Commit ihres Release festgelegt, die Version steht als
+Kommentar daneben; `tools/check-workflows.sh` prüft beides im Job `test`. Gemeldet von CodeQL
+(actions/missing-workflow-permissions) und Semgrep (github-actions-mutable-action-tag).
+
+### Hinzugefügt
+
+**`--smtp-timeout`** für `scan` und `send-mail`: wie lange der Aufbau der Verbindung zum
+SMTP-Server dauern darf, der TLS-Aufbau von `--smtp-tls=tls` eingeschlossen. Vorgabe 30s wie
+bisher, erlaubt 1s bis 10m.
+
+### Einspielen
+
+Wer über `--smtp` einen Server auf einem anderen Rechner ohne STARTTLS anspricht, setzt
+`--smtp-tls=none` oder schaltet STARTTLS am Server ein. Das Addon übergibt die Verschlüsselung,
+die in ISPConfig unter System > Hauptkonfiguration > Mail eingestellt ist; mit dem Wert `tls`
+dort gilt die Regel oben.
+
+### Tests
+
+- `internal/mail/mail_test.go`: ein SMTP-Server ohne STARTTLS unter dem Namen eines anderen
+  Rechners bekommt keine Mail, und die Meldung nennt die Wege; derselbe Server als 127.0.0.1
+  bekommt sie. Nach STARTTLS mit eigenem Zertifikat geht die Mail über TLS 1.2 oder neuer. Die
+  TLS-Einstellungen tragen Untergrenze und Servernamen. Ein stummer Server lässt
+  `--smtp-tls=tls` nach `Timeout` (im Test 300 ms) scheitern. `CheckTimeout` nimmt 1s bis 10m.
+- `internal/knownfiles/sha256list_test.go`: eine Plugin-Liste mit MD5 und SHA-256 wird über
+  SHA-256 gelesen, auch mit mehreren Builds einer Datei; eine Datei ohne SHA-256 behält MD5.
+  `Matches` erkennt die Art einer Summe an ihrer Länge.
+- `internal/upgrade/verify_test.go`: `VerifyTree` prüft eine Datei gegen ihren SHA-256.
+- `cmd/malwatch/sendmail_test.go`: `--smtp-timeout` außerhalb von 1s bis 10m wird abgewiesen,
+  in `scan` und `send-mail`; die Hilfe nennt Vorgabe und Grenzen aus dem Code.
+- Job `test`, Schritt „Workflows“: `tools/check-workflows.sh` weist eine Action ohne Commit und
+  einen Workflow ohne `permissions` ab.
+
 ## [0.40.2] – 2026-10-05
 
 ### Geändert
