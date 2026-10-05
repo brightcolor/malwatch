@@ -76,6 +76,7 @@ func cmdScan(args []string) int {
 	smtpHost := fs.String("smtp", "", "")
 	smtpUser := fs.String("smtp-user", "", "")
 	smtpPass := fs.String("smtp-pass", "", "")
+	smtpPassFile := fs.String("smtp-pass-file", "", "")
 	smtpTLS := fs.String("smtp-tls", "starttls", "")
 	smtpTimeout := fs.Duration("smtp-timeout", mail.DefaultTimeout, "")
 
@@ -125,6 +126,16 @@ func cmdScan(args []string) int {
 	if err := mail.CheckTimeout(*smtpTimeout); err != nil {
 		fmt.Fprintf(os.Stderr, "%v. Ohne den Schalter gilt die Vorgabe.\n", err)
 		return report.ExitError
+	}
+	// Read before the scan, so that a password file that cannot be read stops
+	// the run at its start, before the report is due.
+	var mailPass string
+	if len(email) > 0 {
+		var err error
+		if mailPass, err = scanSMTPPassword(fs, *smtpPass, *smtpPassFile); err != nil {
+			fmt.Fprintf(os.Stderr, "%v.\n", err)
+			return report.ExitError
+		}
 	}
 
 	for _, file := range excludeFrom {
@@ -222,7 +233,7 @@ func cmdScan(args []string) int {
 			To:       email,
 			SMTPHost: *smtpHost,
 			SMTPUser: *smtpUser,
-			SMTPPass: *smtpPass,
+			SMTPPass: mailPass,
 			TLSMode:  *smtpTLS,
 			Timeout:  *smtpTimeout,
 		}
@@ -233,6 +244,31 @@ func cmdScan(args []string) int {
 	}
 
 	return rep.ExitCode(min)
+}
+
+// scanSMTPPassword is the SMTP password of scan --email: from
+// --smtp-pass-file or the environment, the way send-mail reads it, or from
+// --smtp-pass, which stays for existing calls and wins over the environment.
+// The two switches together are refused: one of them would silently lose.
+func scanSMTPPassword(fs *flag.FlagSet, pass, file string) (string, error) {
+	given := false
+	fs.Visit(func(f *flag.Flag) {
+		if f.Name == "smtp-pass" {
+			given = true
+		}
+	})
+	if given && file != "" {
+		return "", fmt.Errorf("--smtp-pass und --smtp-pass-file nennen beide ein SMTP-Passwort. " +
+			"Bitte nur --smtp-pass-file angeben: auf der Befehlszeile ist das Passwort für jeden Benutzer der Maschine lesbar")
+	}
+	if given {
+		return pass, nil
+	}
+	pass, err := smtpPassword(file)
+	if err != nil {
+		return "", fmt.Errorf("%v. Bitte Pfad und Rechte der Datei prüfen", err)
+	}
+	return pass, nil
 }
 
 // writeReport renders the report to the chosen destination.

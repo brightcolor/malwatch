@@ -77,8 +77,14 @@ Bericht per E-Mail:
   --email-from=ADRESSE     Absender
   --email-empty            auch senden, wenn nichts gefunden wurde
   --smtp=HOST:PORT         über diesen SMTP-Server senden statt über sendmail
-  --smtp-user=NAME         Anmeldename für den SMTP-Server
-  --smtp-pass=WERT         Kennwort für den SMTP-Server
+  --smtp-user=NAME         Anmeldename für den SMTP-Server; das Kennwort kommt
+                           aus --smtp-pass-file=DATEI oder der
+                           Umgebungsvariablen MALWATCH_SMTP_PASS, die Datei
+                           geht vor
+  --smtp-pass=WERT         Kennwort auf der Befehlszeile, für bestehende
+                           Aufrufe; dort ist es für jeden Benutzer der
+                           Maschine lesbar, deshalb besser --smtp-pass-file
+                           (beide zusammen weist der Scanner ab)
   --smtp-tls=MODUS         none, starttls oder tls (Vorgabe: starttls); mit
                            starttls geht die Mail nur nach STARTTLS hinaus,
                            zu localhost, 127.0.0.1 und ::1 auch ohne

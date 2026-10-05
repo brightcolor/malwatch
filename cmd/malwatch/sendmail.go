@@ -10,9 +10,25 @@ import (
 	"github.com/brightcolor/malwatch/internal/report"
 )
 
-// smtpPassEnv is where send-mail finds the SMTP password when no file names
-// it. Never a switch: every user of the machine can read a command line.
+// smtpPassEnv is where send-mail and scan find the SMTP password when no file
+// names it. Every user of the machine can read a command line, so send-mail
+// takes the password from here or from a file only.
 const smtpPassEnv = "MALWATCH_SMTP_PASS"
+
+// smtpPassword reads the SMTP password from smtpPassEnv, or from file when
+// one is named; the file wins. A line break at its end is not part of the
+// password. Without either the password is empty.
+func smtpPassword(file string) (string, error) {
+	pass := os.Getenv(smtpPassEnv)
+	if file == "" {
+		return pass, nil
+	}
+	raw, err := os.ReadFile(file)
+	if err != nil {
+		return "", fmt.Errorf("Die Passwortdatei %s ist nicht lesbar: %w", file, err)
+	}
+	return strings.TrimRight(string(raw), "\r\n"), nil
+}
 
 // cmdSendMail delivers a message someone else built - the ISPConfig addon
 // writes its HTML mails with their images and hands them over here, because
@@ -69,14 +85,10 @@ func cmdSendMail(args []string) int {
 		return report.ExitError
 	}
 
-	pass := os.Getenv(smtpPassEnv)
-	if *smtpPassFile != "" {
-		raw, err := os.ReadFile(*smtpPassFile)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Die Passwortdatei %s ist nicht lesbar: %v\n", *smtpPassFile, err)
-			return report.ExitError
-		}
-		pass = strings.TrimRight(string(raw), "\r\n")
+	pass, err := smtpPassword(*smtpPassFile)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v. Bitte Pfad und Rechte der Datei prüfen.\n", err)
+		return report.ExitError
 	}
 
 	sender := mail.Sender{

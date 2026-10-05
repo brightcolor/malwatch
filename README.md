@@ -128,6 +128,19 @@ Der Schlüssel steht in einer Datei oder in `MALWATCH_WPSCAN_TOKEN`. Als
 Schalter auf der Kommandozeile wäre er für jeden Benutzer der Maschine in
 `/proc` lesbar.
 
+Der Bericht per Mail über einen SMTP-Server mit Anmeldung, das Kennwort aus
+einer Datei, die nur root lesen kann:
+
+```bash
+malwatch scan --path=/var/www --email=admin@example.com --smtp=mail.example.com:587 \
+  --smtp-user=malwatch --smtp-pass-file=/etc/malwatch/smtp.pass
+```
+
+Das Kennwort steht in dieser Datei oder in `MALWATCH_SMTP_PASS`, die Datei geht
+vor; `malwatch send-mail` liest es genauso. `--smtp-pass` bleibt für bestehende
+Aufrufe erhalten. Dort steht das Kennwort auf der Kommandozeile und ist für
+jeden Benutzer der Maschine in `/proc` lesbar; deshalb empfiehlt sich die Datei.
+
 Alle Schalter zeigt `malwatch --help`.
 
 ### Rückgabecodes
