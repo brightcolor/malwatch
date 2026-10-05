@@ -5,17 +5,38 @@ on:
     branches: [main]
   pull_request:
 
+# The token of every job may read the repository, which is all the jobs here
+# need. Every action is pinned to a commit, with its version as a comment;
+# tools/check-workflows.sh holds both.
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version: "1.24"
           cache: true
       - name: Format
         run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+      - name: Workflows
+        # The second half proves the check refuses an action without a commit
+        # and a workflow without a permissions block.
+        run: |
+          sh tools/check-workflows.sh
+          mkdir -p "$RUNNER_TEMP/tag" "$RUNNER_TEMP/token"
+          printf 'permissions:\n  contents: read\njobs:\n  x:\n    steps:\n      - uses: actions/checkout@v4\n' \
+            > "$RUNNER_TEMP/tag/ci.yml"
+          printf 'jobs:\n  x:\n    steps:\n      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262\n' \
+            > "$RUNNER_TEMP/token/ci.yml"
+          for dir in "$RUNNER_TEMP/tag" "$RUNNER_TEMP/token"; do
+            if sh tools/check-workflows.sh "$dir"; then
+              echo "check-workflows.sh accepted $dir/ci.yml"; exit 1
+            fi
+          done
       - name: Vet
         run: go vet ./...
       - name: Test
@@ -29,8 +50,8 @@ jobs:
     # found), and make dist refuses it.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version: "1.24"
           cache: true
@@ -40,7 +61,7 @@ jobs:
       # before a release is tagged. Kept before the next step, which builds
       # into the same folder again.
       - name: Keep the scanner for checks before a release
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: malwatch-linux-amd64
           path: dist/malwatch-linux-amd64
@@ -61,8 +82,8 @@ jobs:
   php-syntax:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: shivammathur/setup-php@v2
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
         with:
           php-version: "8.3"
       - name: Lint the extension
@@ -127,8 +148,8 @@ jobs:
     # the third false alarm.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version: "1.24"
           cache: true
@@ -173,8 +194,8 @@ jobs:
     # second wrong destroys customer data.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version: "1.24"
           cache: true
@@ -253,12 +274,12 @@ jobs:
           --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
           --health-interval=5s --health-timeout=5s --health-retries=30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version: "1.24"
           cache: true
-      - uses: shivammathur/setup-php@v2
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
         with:
           php-version: "8.2"
           extensions: mysqli
