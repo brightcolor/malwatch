@@ -3,13 +3,15 @@ package quarantine
 import (
 	"archive/tar"
 	"compress/gzip"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
+	"syscall"
 	"time"
-
-	"github.com/brightcolor/malwatch/internal/safepath"
 )
 
 // writeArchive packs whatever sits at root+rel - a single file or a whole
@@ -88,23 +90,35 @@ func writeArchive(dst string, root, rel string) (files int, bytes int64, err err
 // leave the walk unable to create the directory's own children, or would
 // have that creation immediately overwrite the restored mtime.
 type pendingDir struct {
-	path string
-	mode os.FileMode
-	mod  time.Time
-	uid  int
-	gid  int
+	entry string // the name in the archive, for messages
+	name  string // the same name below destRoot
+	mode  os.FileMode
+	mod   time.Time
+	uid   int
+	gid   int
 }
 
 // readArchive unpacks src below destRoot, recreating the entries exactly as
 // writeArchive named them - so destRoot is the root an entry was packed
 // with, not the entry's own target path.
+//
+// Every write goes through an os.Root opened on destRoot, which resolves a
+// name one step at a time at the moment of the write and refuses every step
+// that leaves destRoot. Mode, times and owner are set through the open file,
+// so they apply to exactly the file that was written.
 func readArchive(src string, destRoot string) error {
-	// The boundary check below resolves destRoot, which means it has to exist
-	// first. It does for a real restore - it is the web root - but not for
-	// the scratch directory StoreCopy verifies a fresh archive through.
+	// os.OpenRoot needs destRoot to exist. It does for a real restore - it is
+	// the web root - but not for the scratch directory StoreCopy verifies a
+	// fresh archive through.
 	if err := os.MkdirAll(destRoot, 0o750); err != nil {
 		return err
 	}
+	root, err := os.OpenRoot(destRoot)
+	if err != nil {
+		return err
+	}
+	defer root.Close()
+
 	fh, err := os.Open(src)
 	if err != nil {
 		return err
@@ -127,15 +141,15 @@ func readArchive(src string, destRoot string) error {
 		if err != nil {
 			return err
 		}
-		// filepath.Join cleans the path, so a name like ../../etc/cron.d/x
-		// lands outside destRoot with no complaint from anyone. The names in
-		// here come off a website that was compromised often enough to end up
-		// in quarantine; treating them as trustworthy because we wrote the
-		// tar ourselves is exactly the assumption that gets a root process to
-		// write into /etc.
-		target := filepath.Join(destRoot, filepath.FromSlash(hdr.Name))
-		if err := safepath.InsideRoot(destRoot, target); err != nil {
-			return fmt.Errorf("archiveintrag %q zeigt aus %s heraus: %w", hdr.Name, destRoot, err)
+		// Names are judged before they are used: IsLocal refuses "..", an
+		// absolute name and an empty one, so every entry stays below destRoot.
+		name := filepath.FromSlash(hdr.Name)
+		if !filepath.IsLocal(name) {
+			return fmt.Errorf("archiveintrag %q zeigt aus %s heraus", hdr.Name, destRoot)
+		}
+		name = filepath.Clean(name)
+		if name == "." {
+			return fmt.Errorf("archiveintrag %q benennt %s selbst, nicht einen Eintrag darin", hdr.Name, destRoot)
 		}
 		mode := hdr.FileInfo().Mode()
 
@@ -143,49 +157,46 @@ func readArchive(src string, destRoot string) error {
 		case tar.TypeDir:
 			// A permissive mode for now: the walk that produced this
 			// archive may still need to create files below it.
-			if err := os.MkdirAll(target, 0o750); err != nil {
-				return err
+			if err := mkdirAllIn(root, name); err != nil {
+				return rootError(hdr.Name, destRoot, err)
 			}
 			dirs = append(dirs, pendingDir{
-				path: target, mode: mode.Perm(), mod: hdr.ModTime,
+				entry: hdr.Name, name: name, mode: mode.Perm(), mod: hdr.ModTime,
 				uid: hdr.Uid, gid: hdr.Gid,
 			})
 
 		case tar.TypeSymlink:
-			if err := os.MkdirAll(filepath.Dir(target), 0o750); err != nil {
-				return err
+			if err := mkdirAllIn(root, filepath.Dir(name)); err != nil {
+				return rootError(hdr.Name, destRoot, err)
 			}
-			if err := os.Symlink(hdr.Linkname, target); err != nil {
-				return err
-			}
-			// Neither Chmod nor Chtimes has a portable, symlink-specific
-			// form in the standard library; only ownership follows.
-			if err := chownLink(target, hdr.Uid, hdr.Gid); err != nil {
-				return err
+			// The link comes back pointing wherever it pointed when it was
+			// quarantined, into the website or out of it: quarantine returns
+			// what was there, and a shared upload folder is a link out of the
+			// web root as well. It cannot carry a later entry out of
+			// destRoot, because os.Root never follows a link there. Neither
+			// Chmod nor Chtimes has a portable, symlink-specific form in the
+			// standard library; only ownership follows.
+			if err := symlinkIn(root, hdr.Linkname, name, hdr.Uid, hdr.Gid); err != nil {
+				return rootError(hdr.Name, destRoot, err)
 			}
 
 		case tar.TypeReg:
-			if err := os.MkdirAll(filepath.Dir(target), 0o750); err != nil {
-				return err
+			if err := mkdirAllIn(root, filepath.Dir(name)); err != nil {
+				return rootError(hdr.Name, destRoot, err)
 			}
-			out, err := os.OpenFile(target, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o640)
+			out, err := root.OpenFile(name, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o640)
 			if err != nil {
-				return err
+				return rootError(hdr.Name, destRoot, err)
 			}
 			if _, err := io.Copy(out, tr); err != nil {
 				out.Close()
 				return err
 			}
+			if err := finishEntry(out, mode.Perm(), modTimeOrFallback(hdr), hdr.ModTime, hdr.Uid, hdr.Gid); err != nil {
+				out.Close()
+				return err
+			}
 			if err := out.Close(); err != nil {
-				return err
-			}
-			if err := os.Chmod(target, mode.Perm()); err != nil {
-				return err
-			}
-			if err := os.Chtimes(target, modTimeOrFallback(hdr), hdr.ModTime); err != nil {
-				return err
-			}
-			if err := chownPath(target, hdr.Uid, hdr.Gid); err != nil {
 				return err
 			}
 
@@ -195,20 +206,87 @@ func readArchive(src string, destRoot string) error {
 	}
 
 	// Deepest first, so a parent's tightened mode never blocks setting a
-	// child's - Chmod only needs to reach the child, not write into it.
+	// child's: opening the child only needs to pass through its parents.
 	for i := len(dirs) - 1; i >= 0; i-- {
 		d := dirs[i]
-		if err := os.Chmod(d.path, d.mode); err != nil {
-			return err
+		dir, err := root.Open(d.name)
+		if err != nil {
+			return rootError(d.entry, destRoot, err)
 		}
-		if err := os.Chtimes(d.path, d.mod, d.mod); err != nil {
-			return err
+		err = finishEntry(dir, d.mode, d.mod, d.mod, d.uid, d.gid)
+		if closeErr := dir.Close(); err == nil {
+			err = closeErr
 		}
-		if err := chownPath(d.path, d.uid, d.gid); err != nil {
+		if err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// mkdirAllIn creates name and every missing parent below root, one step at a
+// time through root. Whatever already stands at one of these names has to be
+// a directory.
+func mkdirAllIn(root *os.Root, name string) error {
+	if name == "." {
+		return nil
+	}
+	err := isDirIn(root, name)
+	if !errors.Is(err, fs.ErrNotExist) {
+		return err
+	}
+	if err := mkdirAllIn(root, filepath.Dir(name)); err != nil {
+		return err
+	}
+	if err := root.Mkdir(name, 0o750); err != nil {
+		if !errors.Is(err, fs.ErrExist) {
+			return err
+		}
+		// Created in the meantime: fine, as long as it is a directory.
+		return isDirIn(root, name)
+	}
+	return nil
+}
+
+// isDirIn returns nil when name below root is a directory.
+func isDirIn(root *os.Root, name string) error {
+	info, err := root.Stat(name)
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() {
+		return &os.PathError{Op: "mkdir", Path: name, Err: syscall.ENOTDIR}
+	}
+	return nil
+}
+
+// finishEntry gives a restored file or directory its mode, times and owner,
+// all three through f.
+func finishEntry(f *os.File, perm os.FileMode, atime, mtime time.Time, uid, gid int) error {
+	if err := f.Chmod(perm); err != nil {
+		return err
+	}
+	if err := setTimes(f, atime, mtime); err != nil {
+		return err
+	}
+	return chownFile(f, uid, gid)
+}
+
+// rootError says why an entry could not be written below destRoot; any cause
+// other than a step out of the root comes with Go's own description.
+func rootError(entry, destRoot string, err error) error {
+	if escapesRoot(err) {
+		return fmt.Errorf("archiveintrag %q führt über einen symbolischen Link aus %s heraus und wurde nicht geschrieben (%v). "+
+			"Den Link prüfen und entfernen, danach den Auftrag erneut starten", entry, destRoot, err)
+	}
+	return fmt.Errorf("archiveintrag %q lässt sich unter %s nicht anlegen: %w", entry, destRoot, err)
+}
+
+// escapesRoot reports whether err is os.Root refusing a step out of its
+// root. Go names that case "path escapes from parent" and keeps the error
+// value to itself, so its text is the only way to tell it apart.
+func escapesRoot(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "path escapes from parent")
 }
 
 // modTimeOrFallback covers archives written on a platform that never filled

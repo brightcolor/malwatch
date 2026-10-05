@@ -2,6 +2,33 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [Unveröffentlicht]
+
+### Behoben
+
+**Wiederherstellen aus der Quarantäne schreibt nur innerhalb des Webstamms.** Das gilt auch
+für die selbsttätige Rücknahme eines Upgrades, das die Website stört. Jeder Schritt geht über
+ein `os.Root` auf dem Zielordner, das einen Weg hinaus im Moment des Schreibens abweist;
+Rechte, Zeiten und Besitzer setzt der Scanner über die geöffnete Datei. Einen Link legt er
+über den geöffneten Elternordner an (`/proc/self/fd`, auf Linux immer vorhanden). Ein Link
+kommt weiter so zurück, wie er in die Quarantäne kam, auch wenn er aus dem Webstamm zeigt.
+Gemeldet von CodeQL (go/unsafe-unzip-symlink, go/zipslip).
+
+**Entfernen beim Verschieben in die Quarantäne und vor `restore --force`** geht denselben
+Weg und bleibt im Webstamm.
+
+**Release-Workflow:** Der Tag erreicht den Schritt „Resolve version“ als Umgebungsvariable
+und muss die Form v1.2.3 haben, ein Zusatz wie -rc.1 ist erlaubt. Gemeldet von Semgrep
+(run-shell-injection).
+
+### Tests
+
+- `internal/quarantine/archive_test.go`: ein Archiv mit einem Link ins Leere und danach
+  einer Datei unter demselben Namen, eines mit einem Link auf einen Ordner außerhalb und einer
+  Datei darunter. Beide weist `readArchive` ab, außerhalb entsteht nichts, die Meldung nennt
+  den Link. `removeAllIn` entfernt einen Link im Baum samt Ordner und lässt sein Ziel stehen;
+  einen Namen hinter einem Link nach außen weist es ab.
+
 ## [0.40.0] – 2026-09-30
 
 ### Hinzugefügt
