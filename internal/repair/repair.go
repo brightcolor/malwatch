@@ -27,8 +27,11 @@ type Options struct {
 	// Origin and Reason label the quarantine entries. Empty means the
 	// repair's own labels; an upgrade passes its own, so the quarantine list
 	// says why a tree left the site.
-	Origin   string
-	Reason   string
+	Origin string
+	Reason string
+	// Space is how filing into quarantine measures its room; the zero value
+	// keeps no reserve. The command fills it from --quarantine-reserve.
+	Space    quarantine.Space
 	Fetcher  *vendorfiles.Fetcher
 	Progress *progress.Writer
 }
@@ -324,9 +327,9 @@ func quarantineElement(opts Options, mode string, el Element, reason string) (qu
 	}
 	src := repairSource(opts, el, reason)
 	if mode == "overlay" {
-		return quarantine.StoreCopy(opts.QuarantineDir, src)
+		return quarantine.StoreCopyWith(opts.QuarantineDir, src, opts.Space)
 	}
-	return quarantine.Store(opts.QuarantineDir, src)
+	return quarantine.StoreWith(opts.QuarantineDir, src, opts.Space)
 }
 
 // captureMode reads a directory's mode and owner before quarantine.Store
@@ -366,6 +369,27 @@ func repairCore(opts Options, mode string, stagedDir string) (int, []string, err
 		}
 	}
 
+	// Alles, was gleich in die Quarantäne geht, misst eine Prüfung vorher
+	// zusammen: wp-admin, wp-includes und die geänderten losen Dateien.
+	// Reicht der Platz nur für das erste Verzeichnis, stünde die Website
+	// sonst ohne wp-admin da, während der Lauf am zweiten scheitert.
+	loose, err := changedLooseRootFiles(opts, stagedDir)
+	if err != nil {
+		return 0, nil, err
+	}
+	var parts []quarantine.Source
+	for _, dir := range coreDirs {
+		if _, err := os.Lstat(filepath.Join(opts.Root, dir)); err == nil {
+			parts = append(parts, quarantine.Source{Root: opts.Root, RelPath: dir})
+		}
+	}
+	for _, name := range loose {
+		parts = append(parts, quarantine.Source{Root: opts.Root, RelPath: name})
+	}
+	if err := quarantine.CheckStore(opts.QuarantineDir, parts, opts.Space); err != nil {
+		return 0, nil, err
+	}
+
 	var ids []string
 	// Read before quarantine.Store removes the directories: SwapCore then
 	// finds them gone and has no identity left to carry over, so the staged
@@ -396,9 +420,9 @@ func repairCore(opts Options, mode string, stagedDir string) (int, []string, err
 		var err error
 		if mode == "overlay" {
 			src.Reason = opts.reason("Vor dem Darüberschreiben abgelegt")
-			qEntry, err = quarantine.StoreCopy(opts.QuarantineDir, src)
+			qEntry, err = quarantine.StoreCopyWith(opts.QuarantineDir, src, opts.Space)
 		} else {
-			qEntry, err = quarantine.Store(opts.QuarantineDir, src)
+			qEntry, err = quarantine.StoreWith(opts.QuarantineDir, src, opts.Space)
 		}
 		if err != nil {
 			return 0, ids, err
@@ -406,7 +430,7 @@ func repairCore(opts Options, mode string, stagedDir string) (int, []string, err
 		ids = append(ids, qEntry.ID)
 	}
 
-	looseIDs, err := quarantineLooseRootFiles(opts, stagedDir)
+	looseIDs, err := quarantineLooseRootFiles(opts, loose)
 	if err != nil {
 		return 0, ids, err
 	}
@@ -425,9 +449,8 @@ func repairCore(opts Options, mode string, stagedDir string) (int, []string, err
 	return n, ids, err
 }
 
-// quarantineLooseRootFiles archives the loose files in the web root that the
-// staged core is about to write over, one entry each, and only where the file
-// on disk actually differs from the vendor's.
+// changedLooseRootFiles names the loose files in the web root that the staged
+// core is about to write over and whose content differs from the vendor's.
 //
 // wp-admin and wp-includes go into quarantine as whole directories, but the
 // files beside them - index.php, wp-login.php, wp-settings.php and the rest -
@@ -436,17 +459,16 @@ func repairCore(opts Options, mode string, stagedDir string) (int, []string, err
 // own documentation describes, for a site served from a subdirectory, would
 // have been gone for good.
 //
-// Identical files are skipped rather than archived: a copy of a file the
-// vendor is about to write back byte for byte is not a rescue, it is a row in
-// a list someone has to read. One entry per file rather than one bundle is
-// deliberate too - whoever wants their index.php back finds it by name.
-func quarantineLooseRootFiles(opts Options, stagedDir string) ([]string, error) {
+// Identical files are left out: a copy of a file the vendor is about to write
+// back byte for byte is not a rescue, it is a row in a list someone has to
+// read.
+func changedLooseRootFiles(opts Options, stagedDir string) ([]string, error) {
 	staged, err := os.ReadDir(stagedDir)
 	if err != nil {
 		return nil, err
 	}
 
-	var ids []string
+	var names []string
 	for _, entry := range staged {
 		if entry.IsDir() {
 			continue
@@ -454,7 +476,7 @@ func quarantineLooseRootFiles(opts Options, stagedDir string) ([]string, error) 
 		name := entry.Name()
 		target := filepath.Join(opts.Root, name)
 		if err := InsideRoot(opts.Root, target); err != nil {
-			return ids, err
+			return nil, err
 		}
 		info, err := os.Lstat(target)
 		if err != nil {
@@ -469,17 +491,25 @@ func quarantineLooseRootFiles(opts Options, stagedDir string) ([]string, error) 
 
 		same, err := sameContent(target, filepath.Join(stagedDir, name))
 		if err != nil {
-			return ids, err
+			return nil, err
 		}
-		if same {
-			continue
+		if !same {
+			names = append(names, name)
 		}
+	}
+	return names, nil
+}
 
-		qEntry, err := quarantine.StoreCopy(opts.QuarantineDir, quarantine.Source{
+// quarantineLooseRootFiles archives the loose root files changedLooseRootFiles
+// named, one entry each: whoever wants their index.php back finds it by name.
+func quarantineLooseRootFiles(opts Options, names []string) ([]string, error) {
+	var ids []string
+	for _, name := range names {
+		qEntry, err := quarantine.StoreCopyWith(opts.QuarantineDir, quarantine.Source{
 			Root: opts.Root, RelPath: name, Domain: opts.Domain,
 			Origin: opts.origin(),
 			Reason: opts.reason("Vom Original abweichende Kerndatei, vor dem Überschreiben abgelegt"),
-		})
+		}, opts.Space)
 		if err != nil {
 			return ids, err
 		}

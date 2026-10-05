@@ -312,7 +312,42 @@ Das ZIP aus `export` trägt ein Passwort, `infected` in der Vorgabe
 (`--password` setzt ein anderes). Das ist die Übereinkunft, mit der
 Sicherheitsleute Schadcode-Proben verschicken: jedes Packprogramm kennt sie,
 kein Virenscanner nimmt die Datei deshalb unterwegs weg, und der eigene
-Rechner sammelt sie beim Entpacken nicht sofort wieder ein.
+Rechner sammelt sie beim Entpacken nicht sofort wieder ein. `export` packt jede
+Datei als Strom: über eine Zwischendatei neben dem ZIP, sodass der
+Speicherbedarf gleich bleibt, wie groß eine Datei auch ist.
+
+### Platz am Ziel
+
+Bevor die Quarantäne schreibt, misst sie den freien Platz dort, wohin sie
+schreibt:
+
+| Aktion | gemessen |
+|---|---|
+| `add` | Archiv und die Kopie, die zur Kontrolle entpackt wird, in `--quarantine-dir` |
+| `restore` | die Dateien am ursprünglichen Ort; mit `--force` dazu eine Zwischenkopie in `--quarantine-dir`, was `--force` am Ziel entfernt, zählt als frei |
+| `export` | das ZIP und die Zwischendatei seiner größten Datei im Ordner von `--zip` |
+
+Dazu kommt eine Reserve, die immer frei bleibt: `--quarantine-reserve` in MiB,
+Vorgabe 256, erlaubt 0 bis 1048576. Wie gut sich Dateien packen lassen, zeigt
+sich erst beim Packen; die Prüfung rechnet Archiv und ZIP deshalb so groß wie
+die Dateien selbst. Liegen zwei Ziele auf demselben Dateisystem, zählt sie
+beides zusammen.
+
+Reicht der Platz nicht, bricht die Aktion ab. Dateien und Einträge bleiben,
+wie sie sind, und die Meldung nennt den freien Platz, den Bedarf samt Reserve
+und den nächsten Schritt:
+
+```
+Auf /var/lib/malwatch/quarantine reicht der Platz nicht: frei sind 100,0 MiB, gebraucht werden 256,0 MiB,
+davon 256,0 MiB Reserve. wp-content/uploads/shell.php bleibt unverändert liegen. Platz schaffen oder die
+Reserve senken (--quarantine-reserve), danach erneut versuchen.
+```
+
+Bei mehreren `--file` oder `--id` gilt das für jede einzeln. `repair` und
+`upgrade` kennen denselben Schalter: Sie legen ersetzte Ordner und
+Datenbank-Exporte in dieselbe Ablage und holen bei der Rücknahme eines Updates
+von dort zurück. Den Kern legt `repair` als ein Schritt ab, `wp-admin`,
+`wp-includes` und die geänderten losen Dateien zusammen gemessen.
 
 ## Regelkatalog ausgeben
 

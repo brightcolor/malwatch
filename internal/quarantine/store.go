@@ -84,14 +84,23 @@ func validRel(rel string) error {
 	return nil
 }
 
-// StoreCopy archives src below storeRoot without touching src itself.
+// StoreCopy is StoreCopyWith with the default reserve.
+func StoreCopy(storeRoot string, src Source) (Entry, error) {
+	return StoreCopyWith(storeRoot, src, DefaultSpace())
+}
+
+// StoreCopyWith archives src below storeRoot without touching src itself.
+//
+// Before the first byte it checks that the store's filesystem holds the
+// archive, the copy unpacked to read it back and the reserve of space (see
+// CheckStore); a *SpaceError leaves everything as it was.
 //
 // The archive is read back once, in full, before meta.json is written: a
 // tar that looks written but does not actually unpack must not become the
-// only copy of a file quarantine is about to vouch for. Store builds on
+// only copy of a file quarantine is about to vouch for. StoreWith builds on
 // this and additionally removes the source; a repair running in overlay
 // mode needs the copy on its own, with the source left alone.
-func StoreCopy(storeRoot string, src Source) (Entry, error) {
+func StoreCopyWith(storeRoot string, src Source, space Space) (Entry, error) {
 	id, err := newID()
 	if err != nil {
 		return Entry{}, err
@@ -110,6 +119,10 @@ func StoreCopy(storeRoot string, src Source) (Entry, error) {
 	kind := "file"
 	if info.IsDir() {
 		kind = "dir"
+	}
+
+	if err := CheckStore(storeRoot, []Source{src}, space); err != nil {
+		return Entry{}, err
 	}
 
 	files, byteCount, err := writeArchive(payload, src.Root, src.RelPath)
@@ -163,11 +176,17 @@ func StoreCopy(storeRoot string, src Source) (Entry, error) {
 	return entry, nil
 }
 
-// Store archives src and then removes it. Nothing is deleted until the
-// archive above has been written, read back and given a meta.json - a run
-// that dies before that point leaves the source exactly where it was.
+// Store is StoreWith with the default reserve.
 func Store(storeRoot string, src Source) (Entry, error) {
-	entry, err := StoreCopy(storeRoot, src)
+	return StoreWith(storeRoot, src, DefaultSpace())
+}
+
+// StoreWith archives src and then removes it. Nothing is deleted until the
+// archive above has been written, read back and given a meta.json - a run
+// that dies before that point, or a store without the room for it, leaves the
+// source exactly where it was.
+func StoreWith(storeRoot string, src Source, space Space) (Entry, error) {
+	entry, err := StoreCopyWith(storeRoot, src, space)
 	if err != nil {
 		return Entry{}, err
 	}
@@ -292,7 +311,12 @@ func Get(storeRoot, id string) (Entry, error) {
 	return entry, nil
 }
 
-// Restore puts an entry's content back at Root+RelPath.
+// Restore is RestoreWith with the default reserve.
+func Restore(storeRoot, id string, force bool) error {
+	return RestoreWith(storeRoot, id, force, DefaultSpace())
+}
+
+// RestoreWith puts an entry's content back at Root+RelPath.
 //
 // The target is checked with safepath.InsideRoot before anything is written:
 // RelPath ultimately comes from a scan finding, and a symlink planted at
@@ -300,7 +324,13 @@ func Get(storeRoot, id string) (Entry, error) {
 // Without force, an occupied target is left alone; with force, it is
 // removed first so a directory-shaped entry cannot merge into whatever is
 // already there.
-func Restore(storeRoot, id string, force bool) error {
+//
+// The payload is read to its end and the room measured before anything is
+// written: the files at the target, with force also the scratch copy in the
+// store, against the free space and the reserve. What --force removes counts
+// as given back. An unreadable payload or a *SpaceError leaves the target and
+// the entry as they were.
+func RestoreWith(storeRoot, id string, force bool, space Space) error {
 	entry, err := Get(storeRoot, id)
 	if err != nil {
 		return err
@@ -318,10 +348,18 @@ func Restore(storeRoot, id string, force bool) error {
 
 	payload := filepath.Join(storeRoot, id, payloadName)
 
+	if exists && !force {
+		return fmt.Errorf("%s ist bereits vorhanden; zum Überschreiben --force verwenden", target)
+	}
+	contents, err := payloadTally(payload)
+	if err != nil {
+		return fmt.Errorf("quarantäne-archiv %s ist unlesbar, %s bleibt unangetastet: %w", payload, target, err)
+	}
+	if err := checkRestore(storeRoot, entry, contents, exists, space); err != nil {
+		return err
+	}
+
 	if exists {
-		if !force {
-			return fmt.Errorf("%s ist bereits vorhanden; zum Überschreiben --force verwenden", target)
-		}
 		// The payload is unpacked into a scratch directory first, because
 		// --force removes what is at the target. A payload that turns out to
 		// be unreadable after the removal would leave the website with

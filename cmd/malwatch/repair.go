@@ -35,6 +35,7 @@ func cmdRepair(args []string) int {
 	domain := fs.String("domain", "", "")
 	var only stringList
 	fs.Var(&only, "only", "")
+	reserve := quarantineReserveFlag(fs)
 
 	if err := fs.Parse(args); err != nil {
 		return report.ExitError
@@ -55,6 +56,11 @@ func cmdRepair(args []string) int {
 	noOriginalVal, err := repair.ParseNoOriginal(*noOriginal)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
+		return report.ExitError
+	}
+	space, err := quarantineSpace(*reserve)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v. Ohne den Schalter gilt die Vorgabe.\n", err)
 		return report.ExitError
 	}
 
@@ -84,6 +90,7 @@ func cmdRepair(args []string) int {
 		Only:          only,
 		NoOriginal:    noOriginalVal,
 		Domain:        *domain,
+		Space:         space,
 		Fetcher:       vendorfiles.NewFetcher(vendorBaseURLs(*vendorBase), 5*time.Minute),
 		Progress:      pw,
 	})

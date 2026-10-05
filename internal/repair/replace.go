@@ -9,14 +9,15 @@ type Replacement struct {
 	Root          string // the installation; nothing outside it is written
 	QuarantineDir string
 	Domain        string
-	Origin        string // quarantine origin, e.g. "upgrade"
-	Reason        string // quarantine reason of every entry filed
+	Origin        string           // quarantine origin, e.g. "upgrade"
+	Reason        string           // quarantine reason of every entry filed
+	Space         quarantine.Space // how filing into quarantine measures its room
 }
 
 func (r Replacement) options() Options {
 	return Options{
 		Root: r.Root, QuarantineDir: r.QuarantineDir, Domain: r.Domain,
-		Origin: r.Origin, Reason: r.Reason,
+		Origin: r.Origin, Reason: r.Reason, Space: r.Space,
 	}
 }
 

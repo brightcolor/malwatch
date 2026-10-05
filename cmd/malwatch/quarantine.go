@@ -1,11 +1,9 @@
 package main
 
 import (
-	"archive/zip"
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -47,8 +45,14 @@ func cmdQuarantine(args []string) int {
 	password := fs.String("password", quarantine.DefaultPassword, "")
 	asJSON := fs.Bool("json", false, "")
 	out := fs.String("out", "", "")
+	reserve := quarantineReserveFlag(fs)
 
 	if err := fs.Parse(rest); err != nil {
+		return report.ExitError
+	}
+	space, err := quarantineSpace(*reserve)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v. Ohne den Schalter gilt die Vorgabe.\n", err)
 		return report.ExitError
 	}
 
@@ -75,7 +79,7 @@ func cmdQuarantine(args []string) int {
 		failed = runQuarantineAdd(quarantineDir, quarantine.Source{
 			Domain: *domain, Origin: *origin, Reason: *reason,
 			RuleID: *ruleID, Severity: *severity,
-		}, *path, files, *asJSON)
+		}, *path, files, *asJSON, space)
 
 	case "list":
 		// list has no work of its own: what it returns is exactly the index
@@ -92,7 +96,7 @@ func cmdQuarantine(args []string) int {
 			fmt.Fprintln(os.Stderr, "quarantine restore braucht mindestens ein --id.")
 			return report.ExitError
 		}
-		failed = runQuarantineRestore(quarantineDir, ids, *force, *asJSON)
+		failed = runQuarantineRestore(quarantineDir, ids, *force, *asJSON, space)
 
 	case "delete":
 		if len(ids) == 0 {
@@ -106,7 +110,9 @@ func cmdQuarantine(args []string) int {
 			fmt.Fprintln(os.Stderr, "quarantine export braucht mindestens ein --id und --zip.")
 			return report.ExitError
 		}
-		failed = runQuarantineExport(quarantineDir, ids, *zipOut, *password, *asJSON)
+		failed = runQuarantineExport(quarantineDir, ids, *zipOut, quarantine.ExportOptions{
+			Password: *password, Space: space,
+		}, *asJSON)
 
 	default:
 		fmt.Fprintf(os.Stderr, "unbekannte Aktion %q für quarantine.\n\n", action)
@@ -145,8 +151,9 @@ func splitQuarantineAction(args []string) (action string, rest []string) {
 // runQuarantineAdd files each of files below quarantineDir and removes it
 // from path. base carries the fields that describe the call as a whole -
 // one reason, one origin, one rule - while Root and RelPath are filled in
-// per file.
-func runQuarantineAdd(quarantineDir string, base quarantine.Source, path string, files []string, asJSON bool) int {
+// per file. A file the store has no room for stays where it is, and the
+// message says how much is missing; the files after it are still tried.
+func runQuarantineAdd(quarantineDir string, base quarantine.Source, path string, files []string, asJSON bool, space quarantine.Space) int {
 	failed := 0
 	for _, rel := range files {
 		relSlash := filepath.ToSlash(rel)
@@ -180,7 +187,7 @@ func runQuarantineAdd(quarantineDir string, base quarantine.Source, path string,
 		src := base
 		src.Root = path
 		src.RelPath = relSlash
-		entry, err := quarantine.Store(quarantineDir, src)
+		entry, err := quarantine.StoreWith(quarantineDir, src, space)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Quarantäne von %s fehlgeschlagen: %v\n", rel, err)
 			failed++
@@ -196,10 +203,10 @@ func runQuarantineAdd(quarantineDir string, base quarantine.Source, path string,
 // runQuarantineRestore puts back every entry named by ids, continuing past
 // one that fails - a stale id in a batch download must not stop the ones
 // still good from coming back.
-func runQuarantineRestore(quarantineDir string, ids []string, force, asJSON bool) int {
+func runQuarantineRestore(quarantineDir string, ids []string, force, asJSON bool, space quarantine.Space) int {
 	failed := 0
 	for _, id := range ids {
-		if err := quarantine.Restore(quarantineDir, id, force); err != nil {
+		if err := quarantine.RestoreWith(quarantineDir, id, force, space); err != nil {
 			fmt.Fprintf(os.Stderr, "Wiederherstellung von %s fehlgeschlagen: %v\n", id, err)
 			failed++
 			continue
@@ -229,96 +236,34 @@ func runQuarantineDelete(quarantineDir string, ids []string, asJSON bool) int {
 }
 
 // runQuarantineExport bundles every entry named by ids into one zip at
-// zipOut. A collection download in the panel selects many entries at once;
-// twenty separate export calls would be twenty waits, and the ISPConfig job
-// queue runs quarantine jobs for one site one at a time, so the second
-// would sit blocked behind the first. One call, one archive.
-func runQuarantineExport(quarantineDir string, ids []string, zipOut, password string, asJSON bool) int {
-	// quarantine.Export only knows how to write one entry to one file, so
-	// each id is exported to its own throwaway zip first and then folded
-	// into the real one below - see appendExportEntry.
-	tmpDir, err := os.MkdirTemp("", "malwatch-export-")
+// zipOut, each below a directory named after its id. A collection download
+// in the panel selects many entries at once; twenty separate export calls
+// would be twenty waits, and the ISPConfig job queue runs quarantine jobs for
+// one site one at a time, so the second would sit blocked behind the first.
+// One call, one archive.
+//
+// An id that is unknown or unreadable stays out of the archive and counts as
+// failed; the others go in. When the archive cannot be written at all - no
+// room for it, or a write that fails - every id counts as failed and no
+// archive is left behind.
+func runQuarantineExport(quarantineDir string, ids []string, zipOut string, opts quarantine.ExportOptions, asJSON bool) int {
+	results, err := quarantine.Export(quarantineDir, ids, zipOut, opts)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Sammel-ZIP: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Sammel-ZIP %s: %v\n", zipOut, err)
 		return len(ids)
 	}
-	defer os.RemoveAll(tmpDir)
-
-	// The panel's spool directory is not guaranteed to exist yet - unlike
-	// the runs directory a result file lands in, nothing creates it ahead
-	// of the call that first writes into it.
-	if err := os.MkdirAll(filepath.Dir(zipOut), 0o750); err != nil {
-		fmt.Fprintf(os.Stderr, "Sammel-ZIP: %v\n", err)
-		return len(ids)
-	}
-	out, err := os.OpenFile(zipOut, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o640)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Sammel-ZIP: %v\n", err)
-		return len(ids)
-	}
-	defer out.Close()
-	zw := zip.NewWriter(out)
-
 	failed := 0
-	for _, id := range ids {
-		if err := appendExportEntry(zw, quarantineDir, id, tmpDir, password); err != nil {
-			fmt.Fprintf(os.Stderr, "Export von %s fehlgeschlagen: %v\n", id, err)
+	for _, r := range results {
+		if r.Err != nil {
+			fmt.Fprintf(os.Stderr, "Export von %s fehlgeschlagen: %v\n", r.ID, r.Err)
 			failed++
 			continue
 		}
 		if !asJSON {
-			fmt.Printf("exportiert: %s\n", id)
+			fmt.Printf("exportiert: %s\n", r.ID)
 		}
-	}
-
-	if err := zw.Close(); err != nil {
-		fmt.Fprintf(os.Stderr, "Sammel-ZIP: %v\n", err)
-		failed++
 	}
 	return failed
-}
-
-// appendExportEntry exports one entry to a scratch zip and copies its
-// entries into zw under id/ - the id, not the original relative path,
-// because two websites can each quarantine "wp-content/uploads/shell.php"
-// and the combined archive has to keep both instead of the second silently
-// overwriting the first.
-//
-// OpenRaw and CreateRaw move the already-deflated, already-ZipCrypto-
-// encrypted bytes across unchanged. That is what makes the copy possible
-// without the password at all: re-encrypting here would mean duplicating
-// the cipher quarantine.Export already applied.
-func appendExportEntry(zw *zip.Writer, quarantineDir, id, tmpDir, password string) error {
-	single := filepath.Join(tmpDir, id+".zip")
-	if _, err := quarantine.Export(quarantineDir, id, single, password); err != nil {
-		return err
-	}
-	// Registered before the reader below, so it runs after rc.Close() -
-	// Windows refuses to remove a file that is still open.
-	defer os.Remove(single)
-
-	rc, err := zip.OpenReader(single)
-	if err != nil {
-		return err
-	}
-	defer rc.Close()
-
-	for _, f := range rc.File {
-		raw, err := f.OpenRaw()
-		if err != nil {
-			return err
-		}
-		hdr := f.FileHeader
-		hdr.Name = id + "/" + f.Name
-		w, err := zw.CreateRaw(&hdr)
-		if err != nil {
-			return err
-		}
-		if _, err := io.Copy(w, raw); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // quarantineIndex is the self-healing report every action ends with when

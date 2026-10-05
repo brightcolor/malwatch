@@ -102,6 +102,11 @@ Wiederherstellung (repair):
   --no-original=WERT       keep oder quarantine, wenn der Hersteller diese
                            Version nicht mehr anbietet (Vorgabe: keep)
   --domain=DOMAIN          Website, der die Installation gehört
+  --quarantine-reserve=MIB
+                           so viel Platz in MiB bleibt frei, wenn ersetzte
+                           Ordner in die Quarantäne gehen; reicht er nicht,
+                           bleibt das Element unverändert (Vorgabe: 256,
+                           erlaubt 0 bis 1048576)
 
 Aktualisieren (upgrade):
   --path=PFAD              Webstamm der Website; jede Installation im Plan
@@ -123,6 +128,11 @@ Aktualisieren (upgrade):
   --progress=DATEI         laufender Zustand als JSON, für die Oberfläche
   --dry-run                holen, prüfen, Seiten abrufen, vor dem Tausch anhalten
   --vendor-base=URL        andere Bezugsadresse, für Tests
+  --quarantine-reserve=MIB
+                           so viel Platz in MiB bleibt frei, wenn alte Stände
+                           und Datenbank-Exporte in die Quarantäne gehen und
+                           beim Zurückholen (Vorgabe: 256, erlaubt 0 bis
+                           1048576)
 
 Quarantäne verwalten (quarantine):
   malwatch quarantine add     --path=… --quarantine-dir=… --file=… [Optionen]
@@ -153,6 +163,12 @@ Quarantäne verwalten (quarantine):
                            gemeinsam, jedes in einem eigenen, nach seiner
                            Kennung benannten Verzeichnis
   --password=WERT          Kennwort des ZIP bei export (Vorgabe: infected)
+  --quarantine-reserve=MIB
+                           so viel Platz in MiB bleibt frei bei add, restore
+                           und export; vor dem Schreiben misst der Scanner
+                           Archiv, Kontrollkopie und Ziel, und reicht der
+                           Platz nicht, bleibt alles, wie es ist (Vorgabe:
+                           256, erlaubt 0 bis 1048576)
   --json                   Bestandsliste als JSON ausgeben, nach jeder
                            Aktion, auch nach dem Fehlschlag einzelner
                            --file/--id
