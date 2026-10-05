@@ -4,9 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
@@ -15,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/brightcolor/malwatch/internal/rootio"
 	"github.com/brightcolor/malwatch/internal/safepath"
 )
 
@@ -178,7 +177,9 @@ func Store(storeRoot string, src Source) (Entry, error) {
 	return entry, nil
 }
 
-// removeBelow removes rel below root with everything in it, see removeAllIn.
+// removeBelow removes rel below root with everything in it, every step
+// through an os.Root so a directory the website's user swaps for a symlink
+// cannot send a root-run delete out of the tree (see rootio.RemoveAllIn).
 func removeBelow(root, rel string) error {
 	r, err := os.OpenRoot(root)
 	if err != nil {
@@ -186,7 +187,7 @@ func removeBelow(root, rel string) error {
 	}
 	defer r.Close()
 	if err := removeAllIn(r, filepath.FromSlash(rel)); err != nil {
-		if escapesRoot(err) {
+		if rootio.EscapesRoot(err) {
 			return fmt.Errorf("%s liegt hinter einem symbolischen Link, der aus %s herausführt, und bleibt stehen (%v). "+
 				"Den Link prüfen und entfernen, danach den Auftrag erneut starten", rel, root, err)
 		}
@@ -195,34 +196,9 @@ func removeBelow(root, rel string) error {
 	return nil
 }
 
-// removeAllIn removes name below root with everything in it. Like
-// os.RemoveAll it removes a symlink itself and leaves its target alone. In
-// addition, every step goes through root, so the removal stays below root.
+// removeAllIn removes name below root with everything in it, through root.
 func removeAllIn(root *os.Root, name string) error {
-	info, err := root.Lstat(name)
-	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			return nil
-		}
-		return err
-	}
-	if info.IsDir() {
-		dir, err := root.Open(name)
-		if err != nil {
-			return err
-		}
-		children, err := dir.ReadDir(-1)
-		dir.Close()
-		if err != nil {
-			return err
-		}
-		for _, child := range children {
-			if err := removeAllIn(root, filepath.Join(name, child.Name())); err != nil {
-				return err
-			}
-		}
-	}
-	return root.Remove(name)
+	return rootio.RemoveAllIn(root, name)
 }
 
 // readMeta reads one entry directory's meta.json.

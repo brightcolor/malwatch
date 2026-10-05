@@ -16,7 +16,7 @@ import (
 	"github.com/brightcolor/malwatch/internal/quarantine"
 	"github.com/brightcolor/malwatch/internal/repair"
 	"github.com/brightcolor/malwatch/internal/report"
-	"github.com/brightcolor/malwatch/internal/safepath"
+	"github.com/brightcolor/malwatch/internal/rootio"
 	"github.com/brightcolor/malwatch/internal/vendorfiles"
 )
 
@@ -466,16 +466,7 @@ func (r *runner) rollBack(it *item, before, after []Probe, added []string, dump 
 			problems = append(problems, err.Error())
 		}
 	}
-	for _, name := range added {
-		target := filepath.Join(install, name)
-		if err := safepath.InsideRoot(install, target); err != nil {
-			problems = append(problems, err.Error())
-			continue
-		}
-		if err := os.RemoveAll(target); err != nil {
-			problems = append(problems, err.Error())
-		}
-	}
+	problems = append(problems, removeAdded(install, added)...)
 	if dump != "" {
 		f, err := os.Open(dump)
 		if err == nil {
@@ -547,6 +538,34 @@ func (r *runner) exportDB(it *item) (string, string, error) {
 		return "", "", err
 	}
 	return path, entry.ID, nil
+}
+
+// removeAdded deletes what a release added to the installation, every step
+// through an os.Root on install, so the removal stays inside the
+// installation. It returns one message per name that could not be removed, so
+// the rollback carries on with the rest.
+func removeAdded(install string, added []string) []string {
+	if len(added) == 0 {
+		return nil
+	}
+	root, err := os.OpenRoot(install)
+	if err != nil {
+		return []string{fmt.Sprintf("%s lässt sich nicht öffnen: %v", install, err)}
+	}
+	defer root.Close()
+
+	var problems []string
+	for _, name := range added {
+		if err := rootio.RemoveAllIn(root, filepath.FromSlash(name)); err != nil {
+			if rootio.EscapesRoot(err) {
+				problems = append(problems, fmt.Sprintf("%s liegt hinter einem symbolischen Link aus %s heraus und bleibt stehen (%v)",
+					name, install, err))
+				continue
+			}
+			problems = append(problems, err.Error())
+		}
+	}
+	return problems
 }
 
 // absentIn lists what a staged core adds to the installation: a core

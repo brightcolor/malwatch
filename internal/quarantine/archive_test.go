@@ -8,6 +8,8 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/brightcolor/malwatch/internal/rootio"
 )
 
 // writeTestFile creates path with content and mode, making parent
@@ -358,5 +360,43 @@ func TestRemoveAllInStaysBelowTheRoot(t *testing.T) {
 	}
 	if _, err := os.Stat(keep); err != nil {
 		t.Errorf("a file outside the root was removed: %v", err)
+	}
+}
+
+// TestWriteArchiveNeverFollowsADirectorySymlinkOutOfTheRoot guards the pack
+// side the way readArchive guards the unpack side: a directory on the way to
+// the packed item that has become a symlink out of the web root is refused,
+// and nothing behind it is read. Reading goes through an os.Root on the web
+// root, which refuses a step that leaves it.
+func TestWriteArchiveNeverFollowsADirectorySymlinkOutOfTheRoot(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlinks need privileges on Windows")
+	}
+	base := t.TempDir()
+	root := filepath.Join(base, "web")
+	outside := filepath.Join(base, "outside")
+	secret := filepath.Join(outside, "payload", "secret.txt")
+	writeTestFile(t, secret, []byte("another customer's data"), 0o600)
+	if err := os.MkdirAll(root, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	// The website's user replaces wp-content with a link out of the web root.
+	// rel then reaches through it to a real directory outside.
+	if err := os.Symlink(outside, filepath.Join(root, "wp-content")); err != nil {
+		t.Fatal(err)
+	}
+
+	tarPath := filepath.Join(t.TempDir(), "entry", "payload.tar.gz")
+	files, _, err := writeArchive(tarPath, root, "wp-content/payload")
+	if err == nil {
+		t.Fatalf("writeArchive packed %d file(s) through a symlink out of the web root", files)
+	}
+	if !rootio.EscapesRoot(err) {
+		t.Errorf("error = %q, want it to be os.Root refusing a step out of the root", err)
+	}
+
+	// Whatever landed in the archive must not hold the file from outside.
+	if raw, rerr := os.ReadFile(tarPath); rerr == nil && strings.Contains(string(raw), "another customer's data") {
+		t.Error("the archive carries a file from outside the web root")
 	}
 }
