@@ -77,6 +77,7 @@ func cmdScan(args []string) int {
 	smtpUser := fs.String("smtp-user", "", "")
 	smtpPass := fs.String("smtp-pass", "", "")
 	smtpTLS := fs.String("smtp-tls", "starttls", "")
+	smtpTimeout := fs.Duration("smtp-timeout", mail.DefaultTimeout, "")
 
 	sigDir := fs.String("sig-dir", defaultSigDir, "")
 	stateDir := fs.String("state-dir", defaultStateDir, "")
@@ -118,6 +119,10 @@ func cmdScan(args []string) int {
 		BudgetMiB:  *viewBudget,
 	}
 	if err := view.Validate(); err != nil {
+		fmt.Fprintf(os.Stderr, "%v. Ohne den Schalter gilt die Vorgabe.\n", err)
+		return report.ExitError
+	}
+	if err := mail.CheckTimeout(*smtpTimeout); err != nil {
 		fmt.Fprintf(os.Stderr, "%v. Ohne den Schalter gilt die Vorgabe.\n", err)
 		return report.ExitError
 	}
@@ -219,6 +224,7 @@ func cmdScan(args []string) int {
 			SMTPUser: *smtpUser,
 			SMTPPass: *smtpPass,
 			TLSMode:  *smtpTLS,
+			Timeout:  *smtpTimeout,
 		}
 		if err := sender.SendReport(rep, *emailEmpty); err != nil {
 			fmt.Fprintf(os.Stderr, "Bericht konnte nicht versendet werden: %v\n", err)

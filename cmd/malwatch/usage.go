@@ -79,7 +79,11 @@ Bericht per E-Mail:
   --smtp=HOST:PORT         über diesen SMTP-Server senden statt über sendmail
   --smtp-user=NAME         Anmeldename für den SMTP-Server
   --smtp-pass=WERT         Kennwort für den SMTP-Server
-  --smtp-tls=MODUS         none, starttls oder tls (Vorgabe: starttls)
+  --smtp-tls=MODUS         none, starttls oder tls (Vorgabe: starttls); mit
+                           starttls geht die Mail nur nach STARTTLS hinaus,
+                           zu localhost, 127.0.0.1 und ::1 auch ohne
+  --smtp-timeout=DAUER     Zeit für den Aufbau der Verbindung zum SMTP-Server
+                           (Vorgabe: 30s, erlaubt 1s bis 10m)
 
 Wiederherstellung (repair):
   --path=PFAD              Webstamm der Installation
@@ -187,7 +191,11 @@ Fertige Mail zustellen (send-mail):
   --smtp-user=NAME         Anmeldung am SMTP-Server; das Passwort kommt aus
                            --smtp-pass-file=DATEI oder der Umgebungsvariablen
                            MALWATCH_SMTP_PASS
-  --smtp-tls=MODUS         none, starttls oder tls (Vorgabe: starttls)
+  --smtp-tls=MODUS         none, starttls oder tls (Vorgabe: starttls); mit
+                           starttls geht die Mail nur nach STARTTLS hinaus,
+                           zu localhost, 127.0.0.1 und ::1 auch ohne
+  --smtp-timeout=DAUER     Zeit für den Aufbau der Verbindung zum SMTP-Server
+                           (Vorgabe: 30s, erlaubt 1s bis 10m)
   --smtp-insecure          Zertifikat des SMTP-Servers nicht prüfen
 
 Ablagen:

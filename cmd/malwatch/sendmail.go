@@ -32,6 +32,7 @@ func cmdSendMail(args []string) int {
 	smtpTLS := fs.String("smtp-tls", "starttls", "")
 	smtpPassFile := fs.String("smtp-pass-file", "", "")
 	insecure := fs.Bool("smtp-insecure", false, "")
+	timeout := fs.Duration("smtp-timeout", mail.DefaultTimeout, "")
 
 	if err := fs.Parse(args); err != nil {
 		return report.ExitError
@@ -55,6 +56,10 @@ func cmdSendMail(args []string) int {
 	mode := strings.ToLower(*smtpTLS)
 	if mode != "none" && mode != "starttls" && mode != "tls" {
 		fmt.Fprintf(os.Stderr, "--smtp-tls=%s ist unbekannt. Erlaubt sind none, starttls und tls.\n", *smtpTLS)
+		return report.ExitError
+	}
+	if err := mail.CheckTimeout(*timeout); err != nil {
+		fmt.Fprintf(os.Stderr, "%v. Ohne den Schalter gilt die Vorgabe.\n", err)
 		return report.ExitError
 	}
 
@@ -82,6 +87,7 @@ func cmdSendMail(args []string) int {
 		SMTPPass: pass,
 		TLSMode:  mode,
 		Insecure: *insecure,
+		Timeout:  *timeout,
 	}
 	if err := sender.SendRaw(msg); err != nil {
 		where := "über sendmail"
