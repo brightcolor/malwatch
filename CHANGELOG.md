@@ -2,6 +2,46 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.40.2] – 2026-10-05
+
+### Geändert
+
+**proxycheck.io fragt nur, was die freien Listen offen lassen.** Die Wahl „proxycheck.io“
+bei „VPN und Rechenzentrum“ heißt jetzt „X4BNet-Listen, dazu proxycheck.io für Adressen ohne
+Merkmal“. Die X4BNet-Listen laufen dabei mit und schlagen jede Adresse nach. An den Dienst
+geht nur eine Adresse, die keine freie Liste als Tor, VPN oder Rechenzentrum kennt; eine
+wartende Adresse, die eine Liste später kennt, fällt aus der Warteschlange. Mit den Zahlen von
+web.herkules sind das rund 500 von 3.565 Adressen. Eine gespeicherte Wahl von proxycheck.io
+gilt ab dem Einspielen als die neue.
+
+### Behoben
+
+**Antworten von proxycheck.io bleiben beim Abgleich mit den Bereichsdateien erhalten.** Jede
+neu geladene Tor-Liste schlug alle Adressen noch einmal nach und schrieb VPN und
+Rechenzentrum aus den Dateien. Ohne X4BNet-Listen stand danach „nein“, und die Adresse galt
+weiter als beantwortet; auf web.herkules traf das am 05.10.2026 alle 970 Antworten. Ein
+Merkmal aus der Antwort bleibt jetzt stehen, ein Merkmal der Listen kommt dazu. Land,
+Provider und Tor aus der Antwort bleiben, solange dafür keine lokale Quelle gewählt ist.
+Wird der Dienst abgewählt, schlagen die Listen jede Adresse neu nach, und seine Merkmale
+gehen mit.
+
+### Einspielen
+
+Danach einmal die Einstellungen der Abwehr speichern, damit der Auftrag „Herkunft der
+Adressen“ die X4BNet-Listen lädt. Adressen, die proxycheck.io vor 0.40.2 beantwortet hat,
+tragen seine Merkmale nicht mehr; neu gefragt werden sie, nachdem ihr Zustand zurückgesetzt
+ist: `UPDATE malwatch_waf_ip SET external_state = 'none', external_at = NULL,
+external_tries = 0 WHERE external_state = 'done'`. Danach kommen nur die ohne Merkmal der
+Listen an die Reihe.
+
+### Tests
+
+`waf_class_probe.php` prüft den Ablauf mit beiden Stufen: welche Adressen gefragt werden,
+dass eine Antwort einen neuen Abgleich übersteht, dass ein Merkmal der Listen dazukommt, dass
+eine später bekannte Adresse die Schlange verlässt und dass beim Abwählen die Merkmale des
+Dienstes gehen. `waf_proxycheck_test.php` prüft, wer welches Merkmal schreibt,
+`waf_origin_sources_test.php` die Quellen der neuen Wahl, `waf_panel_test.php` ihre Zeilen.
+
 ## [0.40.1] – 2026-10-05
 
 ### Behoben

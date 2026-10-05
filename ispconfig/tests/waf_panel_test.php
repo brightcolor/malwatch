@@ -651,7 +651,8 @@ expect_same('the line of the overview', waf_panel_origin_line($wb, $origin_setti
 expect_same('the line with everything off', waf_panel_origin_line($wb, array(), array()),
 	'Herkunft der Adressen ist aus.');
 
-// proxycheck.io steht neben den Bereichsdateien: eine Zeile mit dem Kontingent.
+// proxycheck.io steht hinter den X4BNet-Listen: eine Zeile je Liste, dazu eine
+// mit dem Kontingent.
 $external_settings = array('waf_origin_geo' => 'dbip', 'waf_origin_tor' => 'off', 'waf_origin_net' => 'proxycheck',
 	'waf_origin_proxycheck_daily' => 500);
 $external_rows = array(
@@ -663,26 +664,27 @@ $external_rows = array(
 		'day' => '2026-09-18', 'queries' => '240'),
 );
 $external_view = waf_panel_origin_rows($wb, $external_settings, $external_rows, '2026-09-18 09:00:00');
-expect_same('the external source gets its own row', array_column($external_view, 'source'),
-	array('dbip_country', 'dbip_asn', 'proxycheck'));
-expect_same('the external source in words', $external_view[2]['label'], 'proxycheck.io');
-expect_same('queries of the day and checked addresses', $external_view[2]['state'],
+expect_same('the X4BNet lists and the service each get a row', array_column($external_view, 'source'),
+	array('dbip_country', 'dbip_asn', 'x4b_vpn', 'x4b_datacenter', 'proxycheck'));
+expect_same('the external source in words', $external_view[4]['label'], 'proxycheck.io');
+expect_same('queries of the day and checked addresses', $external_view[4]['state'],
 	'heute 240 von 500 Abfragen, 128 Adressen geprüft');
 expect_same('a new day starts at zero',
-	waf_panel_origin_rows($wb, $external_settings, $external_rows, '2026-09-19 09:00:00')[2]['state'],
+	waf_panel_origin_rows($wb, $external_settings, $external_rows, '2026-09-19 09:00:00')[4]['state'],
 	'heute 0 von 500 Abfragen, 128 Adressen geprüft');
 expect_same('every row says what it counts', array_column($external_view, 'kind'),
-	array('ranges', 'ranges', 'addresses'));
+	array('ranges', 'ranges', 'ranges', 'ranges', 'addresses'));
 $failed_rows = array('proxycheck' => array('source' => 'proxycheck', 'version' => '', 'entries' => '12',
 	'fetched_at' => '2026-09-18 08:00:00', 'checked_at' => '2026-09-18 08:30:00',
 	'error' => 'proxycheck.io hat die Anfrage abgelehnt.', 'error_at' => '2026-09-18 08:30:00',
 	'day' => '2026-09-18', 'queries' => '12'));
 $failed_settings = array('waf_origin_net' => 'proxycheck', 'waf_origin_proxycheck_daily' => 500);
 $failed_view = waf_panel_origin_rows($wb, $failed_settings, $failed_rows, '2026-09-18 09:00:00');
-expect_same('an error stands before the numbers', array($failed_view[0]['failed'], $failed_view[0]['state']),
+expect_same('an error stands before the numbers', array($failed_view[2]['failed'], $failed_view[2]['state']),
 	array(1, 'proxycheck.io hat die Anfrage abgelehnt. heute 12 von 500 Abfragen, 12 Adressen geprüft'));
-expect_same('the overview counts addresses, not ranges',
-	waf_panel_origin_line($wb, $failed_settings, $failed_rows), 'Herkunft: proxycheck.io 12 Adressen geprüft.');
+expect_same('the overview counts addresses for the service',
+	waf_panel_origin_line($wb, $failed_settings, $failed_rows), 'Herkunft: X4BNet: VPN noch nicht geladen, '
+	. 'X4BNet: Rechenzentren noch nicht geladen, proxycheck.io 12 Adressen geprüft.');
 
 // Ein Schlüssel im Formular: leer behält, verdeckt behält, der Haken löscht.
 expect_same('an empty field keeps the stored key', waf_panel_key_keep('', 'ab-12cd', false), 'ab-12cd');

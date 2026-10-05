@@ -634,7 +634,7 @@ expect_same('a second pass finds nothing new', $waf->origin_lookup(10), 0);
 // Der Dienst ist die Naht: die Probe antwortet aus einer Beispieldatei und hält
 // fest, wonach gefragt wurde.
 $asked = array();
-$answer_file = $stage . '/tests/fixtures/proxycheck/answer.json';
+$answer_file = $stage . '/tests/fixtures/proxycheck/answer-open.json';
 $waf->poster = function ($url, $body, $limit) use (&$asked, $answer_file) {
 	$asked[] = array($url, $body);
 	return array(true, file_get_contents($answer_file));
@@ -643,54 +643,93 @@ $db->query("UPDATE malwatch_config SET waf_origin_net = 'proxycheck', waf_origin
 	. 'waf_origin_proxycheck_daily = 3 WHERE config_id = 1');
 $db->query("UPDATE malwatch_waf_ip SET external_state = 'none', external_tries = 0, external_at = NULL");
 $db->query("DELETE FROM malwatch_waf_origin_source WHERE source = 'proxycheck'");
+// Wie nach dem Speichern der Einstellungen: Der Auftrag räumt die Quellen ab, die
+// nicht mehr gewählt sind (hier die Zeilen von DB-IP aus B5).
+$waf->queue('origin_update', array(), 'probe');
+$waf->pass();
+expect_same('only the chosen sources keep a row', count_rows("SELECT source FROM malwatch_waf_origin_source "
+	. "WHERE source NOT IN ('tor', 'x4b_vpn', 'x4b_datacenter', 'searchbots')"), 0);
 
-// Das Nachschlagen stellt jede Adresse ohne Antwort in die Schlange.
-$waf->origin_lookup(10);
-expect_same('every address waits for the service',
-	count_rows("SELECT ip FROM malwatch_waf_ip WHERE external_state = 'pending'"), 3);
+// Erste Stufe sind die freien Listen: Mit proxycheck.io laufen die X4BNet-Listen
+// mit. Die Liste der Rechenzentren kennt hier 192.0.2.0/25 und 203.0.113.0/24.
+// Zu 192.0.2.10 (Tor), 198.51.100.7 und 198.51.100.9 kommen 198.51.100.20, das
+// keine Liste kennt, und 203.0.113.7 aus einem Rechenzentrum.
+waf_origin_read_list($fixtures . '/x4b-ipv4.txt', $probe_dir . '/waf/origin/x4b_datacenter.bin');
+$db->query("INSERT INTO malwatch_waf_origin_source (server_id, source, version, checked_at, fetched_at, entries) "
+	. "VALUES (?, 'x4b_datacenter', '', NOW(), NOW(), 3) ON DUPLICATE KEY UPDATE checked_at = NOW(), fetched_at = NOW(), "
+	. 'entries = 3', $server);
+foreach (array('198.51.100.20', '203.0.113.7') as $n => $ip) {
+	$db->query("INSERT INTO malwatch_waf_hit (server_id, parent_domain_id, domain, unique_id, seen_at, client_ip, method, "
+		. "uri, path, status, anomaly_score, would_block, logged_in, rules, request_headers) "
+		. "VALUES (?, 11, 'beispiel.test', ?, NOW(), ?, 'GET', '/x', '/x', 404, 5, 'n', 'n', '[]', '{}')",
+		$server, 'probe-open-' . $n, $ip);
+}
+$db->query('UPDATE malwatch_waf_ip SET local_at = NULL');
+expect_same('every address of the hits is looked up', $waf->origin_lookup(10), 5);
 
-expect_same('two of three addresses get an answer', $waf->origin_external(100), 2);
-expect_same('one request with every address', count($asked), 1);
+// Nur eine Adresse, die keine freie Liste als Tor, VPN oder Rechenzentrum kennt,
+// geht an den Dienst.
+expect_same('two of the three open addresses get an answer', $waf->origin_external(100), 2);
+expect_same('one request', count($asked), 1);
+expect_same('the request names only the open addresses', $asked[0][1], 'ips=198.51.100.20,198.51.100.7,198.51.100.9');
 expect_same('the key travels in the address', strpos($asked[0][0], 'key=probe-key') !== false, true);
-expect_same('the body names the addresses', substr($asked[0][1], 0, 4), 'ips=');
-$vpn = $db->queryOneRecord("SELECT * FROM malwatch_waf_ip WHERE ip = '192.0.2.10'");
+expect_same('an address a free list knows is never asked',
+	count_rows("SELECT ip FROM malwatch_waf_ip WHERE ip IN ('192.0.2.10', '203.0.113.7') AND external_state = 'none'"), 2);
+$vpn = $db->queryOneRecord("SELECT * FROM malwatch_waf_ip WHERE ip = '198.51.100.9'");
 expect_same('the service marks VPN, proxy and its operator',
 	array($vpn['is_vpn'], $vpn['is_proxy'], $vpn['vpn_operator'], $vpn['external_state']),
 	array('y', 'y', 'Beispiel VPN', 'done'));
 expect_same('country and provider come from the service because the local one is off',
 	array($vpn['country'], (int) $vpn['asn'], $vpn['as_org']), array('DE', 64496, 'Beispiel Netz GmbH'));
-expect_same('the Tor list keeps its own answer', $vpn['is_tor'], 'y');
-$miss = $db->queryOneRecord("SELECT * FROM malwatch_waf_ip WHERE ip = '198.51.100.9'");
+$hosting = $db->queryOneRecord("SELECT * FROM malwatch_waf_ip WHERE ip = '198.51.100.7'");
+expect_same('the service marks a data centre', array($hosting['is_hosting'], $hosting['is_vpn']), array('y', 'n'));
+expect_same('the Tor list keeps its own answer', $hosting['is_tor'], 'n');
+$miss = $db->queryOneRecord("SELECT * FROM malwatch_waf_ip WHERE ip = '198.51.100.20'");
 expect_same('an address the answer left out is tried again later',
 	array($miss['external_state'], (int) $miss['external_tries']), array('failed', 1));
 $state = $db->queryOneRecord("SELECT * FROM malwatch_waf_origin_source WHERE source = 'proxycheck'");
 expect_same('the state counts queries and answers',
 	array((int) $state['queries'], (int) $state['entries'], $state['error']), array(3, 2, ''));
 
-// Eine neu geladene Tor-Liste schlägt jede Adresse noch einmal nach. Was der
-// Dienst beantwortet hat, bleibt dabei stehen. Eine Adresse ohne Antwort trägt
-// kein Merkmal einer abgeschalteten Liste weiter; hier steht 198.51.100.9 noch
-// mit VPN und Rechenzentrum aus der Zeit vor dem Umschalten.
-$db->query("UPDATE malwatch_waf_ip SET is_vpn = 'y', is_hosting = 'y' WHERE ip = '198.51.100.9'");
+// Neu geladene Listen schlagen jede Adresse noch einmal nach. Was der Dienst
+// beantwortet hat, bleibt stehen, ein Merkmal der Listen kommt dazu. Die
+// VPN-Liste kennt jetzt 198.51.100.7 und 198.51.100.20.
+file_put_contents($tmp . '/vpn-probe.txt', "198.51.100.7\n198.51.100.20\n");
+waf_origin_read_list($tmp . '/vpn-probe.txt', $probe_dir . '/waf/origin/x4b_vpn.bin');
+$db->query("INSERT INTO malwatch_waf_origin_source (server_id, source, version, checked_at, fetched_at, entries) "
+	. "VALUES (?, 'x4b_vpn', '', NOW(), NOW(), 2) ON DUPLICATE KEY UPDATE checked_at = NOW(), fetched_at = NOW(), "
+	. 'entries = 2', $server);
 $db->query('UPDATE malwatch_waf_ip SET local_at = DATE_SUB(local_at, INTERVAL 1 HOUR)');
-expect_same('a new Tor list looks every address up again', $waf->origin_lookup(10), 3);
-$kept = $db->queryOneRecord("SELECT * FROM malwatch_waf_ip WHERE ip = '192.0.2.10'");
+expect_same('new lists look every address up again', $waf->origin_lookup(10), 5);
+$kept = $db->queryOneRecord("SELECT * FROM malwatch_waf_ip WHERE ip = '198.51.100.9'");
 expect_same('the answer of the service survives the local lookup',
 	array($kept['is_vpn'], $kept['is_hosting'], $kept['is_proxy'], $kept['vpn_operator'], $kept['country'],
 		(int) $kept['asn'], $kept['as_org'], $kept['external_state']),
 	array('y', 'n', 'y', 'Beispiel VPN', 'DE', 64496, 'Beispiel Netz GmbH', 'done'));
-expect_same('the Tor list still marks the address', $kept['is_tor'], 'y');
-$leftover = $db->queryOneRecord("SELECT is_vpn, is_hosting FROM malwatch_waf_ip WHERE ip = '198.51.100.9'");
-expect_same('an address without an answer keeps no mark of a list that is off',
-	array($leftover['is_vpn'], $leftover['is_hosting']), array('n', 'n'));
+$joined = $db->queryOneRecord("SELECT is_vpn, is_hosting FROM malwatch_waf_ip WHERE ip = '198.51.100.7'");
+expect_same('a mark of the lists joins the answer', array($joined['is_vpn'], $joined['is_hosting']), array('y', 'y'));
 
-// Das Tageslimit ist erreicht: wartende Adressen kommen am nächsten Tag dran.
-$db->query("UPDATE malwatch_waf_ip SET external_state = 'pending', external_at = NULL WHERE ip = '198.51.100.9'");
+// 198.51.100.20 wartete auf einen neuen Versuch. Jetzt kennt es die VPN-Liste,
+// also fällt es aus der Schlange, ohne dass eine Anfrage hinausgeht.
+$db->query('UPDATE malwatch_config SET waf_origin_proxycheck_daily = 10 WHERE config_id = 1');
+expect_same('no address is left to ask', $waf->origin_external(100), 0);
+expect_same('still one request', count($asked), 1);
+$known = $db->queryOneRecord("SELECT external_state, is_vpn FROM malwatch_waf_ip WHERE ip = '198.51.100.20'");
+expect_same('an address a list marks later leaves the queue', array($known['external_state'], $known['is_vpn']),
+	array('none', 'y'));
+
+// Das Tageslimit ist erreicht: Eine neue offene Adresse kommt am nächsten Tag dran.
+$db->query('UPDATE malwatch_config SET waf_origin_proxycheck_daily = 3 WHERE config_id = 1');
+$db->query("INSERT INTO malwatch_waf_hit (server_id, parent_domain_id, domain, unique_id, seen_at, client_ip, method, "
+	. "uri, path, status, anomaly_score, would_block, logged_in, rules, request_headers) "
+	. "VALUES (?, 11, 'beispiel.test', 'probe-open-limit', NOW(), '198.51.100.30', 'GET', '/x', '/x', 404, 5, 'n', 'n', '[]', '{}')",
+	$server);
+expect_same('the new address is looked up', $waf->origin_lookup(10), 1);
 $asked = array();
 expect_same('nothing is asked past the daily limit', $waf->origin_external(100), 0);
 expect_same('no request went out', count($asked), 0);
 expect_same('the address waits for the next day',
-	$db->queryOneRecord("SELECT external_state FROM malwatch_waf_ip WHERE ip = '198.51.100.9'")['external_state'], 'limit');
+	$db->queryOneRecord("SELECT external_state FROM malwatch_waf_ip WHERE ip = '198.51.100.30'")['external_state'], 'limit');
 
 // Ein höheres Limit holt die Adresse zurück, eine abgelehnte Anfrage lässt sie scheitern.
 $db->query('UPDATE malwatch_config SET waf_origin_proxycheck_daily = 10 WHERE config_id = 1');
@@ -699,23 +738,35 @@ $waf->poster = function ($url, $body, $limit) use (&$asked, $stage) {
 	return array(true, file_get_contents($stage . '/tests/fixtures/proxycheck/denied.json'));
 };
 expect_same('a refused answer gives no address', $waf->origin_external(100), 0);
-$failed = $db->queryOneRecord("SELECT * FROM malwatch_waf_ip WHERE ip = '198.51.100.9'");
-expect_same('the address failed once more', array($failed['external_state'], (int) $failed['external_tries']),
-	array('failed', 2));
+$failed = $db->queryOneRecord("SELECT * FROM malwatch_waf_ip WHERE ip = '198.51.100.30'");
+expect_same('the address failed', array($failed['external_state'], (int) $failed['external_tries']),
+	array('failed', 1));
 $state = $db->queryOneRecord("SELECT * FROM malwatch_waf_origin_source WHERE source = 'proxycheck'");
 expect_same('the error stands in the state, without the key',
 	array(strpos($state['error'], 'abgelehnt') !== false, strpos($state['error'], 'probe-key')),
 	array(true, false));
 
-// Wird der Dienst abgeschaltet, gehen seine Merkmale und seine Zeile.
-$db->query("UPDATE malwatch_config SET waf_origin_net = 'off' WHERE config_id = 1");
+// Zurück zu den Listen allein: Merkmale und Zeile des Dienstes gehen, und die
+// Listen schlagen jede Adresse neu nach.
+$db->query("UPDATE malwatch_config SET waf_origin_net = 'x4b' WHERE config_id = 1");
 $waf->queue('origin_update', array(), 'probe');
 $waf->pass();
 expect_same('the state of the service is gone',
 	count_rows("SELECT source FROM malwatch_waf_origin_source WHERE source = 'proxycheck'"), 0);
-$cleared = $db->queryOneRecord("SELECT * FROM malwatch_waf_ip WHERE ip = '192.0.2.10'");
+$cleared = $db->queryOneRecord("SELECT * FROM malwatch_waf_ip WHERE ip = '198.51.100.9'");
 expect_same('its marks left the addresses',
 	array($cleared['is_proxy'], $cleared['vpn_operator'], $cleared['external_state']), array('n', '', 'none'));
+$waf->origin_lookup(10);
+$relooked = $db->queryOneRecord("SELECT is_vpn, is_hosting FROM malwatch_waf_ip WHERE ip = '198.51.100.9'");
+expect_same('its VPN mark goes once the lists have looked again', array($relooked['is_vpn'], $relooked['is_hosting']),
+	array('n', 'n'));
+
+// Die Proben danach laufen ohne Listen und ohne die Adressen dieses Abschnitts.
+$db->query("UPDATE malwatch_config SET waf_origin_net = 'off' WHERE config_id = 1");
+$waf->queue('origin_update', array(), 'probe');
+$waf->pass();
+$db->query("DELETE FROM malwatch_waf_hit WHERE unique_id LIKE 'probe-open-%'");
+$db->query("DELETE FROM malwatch_waf_ip WHERE ip IN ('198.51.100.20', '203.0.113.7', '198.51.100.30')");
 
 // --- D: Sperren ---------------------------------------------------------------
 

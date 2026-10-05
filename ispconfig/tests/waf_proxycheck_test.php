@@ -78,20 +78,27 @@ expect_same('without a row nothing was asked yet', waf_origin_quota(null, '2026-
 
 // --- Who writes which mark ----------------------------------------------------
 
-expect_same('without the service the local lookup writes every mark',
-	waf_origin_local_fields(array('waf_origin_geo' => 'dbip', 'waf_origin_tor' => 'torproject', 'waf_origin_net' => 'x4b')),
-	array('country', 'asn', 'as_org', 'is_tor', 'is_vpn', 'is_hosting'));
-expect_same('with the service VPN and data centre belong to its answer',
-	waf_origin_local_fields(array('waf_origin_geo' => 'maxmind', 'waf_origin_tor' => 'torproject', 'waf_origin_net' => 'proxycheck')),
-	array('country', 'asn', 'as_org', 'is_tor'));
-expect_same('country and provider belong to the service when no local source has them',
-	waf_origin_local_fields(array('waf_origin_geo' => 'off', 'waf_origin_tor' => 'torproject', 'waf_origin_net' => 'proxycheck')),
-	array('is_tor'));
-expect_same('Tor belongs to the service when the Tor list is off',
-	waf_origin_local_fields(array('waf_origin_geo' => 'dbip', 'waf_origin_tor' => 'off', 'waf_origin_net' => 'proxycheck')),
-	array('country', 'asn', 'as_org'));
-expect_same('nothing chosen, the local lookup writes every mark',
-	waf_origin_local_fields(array()), array('country', 'asn', 'as_org', 'is_tor', 'is_vpn', 'is_hosting'));
+// 'local': the range files alone. 'merge': the range files, and a mark the
+// service gave stays. 'service': only the answer of the service.
+expect_same('without the service the range files write every mark',
+	waf_origin_field_rules(array('waf_origin_geo' => 'dbip', 'waf_origin_tor' => 'torproject', 'waf_origin_net' => 'x4b')),
+	array('country' => 'local', 'asn' => 'local', 'as_org' => 'local', 'is_tor' => 'local', 'is_vpn' => 'local',
+		'is_hosting' => 'local'));
+expect_same('with the service VPN and data centre join the lists and the answer',
+	waf_origin_field_rules(array('waf_origin_geo' => 'maxmind', 'waf_origin_tor' => 'torproject', 'waf_origin_net' => 'proxycheck')),
+	array('country' => 'local', 'asn' => 'local', 'as_org' => 'local', 'is_tor' => 'local', 'is_vpn' => 'merge',
+		'is_hosting' => 'merge'));
+expect_same('country and provider come from the service when no local source has them',
+	waf_origin_field_rules(array('waf_origin_geo' => 'off', 'waf_origin_tor' => 'torproject', 'waf_origin_net' => 'proxycheck')),
+	array('country' => 'service', 'asn' => 'service', 'as_org' => 'service', 'is_tor' => 'local', 'is_vpn' => 'merge',
+		'is_hosting' => 'merge'));
+expect_same('Tor comes from the service when the Tor list is off',
+	waf_origin_field_rules(array('waf_origin_geo' => 'dbip', 'waf_origin_tor' => 'off', 'waf_origin_net' => 'proxycheck')),
+	array('country' => 'local', 'asn' => 'local', 'as_org' => 'local', 'is_tor' => 'service', 'is_vpn' => 'merge',
+		'is_hosting' => 'merge'));
+expect_same('nothing chosen, the range files write every mark empty',
+	waf_origin_field_rules(array()), array('country' => 'local', 'asn' => 'local', 'as_org' => 'local',
+		'is_tor' => 'local', 'is_vpn' => 'local', 'is_hosting' => 'local'));
 
 // --- summary -----------------------------------------------------------------
 

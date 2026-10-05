@@ -254,13 +254,18 @@ nach und legt das Ergebnis in `malwatch_waf_ip` ab. Die Zeile verschwindet mit d
 letzten Treffer der Adresse. Ein Lizenzschlüssel steht nie in einem Auftrag,
 Protokoll oder Fehlertext.
 
-Für VPN, Proxy und Rechenzentrum steht neben den X4BNet-Listen proxycheck.io zur
-Wahl. Der Dienst braucht einen Schlüssel und beantwortet jede Adresse einzeln: Ein
-eigener Schritt im Cron schickt je Durchgang höchstens eine Anfrage mit so vielen
-Adressen, wie unter „Technik“ eingestellt ist (Vorgabe 100), und bleibt unter dem
-Tageslimit aus den Einstellungen. Er ersetzt die
-Merkmale VPN, Rechenzentrum und Proxy; Land, Provider und Tor bleiben bei den
-lokalen Quellen, solange eine davon gewählt ist.
+Für VPN, Proxy und Rechenzentrum gibt es eine zweite Stufe hinter den X4BNet-Listen:
+„X4BNet-Listen, dazu proxycheck.io für Adressen ohne Merkmal“. Die Listen laufen
+dabei weiter für jede Adresse. Eine Adresse, die eine freie Liste als Tor, VPN oder
+Rechenzentrum kennt, gilt als eindeutig und bleibt auf dem Server; nur die übrigen
+gehen an proxycheck.io. Der Dienst braucht einen Schlüssel und beantwortet jede
+Adresse einzeln: Ein eigener Schritt im Cron schickt je Durchgang höchstens eine
+Anfrage mit so vielen Adressen, wie unter „Technik“ eingestellt ist (Vorgabe 100),
+und bleibt unter dem Tageslimit aus den Einstellungen. Seine Antwort ergänzt VPN,
+Rechenzentrum und Proxy samt Anbieter; ein Merkmal aus der Antwort bleibt stehen,
+wenn die Listen neu laden, und ein Merkmal der Listen kommt dazu. Kennen die Listen
+eine wartende Adresse später, fällt sie aus der Warteschlange. Land, Provider und
+Tor kommen vom Dienst nur, wenn dafür keine lokale Quelle gewählt ist.
 
 Aus Treffern werden Sperren: Sammelt eine Adresse im Zeitfenster mehr
 Anomalie-Punkte, als die Website erlaubt (Vorgabe 50 Punkte in 10 Minuten, je

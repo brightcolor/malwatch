@@ -1017,9 +1017,10 @@ class malwatch_waf
 				continue;
 			}
 			if ($name === 'proxycheck') {
-				// The service is off: its marks and its state leave the addresses.
+				// The service is off: its marks and its state leave the addresses, and
+				// the lists look every address up again, so a mark it gave goes too.
 				$app->dbmaster->query("UPDATE malwatch_waf_ip SET is_proxy = 'n', vpn_operator = '', "
-					. "external_state = 'none', external_at = NULL, external_tries = 0 WHERE server_id = ?",
+					. "external_state = 'none', external_at = NULL, external_tries = 0, local_at = NULL WHERE server_id = ?",
 					$conf['server_id']);
 			} else {
 				@unlink($dir . '/' . $name . '.bin');
@@ -1261,11 +1262,6 @@ class malwatch_waf
 
 		$settings = $this->settings();
 		$limit = $limit === null ? (int) $settings['waf_origin_lookup_batch'] : (int) $limit;
-		// A new address goes to the external service as soon as one is chosen.
-		if (waf_origin_external($settings) !== '') {
-			$app->dbmaster->query("UPDATE malwatch_waf_ip SET external_state = 'pending' WHERE server_id = ? "
-				. "AND external_state = 'none'", $conf['server_id']);
-		}
 		$chosen = waf_origin_chosen($settings);
 		if (count($chosen) === 0) {
 			return 0;
@@ -1290,14 +1286,17 @@ class malwatch_waf
 		}
 		$readers = waf_origin_readers($this->ensure_dirs() . '/origin', $chosen);
 		$now = $this->now();
-		// A mark that belongs to the external service stays as its answer left it.
-		// Until the service has answered, the lookup writes the empty value there,
-		// so an address keeps no mark of a list that is switched off.
-		$local = waf_origin_local_fields($settings);
+		// How each mark is written, see waf_origin_field_rules(): a mark the service
+		// gave stays, and one only the service answers waits for its answer.
 		$updates = array();
-		foreach (array('country', 'asn', 'as_org', 'is_tor', 'is_vpn', 'is_hosting') as $field) {
-			$updates[] = in_array($field, $local, true) ? $field . ' = VALUES(' . $field . ')'
-				: $field . " = IF(external_state = 'done', " . $field . ', VALUES(' . $field . '))';
+		foreach (waf_origin_field_rules($settings) as $field => $rule) {
+			if ($rule === 'merge') {
+				$updates[] = $field . " = IF(external_state = 'done' AND " . $field . " = 'y', 'y', VALUES(" . $field . '))';
+			} elseif ($rule === 'service') {
+				$updates[] = $field . " = IF(external_state = 'done', " . $field . ', VALUES(' . $field . '))';
+			} else {
+				$updates[] = $field . ' = VALUES(' . $field . ')';
+			}
 		}
 		$done = 0;
 		foreach ($rows as $row) {
@@ -1333,6 +1332,15 @@ class malwatch_waf
 		if ($name === '') {
 			return 0;
 		}
+		// Only an address the free lists leave open goes to the service: its lookup
+		// is done and found no Tor, VPN or data centre. One the lists mark later
+		// leaves the queue again.
+		$app->dbmaster->query("UPDATE malwatch_waf_ip SET external_state = 'pending' WHERE server_id = ? "
+			. "AND external_state = 'none' AND local_at IS NOT NULL AND is_tor = 'n' AND is_vpn = 'n' AND is_hosting = 'n'",
+			$conf['server_id']);
+		$app->dbmaster->query("UPDATE malwatch_waf_ip SET external_state = 'none', external_at = NULL, external_tries = 0 "
+			. "WHERE server_id = ? AND external_state IN ('pending', 'limit', 'failed') "
+			. "AND (is_tor = 'y' OR is_vpn = 'y' OR is_hosting = 'y')", $conf['server_id']);
 		$now = $this->now();
 		$row = $app->dbmaster->queryOneRecord(
 			'SELECT * FROM malwatch_waf_origin_source WHERE server_id = ? AND source = ?', $conf['server_id'], $name);

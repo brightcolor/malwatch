@@ -34,6 +34,11 @@ expect_same('sources of the settings', waf_origin_chosen(array('waf_origin_geo' 
 expect_same('sources with everything off', waf_origin_chosen(array()), array());
 expect_same('sources with MaxMind and X4BNet', waf_origin_chosen(array('waf_origin_geo' => 'maxmind', 'waf_origin_net' => 'x4b')),
 	array('maxmind_country', 'maxmind_asn', 'x4b_vpn', 'x4b_datacenter'));
+// proxycheck.io hears only about addresses the free lists leave open, so the
+// X4BNet lists stay on with it.
+expect_same('with proxycheck.io the X4BNet lists come first', waf_origin_chosen(array('waf_origin_geo' => 'dbip',
+	'waf_origin_tor' => 'torproject', 'waf_origin_net' => 'proxycheck')),
+	array('dbip_country', 'dbip_asn', 'tor', 'x4b_vpn', 'x4b_datacenter'));
 $plain = waf_settings(array());
 expect_same('address of DB-IP with the month', waf_origin_urls('dbip_country', '2026-09', $plain),
 	array('https://download.db-ip.com/free/dbip-country-lite-2026-09.csv.gz'));

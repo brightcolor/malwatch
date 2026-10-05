@@ -1,0 +1,15 @@
+{
+	"status": "ok",
+	"query_time": "0.01s",
+	"198.51.100.7": {
+		"detections": {"proxy": false, "vpn": false, "tor": true, "hosting": true},
+		"network": {"asn": "AS64497", "organisation": "Zweites Netz"},
+		"location": {"country_code": "nl"}
+	},
+	"198.51.100.9": {
+		"detections": {"proxy": true, "vpn": true, "tor": false, "hosting": false},
+		"network": {"asn": "AS64496", "range": "198.51.100.0/24", "provider": "Beispiel Netz GmbH", "organisation": "Beispiel Netz GmbH"},
+		"location": {"country_code": "DE", "country_name": "Germany", "city": "Berlin"},
+		"operator": {"name": "Beispiel VPN", "url": "https://beispiel.test"}
+	}
+}

@@ -383,6 +383,11 @@ function waf_origin_chosen($settings)
 	$mode = isset($settings['waf_ban_mode']) ? (string) $settings['waf_ban_mode'] : 'off';
 	foreach (waf_origin_sources() as $name => $source) {
 		$setting = isset($settings[$source['setting']]) ? (string) $settings[$source['setting']] : 'off';
+		// proxycheck.io hears only about addresses the free lists leave open, so
+		// the lists of its setting stay on with it.
+		if ($source['setting'] === 'waf_origin_net' && waf_origin_external($settings) !== '') {
+			$setting = $source['value'];
+		}
 		if ($setting !== $source['value']) {
 			continue;
 		}
@@ -931,22 +936,34 @@ function waf_origin_external($settings)
 }
 
 /**
- * The marks the lookup in the range files writes. Without an external source
- * that is every mark. With one, VPN and data centre belong to its answer, and
- * so do country, provider and Tor where no local source is chosen for them.
+ * How the lookup in the range files writes each mark of an address:
+ *   'local'   from the range files alone,
+ *   'merge'   from the range files, and a mark the service gave stays,
+ *   'service' only from the answer of the service; until it has answered, the
+ *             lookup writes the empty value of a source that is off.
+ * Without an external source every mark is 'local'. With one, VPN and data
+ * centre come from the X4BNet lists and from the answers for the addresses the
+ * lists leave open; country, provider and Tor come from the service where no
+ * local source is chosen for them.
  */
-function waf_origin_local_fields($settings)
+function waf_origin_field_rules($settings)
 {
+	$rules = array('country' => 'local', 'asn' => 'local', 'as_org' => 'local', 'is_tor' => 'local',
+		'is_vpn' => 'local', 'is_hosting' => 'local');
 	if (waf_origin_external($settings) === '') {
-		return array('country', 'asn', 'as_org', 'is_tor', 'is_vpn', 'is_hosting');
+		return $rules;
 	}
-	$geo = isset($settings['waf_origin_geo']) ? (string) $settings['waf_origin_geo'] : 'off';
-	$tor = isset($settings['waf_origin_tor']) ? (string) $settings['waf_origin_tor'] : 'off';
-	$fields = $geo !== 'off' ? array('country', 'asn', 'as_org') : array();
-	if ($tor !== 'off') {
-		$fields[] = 'is_tor';
+	$rules['is_vpn'] = 'merge';
+	$rules['is_hosting'] = 'merge';
+	if ((isset($settings['waf_origin_geo']) ? (string) $settings['waf_origin_geo'] : 'off') === 'off') {
+		$rules['country'] = 'service';
+		$rules['asn'] = 'service';
+		$rules['as_org'] = 'service';
 	}
-	return $fields;
+	if ((isset($settings['waf_origin_tor']) ? (string) $settings['waf_origin_tor'] : 'off') === 'off') {
+		$rules['is_tor'] = 'service';
+	}
+	return $rules;
 }
 
 /** 'y' when the answer marked the address, 'n' otherwise. */
