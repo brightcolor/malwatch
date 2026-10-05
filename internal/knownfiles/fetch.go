@@ -108,15 +108,15 @@ func coreOnly(files map[string]string) map[string]string {
 	return out
 }
 
-// md5Values is the md5 of a plugin checksum entry: one value, or a list when
-// the file changed between two builds of the same release. wordpress.org
-// counts every listed value as the original.
-type md5Values []string
+// sumValues is one sum of a plugin checksum entry, md5 or sha256: one value,
+// or a list when the file changed between two builds of the same release.
+// wordpress.org counts every listed value as the original.
+type sumValues []string
 
-func (m *md5Values) UnmarshalJSON(raw []byte) error {
+func (m *sumValues) UnmarshalJSON(raw []byte) error {
 	var one string
 	if err := json.Unmarshal(raw, &one); err == nil {
-		*m = md5Values{one}
+		*m = sumValues{one}
 		return nil
 	}
 	var many []string
@@ -127,8 +127,46 @@ func (m *md5Values) UnmarshalJSON(raw []byte) error {
 	return nil
 }
 
-// WordPressPlugin returns path to MD5 for one plugin release. A file with
-// several valid sums carries them separated by commas; SumMatches reads that.
+// pluginSums picks the values a plugin file is compared against: its SHA-256
+// values where the list carries them, as wp plugin verify-checksums does, and
+// its MD5 values otherwise. A SHA-256 value is taken only in its own form, 64
+// hex digits.
+func pluginSums(md5Sums, sha256Sums sumValues) []string {
+	var strong []string
+	for _, v := range sha256Sums {
+		if v = strings.ToLower(strings.TrimSpace(v)); isHex(v, sha256Hex) {
+			strong = append(strong, v)
+		}
+	}
+	if len(strong) > 0 {
+		return strong
+	}
+	var values []string
+	for _, v := range md5Sums {
+		if v = strings.ToLower(strings.TrimSpace(v)); v != "" {
+			values = append(values, v)
+		}
+	}
+	return values
+}
+
+// isHex reports whether s holds exactly n lower case hex digits.
+func isHex(s string, n int) bool {
+	if len(s) != n {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		if c := s[i]; (c < '0' || c > '9') && (c < 'a' || c > 'f') {
+			return false
+		}
+	}
+	return true
+}
+
+// WordPressPlugin returns path to checksum values for one plugin release,
+// SHA-256 where wordpress.org publishes it and MD5 otherwise (see
+// pluginSums). A file with several valid sums carries them separated by
+// commas; Matches reads that.
 func (f *Fetcher) WordPressPlugin(slug, version string) (map[string]string, error) {
 	if !safeSlug(slug) || !safeVersion(version) {
 		return nil, fmt.Errorf("unplausibler Name oder Version")
@@ -144,7 +182,8 @@ func (f *Fetcher) WordPressPlugin(slug, version string) (map[string]string, erro
 	}
 	var payload struct {
 		Files map[string]struct {
-			MD5 md5Values `json:"md5"`
+			MD5    sumValues `json:"md5"`
+			SHA256 sumValues `json:"sha256"`
 		} `json:"files"`
 	}
 	if err := json.Unmarshal(raw, &payload); err != nil {
@@ -152,13 +191,7 @@ func (f *Fetcher) WordPressPlugin(slug, version string) (map[string]string, erro
 	}
 	out := make(map[string]string, len(payload.Files))
 	for path, sums := range payload.Files {
-		var values []string
-		for _, v := range sums.MD5 {
-			if v = strings.ToLower(strings.TrimSpace(v)); v != "" {
-				values = append(values, v)
-			}
-		}
-		if len(values) > 0 {
+		if values := pluginSums(sums.MD5, sums.SHA256); len(values) > 0 {
 			out[path] = strings.Join(values, ",")
 		}
 	}

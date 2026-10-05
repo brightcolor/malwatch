@@ -17,6 +17,37 @@ import (
 	"github.com/brightcolor/malwatch/internal/report"
 )
 
+// DefaultTimeout is how long connecting to the SMTP server may take, the TLS
+// handshake of --smtp-tls=tls included, while Sender.Timeout is zero.
+const DefaultTimeout = 30 * time.Second
+
+// MinTimeout and MaxTimeout are the range --smtp-timeout accepts.
+const (
+	MinTimeout = time.Second
+	MaxTimeout = 10 * time.Minute
+)
+
+// CheckTimeout says why d cannot serve as --smtp-timeout, or returns nil.
+func CheckTimeout(d time.Duration) error {
+	if d < MinTimeout || d > MaxTimeout {
+		return fmt.Errorf("--smtp-timeout=%s liegt außerhalb des erlaubten Bereichs: %s bis %s, Vorgabe %s",
+			DurationText(d), DurationText(MinTimeout), DurationText(MaxTimeout), DurationText(DefaultTimeout))
+	}
+	return nil
+}
+
+// DurationText writes d the way --smtp-timeout takes it: whole hours as
+// "1h", whole minutes as "10m", the rest as Go writes a duration.
+func DurationText(d time.Duration) string {
+	switch {
+	case d > 0 && d%time.Hour == 0:
+		return fmt.Sprintf("%dh", d/time.Hour)
+	case d > 0 && d%time.Minute == 0:
+		return fmt.Sprintf("%dm", d/time.Minute)
+	}
+	return d.String()
+}
+
 // Sender holds the delivery settings.
 type Sender struct {
 	From     string
@@ -24,12 +55,21 @@ type Sender struct {
 	SMTPHost string
 	SMTPUser string
 	SMTPPass string
-	// TLSMode is none, starttls or tls.
+	// TLSMode is none, starttls or tls. With starttls the mail goes out only
+	// after STARTTLS; a server on this machine may do without it (see
+	// loopbackHost).
 	TLSMode string
 	// Insecure accepts any server certificate. For a relay with a
 	// self-signed certificate; the password still travels encrypted, but
 	// nobody checks whom to.
 	Insecure bool
+	// Timeout bounds connecting to the SMTP server, the TLS handshake of
+	// TLSMode tls included. Zero means DefaultTimeout.
+	Timeout time.Duration
+
+	// dial opens the plain connection of TLSMode none and starttls; nil means
+	// a TCP dial. The tests reach a server under another name through it.
+	dial func(network, addr string) (net.Conn, error)
 }
 
 // SendReport delivers the report. A clean report is only sent when
@@ -155,12 +195,19 @@ func (s Sender) sendSMTP(from string, msg []byte) error {
 		return err
 	}
 
+	timeout := s.Timeout
+	if timeout <= 0 {
+		timeout = DefaultTimeout
+	}
 	var conn net.Conn
-	dialer := &net.Dialer{Timeout: 30 * time.Second}
-	tlsConfig := &tls.Config{ServerName: hostname, InsecureSkipVerify: s.Insecure}
-	if strings.EqualFold(s.TLSMode, "tls") {
+	dialer := &net.Dialer{Timeout: timeout}
+	tlsConfig := s.tlsConfig(hostname)
+	switch {
+	case strings.EqualFold(s.TLSMode, "tls"):
 		conn, err = tls.DialWithDialer(dialer, "tcp", host, tlsConfig)
-	} else {
+	case s.dial != nil:
+		conn, err = s.dial("tcp", host)
+	default:
 		conn, err = dialer.Dial("tcp", host)
 	}
 	if err != nil {
@@ -179,6 +226,10 @@ func (s Sender) sendSMTP(from string, msg []byte) error {
 			if err := client.StartTLS(tlsConfig); err != nil {
 				return err
 			}
+		} else if !loopbackHost(hostname) {
+			return fmt.Errorf("der SMTP-Server %s bietet kein STARTTLS an, und mit --smtp-tls=starttls geht die Mail "+
+				"nur verschlüsselt hinaus. STARTTLS am Server einschalten, mit --smtp-tls=tls einen Port mit TLS wählen "+
+				"oder --smtp-tls=none setzen, wenn die Mail unverschlüsselt zu diesem Server gehen darf", hostname)
 		}
 	}
 
@@ -209,4 +260,23 @@ func (s Sender) sendSMTP(from string, msg []byte) error {
 		return err
 	}
 	return client.Quit()
+}
+
+// tlsConfig is the TLS setup for a connection to hostname: TLS 1.2 or newer,
+// the floor RFC 8996 sets, and the certificate checked unless Insecure says
+// otherwise.
+func (s Sender) tlsConfig(hostname string) *tls.Config {
+	return &tls.Config{ServerName: hostname, InsecureSkipVerify: s.Insecure, MinVersion: tls.VersionTLS12}
+}
+
+// loopbackHost reports whether hostname names this machine: localhost or a
+// loopback address. A mail to such a server stays on the machine, so
+// --smtp-tls=starttls lets it go without STARTTLS, the same exception
+// net/smtp makes for the password of PlainAuth.
+func loopbackHost(hostname string) bool {
+	if strings.EqualFold(hostname, "localhost") {
+		return true
+	}
+	ip := net.ParseIP(hostname)
+	return ip != nil && ip.IsLoopback()
 }

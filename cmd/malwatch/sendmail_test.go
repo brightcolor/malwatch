@@ -2,13 +2,17 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/base64"
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/brightcolor/malwatch/internal/mail"
 )
 
 // fakeSMTP answers one SMTP session on localhost and records what it got.
@@ -149,6 +153,41 @@ func TestSendMailPasswordFileWinsOverTheEnvironment(t *testing.T) {
 	}
 }
 
+func TestSendMailTakesATimeoutWithinTheRange(t *testing.T) {
+	srv := startFakeSMTP(t)
+	dir := t.TempDir()
+	path := filepath.Join(dir, "mail.eml")
+	os.WriteFile(path, []byte("Subject: x\n\nx\n"), 0o600)
+
+	if code := cmdSendMail([]string{"--message=" + path, "--to=a@example.com", "--smtp=" + srv.addr,
+		"--smtp-tls=none", "--smtp-timeout=5s"}); code != 0 {
+		t.Fatalf("exit code %d", code)
+	}
+	<-srv.done
+	if !strings.Contains(srv.data, "Subject: x") {
+		t.Errorf("data = %q", srv.data)
+	}
+}
+
+// The help names the default and the range of --smtp-timeout as the mail
+// package holds them, so a changed value fails here until the text follows.
+func TestUsageNamesTheSMTPTimeout(t *testing.T) {
+	var buf bytes.Buffer
+	usage(&buf)
+	help := strings.Join(strings.Fields(buf.String()), " ")
+	want := fmt.Sprintf("(Vorgabe: %s, erlaubt %s bis %s)", mail.DurationText(mail.DefaultTimeout),
+		mail.DurationText(mail.MinTimeout), mail.DurationText(mail.MaxTimeout))
+	if n := strings.Count(help, want); n != 2 {
+		t.Errorf("the help names %q %d times, want it for scan and for send-mail", want, n)
+	}
+}
+
+func TestScanRefusesAnSMTPTimeoutOutOfRange(t *testing.T) {
+	if code := cmdScan([]string{"--smtp-timeout=0s", t.TempDir()}); code == 0 {
+		t.Fatal("scan accepted --smtp-timeout=0s")
+	}
+}
+
 func TestSendMailRefusesBadInput(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "mail.eml")
@@ -158,6 +197,8 @@ func TestSendMailRefusesBadInput(t *testing.T) {
 		"no recipient": {"--message=" + path},
 		"unknown tls":  {"--message=" + path, "--to=a@example.com", "--smtp-tls=maybe"},
 		"missing file": {"--message=" + filepath.Join(dir, "nope"), "--to=a@example.com"},
+		"no timeout":   {"--message=" + path, "--to=a@example.com", "--smtp-timeout=0s"},
+		"long timeout": {"--message=" + path, "--to=a@example.com", "--smtp-timeout=1h"},
 	} {
 		if code := cmdSendMail(args); code == 0 {
 			t.Errorf("%s: accepted", name)
