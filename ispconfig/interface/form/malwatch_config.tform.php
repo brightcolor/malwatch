@@ -146,6 +146,221 @@ $form['tabs']['settings'] = array(
 			'width' => '60',
 			'maxlength' => '512'
 		),
+		// The tests of libraries and the rules that do not count in them
+		// (0.42.0), handed to the scanner by malwatch_helper::verify_arguments().
+		// Defaults and limits: malwatch_config_defaults() and
+		// malwatch_list_settings(); test_rules is also checked against the rule
+		// catalog (malwatch_test_rules_refused()). Stored tidied, see
+		// malwatch_config_edit.php.
+		'test_dirs' => array(
+			'datatype' => 'VARCHAR',
+			'formtype' => 'TEXT',
+			'default' => malwatch_config_defaults()['test_dirs'],
+			'validators' => array(
+				array(
+					'type' => 'REGEX',
+					'regex' => malwatch_list_regex('test_dirs'),
+					'errmsg' => 'test_dirs_error_regex'
+				)
+			),
+			'value' => '',
+			'width' => '60',
+			'maxlength' => '495'
+		),
+		'library_dirs' => array(
+			'datatype' => 'VARCHAR',
+			'formtype' => 'TEXT',
+			'default' => malwatch_config_defaults()['library_dirs'],
+			'validators' => array(
+				array(
+					'type' => 'REGEX',
+					'regex' => malwatch_list_regex('library_dirs'),
+					'errmsg' => 'library_dirs_error_regex'
+				)
+			),
+			'value' => '',
+			'width' => '60',
+			'maxlength' => '495'
+		),
+		'test_rules' => array(
+			'datatype' => 'VARCHAR',
+			'formtype' => 'TEXT',
+			'default' => malwatch_config_defaults()['test_rules'],
+			'validators' => array(
+				array(
+					'type' => 'REGEX',
+					'regex' => malwatch_list_regex('test_rules'),
+					'errmsg' => 'test_rules_error_regex'
+				)
+			),
+			'value' => '',
+			'width' => '60',
+			'maxlength' => '1039'
+		),
+		// How the scanner tells a vendor's file from a finding (Abgleich mit
+		// den Herstellern, 0.41.0). The runner hands every value to the
+		// scanner (malwatch_helper::verify_arguments()); defaults and limits:
+		// malwatch_config_defaults(), malwatch_list_settings() and
+		// malwatch_verify_settings(). The lists are stored tidied, see
+		// malwatch_config_edit.php.
+		'modified_exts' => array(
+			'datatype' => 'VARCHAR',
+			'formtype' => 'TEXT',
+			'default' => malwatch_config_defaults()['modified_exts'],
+			'validators' => array(
+				array(
+					'type' => 'REGEX',
+					'regex' => malwatch_list_regex('modified_exts'),
+					'errmsg' => 'modified_exts_error_regex'
+				)
+			),
+			'value' => '',
+			'width' => '60',
+			'maxlength' => '520'
+		),
+		'script_hosts' => array(
+			'datatype' => 'VARCHAR',
+			'formtype' => 'TEXT',
+			'default' => malwatch_config_defaults()['script_hosts'],
+			'validators' => array(
+				array(
+					'type' => 'REGEX',
+					'regex' => malwatch_list_regex('script_hosts'),
+					'errmsg' => 'script_hosts_error_regex'
+				)
+			),
+			'value' => '',
+			'width' => '60',
+			'maxlength' => '3231'
+		),
+		'verify_composer' => array(
+			'datatype' => 'VARCHAR',
+			'formtype' => 'CHECKBOX',
+			'default' => malwatch_config_defaults()['verify_composer'],
+			'value' => array(0 => 'n', 1 => 'y')
+		),
+		'verify_originals' => array(
+			'datatype' => 'VARCHAR',
+			'formtype' => 'CHECKBOX',
+			'default' => malwatch_config_defaults()['verify_originals'],
+			'value' => array(0 => 'n', 1 => 'y')
+		),
+		'verify_hosts' => array(
+			'datatype' => 'VARCHAR',
+			'formtype' => 'TEXT',
+			'default' => malwatch_config_defaults()['verify_hosts'],
+			'validators' => array(
+				array(
+					'type' => 'REGEX',
+					'regex' => malwatch_list_regex('verify_hosts'),
+					'errmsg' => 'verify_hosts_error_regex'
+				)
+			),
+			'value' => '',
+			'width' => '60',
+			'maxlength' => '1615'
+		),
+		// The register that names the archive of each commit of a Composer
+		// package; the address in the website's installed.json does not count.
+		'verify_packagist_url' => array(
+			'datatype' => 'VARCHAR',
+			'formtype' => 'TEXT',
+			'default' => malwatch_config_defaults()['verify_packagist_url'],
+			'validators' => array(
+				array(
+					'type' => 'REGEX',
+					'regex' => malwatch_service_url_regex(),
+					'errmsg' => 'verify_packagist_url_error_regex'
+				)
+			),
+			'value' => '',
+			'width' => '60',
+			'maxlength' => '255'
+		),
+		'verify_max_downloads' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => (string) malwatch_config_defaults()['verify_max_downloads'],
+			'validators' => array(
+				array(
+					'type' => 'RANGE',
+					'range' => malwatch_verify_range('verify_max_downloads'),
+					'errmsg' => 'verify_max_downloads_error_range'
+				)
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '4'
+		),
+		'verify_max_mb' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => (string) malwatch_config_defaults()['verify_max_mb'],
+			'validators' => array(
+				array(
+					'type' => 'RANGE',
+					'range' => malwatch_verify_range('verify_max_mb'),
+					'errmsg' => 'verify_max_mb_error_range'
+				)
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '3'
+		),
+		'verify_timeout' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => (string) malwatch_config_defaults()['verify_timeout'],
+			'validators' => array(
+				array(
+					'type' => 'RANGE',
+					'range' => malwatch_verify_range('verify_timeout'),
+					'errmsg' => 'verify_timeout_error_range'
+				)
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '3'
+		),
+		'verify_retry_hours' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => (string) malwatch_config_defaults()['verify_retry_hours'],
+			'validators' => array(
+				array(
+					'type' => 'RANGE',
+					'range' => malwatch_verify_range('verify_retry_hours'),
+					'errmsg' => 'verify_retry_hours_error_range'
+				)
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '3'
+		),
+		// The database of known files, off by default. Only the SHA-1 sums of
+		// files with a finding go out; the address travels on the command
+		// line of the scanner and so carries no login.
+		'hashlookup' => array(
+			'datatype' => 'VARCHAR',
+			'formtype' => 'CHECKBOX',
+			'default' => malwatch_config_defaults()['hashlookup'],
+			'value' => array(0 => 'n', 1 => 'y')
+		),
+		'hashlookup_url' => array(
+			'datatype' => 'VARCHAR',
+			'formtype' => 'TEXT',
+			'default' => malwatch_config_defaults()['hashlookup_url'],
+			'validators' => array(
+				array(
+					'type' => 'REGEX',
+					'regex' => malwatch_service_url_regex(),
+					'errmsg' => 'hashlookup_url_error_regex'
+				)
+			),
+			'value' => '',
+			'width' => '60',
+			'maxlength' => '255'
+		),
 		// What the finding page gets to see of a file (Fundansicht). The
 		// scanner has the same bounds; see malwatch_view_settings().
 		'view_lines' => array(
@@ -329,6 +544,70 @@ $form['tabs']['settings'] = array(
 			'value' => '',
 			'width' => '10',
 			'maxlength' => '4'
+		),
+		// The hourly part of the cron job (0.41.0): its minute, how long
+		// finished jobs and fixed findings stay, and how many open findings a
+		// run checks for a file that is gone. Defaults and limits:
+		// malwatch_housekeeping_settings().
+		'housekeeping_minute' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => (string) malwatch_config_defaults()['housekeeping_minute'],
+			'validators' => array(
+				array(
+					'type' => 'RANGE',
+					'range' => malwatch_housekeeping_range('housekeeping_minute'),
+					'errmsg' => 'housekeeping_minute_error_range'
+				)
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '2'
+		),
+		'keep_job_days' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => (string) malwatch_config_defaults()['keep_job_days'],
+			'validators' => array(
+				array(
+					'type' => 'RANGE',
+					'range' => malwatch_housekeeping_range('keep_job_days'),
+					'errmsg' => 'keep_job_days_error_range'
+				)
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '4'
+		),
+		'keep_fixed_days' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => (string) malwatch_config_defaults()['keep_fixed_days'],
+			'validators' => array(
+				array(
+					'type' => 'RANGE',
+					'range' => malwatch_housekeeping_range('keep_fixed_days'),
+					'errmsg' => 'keep_fixed_days_error_range'
+				)
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '4'
+		),
+		'vanished_check_rows' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => (string) malwatch_config_defaults()['vanished_check_rows'],
+			'validators' => array(
+				array(
+					'type' => 'RANGE',
+					'range' => malwatch_housekeeping_range('vanished_check_rows'),
+					'errmsg' => 'vanished_check_rows_error_range'
+				)
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '5'
 		),
 		'poll_seconds' => array(
 			'datatype' => 'INTEGER',

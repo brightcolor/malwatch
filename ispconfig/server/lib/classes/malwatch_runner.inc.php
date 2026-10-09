@@ -384,6 +384,13 @@ class malwatch_runner
 		// for the rules that judge a file by lying below one.
 		$args[] = '--upload-dirs=' . implode(',', $app->malwatch_helper->upload_dirs($config['upload_dirs']));
 
+		// How the scanner tells a vendor's file from a finding (Scanner >
+		// Einstellungen > Abgleich mit den Herstellern): which changed files
+		// count, which script hosts are harmless, the Composer and theme
+		// archives, and the database of known files when it is switched on.
+		foreach ($app->malwatch_helper->verify_arguments($config) as $switch) {
+			$args[] = $switch;
+		}
 		// What the finding page gets to show of a file (Scanner > Einstellungen
 		// > Fundansicht): marks, traits and the lines around them.
 		foreach ($app->malwatch_helper->view_arguments($config) as $switch) {

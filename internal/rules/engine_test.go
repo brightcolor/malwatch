@@ -429,6 +429,17 @@ var samples = []sample{
 			`'FM_SESSION_ID' => 'marker');`,
 	},
 	{
+		// PHP File Manager ohne Anmeldung: sechs Kopien auf einer Website,
+		// gefunden am 30.09.2026. Erkannt an der Einstellung "authorize":"0"
+		// samt ihren Schlüsseln für Cookie und Anmeldedauer.
+		rule: "php.tool.file_manager_open", ext: "php", path: "/web/wp-content/plugins/wp-cache-x/fm.php",
+		hit: `<?php $authorization = '{"authorize":"0","login":"admin","password":"phpfm",` +
+			`"cookie_name":"fm_user","days_authorization":"30","script":""}';`,
+		// Ein anderes Programm mit eigener Variable $authorization und einem
+		// Feld authorize, ohne die Schlüssel des Datei-Managers.
+		miss: `<?php $authorization = '{"authorize":"0","scope":"read"}';`,
+	},
+	{
 		// Das Sperr-.htaccess zweier Befälle: verbietet PHP in jeder Schreibung
 		// und lässt nur die eigenen Einstiege zu. Wörtlich gekürzt aus einem
 		// Fund, der in 182 Verzeichnissen einer Website stand.

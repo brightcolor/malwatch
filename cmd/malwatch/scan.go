@@ -5,10 +5,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
+	"github.com/brightcolor/malwatch/internal/composer"
 	"github.com/brightcolor/malwatch/internal/fileview"
+	"github.com/brightcolor/malwatch/internal/hashlookup"
 	"github.com/brightcolor/malwatch/internal/mail"
 	"github.com/brightcolor/malwatch/internal/progress"
 	"github.com/brightcolor/malwatch/internal/report"
@@ -37,13 +40,28 @@ func cmdScan(args []string) int {
 	fs.SetOutput(os.Stderr)
 	fs.Usage = func() { usage(os.Stderr) }
 
-	var paths, excludes, excludeFrom, ignore, email, uploadDirs stringList
+	var paths, excludes, excludeFrom, ignore, email, uploadDirs, modifiedExts, scriptHosts, verifyHosts stringList
+	var testDirs, libraryDirs, testRules stringList
 	fs.Var(&paths, "path", "")
 	fs.Var(&excludes, "exclude", "")
 	fs.Var(&excludeFrom, "exclude-from", "")
 	fs.Var(&ignore, "ignore", "")
 	fs.Var(&email, "email", "")
 	fs.Var(&uploadDirs, "upload-dirs", "")
+	fs.Var(&testDirs, "test-dirs", "")
+	fs.Var(&libraryDirs, "library-dirs", "")
+	fs.Var(&testRules, "test-rules", "")
+	fs.Var(&modifiedExts, "modified-exts", "")
+	fs.Var(&scriptHosts, "script-hosts", "")
+	fs.Var(&verifyHosts, "verify-hosts", "")
+	noVerifyComposer := fs.Bool("no-verify-composer", false, "")
+	noVerifyOriginals := fs.Bool("no-verify-originals", false, "")
+	hashlookupURL := fs.String("hashlookup-url", "", "")
+	packagistURL := fs.String("verify-packagist-url", composer.DefaultPackagistURL, "")
+	verifyMaxDownloads := fs.Int("verify-max-downloads", composer.DefaultMaxDownloads, "")
+	verifyMaxMB := fs.Int("verify-max-mb", composer.DefaultMaxMB, "")
+	verifyTimeout := fs.Int("verify-timeout", composer.DefaultTimeoutSeconds, "")
+	verifyRetry := fs.Int("verify-retry-hours", composer.DefaultRetryHours, "")
 
 	maxAge := fs.Int("max-age", 0, "")
 	maxSize := fs.Int64("max-size", 0, "")
@@ -63,6 +81,7 @@ func cmdScan(args []string) int {
 	noVuln := fs.Bool("no-vuln-scan", false, "")
 	wpscanTokenFile := fs.String("wpscan-token-file", "", "")
 	phpBinary := fs.String("php", "", "")
+	phpVersion := fs.String("php-version", "", "")
 	offline := fs.Bool("offline", false, "")
 
 	asJSON := fs.Bool("json", false, "")
@@ -108,6 +127,93 @@ func cmdScan(args []string) int {
 	if len(uploadDirs) > 0 {
 		if err := rules.CheckUploadDirs(uploads); err != nil {
 			fmt.Fprintf(os.Stderr, "--upload-dirs: %v. Beispiel: --upload-dirs=uploads,attachments\n", err)
+			return report.ExitError
+		}
+	}
+
+	libTests := rules.DefaultLibraryTests()
+	if len(testDirs) > 0 {
+		libTests.TestDirs = rules.ParseUploadDirs(testDirs)
+	}
+	if len(libraryDirs) > 0 {
+		libTests.LibraryDirs = rules.ParseUploadDirs(libraryDirs)
+	}
+	if len(testRules) > 0 {
+		libTests.Rules = rules.ParseUploadDirs(testRules)
+	}
+	if err := libTests.Check(); err != nil {
+		fmt.Fprintf(os.Stderr, "Testordner von Bibliotheken: %v. Beispiel: --test-dirs=test,tests --library-dirs=vendor "+
+			"--test-rules=php.exec.background\n", err)
+		return report.ExitError
+	}
+
+	exts := rules.ParseUploadDirs(modifiedExts)
+	for i := range exts {
+		exts[i] = strings.ToLower(strings.TrimPrefix(exts[i], "."))
+	}
+	if len(modifiedExts) > 0 {
+		if err := scanner.CheckModifiedExts(exts); err != nil {
+			fmt.Fprintf(os.Stderr, "--modified-exts: %v. Beispiel: --modified-exts=php,js,html\n", err)
+			return report.ExitError
+		}
+	}
+
+	if *phpVersion != "" && !phpVersionShape.MatchString(*phpVersion) {
+		fmt.Fprintf(os.Stderr, "--php-version: %q ist keine PHP-Version. Beispiel: --php-version=8.2 oder --php-version=7.4.33\n",
+			*phpVersion)
+		return report.ExitError
+	}
+
+	verify := scanner.DefaultVerify()
+	verify.Composer = !*noVerifyComposer
+	verify.Originals = !*noVerifyOriginals
+	if *hashlookupURL != "" {
+		if err := hashlookup.CheckURL(*hashlookupURL); err != nil {
+			fmt.Fprintln(os.Stderr, "--hashlookup-url: "+err.Error())
+			return report.ExitError
+		}
+		verify.HashlookupURL = *hashlookupURL
+	}
+	if err := composer.CheckPackagistURL(*packagistURL); err != nil {
+		fmt.Fprintln(os.Stderr, "--verify-packagist-url: "+err.Error())
+		return report.ExitError
+	}
+	verify.PackagistURL = *packagistURL
+	if len(verifyHosts) > 0 {
+		verify.Hosts = rules.ParseUploadDirs(verifyHosts)
+		for i := range verify.Hosts {
+			verify.Hosts[i] = strings.ToLower(verify.Hosts[i])
+		}
+		if err := composer.CheckHosts(verify.Hosts); err != nil {
+			fmt.Fprintf(os.Stderr, "--verify-hosts: %v. Beispiel: --verify-hosts=codeload.github.com,gitlab.com\n", err)
+			return report.ExitError
+		}
+	}
+	for _, c := range []struct {
+		name     string
+		value    *int
+		min, max int
+		into     *int
+	}{
+		{"--verify-max-downloads", verifyMaxDownloads, 1, composer.MaxDownloadsCap, &verify.MaxDownloads},
+		{"--verify-max-mb", verifyMaxMB, 1, composer.MaxMBCap, &verify.MaxMB},
+		{"--verify-timeout", verifyTimeout, 1, composer.MaxTimeoutCap, &verify.TimeoutSeconds},
+		{"--verify-retry-hours", verifyRetry, 0, composer.MaxRetryCap, &verify.RetryHours},
+	} {
+		if *c.value < c.min || *c.value > c.max {
+			fmt.Fprintf(os.Stderr, "%s: %d geht nicht, erlaubt sind %d bis %d\n", c.name, *c.value, c.min, c.max)
+			return report.ExitError
+		}
+		*c.into = *c.value
+	}
+
+	hosts := rules.ParseUploadDirs(scriptHosts)
+	for i := range hosts {
+		hosts[i] = strings.ToLower(hosts[i])
+	}
+	if len(scriptHosts) > 0 {
+		if err := rules.CheckScriptHosts(hosts); err != nil {
+			fmt.Fprintf(os.Stderr, "--script-hosts: %v. Beispiel: --script-hosts=code.jquery.com,www.google-analytics.com\n", err)
 			return report.ExitError
 		}
 	}
@@ -174,10 +280,19 @@ func cmdScan(args []string) int {
 		WPScanToken:     os.Getenv("MALWATCH_WPSCAN_TOKEN"),
 		WPScanTokenFile: *wpscanTokenFile,
 		PHPBinary:       *phpBinary,
+		PHPVersion:      *phpVersion,
 		Offline:         *offline,
 		IgnoreRules:     ignore,
 		Whitelist:       whitelist,
 		UploadDirs:      uploads,
+		ModifiedExts:    exts,
+		ScriptHosts:     hosts,
+		ScriptHostsSet:  len(scriptHosts) > 0,
+		TestDirs:        libTests.TestDirs,
+		LibraryDirs:     libTests.LibraryDirs,
+		TestRules:       libTests.Rules,
+		TestRulesSet:    true,
+		Verify:          verify,
 		View:            view,
 		SignatureDir:    *sigDir,
 		StateDir:        *stateDir,
@@ -356,3 +471,7 @@ func cmdWhitelist(args []string) int {
 	fmt.Printf("Freigegeben: %s\n%s\n", target, sum)
 	return 0
 }
+
+// phpVersionShape is a PHP version as --php-version takes it: up to three
+// numbers joined by dots.
+var phpVersionShape = regexp.MustCompile(`^[0-9]{1,2}(?:\.[0-9]{1,3}){0,2}$`)

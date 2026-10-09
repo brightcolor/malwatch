@@ -113,6 +113,10 @@ jobs:
         run: php ispconfig/tests/mail_html_test.php
       - name: Quarantine jobs
         run: php ispconfig/tests/quarantine_jobs_test.php
+      - name: Checking against the vendors
+        run: php ispconfig/tests/verify_settings_test.php
+      - name: Hourly housekeeping
+        run: php ispconfig/tests/housekeeping_test.php
       - name: WAF functions
         run: php ispconfig/tests/waf_lib_test.php
       - name: WAF page helpers

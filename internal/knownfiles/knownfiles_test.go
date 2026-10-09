@@ -199,3 +199,43 @@ func TestAVendorTreeReportsWhatTheVendorDoesNotShip(t *testing.T) {
 		}
 	})
 }
+
+// A vendor file that a plugin copies elsewhere at run time is still the
+// vendor's file: EWWW Image Optimizer puts its bundled programs into
+// wp-content/ewww. Copy tells such a copy by its content, wherever it lies.
+func TestCopyKnowsTheContentOfEveryVerifiedFile(t *testing.T) {
+	idx := New()
+	sum := func(s string) string { m := md5.Sum([]byte(s)); return hex.EncodeToString(m[:]) }
+	idx.AddVendorTree("/web/wp-content/plugins/ewww", "Plugin ewww 8.0", map[string]string{
+		"binaries/cwebp-linux": sum("ELF cwebp") + "," + sum("ELF cwebp older build"),
+	})
+	for _, content := range []string{"ELF cwebp", "ELF cwebp older build"} {
+		if label, ok := idx.Copy([]byte(content)); !ok || label != "Plugin ewww 8.0: binaries/cwebp-linux" {
+			t.Errorf("%q: %q %v", content, label, ok)
+		}
+	}
+	if _, ok := idx.Copy([]byte("something else")); ok {
+		t.Error("unbekannter Inhalt als Kopie erkannt")
+	}
+}
+
+// wordpress.org lists plugin files with SHA-256 (see Matches), so a copy of
+// such a file is known by that sum too, through Copy and through CopySum.
+func TestCopyKnowsAFileListedWithSHA256(t *testing.T) {
+	idx := New()
+	content := []byte("ELF cwebp")
+	s256 := sha256.Sum256(content)
+	s5 := md5.Sum(content)
+	idx.AddVendorTree("/web/wp-content/plugins/ewww", "Plugin ewww 8.0", map[string]string{
+		"binaries/cwebp-linux": hex.EncodeToString(s256[:]),
+	})
+	if label, ok := idx.Copy(content); !ok || label != "Plugin ewww 8.0: binaries/cwebp-linux" {
+		t.Errorf("Copy: %q %v", label, ok)
+	}
+	if _, ok := idx.CopySum(hex.EncodeToString(s5[:]), hex.EncodeToString(s256[:])); !ok {
+		t.Error("CopySum mit MD5 und SHA-256 erkennt die Kopie nicht")
+	}
+	if _, ok := idx.CopySum(hex.EncodeToString(s5[:])); ok {
+		t.Error("CopySum erkennt eine nur per SHA-256 gelistete Datei an ihrer MD5")
+	}
+}

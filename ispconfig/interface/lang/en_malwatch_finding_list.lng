@@ -12,3 +12,7 @@ $wb['last_seen_txt'] = 'Last seen';
 $wb['open_txt'] = 'View';
 $wb['filter_txt'] = 'Filter';
 $wb['line_number_txt'] = 'Line';
+$wb['site_inactive_txt'] = 'switched off';
+$wb['site_inactive_hint_txt'] = 'The website is switched off in ISPConfig and is no longer scanned. Its findings stand as the last scan left them; once a file is gone, the server closes the finding on its own.';
+$wb['site_gone_txt'] = 'deleted';
+$wb['site_gone_hint_txt'] = 'ISPConfig no longer has this website. Its findings stand as the last scan left them; the server closes them once it misses their files.';

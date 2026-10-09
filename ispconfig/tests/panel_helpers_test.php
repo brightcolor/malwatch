@@ -195,6 +195,14 @@ expect_same('review data: no character of it ends a tag or an attribute', array(
 expect_same('review data survives a value that is no UTF-8',
 	is_array(json_decode(malwatch_review_json(array('x' => "\xff\xfe"), array()), true)), true);
 
+// The state of a website in the finding list (0.41.0): the scheduler scans
+// active websites only, so the findings of the others stay as the last scan
+// left them.
+expect_same('active website', malwatch_site_state(array('active' => 'y')), '');
+expect_same('switched off', malwatch_site_state(array('active' => 'n')), 'inactive');
+expect_same('gone from ISPConfig', malwatch_site_state(null), 'gone');
+expect_same('gone, as queryOneRecord says it', malwatch_site_state(false), 'gone');
+
 if ($failures > 0) {
 	exit(1);
 }

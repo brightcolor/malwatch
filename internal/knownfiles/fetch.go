@@ -1,6 +1,10 @@
 package knownfiles
 
 import (
+	"archive/zip"
+	"bytes"
+	"crypto/md5"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -8,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -26,6 +31,8 @@ type Fetcher struct {
 	// scanner would treat every file of that install as unknown, which is
 	// safe but noisier - the report says so instead of hiding it.
 	failures []string
+	// themeBase replaces the address of the theme archives for the tests.
+	themeBase string
 }
 
 // NewFetcher returns a fetcher writing its cache below cacheDir.
@@ -285,4 +292,105 @@ func safeVersion(s string) bool {
 		}
 	}
 	return !strings.Contains(s, "..")
+}
+
+// maxThemeArchive caps the size of a theme archive, packed and unpacked.
+const maxThemeArchive = 64 * 1024 * 1024
+
+// WordPressTheme returns path to MD5 for one theme release of wordpress.org.
+// wordpress.org publishes no checksum list for themes, so the sums come from
+// the release archive, computed once and kept like a list. A theme that is
+// not on wordpress.org - a premium theme, a child theme - answers
+// ErrNotPublished.
+func (f *Fetcher) WordPressTheme(slug, version string) (map[string]string, error) {
+	if !safeSlug(slug) || !safeVersion(version) {
+		return nil, fmt.Errorf("unplausibler Name oder Version")
+	}
+	key := "wordpress-theme-" + slug + "-" + version + ".json"
+	if f.cacheDir != "" {
+		if raw, err := os.ReadFile(filepath.Join(f.cacheDir, key)); err == nil {
+			var files map[string]string
+			if json.Unmarshal(raw, &files) == nil && len(files) > 0 {
+				return files, nil
+			}
+		}
+	}
+	base := f.themeBase
+	if base == "" {
+		base = "https://downloads.wordpress.org/theme/"
+	}
+	req, err := http.NewRequest(http.MethodGet, base+url.PathEscape(slug)+"."+url.PathEscape(version)+".zip", nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", "malwatch")
+	resp, err := f.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, fmt.Errorf("HTTP 404: %w", ErrNotPublished)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
+	}
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, maxThemeArchive+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(raw) > maxThemeArchive {
+		return nil, fmt.Errorf("Archiv größer als %d MB", maxThemeArchive/1024/1024)
+	}
+	files, err := md5OfArchive(raw, slug)
+	if err != nil {
+		return nil, err
+	}
+	if f.cacheDir != "" {
+		if out, err := json.Marshal(files); err == nil && os.MkdirAll(f.cacheDir, 0o750) == nil {
+			tmp := filepath.Join(f.cacheDir, key+".tmp")
+			if os.WriteFile(tmp, out, 0o640) == nil {
+				_ = os.Rename(tmp, filepath.Join(f.cacheDir, key))
+			}
+		}
+	}
+	return files, nil
+}
+
+// md5OfArchive returns the MD5 of every file in a theme archive by its path
+// below the directory named after the slug.
+func md5OfArchive(raw []byte, slug string) (map[string]string, error) {
+	zr, err := zip.NewReader(bytes.NewReader(raw), int64(len(raw)))
+	if err != nil {
+		return nil, fmt.Errorf("kein lesbares zip: %w", err)
+	}
+	out := map[string]string{}
+	var total int64
+	for _, zf := range zr.File {
+		if zf.FileInfo().IsDir() || !strings.HasPrefix(zf.Name, slug+"/") {
+			continue
+		}
+		name := path.Clean(strings.TrimPrefix(zf.Name, slug+"/"))
+		if name == "." || strings.HasPrefix(name, "../") {
+			continue
+		}
+		rc, err := zf.Open()
+		if err != nil {
+			return nil, err
+		}
+		h := md5.New()
+		n, err := io.Copy(h, io.LimitReader(rc, maxThemeArchive-total+1))
+		rc.Close()
+		if err != nil {
+			return nil, err
+		}
+		if total += n; total > maxThemeArchive {
+			return nil, fmt.Errorf("Archiv entpackt zu groß")
+		}
+		out[name] = hex.EncodeToString(h.Sum(nil))
+	}
+	if len(out) == 0 {
+		return nil, fmt.Errorf("leeres Archiv: %w", ErrNotPublished)
+	}
+	return out, nil
 }

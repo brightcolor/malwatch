@@ -2,6 +2,138 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.42.0] – 2026-10-09
+
+Fehlalarme verschwinden durch Erkennung: Der Scanner gleicht mehr mit den Herstellern ab, ordnet ein,
+was eine Datei tatsächlich tun kann, und erkennt zwei weitere Arten von Herstellercode: Wrapper, die eine
+Bibliothek aus eigenem Text schreibt, und die Tests von Bibliotheken. Gegen die 1.493 Einträge der Quarantäne
+des ISPConfig-Hosts meldet 0.42.0 jede der 978 Dateien weiter hoch oder kritisch, die nach der Einzelprüfung
+vom 30.09.2026 so gehören, und nichts neu; die übrigen 180 Meldungen von 0.40.0 waren Fehlalarme.
+
+### Hinzugefügt
+
+**Abgleich mit den Herstellern.** Themes von wordpress.org prüft der Scanner gegen das
+veröffentlichte Archiv, so wie Kern und Plugins. Eine Datei mit Fund in einem Composer-Paket
+vergleicht er mit dem Originalarchiv des Pakets; stimmt sie überein, entfällt der Fund.
+`vendor/composer/installed.json` liefert dafür nur Paket und Stand, das Archiv nennt das
+Paketregister (`--verify-packagist-url`, Vorgabe https://repo.packagist.org): Eine veränderte
+`installed.json` kann so kein eigenes Archiv unterschieben. Eine abweichende Skriptdatei (JS, CSS, HTML) eines Plugins oder
+Themes vergleicht er mit der Datei im SVN von wordpress.org: Ein eingefügter Block, der lädt
+oder ausführt, bleibt ein Fund der Stufe „hoch“; eine durchgehend neu gebaute Datei gilt als
+Werk des Herstellers. Eine Kopie einer geprüften Datei an anderem Ort, etwa neben einem
+Bildoptimierer, gilt als geprüft; Regeln, die nach dem Ort urteilen, melden sie weiter.
+Scanner: `--no-verify-composer`, `--no-verify-originals`, `--verify-hosts`,
+`--verify-max-downloads`, `--verify-max-mb`, `--verify-timeout`, `--verify-retry-hours`.
+
+**Datenbank bekannter Dateien, ausgeschaltet.** Eingeschaltet schlägt der Scanner Dateien mit
+Fund, die kein anderer Abgleich bestätigt, per SHA-1-Summe in einer Datenbank wie CIRCL
+hashlookup nach (`--hashlookup-url`). An den Dienst gehen ausschließlich Prüfsummen; ein
+Eintrag zählt mit passender SHA-256-Summe, ein als schädlich markierter bestätigt nichts. Eine
+Adresse mit Anmeldedaten lehnen Scanner und Einstellungsseite ab, weil sie auf der
+Befehlszeile steht.
+
+**Einstellungen unter Scanner > Einstellungen > Abgleich mit den Herstellern:** Endungen für
+Abweichungen, erlaubte Skript-Hosts, Composer-Pakete und Originaldateien abgleichen,
+Paketregister, Hosts für Archive, Abrufe je Prüfung (50), Größe je Abruf (50 MB), Wartezeit je Abruf
+(60 Sekunden), neuer Versuch nach (24 Stunden), Datenbank bekannter Dateien fragen (aus) und
+ihre Adresse.
+
+**Regel `php.tool.file_manager_open` (kritisch, selbsttätige Quarantäne):** der quelloffene
+PHP File Manager mit abgeschalteter Anmeldung (`"authorize":"0"`). Wer die Datei aufruft, kann
+ohne Kennwort Dateien hochladen, ändern und ausführen. Am 30.09.2026 lagen sechs Kopien auf
+einer Website, jede in einem Plugin-Ordner mit ausgedachtem Namen, hochgeladen über eine
+gestohlene WordPress-Anmeldung; die Regeln bis dahin meldeten sie nur als „hoch“, und die
+automatische Quarantäne ließ sie liegen.
+
+**Funde verschwundener Dateien.** Stündlich prüft der Server bis zu 500 offene Funde darauf,
+ob ihre Datei noch da ist, und schließt die Funde verschwundener Dateien. Das hält vor allem
+Websites aktuell, die abgeschaltet sind und deshalb nicht mehr geprüft werden. Die Liste der
+Funde kennzeichnet solche Websites mit „abgeschaltet“ oder „gelöscht“.
+
+**Aufräumen einstellbar:** Minute der stündlichen Aufräumarbeiten (7), erledigte Aufträge
+behalten (30 Tage), behobene Funde behalten (90 Tage), Funde je Stunde auf fehlende Dateien
+prüfen (500, 0 schaltet ab).
+
+**Testordner von Bibliotheken.** In einem Testordner einer Bibliothek zählen die
+Hinweisregeln `php.exec.background`, `php.eval.variable` und `binary.elf` nicht: Tests
+starten Testserver im Hintergrund, enthalten Beispieldateien mit `eval` und bringen die
+Programme mit, die sie brauchen. Ein Testordner ist ein Ordner wie `test`, `tests`,
+`test-suite`, `testsuite`, `fixtures` oder `__tests__` innerhalb einer Bibliothek unterhalb
+von `vendor`, `vendors`, `node_modules` oder `bower_components`. Als Test gilt auch eine
+Datei, die die Bibliothek in ihrer `.gitignore` als Datei eines Testordners führt, etwa der
+Mock-Server Prism des SendGrid-SDK. Unterhalb eines Upload-Ordners gilt nichts als
+Bibliothek; Signaturen, Webshell-Regeln und alle Funde ab „hoch“ gelten auch in
+Testordnern. Scanner: `--test-dirs`, `--library-dirs`, `--test-rules`; eintragen lassen sich
+Regeln bis zur Stufe „mittel“ ohne selbsttätige Quarantäne.
+
+**Einstellungen unter Scanner > Einstellungen > Testordner von Bibliotheken:** Testordner,
+Bibliotheksordner und Regeln, die in Testordnern nicht zählen. Die Seite lehnt eine Regel
+ab, die der Regelkatalog als „hoch“, „kritisch“ oder mit selbsttätiger Quarantäne führt.
+
+### Geändert
+
+**Dateien ohne Wirkung gelten als harmlos:** nur Kommentare, ein `exit` am Anfang oder nur
+feste Daten wie Übersetzungstabellen und Konfigurationsarrays, auch hinter einer
+ABSPATH-Sperre. Das betrifft PHP im Upload-Ordner und fremde Dateien im Kern von WordPress.
+
+**Regeln zu PHP-Konstrukten werten Treffer, die PHP ausführen kann:** im Code und in
+Zeichenketten, die eine Datei an `eval` geben oder in eine Datei schreiben kann. Ein `eval(`
+in einem Kommentar oder im HTML-Teil einer Datei zählt als Text; so meldete der Scanner
+zuvor eine auskommentierte Zeile von RevSlider als kritisch. `include "http://"` zählt mit
+einer Adresse dahinter; ein Hilfetext, der dazu auffordert, „http://“ einzutragen, zählt
+nicht (Salient). Abruf und Ausführung gehören zu einer Aktion, wenn sie in derselben
+Funktion stehen oder die eine die andere direkt aufruft; so meldete die Regel
+`php.remote.fetch_eval_indirect` zuvor die XML-RPC-Bibliothek von SeedProd.
+
+**Der PHP-Leser verliert den Faden seltener.** Ein eingesetzter Wert `{$name}` in einer
+Zeichenkette endet an seiner eigenen Klammer; zuvor las der Scanner bis zur nächsten
+geschweiften Klammer der Datei weiter und hielt den Code dazwischen für Text. `<?` öffnet PHP
+auch ohne folgendes Leerzeichen, wie PHP es mit eingeschalteten Short-Tags tut; die
+XML-Deklaration `<?xml` bleibt Text.
+
+**Kodiertes wird dekodiert und eingeordnet.** Bilder, Zertifikate, Schlüssel, Archive,
+Schriften und PDF in base64 sind Daten, ebenso alles hinter `__halt_compiler` in einem PHAR.
+`document.write` mit `unescape` wird entschlüsselt; ein mailto-Link, Text oder ein Skript von
+einem erlaubten Host ist harmlos. Listen und Suchmuster mit Namen bekannter Webshells, wie
+Sicherheits-Plugins sie führen, gelten als Daten.
+
+**Admin-Aktionen hinter Rechte- und Nonce-Prüfung** in WordPress meldet der Scanner als
+„mittel“ mit einem Hinweis auf die Prüfung. Die automatische Maßnahme verschiebt Funde der
+Stufen „hoch“ und „kritisch“.
+
+**Die PHP-Version der Website zählt:** `preg_replace` mit `/e` bleibt ab PHP 7 still, weil
+PHP es dort nicht mehr ausführt (`--php` oder `--php-version`).
+
+**Abweichungen vom Hersteller** zählen bei Endungen, die PHP, der Webserver oder ein Browser
+ausführt (`--modified-exts`); eine abweichende Readme oder Übersetzungsvorlage bleibt Sache
+des Herstellers.
+
+**Fehlermeldungen der Grenzen** auf der Einstellungsseite nennen das Feld, die erlaubten
+Werte und den nächsten Schritt; „Abbruch nach Stunden“ und „Aufbewahrte Prüfläufe je
+Website“ haben einen Hinweis.
+
+**Selbst geschriebene Wrapper sind kein Fund.** `php.eval.variable` und
+`php.remote.fetch_eval_indirect` lassen ein `eval` durch, das Code ausführt, den dieselbe
+Funktion aus eigenem Text schreibt: Die Variable entsteht dort aus Zeichenketten, die eine
+Funktions- oder Klassendefinition eröffnen, und aus nichts, was aus der Anfrage, einer
+Datei, dem Netz, einem Decoder oder einem Aufruf über eine Variable stammt. So schreibt die
+XML-RPC-Bibliothek phpxmlrpc ihre Wrapper, die SeedProd mitliefert. Ein `eval` auf einen
+Parameter, auf der obersten Ebene einer Datei oder auf dekodierten Text bleibt ein Fund.
+
+**Kopien geprüfter Dateien auch per SHA-256.** Seit 0.40.3 stehen Plugin-Dateien mit der
+SHA-256 von wordpress.org in den Listen; eine Kopie solcher Dateien erkennt der Scanner an dieser
+Summe, die übrigen weiter an der MD5.
+
+### Behoben
+
+**Zurückgeholte Einträge verlassen die Quarantäne.** Nach dem Wiederherstellen blieb der
+Eintrag im Speicher der Quarantäne stehen, und das Panel führte die Datei weiter als
+verschoben.
+
+**Leere Listen erreichen den Scanner leer.** Eine absichtlich geleerte Liste, bei der leer
+eine Wahl ist (erlaubte Skript-Hosts, Hosts für Archive, Regeln für Testordner), ersetzte
+der Server durch die Vorgabe.
+
 ## [0.41.0] – 2026-10-09
 
 ### Hinzugefügt
