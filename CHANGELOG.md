@@ -2,6 +2,97 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.41.0] – 2026-10-09
+
+### Hinzugefügt
+
+**Die Quarantäne prüft den Platz am Ziel, bevor sie schreibt.** `add` misst das Archiv
+und die Kopie, die zur Kontrolle entpackt wird, in der Ablage; `restore` die Dateien am
+ursprünglichen Ort und mit `--force` die Zwischenkopie in der Ablage, wobei zählt, was
+`--force` am Ziel entfernt; `export` das ZIP und die Zwischendatei seiner größten Datei.
+Dazu kommt eine Reserve, die frei bleibt. Als frei zählt, was einem gewöhnlichen Benutzer
+zur Verfügung steht, wie bei `dump`; zwei Ziele auf einem Dateisystem zählen zusammen.
+Weil sich vor dem Packen nicht sagen lässt, wie gut sich Dateien packen lassen, rechnet
+die Prüfung Archiv und ZIP so groß wie die Dateien selbst. Reicht der Platz nicht, bricht
+der Schritt ab: Dateien und Einträge bleiben, wie sie sind, und die Meldung nennt den
+freien Platz, den Bedarf samt Reserve und den nächsten Schritt. Das gilt für die
+automatische Maßnahme des Addons, für die Aufträge der Seite Quarantäne, für `repair` und
+für `upgrade` samt Rücknahme. Den Kern legt `repair` als einen Schritt ab: `wp-admin`,
+`wp-includes` und die geänderten losen Dateien zählen zusammen, bevor einer davon seinen
+Platz verlässt.
+
+**`--quarantine-reserve`** für `quarantine`, `repair` und `upgrade`: der Platz in MiB,
+der bei jedem Schreiben der Quarantäne frei bleibt. Vorgabe 256, erlaubt 0 bis 1048576;
+ein Wert außerhalb wird mit Bereich und Vorgabe abgewiesen. Im Addon steht die Reserve
+unter Security > Scanner > Einstellungen > Quarantäne; der Runner gibt sie an jeden
+Auftrag der Quarantäne, an Wiederherstellungen und an Updates.
+
+**`scan --email` liest das SMTP-Passwort aus `--smtp-pass-file` oder
+`MALWATCH_SMTP_PASS`**, wie `send-mail`; die Datei geht vor. `--smtp-pass` bleibt für
+bestehende Aufrufe und geht der Umgebung vor. Hilfe und README empfehlen Datei oder
+Umgebung, weil die Befehlszeile für jeden Benutzer der Maschine lesbar ist. Beide
+Schalter zusammen weist `scan` vor dem Lauf ab, ebenso eine Passwortdatei, die sich nicht
+lesen lässt.
+
+### Geändert
+
+**`quarantine export` packt als Strom.** Jede Datei geht über eine Zwischendatei neben
+dem ZIP: gepackt, mit CRC und Größen für den Kopf, dann mit ZipCrypto verschlüsselt ins
+ZIP. Der Speicherbedarf bleibt gleich, wie groß eine Datei auch ist. Mehrere `--id`
+landen direkt in einem ZIP, jede unter ihrer Kennung. Ein Eintrag, der fehlt oder
+sich nicht lesen lässt, bleibt mit seiner Meldung draußen; ohne lesbaren Eintrag und nach
+einem Fehler beim Schreiben bleibt kein ZIP zurück.
+
+**`quarantine restore` liest das Archiv vor dem ersten Schreiben ganz.** Ein unlesbares
+Archiv lässt das Ziel unangetastet, mit und ohne `--force`.
+
+**Addon:** Die Meldung eines Elements einer Wiederherstellung wird nach Zeichen auf 255
+gekürzt, wie bei Updates, sodass ein Umlaut an der Grenze ganz bleibt.
+
+### Einspielen
+
+Das Schema legt `malwatch_config.quarantine_reserve` mit der Vorgabe 256 an. Scanner und
+Addon gehören zusammen: Das Addon gibt `--quarantine-reserve` an Aufträge der Quarantäne,
+an Wiederherstellungen und an Updates, und diesen Schalter kennt erst der Scanner aus
+demselben Stand; deshalb den Scanner zuerst einspielen. Hat das Arbeitsverzeichnis eines
+Servers weniger als 256 MiB frei, lehnt die Quarantäne das Schreiben ab, bis Platz
+geschaffen oder die Reserve gesenkt ist.
+
+### Tests
+
+- `internal/quarantine/space_test.go`: ohne Platz bleiben Datei und Ablage, wie sie sind,
+  und die Meldung nennt Ablage, freien Platz, Reserve und den nächsten Schritt; dieselbe
+  Datei wird mit einer Reserve abgelegt und mit einer anderen abgelehnt; `add` rechnet
+  Archiv und Kontrollkopie; eine Ablage, die es noch nicht gibt, wird am nächsten
+  vorhandenen Ordner gemessen; `CheckStore` zählt mehrere Quellen zusammen; `restore`
+  ohne Platz im Webordner behält den Eintrag, mit `--force` braucht es die Zwischenkopie
+  in der Ablage und rechnet, was es am Ziel entfernt; ein unlesbares Archiv wird vor dem
+  Schreiben abgewiesen; `export` ohne Platz schreibt kein ZIP, packt eine Datei von 6 MiB
+  als Strom, lässt keine Zwischendatei zurück und lässt unlesbare und unbekannte Einträge
+  draußen; das Archiv bleibt unter seiner Schätzung; `CheckReserve` und `SizeText`.
+- `internal/diskspace/diskspace_test.go`: Messung eines Ordners, ein Ordner und sein
+  Unterordner auf einem Dateisystem, ein fehlender Pfad, belegter Platz einer Datei.
+- `internal/repair/space_test.go`: mit Platz für `wp-admin` allein bleiben `wp-admin` und
+  `wp-includes` beide liegen, mit Platz für beide läuft die Reparatur; ein Plugin ohne
+  Platz in der Quarantäne bleibt samt geladenem Release unverändert.
+- `internal/upgrade/space_test.go`: ein Update ohne Platz für den alten Stand lässt die
+  Website unverändert, mit passender Reserve läuft es; eine Rücknahme ohne Platz meldet
+  `rollback_failed` mit dem Grund, und der alte Stand bleibt in der Quarantäne.
+- `cmd/malwatch/quarantine_space_test.go`: `add` ohne Platz, wie die automatische
+  Maßnahme aufgerufen, lässt die Datei liegen, schreibt die Bestandsliste und meldet in
+  einer Zeile unter 400 Bytes; `restore` und `export` ohne Platz; `quarantine`, `repair`
+  und `upgrade` weisen eine Reserve außerhalb der Grenzen ab; die Hilfe nennt Vorgabe und
+  Grenzen aus dem Code.
+- `cmd/malwatch/scan_smtp_test.go`: `scan --email` meldet sich mit dem Passwort aus der
+  Datei, aus der Umgebung und aus `--smtp-pass` an; beide Schalter zusammen und eine
+  fehlende Passwortdatei brechen vor dem Lauf ab; ohne `--email` stört eine fehlende Datei
+  nicht; die Hilfe nennt die Wege.
+- `ispconfig/tests/quarantine_space_test.php` (CI-Schritt „Quarantine reserve“): Vorgabe
+  und Grenzen gleich in Scanner, Panel und Server, Spalte, Feld, Seite und Texte; der
+  Server gibt einen anderen Wert weiter und einen ungültigen als Vorgabe; Aufträge der
+  Quarantäne (auch die automatische Maßnahme), Wiederherstellungen und Updates bekommen
+  den Schalter, eine Prüfung keinen.
+
 ## [0.40.3] – 2026-10-05
 
 ### Geändert

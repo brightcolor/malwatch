@@ -19,6 +19,7 @@ if (!defined('LOGLEVEL_DEBUG')) {
 if (!defined('LOGLEVEL_WARN')) {
 	define('LOGLEVEL_WARN', 1);
 }
+require __DIR__ . '/../server/lib/classes/malwatch_helper.inc.php';
 require __DIR__ . '/../server/lib/classes/malwatch_runner.inc.php';
 
 $failures = 0;
@@ -44,8 +45,8 @@ class mw_test_db
 	}
 }
 
-/** Records failed jobs and log lines. */
-class mw_test_helper
+/** Records failed jobs and log lines; the rest is the real server helper. */
+class mw_test_helper extends malwatch_helper
 {
 	public $failed = array();
 

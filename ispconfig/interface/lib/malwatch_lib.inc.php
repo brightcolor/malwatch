@@ -12,6 +12,8 @@
  * The values the scanner settings fall back to while the row or one of its
  * columns is missing, e.g. between an update of the files and of the database.
  * poll_seconds: how often the scanner pages ask for a running scan.
+ * quarantine_reserve: the room every write of the quarantine leaves free, see
+ * malwatch_quarantine_settings().
  * default_scan_days: every how many days a website without a row of its own
  * gets scanned, 0 for never; the server side (malwatch_helper::get_config())
  * uses the same value.
@@ -36,6 +38,7 @@ function malwatch_config_defaults()
 		'view_marks' => 20,
 		'view_budget' => 32,
 		'view_keep_days' => 30,
+		'quarantine_reserve' => 256,
 		'panel_url' => '',
 		'mail_format' => 'html',
 		'mail_from_name' => 'malwatch',
@@ -2068,6 +2071,29 @@ function malwatch_view_settings()
 function malwatch_view_range($key)
 {
 	$settings = malwatch_view_settings();
+	return $settings[$key][0] . ':' . $settings[$key][1];
+}
+
+/**
+ * The settings of the quarantine: column => array(min, max, default).
+ * quarantine_reserve is the room, in MiB, every write of the quarantine leaves
+ * free on the filesystem it writes to - storing, restoring, packing a sample;
+ * the scanner refuses a write that does not fit and leaves everything as it
+ * was. The scanner has the same values (DefaultReserveMiB, MinReserveMiB and
+ * MaxReserveMiB in internal/quarantine/space.go), the server side as well
+ * (malwatch_helper::QUARANTINE_RESERVE).
+ */
+function malwatch_quarantine_settings()
+{
+	return array(
+		'quarantine_reserve' => array(0, 1048576, 256),
+	);
+}
+
+/** The range of a quarantine setting as a tform RANGE validator takes it, e.g. '0:1048576'. */
+function malwatch_quarantine_range($key)
+{
+	$settings = malwatch_quarantine_settings();
 	return $settings[$key][0] . ':' . $settings[$key][1];
 }
 

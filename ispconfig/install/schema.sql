@@ -399,6 +399,21 @@ SET @mw := (SELECT IF(COUNT(*) = 0,
   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_quarantine' AND INDEX_NAME = 'export_token');
 PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
+-- The reserve of the quarantine: the room, in MiB, every write of the
+-- quarantine leaves free on the filesystem it writes to - storing a file,
+-- bringing it back, packing a sample - for jobs of the panel and the
+-- automatic measure alike; the runner hands it to the scanner
+-- (--quarantine-reserve). The scanner has the same default and bounds
+-- (DefaultReserveMiB, MinReserveMiB and MaxReserveMiB in
+-- internal/quarantine/space.go), the panel and the server side as well
+-- (malwatch_quarantine_settings(), malwatch_helper::QUARANTINE_RESERVE).
+SET @mw := (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `malwatch_config` ADD COLUMN `quarantine_reserve` int(11) unsigned NOT NULL DEFAULT ''256''',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_config' AND COLUMN_NAME = 'quarantine_reserve');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
 --
 -- Mirror of the scanner's rule catalogue, refreshed once a day by cron from
 -- `malwatch rules --json`. The interface reads this instead of shelling out,

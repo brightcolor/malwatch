@@ -58,6 +58,11 @@ type Options struct {
 	Prober    PageProber
 	Progress  *progress.Writer
 
+	// Space is how filing into quarantine and bringing back from it measure
+	// their room; the zero value keeps no reserve. The command fills it from
+	// --quarantine-reserve.
+	Space quarantine.Space
+
 	Now       func() time.Time // nil means time.Now
 	DBTimeout time.Duration    // bound of each WP-CLI call; zero means an hour
 
@@ -382,6 +387,7 @@ func (r *runner) upgradeOne(it *item, before []Probe) []Probe {
 	repl := repair.Replacement{
 		Root: install, QuarantineDir: r.opts.QuarantineDir, Domain: r.opts.Domain,
 		Origin: "upgrade", Reason: fmt.Sprintf("Vor dem Update auf %s abgelegt", it.el.Version),
+		Space: r.opts.Space,
 	}
 
 	// The database first, while nothing has changed yet.
@@ -462,7 +468,7 @@ func (r *runner) rollBack(it *item, before, after []Probe, added []string, dump 
 	var problems []string
 
 	for i := len(it.rep.QuarantineIDs) - 1; i >= 0; i-- {
-		if err := quarantine.Restore(r.opts.QuarantineDir, it.rep.QuarantineIDs[i], true); err != nil {
+		if err := quarantine.RestoreWith(r.opts.QuarantineDir, it.rep.QuarantineIDs[i], true, r.opts.Space); err != nil {
 			problems = append(problems, err.Error())
 		}
 	}
@@ -529,10 +535,10 @@ func (r *runner) exportDB(it *item) (string, string, error) {
 		os.Remove(path)
 		return "", "", err
 	}
-	entry, err := quarantine.StoreCopy(r.opts.QuarantineDir, quarantine.Source{
+	entry, err := quarantine.StoreCopyWith(r.opts.QuarantineDir, quarantine.Source{
 		Root: r.opts.StagingDir, RelPath: name, Domain: r.opts.Domain, Origin: "upgrade",
 		Reason: fmt.Sprintf("Datenbank vor dem Kern-Update auf %s; einspielen mit wp db import", it.el.Version),
-	})
+	}, r.opts.Space)
 	if err != nil {
 		os.Remove(path)
 		return "", "", err

@@ -36,6 +36,7 @@ func cmdUpgrade(args []string) int {
 	out := fs.String("out", "", "")
 	vendorBase := fs.String("vendor-base", "", "")
 	settleFlag := fs.String("settle", "3s", "")
+	reserve := quarantineReserveFlag(fs)
 
 	if err := fs.Parse(args); err != nil {
 		return report.ExitError
@@ -62,6 +63,10 @@ func cmdUpgrade(args []string) int {
 	settle, err := time.ParseDuration(*settleFlag)
 	if err != nil || settle < 0 {
 		return refuse("--settle=%q ist keine gültige Wartezeit, etwa 3s.", *settleFlag)
+	}
+	space, err := quarantineSpace(*reserve)
+	if err != nil {
+		return refuse("%v. Ohne den Schalter gilt die Vorgabe.", err)
 	}
 	if *phpBinary == "" {
 		return refuse("upgrade braucht --php, das PHP-Binary der Website.")
@@ -123,6 +128,7 @@ func cmdUpgrade(args []string) int {
 		Prober:    upgrade.NewProber(*connect, 20*time.Second),
 		Progress:  pw,
 		Settle:    settle,
+		Space:     space,
 	})
 
 	if err := writeUpgradeReport(result, *out, *asJSON); err != nil {

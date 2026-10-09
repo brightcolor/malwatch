@@ -32,19 +32,19 @@ func TestExportProducesAZipTheStandardLibraryCanOpen(t *testing.T) {
 	entry := storeTwoFileEntry(t, storeRoot)
 
 	outFile := filepath.Join(t.TempDir(), "sample.zip")
-	size, err := Export(storeRoot, entry.ID, outFile, DefaultPassword)
+	results, err := Export(storeRoot, []string{entry.ID}, outFile, ExportOptions{Password: DefaultPassword})
 	if err != nil {
 		t.Fatalf("Export failed: %v", err)
 	}
-	if size <= 0 {
-		t.Fatalf("Export returned size %d, want > 0", size)
+	if len(results) != 1 || results[0].ID != entry.ID || results[0].Err != nil {
+		t.Fatalf("results = %+v, want the one entry without an error", results)
 	}
 	info, err := os.Stat(outFile)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if info.Size() != size {
-		t.Errorf("returned size %d does not match file size %d", size, info.Size())
+	if info.Size() <= 0 {
+		t.Fatalf("the archive is empty")
 	}
 
 	rc, err := zip.OpenReader(outFile)
@@ -57,7 +57,7 @@ func TestExportProducesAZipTheStandardLibraryCanOpen(t *testing.T) {
 	for _, f := range rc.File {
 		byName[f.Name] = f
 	}
-	for _, want := range []string{"uploads/a.txt", "uploads/sub/b.txt"} {
+	for _, want := range []string{entry.ID + "/uploads/a.txt", entry.ID + "/uploads/sub/b.txt"} {
 		f, ok := byName[want]
 		if !ok {
 			t.Errorf("zip is missing %q; has %v", want, byName)
@@ -84,7 +84,7 @@ func TestExportRoundTripsContentThroughDecryptionAndInflate(t *testing.T) {
 
 	outFile := filepath.Join(t.TempDir(), "sample.zip")
 	password := "infected"
-	if _, err := Export(storeRoot, entry.ID, outFile, password); err != nil {
+	if _, err := Export(storeRoot, []string{entry.ID}, outFile, ExportOptions{Password: password}); err != nil {
 		t.Fatalf("Export failed: %v", err)
 	}
 
@@ -97,8 +97,8 @@ func TestExportRoundTripsContentThroughDecryptionAndInflate(t *testing.T) {
 		t.Fatalf("zip has %d entries, want 1", len(rc.File))
 	}
 	f := rc.File[0]
-	if f.Name != "note.txt" {
-		t.Fatalf("entry name = %q, want note.txt", f.Name)
+	if f.Name != entry.ID+"/note.txt" {
+		t.Fatalf("entry name = %q, want %s/note.txt", f.Name, entry.ID)
 	}
 
 	// f.Open() would run Go's own flate reader straight over the still
@@ -170,7 +170,7 @@ func TestExportOfAnEmptyPayloadProducesAValidEmptyZip(t *testing.T) {
 	}
 
 	outFile := filepath.Join(t.TempDir(), "empty.zip")
-	if _, err := Export(storeRoot, id, outFile, DefaultPassword); err != nil {
+	if _, err := Export(storeRoot, []string{id}, outFile, ExportOptions{Password: DefaultPassword}); err != nil {
 		t.Fatalf("Export of an empty payload returned an error: %v", err)
 	}
 

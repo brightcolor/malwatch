@@ -241,7 +241,9 @@ class malwatch_ingest
 				(string) $element['version'], (string) $element['outcome'],
 				intval(isset($element['files']) ? $element['files'] : 0),
 				(string) (isset($element['backup']) ? $element['backup'] : ''),
-				substr((string) (isset($element['message']) ? $element['message'] : ''), 0, 255));
+				// Characters, as the column counts them: a cut in the middle of
+				// an umlaut would leave a value the database refuses.
+				mb_substr((string) (isset($element['message']) ? $element['message'] : ''), 0, 255, 'UTF-8'));
 		}
 
 		// A repair alone never runs the quarantine binary, so nothing else

@@ -107,6 +107,8 @@ jobs:
         run: php ispconfig/tests/upload_dirs_test.php
       - name: Finding view
         run: php ispconfig/tests/finding_view_test.php
+      - name: Quarantine reserve
+        run: php ispconfig/tests/quarantine_space_test.php
       - name: HTML mail
         run: php ispconfig/tests/mail_html_test.php
       - name: Quarantine jobs

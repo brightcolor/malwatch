@@ -399,6 +399,25 @@ $form['tabs']['settings'] = array(
 			'width' => '40',
 			'maxlength' => '255'
 		),
+		// The room, in MiB, every write of the quarantine leaves free; the
+		// runner hands it to the scanner (--quarantine-reserve) for
+		// quarantine, repair and upgrade jobs. Default and bounds:
+		// malwatch_quarantine_settings().
+		'quarantine_reserve' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => (string) malwatch_config_defaults()['quarantine_reserve'],
+			'validators' => array(
+				array(
+					'type' => 'RANGE',
+					'range' => malwatch_quarantine_range('quarantine_reserve'),
+					'errmsg' => 'quarantine_reserve_error_range'
+				)
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '7'
+		),
 		// The template does not use the auto-generated widget for either
 		// field below - the "choice card" markup in malwatch_config_edit.htm
 		// is hand-written, because none of tform's stock formtypes render a

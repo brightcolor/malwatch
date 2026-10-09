@@ -123,6 +123,12 @@ $wb['btn_cancel_txt'] = 'Abbrechen';
 $wb['wp_cli_path_txt'] = 'WP-CLI';
 $wb['wp_cli_path_hint_txt'] = 'Pfad zu WP-CLI auf dem Server. Updates exportieren und heben damit die Datenbank an, wenn ein Kern-Update das verlangt. Ein leeres Feld steht für /usr/local/bin/wp.';
 $wb['wp_cli_path_error_regex'] = 'Der Pfad zu WP-CLI muss ein absoluter Pfad sein.';
+// Reserve der Quarantäne
+$wb['quarantine_head_txt'] = 'Quarantäne';
+$wb['quarantine_intro_txt'] = 'Bevor die Quarantäne etwas schreibt, also eine Datei ablegt, einen Eintrag zurückholt oder ein ZIP zum Herunterladen packt, misst der Scanner den freien Platz am Ziel. Reicht er nicht, bricht der Vorgang ab: Dateien und Einträge bleiben, wie sie sind, und der Auftrag nennt Bedarf und freien Platz. Das gilt auch für die automatische Maßnahme.';
+$wb['quarantine_reserve_txt'] = 'Reserve (MiB)';
+$wb['quarantine_reserve_hint_txt'] = 'So viel Platz bleibt am Ziel immer frei, damit Webserver, Datenbank und Mail weiterschreiben können. Gilt für Aufträge der Quarantäne, für Wiederherstellungen und für Updates; im Scanner heißt der Schalter --quarantine-reserve. Erlaubt: 0 bis 1048576.';
+$wb['quarantine_reserve_error_range'] = 'Reserve der Quarantäne: Erlaubt sind ganze Zahlen von 0 bis 1048576 MiB. Bitte den Wert anpassen und erneut speichern.';
 
 // The dialog "Änderungen prüfen" on saving (malwatch_modal.htm).
 $wb['btn_close_txt'] = 'Schließen';
