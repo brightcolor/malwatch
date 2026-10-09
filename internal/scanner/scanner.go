@@ -4,11 +4,14 @@ package scanner
 
 import (
 	"bytes"
+	"crypto/md5"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
+	"path/filepath"
 	"runtime"
 	"sort"
 	"strings"
@@ -20,6 +23,7 @@ import (
 	"github.com/brightcolor/malwatch/internal/cms"
 	"github.com/brightcolor/malwatch/internal/fileview"
 	"github.com/brightcolor/malwatch/internal/knownfiles"
+	"github.com/brightcolor/malwatch/internal/phpcode"
 	"github.com/brightcolor/malwatch/internal/phpinfo"
 	"github.com/brightcolor/malwatch/internal/report"
 	"github.com/brightcolor/malwatch/internal/rules"
@@ -54,6 +58,10 @@ type Options struct {
 	// PHPBinary names the PHP of the website; the report then carries its
 	// version, so the panel can tell which releases the site can take.
 	PHPBinary string
+	// PHPVersion names the PHP version of the website directly and wins over
+	// the one read from PHPBinary. Rules about constructs that PHP no longer
+	// runs stay silent on a site whose PHP is newer (rules.Rule.DeadFrom).
+	PHPVersion string
 
 	IgnoreRules []string
 	Whitelist   map[string]bool
@@ -61,6 +69,36 @@ type Options struct {
 	// rules that judge a file by lying below one. Empty means
 	// rules.DefaultUploadDirs.
 	UploadDirs []string
+	// ModifiedExts are the extensions where a vendor file that differs from
+	// the release counts as core.modified. Empty means DefaultModifiedExts.
+	ModifiedExts []string
+	// ScriptHosts are the hosts a script written by document.write may load
+	// from, see rules.DefaultScriptHosts. It only counts when ScriptHostsSet
+	// is true, because an empty list is a choice too: only the site itself.
+	ScriptHosts    []string
+	ScriptHostsSet bool
+	// TestDirs and LibraryDirs name the test folders and the folders
+	// libraries are installed into; TestRules are the rules that do not
+	// count below a test folder of a library (rules.LibraryTests). Empty
+	// folder lists mean the defaults; TestRules only count when TestRulesSet
+	// is true, because an empty list is a choice too: every rule counts.
+	TestDirs     []string
+	LibraryDirs  []string
+	TestRules    []string
+	TestRulesSet bool
+
+	// Verify steers the check of files with findings against the sources that
+	// know them; the zero value checks nothing, the command line starts from
+	// DefaultVerify.
+	Verify VerifyOptions
+
+	// verified counts the files whose content a source confirmed; Run
+	// creates it and puts the counts into the report.
+	verified *verifiedCount
+	// verifyTransport replaces the network of the check for the tests.
+	verifyTransport http.RoundTripper
+	// originals loads single files of a vendor's release, see rebuilt.
+	originals *originFetcher
 	// View limits what the report shows of a file with findings: its marks,
 	// its traits and the lines around them. The zero value reports neither
 	// marks nor code; the command line starts from fileview.Default.
@@ -120,10 +158,33 @@ func Run(opts Options) (*report.Report, error) {
 
 	engine := rules.NewEngine(opts.IgnoreRules)
 	engine.SetMarkLimit(opts.View.MaxMarks)
+	if opts.PHPVersion != "" {
+		engine.SetPHPVersion(opts.PHPVersion)
+	} else {
+		engine.SetPHPVersion(rep.PHPVersion)
+	}
 	if len(opts.UploadDirs) > 0 {
 		if err := engine.SetUploadDirs(opts.UploadDirs); err != nil {
 			return nil, fmt.Errorf("--upload-dirs: %w", err)
 		}
+	}
+	if opts.ScriptHostsSet {
+		if err := engine.SetScriptHosts(opts.ScriptHosts); err != nil {
+			return nil, fmt.Errorf("--script-hosts: %w", err)
+		}
+	}
+	libTests := rules.DefaultLibraryTests()
+	if len(opts.TestDirs) > 0 {
+		libTests.TestDirs = opts.TestDirs
+	}
+	if len(opts.LibraryDirs) > 0 {
+		libTests.LibraryDirs = opts.LibraryDirs
+	}
+	if opts.TestRulesSet {
+		libTests.Rules = opts.TestRules
+	}
+	if err := engine.SetLibraryTests(libTests); err != nil {
+		return nil, fmt.Errorf("Testordner von Bibliotheken: %w", err)
 	}
 	rep.Engines["heuristik"] = fmt.Sprintf("%d Regeln", engine.RuleCount())
 
@@ -135,6 +196,8 @@ func Run(opts Options) (*report.Report, error) {
 		rep.Engines["herstellerdateien"] = fmt.Sprintf("%d Installationen, %d Prüfsummen", installs, sums)
 	}
 
+	opts.verified = &verifiedCount{m: map[string]int{}}
+	opts.originals = newOriginFetcher(&opts)
 	if !opts.NoMalwareScan {
 		if err := scanFiles(rep, &opts, sigDB, engine, known); err != nil {
 			return rep, err
@@ -144,7 +207,12 @@ func Run(opts Options) (*report.Report, error) {
 		}
 	}
 
+	verifyComposer(rep, &opts)
+	verifyHashlookup(rep, &opts)
 	applyWhitelist(rep, opts.Whitelist)
+	if len(opts.verified.m) > 0 {
+		rep.Verified = opts.verified.m
+	}
 	pruneViews(rep)
 	rep.FinishedAt = time.Now()
 	rep.Sort()
@@ -154,7 +222,7 @@ func Run(opts Options) (*report.Report, error) {
 // scanFiles walks every path and applies the engines.
 func scanFiles(rep *report.Report, opts *Options, sigDB *sigs.DB, engine *rules.Engine, known *knownfiles.Index) error {
 	counters := &walk.Counters{}
-	cache := newCleanCache(opts.CacheFile, fingerprint(sigDB, engine))
+	cache := newCleanCache(opts.CacheFile, fingerprint(sigDB, engine, opts))
 
 	type job struct{ file walk.File }
 	jobs := make(chan job, opts.Threads*8)
@@ -233,7 +301,7 @@ func scanFiles(rep *report.Report, opts *Options, sigDB *sigs.DB, engine *rules.
 	// first bytes, though, so the rules that decide from the start of a file
 	// get just that, and a program padded past the limit still shows up.
 	large := func(f walk.File) {
-		got, ferr := scanHead(f, engine, opts)
+		got, ferr := scanHead(f, engine, known, opts)
 		if len(got) > 0 || ferr != "" {
 			mu.Lock()
 			findings = append(findings, got...)
@@ -323,7 +391,7 @@ func scanFile(f walk.File, sigDB *sigs.DB, engine *rules.Engine, known *knownfil
 	}
 
 	var out []report.Finding
-	if status == knownfiles.Modified {
+	if status == knownfiles.Modified && countsAsModified(f.Ext, opts.modifiedExts()) && !opts.rebuilt(f.Path, f.Ext, content, known) {
 		out = append(out, report.Finding{
 			Path:     f.Path,
 			Rule:     "core.modified",
@@ -334,7 +402,7 @@ func scanFile(f walk.File, sigDB *sigs.DB, engine *rules.Engine, known *knownfil
 			Excerpt:  "weicht von der Auslieferung ab (" + label + ")",
 		})
 	}
-	if status == knownfiles.Foreign && runnableExt(f.Ext) {
+	if status == knownfiles.Foreign && runnableExt(f.Ext) && !inertFile(content) {
 		// Die andere Frage: nicht ob eine Datei verdächtig aussieht, sondern
 		// ob sie überhaupt dorthin gehört. Ein Plugin-Verzeichnis enthält das
 		// Plugin; was der Hersteller nicht ausliefert, ist auf einem anderen
@@ -360,7 +428,16 @@ func scanFile(f walk.File, sigDB *sigs.DB, engine *rules.Engine, known *knownfil
 
 	out = append(out, sigDB.Scan(f.Path, f.Size, content)...)
 	out = append(out, engine.Scan(f.Path, f.Rel, f.Ext, content)...)
+	out = engine.DropLibraryTests(f.Rel, out, gitignoreOf(f, opts))
 
+	if len(out) > 0 {
+		if _, ok := known.Copy(content); ok {
+			// A copy of a file the vendor shipped: its content is confirmed,
+			// where it lies stays a question.
+			out = keepPlace(out)
+			opts.count(verifiedCopy)
+		}
+	}
 	if len(out) == 0 {
 		return nil, nil, ""
 	}
@@ -381,7 +458,7 @@ func scanFile(f walk.File, sigDB *sigs.DB, engine *rules.Engine, known *knownfil
 
 // scanHead asks the rules for the start of a file about one the size limit
 // keeps from being read, see rules.HeadSize.
-func scanHead(f walk.File, engine *rules.Engine, opts *Options) ([]report.Finding, string) {
+func scanHead(f walk.File, engine *rules.Engine, known *knownfiles.Index, opts *Options) ([]report.Finding, string) {
 	file, err := os.Open(f.Path)
 	if err != nil {
 		return nil, "nicht lesbar: " + f.Path + " (" + err.Error() + ")"
@@ -392,7 +469,7 @@ func scanHead(f walk.File, engine *rules.Engine, opts *Options) ([]report.Findin
 	if err != nil && err != io.ErrUnexpectedEOF {
 		return nil, "nicht lesbar: " + f.Path + " (" + err.Error() + ")"
 	}
-	out := engine.ScanHead(f.Path, f.Rel, f.Ext, head[:n])
+	out := engine.DropLibraryTests(f.Rel, engine.ScanHead(f.Path, f.Rel, f.Ext, head[:n]), gitignoreOf(f, opts))
 	if len(out) == 0 {
 		return nil, ""
 	}
@@ -402,12 +479,20 @@ func scanHead(f walk.File, engine *rules.Engine, opts *Options) ([]report.Findin
 		return nil, "nicht lesbar: " + f.Path + " (" + err.Error() + ")"
 	}
 	hash := sha256.New()
-	if _, err := io.Copy(hash, file); err != nil {
+	sum5 := md5.New()
+	if _, err := io.Copy(io.MultiWriter(hash, sum5), file); err != nil {
 		return nil, "nicht lesbar: " + f.Path + " (" + err.Error() + ")"
 	}
 	hexSum := hex.EncodeToString(hash.Sum(nil))
 	if opts.Whitelist[hexSum] {
 		return nil, ""
+	}
+	if _, ok := known.CopySum(hex.EncodeToString(sum5.Sum(nil)), hexSum); ok {
+		// As in scanFile: the content is confirmed, the place is not.
+		opts.count(verifiedCopy)
+		if out = keepPlace(out); len(out) == 0 {
+			return nil, ""
+		}
 	}
 	mtime := f.MTime.Format(time.RFC3339)
 	for i := range out {
@@ -477,8 +562,9 @@ func interesting(f walk.File) bool {
 
 // fingerprint identifies the detection state. Any change invalidates the
 // clean-file cache.
-func fingerprint(sigDB *sigs.DB, engine *rules.Engine) string {
-	return fmt.Sprintf("%s|%s|%s", version.Version, sigDB.Describe(), engine.Fingerprint())
+func fingerprint(sigDB *sigs.DB, engine *rules.Engine, opts *Options) string {
+	return fmt.Sprintf("%s|%s|%s|%s", version.Version, sigDB.Describe(), engine.Fingerprint(),
+		strings.Join(opts.modifiedExts(), ","))
 }
 
 // runClamAV adds the optional third engine.
@@ -731,13 +817,50 @@ func loadChecksums(known *knownfiles.Index, fetcher *knownfiles.Fetcher, inst cm
 			// found wp-admin/wp-admin.php on a live site. The root stays
 			// partial: wp-config.php and wp-content are the site's own.
 			known.AddCore(inst.Path, label, files, "wp-admin", "wp-includes")
+			known.SetOrigin(inst.Path, label, "https://core.svn.wordpress.org/tags/"+inst.Version+"/")
 		}
 	case "plugin":
 		if files, err := fetcher.WordPressPlugin(inst.Slug, inst.Version); err == nil {
 			// Als ganzer Baum: was wordpress.org für dieses Plugin ausliefert,
 			// ist alles, was in dem Verzeichnis stehen sollte.
-			known.AddVendorTree(inst.Path, "Plugin "+inst.Slug+" "+inst.Version, files)
+			label := "Plugin " + inst.Slug + " " + inst.Version
+			known.AddVendorTree(inst.Path, label, files)
+			known.SetOrigin(inst.Path, label, "https://plugins.svn.wordpress.org/"+inst.Slug+"/tags/"+inst.Version+"/")
 		}
+	case "theme":
+		if files, err := fetcher.WordPressTheme(inst.Slug, inst.Version); err == nil {
+			// Nur zur Bestätigung: ein Theme wird oft an die Website angepasst,
+			// eine geänderte oder zusätzliche Datei sagt dort nichts.
+			known.AddVerified(inst.Path, "Theme "+inst.Slug+" "+inst.Version, files)
+		}
+	}
+}
+
+// inertFile reports whether a file can do nothing when requested or included,
+// see phpcode.Inert. Plugins write such files into their own directories at
+// run time - guards, plain text, data behind an exit - and a file the vendor
+// does not ship is only a way in when it can run something.
+func inertFile(content []byte) bool {
+	inert, _ := phpcode.Inert(content)
+	return inert
+}
+
+// gitignoreOf reads the .gitignore of a folder above f for
+// rules.Engine.DropLibraryTests; dir is the folder below the scanned root,
+// with slashes. A link or a file over the size limit counts as none.
+func gitignoreOf(f walk.File, opts *Options) func(dir string) []byte {
+	root := strings.TrimSuffix(filepath.ToSlash(f.Path), f.Rel)
+	return func(dir string) []byte {
+		p := filepath.FromSlash(root + dir + "/.gitignore")
+		info, err := os.Lstat(p)
+		if err != nil || !info.Mode().IsRegular() || info.Size() > opts.MaxSize {
+			return nil
+		}
+		raw, err := os.ReadFile(p)
+		if err != nil {
+			return nil
+		}
+		return raw
 	}
 }
 

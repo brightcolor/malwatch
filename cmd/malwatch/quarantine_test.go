@@ -198,7 +198,11 @@ func TestQuarantineListWithoutJSONIsAnError(t *testing.T) {
 	}
 }
 
-func TestQuarantineRestoreThenDeleteEmptiesTheStore(t *testing.T) {
+// A restored file is back where it came from, and its entry leaves the store
+// with it: the ISPConfig addon reads an entry still listed after a restore as
+// one the restore refused, and keeps the finding closed and the file in its
+// quarantine list. A delete afterwards finds nothing left to delete.
+func TestQuarantineRestoreTakesTheEntryOutOfTheStore(t *testing.T) {
 	root := t.TempDir()
 	store := t.TempDir()
 	target := filepath.Join(root, "note.txt")
@@ -220,18 +224,18 @@ func TestQuarantineRestoreThenDeleteEmptiesTheStore(t *testing.T) {
 		t.Fatalf("restore did not bring the file back: %v", err)
 	}
 
-	if code := cmdQuarantine([]string{
-		"delete", "--quarantine-dir=" + store, "--id=" + entry.ID,
-	}); code != 0 {
-		t.Fatalf("delete exit code %d, want 0", code)
-	}
-
 	entries, _, err := quarantine.List(store)
 	if err != nil {
 		t.Fatalf("List failed: %v", err)
 	}
 	if len(entries) != 0 {
-		t.Errorf("entries after delete = %+v, want none", entries)
+		t.Errorf("entries after restore = %+v, want none", entries)
+	}
+
+	if code := cmdQuarantine([]string{
+		"delete", "--quarantine-dir=" + store, "--id=" + entry.ID,
+	}); code != 3 {
+		t.Errorf("delete of a restored entry: exit code %d, want 3", code)
 	}
 }
 

@@ -91,6 +91,10 @@ var explanations = map[string]Explanation{
 		Why:    "Ein eigenständiger Datei-Manager (Tiny File Manager). Manche Betreiber installieren ihn bewusst; Angreifer legen ihn ab, um Dateien auf der Website zu verwalten.",
 		Advice: "Wurde er bewusst installiert, mit einem Kennwort schützen oder entfernen, sobald er nicht mehr gebraucht wird. Kennt ihn niemand, in die Quarantäne verschieben.",
 	},
+	"php.tool.file_manager_open": {
+		Why:    "Ein Datei-Manager (PHP File Manager), bei dem die Anmeldung abgeschaltet ist. Wer die Datei aufruft, kann ohne Kennwort Dateien hochladen, ändern und ausführen. Angreifer legen ihn nach einem Einbruch ab, oft in einem Plugin-Ordner mit ausgedachtem Namen.",
+		Advice: "In die Quarantäne verschieben und nachsehen, wie er auf die Website kam: Zugriffsprotokoll zum Zeitpunkt der Datei, neue Plugins, Anmeldungen im WordPress-Backend. Liegt er in einem Plugin, das per Upload kam, die Kennwörter aller Administratoren ändern.",
+	},
 	"php.include.remote":    {Why: "Die Datei bindet Code von einer fremden Internetadresse ein. Wer diese Adresse kontrolliert, kontrolliert die Website."},
 	"php.remote.fetch_eval": {Why: "Die Datei lädt etwas von einer Internetadresse und führt es sofort als Code aus."},
 	"php.remote.fetch_eval_indirect": {

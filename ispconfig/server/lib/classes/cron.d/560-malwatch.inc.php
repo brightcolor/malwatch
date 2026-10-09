@@ -544,9 +544,10 @@ class cronjob_malwatch extends cronjob
 		$this->refresh_rules($config);
 		$this->complete_quarantine_index($config);
 
-		// Only once an hour: the queries below scan whole tables and there is
-		// nothing to gain from running them every minute.
-		if (intval(date('i')) !== 7) {
+		// Only once an hour, at the minute of housekeeping_minute: the queries
+		// below scan whole tables and there is nothing to gain from running
+		// them every minute.
+		if (intval(date('i')) !== $app->malwatch_helper->housekeeping_value($config, 'housekeeping_minute')) {
 			return;
 		}
 
@@ -583,13 +584,67 @@ class cronjob_malwatch extends cronjob
 
 		$app->dbmaster->query(
 			"DELETE FROM malwatch_job WHERE server_id = ? AND job_status IN ('done','error') "
-			. 'AND finished_at < DATE_SUB(NOW(), INTERVAL 30 DAY)', $conf['server_id']);
+			. 'AND finished_at < DATE_SUB(NOW(), INTERVAL ? DAY)', $conf['server_id'],
+			$app->malwatch_helper->housekeeping_value($config, 'keep_job_days'));
 
+		$this->clean_vanished($config);
+
+		// A fixed finding stays keep_fixed_days after a scan last saw it,
+		// whoever closed it: a scan, the quarantine, or clean_vanished().
 		$app->dbmaster->query(
 			"DELETE FROM malwatch_finding WHERE finding_state = 'fixed' "
-			. 'AND last_seen < DATE_SUB(NOW(), INTERVAL 90 DAY)');
+			. 'AND last_seen < DATE_SUB(NOW(), INTERVAL ? DAY)',
+			$app->malwatch_helper->housekeeping_value($config, 'keep_fixed_days'));
 
 		$this->clean_views($config);
+	}
+
+	/**
+	 * Closes the open findings of this server whose file is gone, see
+	 * malwatch_helper::vanished_ids(). Each run checks vanished_check_rows of
+	 * them, from where the last run stopped, so the stat calls of a server with
+	 * many findings spread over several runs; 0 turns the check off. Where a
+	 * run stopped is kept per server in state/vanished.cursor, because
+	 * malwatch_config is one row for all servers.
+	 */
+	private function clean_vanished($config)
+	{
+		global $app, $conf;
+
+		$rows = $app->malwatch_helper->housekeeping_value($config, 'vanished_check_rows');
+		if ($rows === 0) {
+			return;
+		}
+		$cursor_file = rtrim((string) $config['state_dir'], '/') . '/state/vanished.cursor';
+		$cursor = is_file($cursor_file) ? intval(trim((string) file_get_contents($cursor_file))) : 0;
+		$findings = $app->dbmaster->queryAllRecords(
+			'SELECT f.finding_id, f.file_path, w.document_root FROM malwatch_finding f '
+			. 'LEFT JOIN web_domain w ON w.domain_id = f.parent_domain_id '
+			. "WHERE f.server_id = ? AND f.finding_state = 'open' AND f.finding_id > ? "
+			. 'ORDER BY f.finding_id LIMIT ?',
+			$conf['server_id'], $cursor, $rows);
+		$findings = is_array($findings) ? $findings : array();
+
+		$ids = $app->malwatch_helper->vanished_ids($findings);
+		if (count($ids) > 0) {
+			$app->dbmaster->query(
+				"UPDATE malwatch_finding SET finding_state = 'fixed' WHERE finding_state = 'open' AND finding_id IN ("
+				. implode(',', array_map('intval', $ids)) . ')');
+		}
+
+		// A run that got fewer rows than it asked for reached the end, and the
+		// next one starts from the beginning.
+		$next = count($findings) < $rows ? 0 : intval($findings[count($findings) - 1]['finding_id']);
+		if (file_put_contents($cursor_file, $next . "\n") === false) {
+			$app->log('malwatch: ' . $cursor_file . ' ließ sich nicht schreiben; die Suche nach Funden, deren Datei '
+				. 'fehlt, beginnt deshalb jedes Mal von vorn. Bitte die Rechte des Ordners prüfen.', LOGLEVEL_WARN);
+		}
+		if (count($ids) === 1) {
+			$app->log('malwatch: 1 offener Fund geschlossen, weil seine Datei nicht mehr da ist.', LOGLEVEL_DEBUG);
+		} elseif (count($ids) > 1) {
+			$app->log('malwatch: ' . count($ids) . ' offene Funde geschlossen, weil ihre Datei nicht mehr da ist.',
+				LOGLEVEL_DEBUG);
+		}
 	}
 
 	/**

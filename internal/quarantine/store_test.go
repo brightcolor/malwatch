@@ -449,3 +449,32 @@ func TestTotalBytesSumsTheEntries(t *testing.T) {
 		t.Errorf("TotalBytes = %d, want 42", got)
 	}
 }
+
+// A restored entry leaves the store: the file is back where it came from, and
+// the ISPConfig addon reads an entry that is still listed after a restore as
+// one the restore refused. On 2026-09-30 five restored files stayed listed in
+// the quarantine and their findings stayed "fixed" because of that.
+func TestRestoreRemovesTheEntry(t *testing.T) {
+	root := t.TempDir()
+	target := filepath.Join(root, "wp-content", "plugins", "x", "lib", "xmlrpc.inc")
+	writeTestFile(t, target, []byte("<?php // quarantined sample marker R"), 0o644)
+	storeRoot := t.TempDir()
+	entry, err := Store(storeRoot, Source{Root: root, RelPath: "wp-content/plugins/x/lib/xmlrpc.inc", Domain: "beispiel.de",
+		Origin: "auto", Reason: "test"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := Restore(storeRoot, entry.ID, false); err != nil {
+		t.Fatal(err)
+	}
+	entries, _, err := List(storeRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Errorf("nach dem Zurückholen noch gelistet: %+v", entries)
+	}
+	if _, err := os.Stat(filepath.Join(storeRoot, entry.ID)); !os.IsNotExist(err) {
+		t.Errorf("Verzeichnis des Eintrags besteht noch: %v", err)
+	}
+}

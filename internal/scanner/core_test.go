@@ -23,7 +23,8 @@ func TestForeignFilesInTheWordPressCoreDirectories(t *testing.T) {
 	admin := "<?php // wp-admin/index.php\n"
 	root := tree(t, map[string]string{
 		"wp-admin/index.php":        admin,
-		"wp-admin/wp-admin.php":     "<?php // nicht Teil der Auslieferung\n",
+		"wp-admin/wp-admin.php":     "<?php // nicht Teil der Auslieferung\necho get_option('x');\n",
+		"wp-admin/silence.php":      "<?php // Silence is golden.\n",
 		"wp-includes/load.php.orig": "<?php // alte Kopie einer Kerndatei\n",
 		"wp-config.php":             "<?php // Konfiguration der Website\n",
 	})
@@ -64,7 +65,8 @@ func TestForeignFilesInTheWordPressCoreDirectories(t *testing.T) {
 	if !foreign("wp-admin/wp-admin.php") {
 		t.Error("a PHP file the release does not contain was not reported in wp-admin")
 	}
-	for _, rel := range []string{"wp-admin/index.php", "wp-includes/load.php.orig", "wp-config.php"} {
+	// A file there that can do nothing is no way in (phpcode.Inert).
+	for _, rel := range []string{"wp-admin/index.php", "wp-admin/silence.php", "wp-includes/load.php.orig", "wp-config.php"} {
 		if foreign(rel) {
 			t.Errorf("%s was reported as foreign", rel)
 		}

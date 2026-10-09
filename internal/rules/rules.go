@@ -69,6 +69,51 @@ type Rule struct {
 	// well, with just their start, so a program padded past the limit still
 	// shows up.
 	HeadOnly bool
+	// SkipInert lets a PHP file pass that can do nothing when it is requested
+	// or included: only comments, an unconditional exit first, or nothing but
+	// fixed data (phpcode.Inert). For rules that ask whether a file can be a
+	// way in by where it lies, not what it contains.
+	SkipInert bool
+	// SkipOwnCode lets an eval pass that runs code its own function writes
+	// (phpcode.Source.OwnCode): the wrappers XML-RPC and mock libraries write
+	// from their own text. For the rules about eval on a variable; the
+	// finding goes to the first eval that runs anything else.
+	SkipOwnCode bool
+	// Harmless, when set, weighs every match on its own: a match it calls
+	// harmless does not count, and the finding goes to the first one that is
+	// not. A block that decodes to a picture is data; a picture next to a
+	// block that decodes to code hides nothing.
+	Harmless func(e *Engine, hay []byte, loc []int) bool
+	// CodeOnly counts a match only where PHP can run it: in code or in a
+	// quoted string or heredoc, which runs once the file hands it to eval or
+	// writes it into a file. A match in a comment or in the text around the
+	// PHP tags does not count. For rules whose pattern names a construct -
+	// eval, include, preg_replace, a variable called - which in a comment is
+	// a word. A file without any PHP tag is code throughout, as a payload
+	// passed to eval is.
+	CodeOnly bool
+	// SupportInCode asks the same of Requires and AlsoRequires: a comment
+	// that mentions curl_exec makes no downloader.
+	SupportInCode bool
+	// SameScope asks Requires and AlsoRequires to sit in the function body
+	// of the match, or in the body of a function that body calls: two parts
+	// of a library that share a file but not a purpose describe no action.
+	SameScope bool
+	// DeadFrom is the PHP version from which the construct no longer runs:
+	// on a website with that PHP or newer the rule stays silent. The version
+	// comes from the PHP of the site (SetPHPVersion); unknown keeps it on.
+	DeadFrom string
+	// GuardLowers takes a finding down to medium where WordPress only runs
+	// the code for a user with the right capability and a valid nonce: an
+	// admin action of a plugin, reachable only by someone who is an
+	// administrator already. The finding stays, without a mail.
+	GuardLowers bool
+	// ByPlace marks a rule that judges a file by where it lies - in a place
+	// for uploads, under the name of a picture, in the directory of a known
+	// toolkit - rather than by what it contains. A file whose content is
+	// confirmed as a vendor's keeps such a finding: a genuine file manager
+	// copied into the uploads is still a way in.
+	ByPlace bool
 }
 
 // Place is where below the scanned root a rule looks.

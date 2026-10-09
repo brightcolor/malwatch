@@ -314,13 +314,37 @@ class page_action extends tform_actions
 
 		// tform_actions::onLoad() copied $_POST into dataRecord before this
 		// method runs, and saves from that copy. Both values set above have to
-		// reach it. The upload directories go in without the spaces around
-		// their commas; tform checks them afterwards.
+		// reach it. The upload directories and the lists of
+		// malwatch_list_settings() go in without the spaces around their commas, the
+		// addresses of the database of known files and of the register of
+		// Composer packages without the spaces around them; tform checks them
+		// afterwards.
 		if (is_array($this->dataRecord)) {
 			$this->dataRecord['auto_preset_id'] = $_POST['auto_preset_id'];
 			$this->dataRecord['wpscan_token'] = $token;
 			if (isset($this->dataRecord['upload_dirs'])) {
 				$this->dataRecord['upload_dirs'] = malwatch_upload_dirs_tidy($this->dataRecord['upload_dirs']);
+			}
+			foreach (array_keys(malwatch_list_settings()) as $key) {
+				if (isset($this->dataRecord[$key])) {
+					$this->dataRecord[$key] = malwatch_list_tidy($this->dataRecord[$key]);
+				}
+			}
+			foreach (array('hashlookup_url', 'verify_packagist_url') as $key) {
+				if (isset($this->dataRecord[$key])) {
+					$this->dataRecord[$key] = trim((string) $this->dataRecord[$key]);
+				}
+			}
+			// Only hints may fall silent in the tests of a library. The page
+			// names every other rule before the scanner would refuse the list.
+			if (isset($this->dataRecord['test_rules'])) {
+				$refused = malwatch_test_rules_refused(
+					$app->db->queryAllRecords('SELECT rule_id, severity, auto_safe FROM malwatch_rule'),
+					$this->dataRecord['test_rules']);
+				if (count($refused) > 0) {
+					$app->tform->errorMessage .= $app->functions->htmlentities(
+						sprintf($this->malwatch_wb['test_rules_error_rule'], implode(', ', $refused))) . '<br />';
+				}
 			}
 		}
 

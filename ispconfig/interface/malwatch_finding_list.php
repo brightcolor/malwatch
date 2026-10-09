@@ -25,13 +25,17 @@ class list_action extends listform_actions
 {
 	private $roots = array();
 
+	/** The state of each website, see malwatch_site_state(). */
+	private $states = array();
+
 	public function prepareDataRow($rec)
 	{
 		global $app;
 
 		$rec = parent::prepareDataRow($rec);
 
-		$base = $this->webRoot($app->functions->intval($rec['parent_domain_id']));
+		$domain_id = $app->functions->intval($rec['parent_domain_id']);
+		$base = $this->webRoot($domain_id);
 		$parts = malwatch_split_path($rec['file_path'], $base);
 
 		$rec['dir'] = $app->functions->htmlentities($parts['dir']);
@@ -40,11 +44,17 @@ class list_action extends listform_actions
 		$rec['has_dir'] = $parts['dir'] !== '' ? 1 : 0;
 		$rec['severity_class'] = malwatch_severity_class($rec['severity']);
 		$rec['has_line'] = $app->functions->intval($rec['line_number']) > 0 ? 1 : 0;
+		// A website nobody scans any more keeps its findings as they were.
+		$rec['site_inactive'] = $this->states[$domain_id] === 'inactive' ? 1 : 0;
+		$rec['site_gone'] = $this->states[$domain_id] === 'gone' ? 1 : 0;
 
 		return $rec;
 	}
 
-	/** Caches the scanned directory per website; the list holds many rows. */
+	/**
+	 * Caches the scanned directory and the state of each website; the list
+	 * holds many rows.
+	 */
 	private function webRoot($domain_id)
 	{
 		global $app;
@@ -52,6 +62,7 @@ class list_action extends listform_actions
 		if (!isset($this->roots[$domain_id])) {
 			$web = $app->db->queryOneRecord('SELECT * FROM web_domain WHERE domain_id = ?', $domain_id);
 			$this->roots[$domain_id] = is_array($web) ? malwatch_scan_path($web) : '';
+			$this->states[$domain_id] = malwatch_site_state($web);
 		}
 		return $this->roots[$domain_id];
 	}

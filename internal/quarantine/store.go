@@ -376,7 +376,17 @@ func RestoreWith(storeRoot, id string, force bool, space Space) error {
 		}
 	}
 
-	return readArchive(payload, entry.Root)
+	if err := readArchive(payload, entry.Root); err != nil {
+		return err
+	}
+	// The file is back where it came from, and the entry has done its job. An
+	// entry still listed after a restore reads as one the restore refused: the
+	// ISPConfig addon then keeps the finding "fixed" and the file in its list.
+	dir, err := entryDir(storeRoot, id)
+	if err != nil {
+		return err
+	}
+	return os.RemoveAll(dir)
 }
 
 // Delete removes an entry's directory. An id that does not name a stored
