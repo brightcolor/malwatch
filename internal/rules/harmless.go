@@ -388,7 +388,8 @@ func percentDecode(s string) string {
 			continue
 		}
 		if i+5 < len(s) && (s[i+1] == 'u' || s[i+1] == 'U') {
-			if v, err := strconv.ParseUint(s[i+2:i+6], 16, 32); err == nil {
+			// Four hex digits are at most 0xFFFF; the bit size says so.
+			if v, err := strconv.ParseUint(s[i+2:i+6], 16, 16); err == nil {
 				b.WriteRune(rune(v))
 				i += 5
 				continue

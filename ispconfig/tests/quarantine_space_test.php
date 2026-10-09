@@ -145,6 +145,13 @@ class mw_space_db
 	{
 		return null;
 	}
+
+	// The runner asks the rule catalog which rules a setting may silence;
+	// an empty catalog leaves the defaults to the scanner.
+	public function queryAllRecords($sql)
+	{
+		return array();
+	}
 }
 
 $app = new mw_space_app();
