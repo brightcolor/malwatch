@@ -6,8 +6,9 @@ Alle nennenswerten Änderungen an diesem Projekt.
 
 Fehlalarme verschwinden durch Erkennung: Der Scanner gleicht mehr mit den Herstellern ab, ordnet ein,
 was eine Datei tatsächlich tun kann, und erkennt zwei weitere Arten von Herstellercode: Wrapper, die eine
-Bibliothek aus eigenem Text schreibt, und die Tests von Bibliotheken. Die Gegenprobe vom 30.09.2026 auf dem
-ISPConfig-Host lief mit diesem Neubau gegen 1.493 Einträge der Quarantäne und 58 Websites.
+Bibliothek aus eigenem Text schreibt, und die Tests von Bibliotheken. Gegen die 1.493 Einträge der Quarantäne
+des ISPConfig-Hosts meldet 0.42.0 jede der 978 Dateien weiter hoch oder kritisch, die nach der Einzelprüfung
+vom 30.09.2026 so gehören, und nichts neu; die übrigen 180 Meldungen von 0.40.0 waren Fehlalarme.
 
 ### Hinzugefügt
 
