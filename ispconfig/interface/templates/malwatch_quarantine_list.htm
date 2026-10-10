@@ -72,6 +72,8 @@
 	#mw-quarantine .mw-what{flex-wrap:nowrap}
 	#mw-quarantine .mw-path{
 		max-width:38ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;word-break:normal;
+		/* Cut at the start, so the file name at the end stays in sight. */
+		direction:rtl;text-align:left;
 	}
 	/* Long words (rule ids, domains) may break and the time may wrap, so the
 	   table fits the panel; the size keeps its line. */
@@ -202,7 +204,7 @@
 			<td>
 				<div class="mw-what">
 					<span class="mw-kind">{tmpl_var name='kind_label'}</span>
-					<span class="mw-mono mw-path" title="{tmpl_var name='path'}">{tmpl_var name='path'}</span>
+					<span class="mw-mono mw-path" title="{tmpl_var name='path'}"><bdi>{tmpl_var name='path'}</bdi></span>
 				</div>
 			</td>
 			<td>
