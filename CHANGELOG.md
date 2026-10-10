@@ -2,7 +2,11 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
-## [0.42.1] – 2026-10-10
+## [0.43.0] – 2026-10-10
+
+Eine Sicherheitslücke im Panel geschlossen und die Oberfläche nach einer Designkritik über alle
+Ansichten aufgeräumt: Farben mit fester Aufgabe, Listen nach Dringlichkeit, Texte, die sagen, was
+passiert ist und was jetzt zu tun ist.
 
 ### Sicherheit
 
@@ -14,6 +18,65 @@ dieser eine Reparatur oder ein Update der Website startete. Protokollzeilen und 
 entstehen jetzt als Elemente mit `textContent`, wie es die Schritte schon taten.
 `check_wiring.sh` prüft, dass die Seiten mit Fortschritt (`status.htm`,
 `malwatch_site_show.htm`) `innerHTML` höchstens leeren.
+
+### Geändert
+
+**Farben mit Aufgabe.** Ein Knopf, der etwas startet (Reparatur, Updates, „scharf“), ist gelb wie
+jede Hauptaktion des Panels. Was entfernt, sperrt oder beendet (Quarantäne, Löschen, Sperren, Notaus,
+Teilen beenden), steht als Umriss in Pink; gefüllt pink ist nur noch der Knopf im
+Bestätigungsdialog. Schweregrade tragen überall ihr Wort: „3 Lücken · mittel“ auf der Website-
+und der Update-Seite, die Update-Seite färbt nach der schwersten Lücke. Die Fundliste zeigte jede
+Stufe grau, weil sie die Farbe nach dem übersetzten Wort suchte; sie nimmt jetzt den gespeicherten Wert.
+
+**Listen nach Dringlichkeit.** Die Fundliste öffnet mit dem Filter „offen“ und zeigt zuerst die
+offenen, darin die schwersten und neuesten; eine Spalte, nach der du sortierst, geht davor, „alle“
+im Filter bleibt gewählt. Die Prüfläufe stehen neueste zuerst und nennen ihre Funde in Worten
+(„3 kritisch · 8 hoch“).
+
+**Keine leeren Zeilen.** Die Vorlagen-Engine von ISPConfig zählt eine leere Liste als eine Zeile;
+im Aktionsprotokoll einer Website stand deshalb eine Zeile „()“. Alle Listen gehen über
+`malwatch_set_loop()`, `check_wiring.sh` prüft das (Prüfung 107).
+
+**Titel und Wege.** Seitentitel nennen das Thema („Funde“, „Fund“, „Prüfläufe“,
+„Scanner-Einstellungen“), die Website-Seite den Namen der Website; die Statusseite trägt ihren
+Satz als Seitentitel. Abschnittstitel sind Überschriften. Jede Detailseite hat unter dem Titel
+einen Rückweg („← Status“, „← matrix.dj“, „← Abwehr-Übersicht“). In der Leiste heißen die beiden
+Einstellungen „Scanner-Einstellungen“ und „Abwehr-Einstellungen“.
+
+**Texte.** Die Oberfläche spricht durchgehend mit „du“. „Freigeben“ hatte drei Bedeutungen und hat
+jetzt drei Wörter: Ein Fund ist „harmlos“, eine fail2ban-Sperre wird „aufgehoben“, ein Dump wird
+„geteilt“. Ein gescheiterter Quarantäneauftrag nennt Nummer, Zeitpunkt, Aktion, Grund und den
+nächsten Schritt; ohne Protokoll den Rückgabewert. „Datei(en)“, „Element(en)“ und „davon 0
+dringend“ sind ganze Sätze geworden, „aktuell 5.9.18“ heißt „neueste Version 5.9.18“. Die
+Fußnote der Dumps nennt den geteilten Verweis als zweiten Weg zum Archiv.
+
+**Scanner-Einstellungen** in aufklappbaren Abschnitten wie die Abwehr-Einstellungen, mit „Alle
+Abschnitte aufklappen“; kommt die Seite mit einem Fehler zurück, sind alle offen. Ein
+Speicherknopf statt zweien.
+
+**Fund-Seite:** Stufe und Zustand stehen getrennt; „Nächster offener Fund →“ führt zur nächsten
+offenen Datei derselben Website, die schwerste zuerst.
+
+**Website-Seite:** „Jetzt prüfen“ ist die eine Hauptaktion. **Website-Einstellungen:** Eine Stufe,
+deren Aktion aus ist, tritt zurück; „Abbrechen“ führt zur Website.
+
+**Quarantäne:** Lange Regelnamen und Domains brechen um, die Knöpfe einer Zeile ebenfalls; die
+Tabelle passt in die Breite des Panels, „Zurückholen“ und „Herunterladen“ stehen nicht mehr hinter
+einem Scrollbalken.
+
+**Abwehr:** Die Knöpfe für angehakte Websites bleiben am unteren Rand sichtbar, während die Liste
+scrollt. „sperren“ sagt im Tooltip, wo sich die Sperre aufheben lässt. Das Nachladen der Sperren
+heißt „25 weitere zeigen (noch 131 nicht geladen)“.
+
+**Barrierefreiheit:** Marken und Chips mindestens 11 px, Zeilenknöpfe mindestens 24 px hoch,
+Text in Orange auf hellem Grund im Rückfall der Themes ohne Variablen dunkler (4,5:1).
+Filterfelder und der Filterknopf haben einen Namen, „Ansehen“ nennt für Screenreader die Website.
+
+### Hinzugefügt
+
+**Einstellung „Dumps behalten (Tage)“** (`keep_dump_days`, Vorgabe 7, erlaubt 1 bis 90) unter
+Scanner-Einstellungen. Die sieben Tage standen fest im Code des Servers. Gilt für Dumps, die ab
+jetzt fertig werden; die Seite der Dumps nennt die eingestellte Frist.
 
 ## [0.42.0] – 2026-10-09
 
