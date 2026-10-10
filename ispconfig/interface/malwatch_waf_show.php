@@ -114,7 +114,7 @@ foreach (waf_panel_rows($app->db->queryAllRecords(
 	$job_rows[] = array('job_line' => $app->functions->htmlentities($job['label'] . ': ' . $job['status_label']));
 }
 $app->tpl->setVar('is_pending', $pending || (string) $site['waf_pending_state'] !== '' ? 1 : 0);
-$app->tpl->setLoop('jobs', $job_rows);
+malwatch_set_loop($app, 'jobs', $job_rows);
 $app->tpl->setVar('has_jobs', count($job_rows) > 0 ? 1 : 0);
 $app->tpl->setVar('first_job', $first_job);
 $app->tpl->setVar('poll_ms', waf_panel_poll_ms(waf_panel_settings($app)));
@@ -147,7 +147,7 @@ foreach (array_slice($enforce['rules'], 0, 8) as $rule) {
 	$block_rows[] = array('rule_line' => $app->functions->htmlentities($rule['title'] . ' (' . $rule['rule_id'] . '): '
 		. number_format($rule['hits'], 0, ',', '.')));
 }
-$app->tpl->setLoop('block_rules', $block_rows);
+malwatch_set_loop($app, 'block_rules', $block_rows);
 $app->tpl->setVar('has_block_rules', count($block_rows) > 0 ? 1 : 0);
 
 // Period links and history.
@@ -160,7 +160,7 @@ foreach (waf_periods($settings) as $period) {
 		'current' => $period === $days ? 1 : 0,
 	);
 }
-$app->tpl->setLoop('periods', $periods);
+malwatch_set_loop($app, 'periods', $periods);
 
 $series = waf_panel_day_series(waf_panel_rows($app->db->queryAllRecords(
 	'SELECT day, hits, would_block FROM malwatch_waf_site_day WHERE parent_domain_id = ? '
@@ -178,7 +178,7 @@ foreach ($series as $day) {
 			number_format($day['hits'], 0, ',', '.'), number_format($day['would_block'], 0, ',', '.'))),
 	);
 }
-$app->tpl->setLoop('bars', $bars);
+malwatch_set_loop($app, 'bars', $bars);
 $app->tpl->setVar('chart_max', number_format($max, 0, ',', '.'));
 $app->tpl->setVar('chart_first', count($series) > 0 ? $app->functions->htmlentities(waf_panel_day_label($series[0]['day'])) : '');
 $app->tpl->setVar('chart_last', count($series) > 1
@@ -286,7 +286,7 @@ foreach (waf_panel_rules($wb, $day_rows, $catalog) as $rule) {
 		'rule_crs' => $info['crs'] !== '' ? $app->functions->htmlentities(sprintf($wb['crs_label_txt'], $info['crs'])) : '',
 	);
 }
-$app->tpl->setLoop('rules', $rule_rows);
+malwatch_set_loop($app, 'rules', $rule_rows);
 $app->tpl->setVar('has_rules', count($rule_rows) > 0 ? 1 : 0);
 
 $path_rows = array();
@@ -297,7 +297,7 @@ foreach (array_slice(waf_panel_paths($day_rows), 0, (int) $settings['waf_show_pa
 		'path_rules' => $app->functions->htmlentities(implode(', ', $path['rules'])),
 	);
 }
-$app->tpl->setLoop('paths', $path_rows);
+malwatch_set_loop($app, 'paths', $path_rows);
 $app->tpl->setVar('has_paths', count($path_rows) > 0 ? 1 : 0);
 
 // Stored requests, all of the website or those of one address.
@@ -383,7 +383,7 @@ foreach (waf_panel_rows($stored_rows) as $row) {
 		'prefill_param' => $app->functions->htmlentities($hit['prefill']['param']),
 	);
 }
-$app->tpl->setLoop('hits', $hit_rows);
+malwatch_set_loop($app, 'hits', $hit_rows);
 $app->tpl->setVar('has_hits', count($hit_rows) > 0 ? 1 : 0);
 $app->tpl->setVar('hits_limit', $app->functions->htmlentities(sprintf($wb['hits_limit_txt'], count($hit_rows),
 	number_format(is_array($stored) ? (int) $stored['n'] : 0, 0, ',', '.'), $settings['waf_detail_days'])));
@@ -407,7 +407,7 @@ foreach (waf_panel_rows($app->db->queryAllRecords(
 		'can_remove' => $exception['can_remove'] ? 1 : 0,
 	);
 }
-$app->tpl->setLoop('exceptions', $exception_rows);
+malwatch_set_loop($app, 'exceptions', $exception_rows);
 $app->tpl->setVar('has_exceptions', count($exception_rows) > 0 ? 1 : 0);
 
 $scopes = array();
@@ -415,7 +415,7 @@ foreach (waf_exception_scopes() as $scope) {
 	$scopes[] = array('scope' => $scope, 'scope_label' => $app->functions->htmlentities(waf_panel_scope_label($wb, $scope)),
 		'checked' => $scope === 'site_path' ? 1 : 0);
 }
-$app->tpl->setLoop('scopes', $scopes);
+malwatch_set_loop($app, 'scopes', $scopes);
 
 $app->tpl_defaults();
 $app->tpl->pparse();

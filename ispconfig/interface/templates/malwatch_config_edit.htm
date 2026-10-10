@@ -25,7 +25,10 @@
 	<span class="label label-default">{tmpl_var name='last_signature_update_txt'}: {tmpl_var name='last_signature_update'}</span>
 </div>
 
-<p class="mw-sec">{tmpl_var name='paths_head_txt'}</p>
+<p class="mw-cfgall"><button type="button" class="btn btn-link" id="mw-cfg-all" data-mw-open="{tmpl_var name='sections_open_txt'}" data-mw-close="{tmpl_var name='sections_close_txt'}">{tmpl_var name='sections_open_txt'}</button></p>
+
+<details class="mw-cfgsec" open>
+<summary><h2 class="mw-sec">{tmpl_var name='paths_head_txt'}</h2></summary>
 
 <div class="form-group">
 	<label for="binary_path" class="col-sm-3 control-label">{tmpl_var name='binary_path_txt'}</label>
@@ -38,8 +41,10 @@
 		<span class="help-block">{tmpl_var name='state_dir_hint_txt'}</span>
 	</div>
 </div>
+</details>
 
-<p class="mw-sec">{tmpl_var name='mail_head_txt'}</p>
+<details class="mw-cfgsec">
+<summary><h2 class="mw-sec">{tmpl_var name='mail_head_txt'}</h2></summary>
 
 <div class="form-group">
 	<label for="admin_email" class="col-sm-3 control-label">{tmpl_var name='admin_email_txt'}</label>
@@ -80,8 +85,10 @@
 		<span class="help-block">{tmpl_var name='panel_url_hint_txt'} <tmpl_if name="panel_url_guess">{tmpl_var name='panel_url_guess_txt'} <code>{tmpl_var name='panel_url_guess'}</code></tmpl_if></span>
 	</div>
 </div>
+</details>
 
-<p class="mw-sec">{tmpl_var name='defaults_head_txt'}</p>
+<details class="mw-cfgsec">
+<summary><h2 class="mw-sec">{tmpl_var name='defaults_head_txt'}</h2></summary>
 
 <div class="form-group">
 	<label for="default_scan_days" class="col-sm-3 control-label">{tmpl_var name='default_scan_days_txt'}</label>
@@ -111,8 +118,10 @@
 		<span class="help-block">{tmpl_var name='upload_dirs_hint_txt'}</span>
 	</div>
 </div>
+</details>
 
-<p class="mw-sec">{tmpl_var name='library_tests_head_txt'}</p>
+<details class="mw-cfgsec">
+<summary><h2 class="mw-sec">{tmpl_var name='library_tests_head_txt'}</h2></summary>
 <p>{tmpl_var name='library_tests_intro_txt'}</p>
 
 <div class="form-group">
@@ -136,8 +145,10 @@
 		<span class="help-block">{tmpl_var name='test_rules_hint_txt'}</span>
 	</div>
 </div>
+</details>
 
-<p class="mw-sec">{tmpl_var name='verify_head_txt'}</p>
+<details class="mw-cfgsec">
+<summary><h2 class="mw-sec">{tmpl_var name='verify_head_txt'}</h2></summary>
 <p>{tmpl_var name='verify_intro_txt'}</p>
 
 <div class="form-group">
@@ -224,8 +235,10 @@
 		<span class="help-block">{tmpl_var name='hashlookup_url_hint_txt'}</span>
 	</div>
 </div>
+</details>
 
-<p class="mw-sec">{tmpl_var name='limits_head_txt'}</p>
+<details class="mw-cfgsec">
+<summary><h2 class="mw-sec">{tmpl_var name='limits_head_txt'}</h2></summary>
 
 <div class="form-group">
 	<label for="max_parallel" class="col-sm-3 control-label">{tmpl_var name='max_parallel_txt'}</label>
@@ -246,6 +259,13 @@
 	<div class="col-sm-9">
 		<input type="text" name="keep_scans" id="keep_scans" value="{tmpl_var name='keep_scans'}" class="form-control" />
 		<span class="help-block">{tmpl_var name='keep_scans_hint_txt'}</span>
+	</div>
+</div>
+<div class="form-group">
+	<label for="keep_dump_days" class="col-sm-3 control-label">{tmpl_var name='keep_dump_days_txt'}</label>
+	<div class="col-sm-9">
+		<input type="text" name="keep_dump_days" id="keep_dump_days" value="{tmpl_var name='keep_dump_days'}" class="form-control" />
+		<span class="help-block">{tmpl_var name='keep_dump_days_hint_txt'}</span>
 	</div>
 </div>
 <div class="form-group">
@@ -294,8 +314,10 @@
 	<label class="col-sm-3 control-label">{tmpl_var name='auto_update_signatures_txt'}</label>
 	<div class="col-sm-9">{tmpl_var name='auto_update_signatures'}</div>
 </div>
+</details>
 
-<p class="mw-sec">{tmpl_var name='view_head_txt'}</p>
+<details class="mw-cfgsec">
+<summary><h2 class="mw-sec">{tmpl_var name='view_head_txt'}</h2></summary>
 <p>{tmpl_var name='view_intro_txt'}</p>
 <div class="form-group">
 	<label for="view_lines" class="col-sm-3 control-label">{tmpl_var name='view_lines_txt'}</label>
@@ -339,8 +361,10 @@
 		<span class="help-block">{tmpl_var name='view_keep_days_hint_txt'}</span>
 	</div>
 </div>
+</details>
 
-<p class="mw-sec">{tmpl_var name='vuln_head_txt'}</p>
+<details class="mw-cfgsec">
+<summary><h2 class="mw-sec">{tmpl_var name='vuln_head_txt'}</h2></summary>
 <p>{tmpl_var name='vuln_intro_txt'}</p>
 
 <div class="form-group">
@@ -370,8 +394,10 @@
 		<span class="help-block">{tmpl_var name='wp_cli_path_hint_txt'}</span>
 	</div>
 </div>
+</details>
 
-<p class="mw-sec">{tmpl_var name='quarantine_head_txt'}</p>
+<details class="mw-cfgsec">
+<summary><h2 class="mw-sec">{tmpl_var name='quarantine_head_txt'}</h2></summary>
 <p>{tmpl_var name='quarantine_intro_txt'}</p>
 <div class="form-group">
 	<label for="quarantine_reserve" class="col-sm-3 control-label">{tmpl_var name='quarantine_reserve_txt'}</label>
@@ -380,8 +406,10 @@
 		<span class="help-block">{tmpl_var name='quarantine_reserve_hint_txt'}</span>
 	</div>
 </div>
+</details>
 
-<p class="mw-sec">{tmpl_var name='auto_head_txt'}</p>
+<details class="mw-cfgsec">
+<summary><h2 class="mw-sec">{tmpl_var name='auto_head_txt'}</h2></summary>
 <p>{tmpl_var name='auto_intro_txt'}</p>
 <p>{tmpl_var name='auto_scope_txt'}</p>
 
@@ -474,15 +502,10 @@
 		</div>
 	</label>
 </div>
+</details>
 
 <hr class="mw-rule">
-<div class="mw-savebar-final">
-	<button class="btn btn-default formbutton-success" type="button"
-		onclick="document.getElementById('mw-action').value='';"
-		data-mw-review="{tmpl_var name='review_data'}"
-		data-submit-form="pageForm" data-form-action="security/malwatch_config_edit.php">{tmpl_var name='btn_apply_txt'}</button>
-	<span class="help-block" style="margin:0">{tmpl_var name='apply_hint_txt'}</span>
-</div>
+<p class="help-block">{tmpl_var name='apply_hint_txt'}</p>
 
 <input type="hidden" name="id" value="{tmpl_var name='id'}">
 
@@ -495,6 +518,19 @@
 </div></div>
 
 <style>
+/* Sections open and close like the defence settings; the first is open. */
+#pageContent details.mw-cfgsec{margin:0;border-top:1px solid var(--cic-line-soft,rgba(128,128,128,.35))}
+#pageContent details.mw-cfgsec > summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px}
+#pageContent details.mw-cfgsec > summary::-webkit-details-marker{display:none}
+#pageContent details.mw-cfgsec > summary::before{content:"";width:7px;height:7px;flex:none;border-right:2px solid currentColor;
+	border-bottom:2px solid currentColor;transform:rotate(-45deg);transition:transform .15s;opacity:.7}
+#pageContent details.mw-cfgsec[open] > summary::before{transform:rotate(45deg)}
+#pageContent details.mw-cfgsec > summary h2.mw-sec{border-bottom:0;margin:14px 0;padding:0}
+#pageContent details.mw-cfgsec > summary:focus-visible{outline:2px solid var(--cic-focus,var(--bc-focus,currentColor));outline-offset:2px}
+#pageContent details.mw-cfgsec[open]{padding-bottom:10px}
+#pageContent .mw-cfgall{margin:0 0 4px;text-align:right}
+#pageContent .mw-savebar input[name=preset_name]{min-width:28ch}
+@media (prefers-reduced-motion:reduce){#pageContent details.mw-cfgsec > summary::before{transition:none}}
 /* Rueckfallwerte ohne Farbe: jede gedaempfte Schrift ist currentColor mit
    Deckkraft, jede Linie und jede Flaeche ein durchscheinendes Grau. Ein
    fester Rueckfall wie #8b9298 sieht auf dem dunklen Theme richtig aus und
@@ -523,8 +559,8 @@
 #mw-config-auto .mw-desc{margin:4px 0 0;font-size:13px;opacity:.82}
 #mw-config-auto .mw-mono{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:12px}
 #mw-config-auto .mw-tag{
-	font-size:10.5px;font-weight:600;padding:1px 6px;border-radius:3px;
-	background:var(--cic-sunken,rgba(128,128,128,.10));color:var(--cic-accent-text,#dd630d);
+	font-size:11px;font-weight:600;padding:1px 6px;border-radius:3px;
+	background:var(--cic-sunken,rgba(128,128,128,.10));color:var(--cic-accent-text,#a84c0b);
 	border:1px solid var(--cic-accent-deep,#a84c0b);
 }
 #mw-config-auto .mw-ownlist{margin-top:12px;padding:12px 14px;border:1px solid var(--cic-line-soft,rgba(128,128,128,.35));border-radius:3px;background:var(--cic-sunken,rgba(128,128,128,.10))}
@@ -550,11 +586,32 @@
 .mw-quiet > span{opacity:.85}
 /* Section headings. ispconfig.css hides p.fieldset-legend, so they carry
    their own class, sized like .mw-sec on the other pages of the addon. */
-.mw-sec{font-size:15px;font-weight:600;margin:22px 0 10px;padding-bottom:5px;border-bottom:1px solid var(--cic-line-soft,rgba(128,128,128,.35))}
+#pageContent h2.mw-sec{font-size:15px;font-weight:600;margin:22px 0 10px;padding-bottom:5px;border-bottom:1px solid var(--cic-line-soft,rgba(128,128,128,.35))}
 .mw-rule{height:1px;background:var(--cic-line-soft,rgba(128,128,128,.35));border:0;margin:18px 0}
 .mw-savebar-final{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
 </style>
 
+<script>
+(function () {
+	// All sections open or close together; a page that comes back with an
+	// error opens all of them, so the field that needs fixing is in sight.
+	var all = document.getElementById('mw-cfg-all');
+	var secs = document.querySelectorAll('#pageContent details.mw-cfgsec');
+	if (!all || !secs.length) { return; }
+	function allOpen() { for (var i = 0; i < secs.length; i++) { if (!secs[i].open) { return false; } } return true; }
+	function label() { all.textContent = all.getAttribute(allOpen() ? 'data-mw-close' : 'data-mw-open'); }
+	all.addEventListener('click', function () {
+		var open = !allOpen();
+		for (var i = 0; i < secs.length; i++) { secs[i].open = open; }
+		label();
+	});
+	for (var i = 0; i < secs.length; i++) { secs[i].addEventListener('toggle', label); }
+	if (document.querySelector('#pageContent .alert-danger, #pageContent .error')) {
+		for (var j = 0; j < secs.length; j++) { secs[j].open = true; }
+	}
+	label();
+})();
+</script>
 <script>
 (function () {
 	var root = document.getElementById('mw-config-auto');

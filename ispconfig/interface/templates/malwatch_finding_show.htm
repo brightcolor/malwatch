@@ -1,6 +1,7 @@
 <div class='page-header'>
 	<h1>{tmpl_var name='page_head_txt'}</h1>
 </div>
+<p class="mw-back"><a href="#" data-load-content="security/malwatch_site_show.php?id={tmpl_var name='domain_id'}">← {tmpl_var name='domain'}</a></p>
 
 <tmpl_if name="message">
 	<div class="alert alert-success">{tmpl_var name='message'}</div>
@@ -15,7 +16,7 @@
    Jede Stufe hat dazu ein Wort in der Legende, die Farbe allein traegt keine
    Information. */
 #mw-find{--mw-crit:214,31,122;--mw-high:234,88,12;--mw-med:202,138,4;--mw-low:37,99,235;--mw-guard:22,163,74;--mw-info:59,130,246}
-#mw-find .mw-sec{font-size:15px;font-weight:600;margin:22px 0 10px;padding-bottom:5px;border-bottom:1px solid var(--cic-line-soft,rgba(128,128,128,.35))}
+#mw-find h2.mw-sec{font-size:15px;font-weight:600;margin:22px 0 10px;padding-bottom:5px;border-bottom:1px solid var(--cic-line-soft,rgba(128,128,128,.35))}
 #mw-find .mw-file{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:13px;word-break:break-all}
 #mw-find .mw-meta{display:flex;flex-wrap:wrap;gap:6px 22px;margin:8px 0 0;font-size:13px}
 #mw-find .mw-meta span{opacity:.72}
@@ -89,7 +90,8 @@
 <p class="mw-file"><tmpl_if name="has_dir"><span class="text-muted">{tmpl_var name='dir'}</span></tmpl_if><strong>{tmpl_var name='file'}</strong></p>
 <div class="mw-meta">
 	<div><span>{tmpl_var name='website_txt'}:</span> <a href="#" data-load-content="security/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='domain'}</a></div>
-	<div><span>{tmpl_var name='state_txt'}:</span> <span class="label {tmpl_var name='worst_class'}">{tmpl_var name='worst_label'}</span> {tmpl_var name='state_label'}</div>
+	<div><span>{tmpl_var name='level_txt'}:</span> <span class="label {tmpl_var name='worst_class'}">{tmpl_var name='worst_label'}</span></div>
+	<div><span>{tmpl_var name='state_txt'}:</span> {tmpl_var name='state_label'}</div>
 	<div><span>{tmpl_var name='size_txt'}:</span> {tmpl_var name='size'}</div>
 	<div><span>{tmpl_var name='mtime_txt'}:</span> {tmpl_var name='mtime'}</div>
 	<div><span>{tmpl_var name='first_seen_txt'}:</span> {tmpl_var name='first_seen'}</div>
@@ -110,16 +112,19 @@
 				data-mw-set-malwatch_action="ignore"
 				data-submit-form="pageForm" data-form-action="security/malwatch_finding_show.php?id={tmpl_var name='finding_id'}">{tmpl_var name='ignore_txt'}</button>
 		</tmpl_if>
-		<button class="btn btn-danger" type="button"
+		<button class="btn btn-default mw-risk" type="button"
 			data-mw-confirm="{tmpl_var name='confirm_quarantine_txt'}" data-mw-title="{tmpl_var name='quarantine_txt'}"
 			data-mw-detail="{tmpl_var name='full_path'}" data-mw-ok="{tmpl_var name='quarantine_txt'}" data-mw-danger="1"
 			data-mw-set-malwatch_action="quarantine"
 			data-submit-form="pageForm" data-form-action="security/malwatch_finding_show.php?id={tmpl_var name='finding_id'}">{tmpl_var name='quarantine_txt'}</button>
 	</tmpl_if>
 	<a class="btn btn-default formbutton-default" href="#" data-load-content="security/malwatch_finding_list.php">{tmpl_var name='back_txt'}</a>
+	<tmpl_if name="next_finding_id" op=">" value="0">
+	<a class="btn btn-default formbutton-default" href="#" data-load-content="security/malwatch_finding_show.php?id={tmpl_var name='next_finding_id'}">{tmpl_var name='next_finding_txt'}</a>
+	</tmpl_if>
 </div>
 
-<p class="mw-sec">{tmpl_var name='reasons_txt'}</p>
+<h2 class="mw-sec">{tmpl_var name='reasons_txt'}</h2>
 <tmpl_loop name="reasons">
 <div class="mw-reason">
 	<h3>
@@ -141,7 +146,7 @@
 </div>
 </tmpl_loop>
 
-<p class="mw-sec">{tmpl_var name='traits_head_txt'}</p>
+<h2 class="mw-sec">{tmpl_var name='traits_head_txt'}</h2>
 <tmpl_if name="has_traits">
 	<p class="mw-small">{tmpl_var name='traits_summary'}</p>
 	<ul class="mw-traits">
@@ -154,7 +159,7 @@
 	<p class="mw-small"><tmpl_if name="has_file">{tmpl_var name='no_traits_txt'}<tmpl_else>{tmpl_var name='no_view_txt'}</tmpl_if></p>
 </tmpl_if>
 
-<p class="mw-sec">{tmpl_var name='code_txt'}</p>
+<h2 class="mw-sec">{tmpl_var name='code_txt'}</h2>
 <tmpl_if name="has_code">
 	<div class="mw-legend">
 		<span><mark class="{tmpl_var name='legend_rule_class'}">{tmpl_var name='legend_rule_txt'}</mark></span>

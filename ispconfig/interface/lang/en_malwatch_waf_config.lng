@@ -1,5 +1,5 @@
 <?php
-$wb['waf_config_head_txt'] = 'Abwehr – settings';
+$wb['waf_config_head_txt'] = 'Defence settings';
 $wb['waf_tab_txt'] = 'Settings';
 $wb['waf_config_desc_txt'] = 'Applies to every website on this server. Each section shows in its title how it is stored; a click opens it. The cron reads the values on every pass.';
 
@@ -133,7 +133,7 @@ $wb['waf_hc_watch_name_txt'] = 'Check of the watch over the scanner';
 $wb['waf_bin_dirs_txt'] = 'Program directories';
 
 $wb['btn_save_txt'] = 'Save settings';
-$wb['btn_back_txt'] = 'Back to the overview';
+$wb['btn_back_txt'] = 'To the defence overview';
 $wb['msg_saved_txt'] = 'Saved. The cron applies the values with its next pass.';
 $wb['msg_saved_no_server_txt'] = 'Saved. No active web server is registered, so no job waits.';
 

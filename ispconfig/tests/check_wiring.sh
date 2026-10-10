@@ -2515,6 +2515,14 @@ for page106 in status.htm malwatch_site_show.htm; do
 	fi
 done
 
+# 107. ISPConfig's template engine counts an empty loop as one row (0.43.0):
+#      the action log of a website showed an empty row "()". Loops reach the
+#      template through malwatch_set_loop(), which leaves an empty one unset.
+if grep -n 'tpl->setLoop(' "$root"/interface/*.php "$root"/interface/lib/*.php \
+	| grep -v 'malwatch_lib.inc.php:.*malwatch_loop_rows' > "$tmpdir/loop107"; then
+	fail "setLoop() ohne malwatch_set_loop(): $(sed 's|^.*/||' "$tmpdir/loop107" | cut -d: -f1,2 | tr '\n' ' ')"
+fi
+
 for test in verify_settings_test.php housekeeping_test.php; do
 	grep -qF "php ispconfig/tests/$test" "$root/../.github/workflows/ci.yml" \
 		|| fail "die CI führt $test nicht aus"

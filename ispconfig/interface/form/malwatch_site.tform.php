@@ -4,7 +4,8 @@
  * Form definition for the per website malwatch settings.
  */
 
-$form['title'] = 'malwatch';
+// No title of its own: the template names the website.
+$form['title'] = '';
 $form['description'] = '';
 $form['name'] = 'malwatch_site';
 $form['action'] = 'malwatch_site_edit.php';

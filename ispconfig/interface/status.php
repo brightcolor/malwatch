@@ -44,15 +44,20 @@ $rows = malwatch_status_rows($app);
 // Die Sprachdatei traegt "%s" als Platzhalter fuer die Zahlen; erst hier
 // werden sie eingesetzt - die Vorlage darf keinen rohen "%s" anzeigen.
 foreach ($rows['attention'] as &$row) {
-	$row['findings_line'] = $row['findings'] === 1
-		? $wb['findings_one_txt']
-		: sprintf($wb['findings_txt'],
+	if ($row['findings'] === 1) {
+		$row['findings_line'] = $wb['findings_one_txt'];
+	} elseif ($row['urgent'] === 0) {
+		// "davon 0 dringend" read like a slip; the sentence says it instead.
+		$row['findings_line'] = sprintf($wb['findings_none_urgent_txt'], number_format($row['findings'], 0, ',', '.'));
+	} else {
+		$row['findings_line'] = sprintf($wb['findings_txt'],
 			number_format($row['findings'], 0, ',', '.'),
 			number_format($row['urgent'], 0, ',', '.'));
+	}
 }
 unset($row);
 
-$app->tpl->setLoop('sites', $rows['attention']);
+malwatch_set_loop($app, 'sites', $rows['attention']);
 $app->tpl->setVar('poll_ms', malwatch_poll_ms(malwatch_get_config($app)));
 $app->tpl->setVar('attention_count', count($rows['attention']));
 $app->tpl->setVar('quiet_count', $rows['quiet_count']);

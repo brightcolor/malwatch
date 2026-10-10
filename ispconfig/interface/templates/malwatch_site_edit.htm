@@ -1,5 +1,5 @@
 <div class='page-header'>
-	<h1>malwatch: {tmpl_var name='domain'}</h1>
+	<h1>{tmpl_var name='domain'}</h1>
 </div>
 <p>{tmpl_var name='edit_desc_txt'}</p>
 
@@ -36,7 +36,7 @@
 	</div>
 </div>
 
-<p class="mw-sec">{tmpl_var name='actions_head_txt'}</p>
+<h2 class="mw-sec">{tmpl_var name='actions_head_txt'}</h2>
 <p>{tmpl_var name='actions_desc_txt'}</p>
 
 <div class="form-group">
@@ -79,11 +79,28 @@
 	<button class="btn btn-default formbutton-success" type="button" value="{tmpl_var name='btn_save_txt'}"
 		data-submit-form="pageForm" data-form-action="security/malwatch_site_edit.php">{tmpl_var name='btn_save_txt'}</button>
 	<button class="btn btn-default formbutton-default" type="button" value="{tmpl_var name='btn_cancel_txt'}"
-		data-load-content="security/status.php">{tmpl_var name='btn_cancel_txt'}</button>
+		data-load-content="security/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='btn_cancel_txt'}</button>
 </div></div>
 
 <style>
 /* Section heading. ispconfig.css hides p.fieldset-legend, so it carries its
    own class, the same as on the settings page. */
-.mw-sec{font-size:15px;font-weight:600;margin:22px 0 10px;padding-bottom:5px;border-bottom:1px solid var(--cic-line-soft,rgba(128,128,128,.35))}
+#pageContent h2.mw-sec{font-size:15px;font-weight:600;margin:22px 0 10px;padding-bottom:5px;border-bottom:1px solid var(--cic-line-soft,rgba(128,128,128,.35))}
+/* A level whose action is off stays editable, so its value survives the save,
+   and steps back visually until the action is on. */
+#pageContent .form-group.mw-off{opacity:.5}
 </style>
+<script>
+(function () {
+	var pairs = [['notify_admin', 'notify_admin_severity'], ['notify_client', 'notify_client_severity'], ['disable_site', 'disable_severity']];
+	pairs.forEach(function (pair) {
+		var box = document.querySelector('#pageContent input[type=checkbox][name="' + pair[0] + '"]');
+		var level = document.getElementById(pair[1]);
+		if (!box || !level) { return; }
+		var row = level.closest('.form-group');
+		function sync() { row.classList.toggle('mw-off', !box.checked); }
+		box.addEventListener('change', sync);
+		sync();
+	});
+})();
+</script>

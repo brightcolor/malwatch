@@ -175,10 +175,14 @@ foreach ($finding_rows as $group) {
 	}
 }
 
-$app->tpl->setLoop('findings', $finding_rows);
+malwatch_set_loop($app, 'findings', $finding_rows);
 $app->tpl->setVar('has_findings', count($finding_rows) > 0);
 $app->tpl->setVar('finding_files', count($finding_rows));
 $app->tpl->setVar('finding_open_files', $open_files);
+// One file is a "betroffene Datei"; the plural had to read "Datei(en)".
+if ((int) $open_files === 1) {
+	$app->tpl->setVar('affected_files_txt', $wb['affected_file_txt']);
+}
 $app->tpl->setVar('finding_count', is_array($findings) ? count($findings) : 0);
 $app->tpl->setVar('scan_base', $app->functions->htmlentities($base));
 
@@ -240,9 +244,9 @@ if (is_array($software)) {
 			'is_unknown' => $row['version_unknown'] === 'y' ? 1 : 0,
 			'has_vulns' => $vuln_count > 0 ? 1 : 0,
 			'vuln_worst_class' => $vuln_severity !== '' ? malwatch_severity_class($vuln_severity) : 'label-default',
-			'vuln_count_label' => $app->functions->htmlentities($vuln_count === 1
+			'vuln_count_label' => $app->functions->htmlentities(malwatch_with_severity($vuln_count === 1
 				? $wb['vuln_count_one_txt']
-				: sprintf($wb['vuln_count_many_txt'], number_format($vuln_count, 0, ',', '.'))),
+				: sprintf($wb['vuln_count_many_txt'], number_format($vuln_count, 0, ',', '.')), $wb, $vuln_severity)),
 			'has_update_to' => $update_label !== '' ? 1 : 0,
 			'update_to' => $app->functions->htmlentities($update_label),
 			'vulns' => $vulns,
@@ -259,7 +263,7 @@ if (is_array($software)) {
 		);
 	}
 }
-$app->tpl->setLoop('software', $software_rows);
+malwatch_set_loop($app, 'software', $software_rows);
 $app->tpl->setVar('has_software', count($software_rows) > 0);
 $app->tpl->setVar('has_upgrades', $has_upgrades ? 1 : 0);
 
@@ -313,7 +317,7 @@ foreach ((array) $upgrades as $run) {
 		'elements' => $lines,
 	);
 }
-$app->tpl->setLoop('upgrades', $upgrade_rows);
+malwatch_set_loop($app, 'upgrades', $upgrade_rows);
 $app->tpl->setVar('has_upgrade_history', count($upgrade_rows) > 0 ? 1 : 0);
 
 // --- History ---------------------------------------------------------------
@@ -340,7 +344,7 @@ if (is_array($scans)) {
 		);
 	}
 }
-$app->tpl->setLoop('scans', $scan_rows);
+malwatch_set_loop($app, 'scans', $scan_rows);
 $app->tpl->setVar('has_scans', count($scan_rows) > 0);
 
 // --- Action log ------------------------------------------------------------
@@ -362,7 +366,7 @@ if (is_array($actions)) {
 		);
 	}
 }
-$app->tpl->setLoop('actionlog', $action_rows);
+malwatch_set_loop($app, 'actionlog', $action_rows);
 $app->tpl->setVar('has_actionlog', count($action_rows) > 0);
 
 $app->tpl->setVar('message', $app->functions->htmlentities($message));

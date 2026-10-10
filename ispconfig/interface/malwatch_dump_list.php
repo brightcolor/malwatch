@@ -107,6 +107,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $app->tpl->newTemplate('form.tpl.htm');
 $app->tpl->setInclude('content_tpl', 'templates/malwatch_dump_list.htm');
 $app->tpl->setVar($wb);
+// The period comes from the settings (keep_dump_days, 0.43.0).
+$app->tpl->setVar('sub_txt', $app->functions->htmlentities(sprintf($wb['sub_txt'],
+	malwatch_housekeeping_value(malwatch_get_config($app), 'keep_dump_days'))));
 
 // Overwritten right after setVar($wb): the dialog reads these from data-mw-*
 // attributes, where a straight double quote would end the attribute. See
@@ -133,7 +136,7 @@ foreach ((array) $sites as $site) {
 		'selected' => $id === $domain_id ? 1 : 0,
 	);
 }
-$app->tpl->setLoop('sites', $site_rows);
+malwatch_set_loop($app, 'sites', $site_rows);
 $app->tpl->setVar('domain_id', $domain_id);
 
 $web = $domain_id > 0
@@ -155,7 +158,7 @@ foreach ($db_rows as $i => $row) {
 		}
 	}
 }
-$app->tpl->setLoop('databases', $db_rows);
+malwatch_set_loop($app, 'databases', $db_rows);
 $app->tpl->setVar('has_databases', count($db_rows) > 0 ? 1 : 0);
 $app->tpl->setVar('has_pending', $pending > 0 ? 1 : 0);
 
@@ -194,7 +197,7 @@ foreach ($dump_rows as $i => $row) {
 		? $app->functions->htmlentities($public_base . '/security/malwatch_dump_download.php?public=' . $row['public_token'])
 		: '';
 }
-$app->tpl->setLoop('dumps', $dump_rows);
+malwatch_set_loop($app, 'dumps', $dump_rows);
 $app->tpl->setVar('has_dumps', count($dump_rows) > 0 ? 1 : 0);
 
 $app->tpl->setVar('message', $app->functions->htmlentities($message));

@@ -1497,3 +1497,16 @@ SET @mw := IF(@mw_libtests_new,
   'UPDATE `malwatch_config` SET `test_dirs` = ''test,tests,test-suite,testsuite,fixtures,__tests__'', `library_dirs` = ''vendor,vendors,node_modules,bower_components'', `test_rules` = ''php.exec.background,php.eval.variable,binary.elf''',
   'DO 0');
 PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- --------------------------------------------------------
+-- Dumps behalten (0.43.0)
+--
+-- keep_dump_days: how long a finished dump stays for download before the
+-- hourly run removes it; it was seven days, fixed in the ingest
+-- (malwatch_helper::HOUSEKEEPING_SETTINGS).
+-- --------------------------------------------------------
+SET @mw := IF((SELECT COUNT(*) = 0 FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_config' AND COLUMN_NAME = 'keep_dump_days'),
+  'ALTER TABLE `malwatch_config` ADD COLUMN `keep_dump_days` int(11) unsigned NOT NULL DEFAULT ''7''',
+  'DO 0');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;

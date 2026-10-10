@@ -53,7 +53,7 @@ foreach (waf_panel_rows($app->db->queryAllRecords(
 	$first_job = $first_job === 0 ? $job['job_id'] : $first_job;
 	$job_rows[] = array('job_line' => $app->functions->htmlentities($job['label'] . ': ' . $job['status_label']));
 }
-$app->tpl->setLoop('jobs', $job_rows);
+malwatch_set_loop($app, 'jobs', $job_rows);
 $app->tpl->setVar('has_jobs', count($job_rows) > 0 ? 1 : 0);
 $app->tpl->setVar('first_job', $first_job);
 $app->tpl->setVar('poll_ms', waf_panel_poll_ms(waf_panel_settings($app)));
@@ -73,7 +73,7 @@ foreach (array('', 'active', 'pending', 'error', 'removing') as $state) {
 		'current' => $state === $filters['state'] ? 1 : 0,
 	);
 }
-$app->tpl->setLoop('state_links', $state_links);
+malwatch_set_loop($app, 'state_links', $state_links);
 
 $site_links = array(array('value' => '', 'label' => $wb['filter_all_txt']));
 if ($list['has_global']) {
@@ -91,7 +91,7 @@ foreach ($site_links as $choice) {
 		'current' => $choice['value'] === $filters['site'] ? 1 : 0,
 	);
 }
-$app->tpl->setLoop('site_links', $sites);
+malwatch_set_loop($app, 'site_links', $sites);
 $app->tpl->setVar('has_site_links', count($sites) > 1 ? 1 : 0);
 
 $rows = array();
@@ -114,7 +114,7 @@ foreach ($list['rows'] as $row) {
 		'can_remove' => $exception['can_remove'] ? 1 : 0,
 	);
 }
-$app->tpl->setLoop('rows', $rows);
+malwatch_set_loop($app, 'rows', $rows);
 $app->tpl->setVar('has_rows', count($rows) > 0 ? 1 : 0);
 $app->tpl->setVar('has_any', count($all_rows) > 0 ? 1 : 0);
 

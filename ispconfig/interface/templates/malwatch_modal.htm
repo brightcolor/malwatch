@@ -61,6 +61,20 @@
 	word-break:break-all;opacity:.8;
 }
 .mw-modal .modal-footer .btn{white-space:normal}
+/* An action that removes, blocks or ends something: outlined in the colour of
+   danger, filled only on hover. The filled pink belongs to the dialog's own
+   confirm button, so it stays the loudest thing on screen exactly when it
+   counts. Every page with such a button includes this file; the id outranks
+   the theme's .bc .btn rules. */
+#pageContent .btn.mw-risk{background:transparent;border:1.5px solid var(--cic-bad,#c9302c);
+	color:var(--cic-bad-text,#a4282a)}
+#pageContent .btn.mw-risk:hover,#pageContent .btn.mw-risk:focus{background:var(--cic-bad,#c9302c);
+	border-color:var(--cic-bad,#c9302c);color:#fff}
+#pageContent .btn.mw-risk:focus-visible{outline:2px solid var(--cic-focus,var(--bc-focus,currentColor));outline-offset:2px}
+/* The way back sits under the title of a detail page, the same on every one. */
+#pageContent .mw-back{margin:0 0 12px;font-size:13px}
+/* Row buttons stay at least 24 px high, the smallest target WCAG 2.2 allows. */
+#pageContent .btn.btn-xs{min-height:24px}
 /* "Änderungen prüfen": one row per changed setting, grouped by the sections
    of the page; a long list scrolls inside the dialog. */
 .mw-modal .mw-modal-review{margin-top:12px;max-height:60vh;overflow:auto;overflow-wrap:anywhere}

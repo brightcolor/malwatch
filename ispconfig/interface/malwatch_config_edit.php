@@ -385,6 +385,9 @@ class page_action extends tform_actions
 		$app->tpl->setVar('count_scans', is_array($counts) ? $app->functions->intval($counts['scans']) : 0);
 		$app->tpl->setVar('count_findings', is_array($counts) ? $app->functions->intval($counts['findings']) : 0);
 
+		// The labels of "open/close all sections" travel in data-mw attributes.
+		$app->tpl->setVar(malwatch_attr_texts($this->malwatch_wb, array('sections_open_txt', 'sections_close_txt')));
+
 		$this->show_auto_action($config);
 
 		// The address this page was opened at, as a suggestion for panel_url:
@@ -505,7 +508,7 @@ class page_action extends tform_actions
 				'is_checked' => $is_checked ? 1 : 0,
 			);
 		}
-		$app->tpl->setLoop('presets', $preset_rows);
+		malwatch_set_loop($app, 'presets', $preset_rows);
 		$app->tpl->setVar('has_presets', count($preset_rows) > 0 ? 1 : 0);
 
 		// auto_action=preset with an id that matches no saved preset above
@@ -541,7 +544,7 @@ class page_action extends tform_actions
 			);
 			$index++;
 		}
-		$app->tpl->setLoop('rules', $rule_rows);
+		malwatch_set_loop($app, 'rules', $rule_rows);
 		$app->tpl->setVar('show_all_rules', $app->functions->htmlentities(sprintf($wb['show_all_rules_txt'], $rule_total)));
 
 		// --- "Auf die bestehenden Funde anwenden" -----------------------------

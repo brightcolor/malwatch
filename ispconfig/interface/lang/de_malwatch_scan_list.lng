@@ -1,13 +1,19 @@
 <?php
-$wb['list_head_txt'] = 'malwatch – Prüfläufe';
-$wb['list_desc_txt'] = 'Verlauf der abgeschlossenen Prüfungen.';
+$wb['list_head_txt'] = 'Prüfläufe';
+$wb['list_desc_txt'] = 'Verlauf der abgeschlossenen Prüfungen, die neueste zuerst.';
 $wb['no_records_txt'] = 'Noch keine Prüfläufe.';
 
 $wb['domain_txt'] = 'Website';
 $wb['scan_state_txt'] = 'Ergebnis';
 $wb['finished_at_txt'] = 'Abgeschlossen';
 $wb['files_scanned_txt'] = 'Dateien';
-$wb['counts_txt'] = 'kritisch / hoch / mittel / gering';
+$wb['counts_txt'] = 'Funde';
 $wb['new_findings_txt'] = 'Neu';
-$wb['open_txt'] = 'Öffnen';
+$wb['open_txt'] = 'Ansehen';
 $wb['filter_txt'] = 'Filtern';
+
+$wb['sev_critical_txt'] = 'kritisch';
+$wb['sev_high_txt'] = 'hoch';
+$wb['sev_medium_txt'] = 'mittel';
+$wb['sev_low_txt'] = 'gering';
+$wb['counts_none_txt'] = 'keine Funde';

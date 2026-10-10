@@ -205,12 +205,19 @@ $app->tpl->setVar('worst_class', malwatch_severity_class($worst));
 // The legend shows a rule hit the way the code marks it: in the colour of the
 // worst severity on the page.
 $app->tpl->setVar('legend_rule_class', malwatch_mark_class_severity($worst));
-$app->tpl->setLoop('reasons', $reasons);
-$app->tpl->setLoop('traits', $traits);
+// The next open file of the same website, the worst first: after deciding on
+// one file the operator goes on to the next without the detour over the list.
+$next = $app->db->queryOneRecord(
+	"SELECT finding_id FROM malwatch_finding WHERE parent_domain_id = ? AND finding_state = 'open' AND file_path != ? "
+	. "ORDER BY FIELD(severity, 'critical', 'high', 'medium', 'low'), last_seen DESC, finding_id DESC LIMIT 1",
+	$domain_id, (string) $path);
+$app->tpl->setVar('next_finding_id', is_array($next) ? $app->functions->intval($next['finding_id']) : 0);
+malwatch_set_loop($app, 'reasons', $reasons);
+malwatch_set_loop($app, 'traits', $traits);
 $app->tpl->setVar('has_traits', count($traits) > 0 ? 1 : 0);
 $app->tpl->setVar('traits_summary', $app->functions->htmlentities(sprintf($wb['traits_summary_txt'],
 	$counts['risk'], $counts['caution'], $counts['guard'])));
-$app->tpl->setLoop('code_rows', $code_rows);
+malwatch_set_loop($app, 'code_rows', $code_rows);
 $app->tpl->setVar('has_code', count($code_rows) > 0 ? 1 : 0);
 $app->tpl->setVar('has_file', is_array($file) ? 1 : 0);
 $app->tpl->setVar('file_binary', is_array($file) && $file['kind'] === 'binary' ? 1 : 0);

@@ -112,7 +112,7 @@
 			<span class="mw-sitebtns">
 				<a class="btn btn-default formbutton-default" href="#" data-load-content="security/malwatch_upgrade_start.php?id={tmpl_var name='domain_id'}">{tmpl_var name='btn_updates_txt'}</a>
 				<a class="btn btn-default formbutton-default" href="#" data-load-content="security/malwatch_site_show.php?id={tmpl_var name='domain_id'}&amp;show=vulns">{tmpl_var name='btn_vulns_txt'}</a>
-				<tmpl_if name="has_findings"><a class="btn btn-danger" href="#" data-load-content="security/malwatch_site_show.php?id={tmpl_var name='domain_id'}&amp;show=malware">{tmpl_var name='findings_label'}</a></tmpl_if>
+				<tmpl_if name="has_findings"><a class="btn btn-default formbutton-default" href="#" data-load-content="security/malwatch_site_show.php?id={tmpl_var name='domain_id'}&amp;show=malware">{tmpl_var name='findings_label'}</a></tmpl_if>
 			</span>
 		</summary>
 		<div class="mw-body">

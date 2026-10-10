@@ -203,6 +203,91 @@ expect_same('switched off', malwatch_site_state(array('active' => 'n')), 'inacti
 expect_same('gone from ISPConfig', malwatch_site_state(null), 'gone');
 expect_same('gone, as queryOneRecord says it', malwatch_site_state(false), 'gone');
 
+// A list opens on a default filter until the operator picks one (0.43.0).
+// "alle" is stored as '', which is a choice too and stays.
+$search = array();
+malwatch_list_default_filter($search, 'malwatch_finding', 'search_finding_state', 'open');
+expect_same('first visit gets the default', $search['malwatch_finding']['search_finding_state'], 'open');
+$search = array('malwatch_finding' => array('search_finding_state' => ''));
+malwatch_list_default_filter($search, 'malwatch_finding', 'search_finding_state', 'open');
+expect_same('"alle" stays', $search['malwatch_finding']['search_finding_state'], '');
+$search = array('malwatch_finding' => array('search_finding_state' => 'fixed', 'page' => 2));
+malwatch_list_default_filter($search, 'malwatch_finding', 'search_finding_state', 'ignored');
+expect_same('a chosen filter stays', $search['malwatch_finding'], array('search_finding_state' => 'fixed', 'page' => 2));
+$search = null;
+malwatch_list_default_filter($search, 'malwatch_scan', 'search_scan_state', 'findings');
+expect_same('no search in the session yet', $search, array('malwatch_scan' => array('search_scan_state' => 'findings')));
+
+// The order of the finding list: open before released before fixed, the worst
+// first, the newest first.
+$order = malwatch_finding_list_order();
+expect_same('order starts with ORDER BY', strpos($order, 'ORDER BY '), 0);
+expect_same('state before severity',
+	strpos($order, "FIELD(finding_state, 'open', 'ignored', 'fixed')") < strpos($order, "FIELD(severity, 'critical', 'high', 'medium', 'low')"), true);
+expect_same('newest last in the order', substr($order, -14), 'last_seen DESC');
+
+// The counts of a scan as words: only the levels that occur, the worst first.
+$words = array('sev_critical_txt' => 'kritisch', 'sev_high_txt' => 'hoch', 'sev_medium_txt' => 'mittel',
+	'sev_low_txt' => 'gering', 'counts_none_txt' => 'keine');
+expect_same('counts as words', malwatch_scan_counts(array('count_critical' => '3', 'count_high' => '8',
+	'count_medium' => '0', 'count_low' => '0'), $words), '3 kritisch · 8 hoch');
+expect_same('only low', malwatch_scan_counts(array('count_critical' => '0', 'count_high' => '0',
+	'count_medium' => '0', 'count_low' => '12'), $words), '12 gering');
+expect_same('nothing found', malwatch_scan_counts(array('count_critical' => '0', 'count_high' => '0',
+	'count_medium' => '0', 'count_low' => '0'), $words), 'keine');
+expect_same('missing columns count as none', malwatch_scan_counts(array(), $words), 'keine');
+expect_same('thousands', malwatch_scan_counts(array('count_low' => '1500'), $words), '1.500 gering');
+
+// A failed quarantine job says which job, what it should have done, why it
+// failed and what to do now (0.43.0). The banner used to name none of it.
+$job_words = array(
+	'job_error_head_txt' => 'Auftrag %s vom %s ist gescheitert: %s.',
+	'job_action_restore_txt' => 'Einträge zurückholen', 'job_action_add_txt' => 'Dateien verschieben',
+	'job_action_unknown_txt' => 'Quarantäneauftrag',
+	'job_error_no_log_txt' => 'Der Scanner hat keinen Grund gemeldet (Rückgabewert %s).',
+	'job_error_next_txt' => 'Wiederhole die Aktion an den Einträgen.',
+);
+$job = malwatch_job_error_text(array('job_id' => '42', 'finished_at' => '2026-10-10 14:02:00',
+	'options' => '{"action":"restore","ids":["a"]}', 'job_log' => "Ziel belegt\n", 'exit_code' => '1'), $job_words);
+expect_same('job error head', $job['head'], 'Auftrag 42 vom 10.10.2026 14:02 ist gescheitert: Einträge zurückholen.');
+expect_same('job error reason', $job['reason'], 'Ziel belegt');
+expect_same('job error next step', $job['next'], 'Wiederhole die Aktion an den Einträgen.');
+$job = malwatch_job_error_text(array('job_id' => '7', 'finished_at' => '2026-10-10 09:05:00',
+	'options' => 'kaputt', 'job_log' => '', 'exit_code' => '3'), $job_words);
+expect_same('job error unknown action', $job['head'], 'Auftrag 7 vom 10.10.2026 09:05 ist gescheitert: Quarantäneauftrag.');
+expect_same('job error without log', $job['reason'], 'Der Scanner hat keinen Grund gemeldet (Rückgabewert 3).');
+
+// A count of known flaws carries the word of its worst level, so the colour
+// is never the only signal (0.43.0).
+$sev_words = array('severity_high_txt' => 'hoch', 'severity_medium_txt' => 'mittel');
+expect_same('count with level', malwatch_with_severity('3 Lücken', $sev_words, 'medium'), '3 Lücken · mittel');
+expect_same('count without a known level', malwatch_with_severity('1 Lücke', $sev_words, ''), '1 Lücke');
+expect_same('level without a word', malwatch_with_severity('2 Lücken', $sev_words, 'critical'), '2 Lücken · critical');
+
+// ISPConfig's template engine counts an empty loop as one row (_arrayBuild()
+// answers true, _tpl_count(true) is 1), so an empty list showed one empty row
+// such as "()". malwatch_set_loop() hands the engine only rows, and turns an
+// empty list inside a row into null, which counts as none (0.43.0).
+class loop_recorder
+{
+	public $loops = array();
+	public function setLoop($k, $v)
+	{
+		$this->loops[$k] = $v;
+	}
+}
+$fake_app = new stdClass();
+$fake_app->tpl = new loop_recorder();
+malwatch_set_loop($fake_app, 'actionlog', array());
+expect_same('an empty list is not handed over', array_key_exists('actionlog', $fake_app->tpl->loops), false);
+malwatch_set_loop($fake_app, 'rows', array(array('ip' => '192.0.2.1', 'chips' => array()),
+	array('ip' => '192.0.2.2', 'chips' => array(array('chip' => 'Tor')))));
+expect_same('rows are handed over', count($fake_app->tpl->loops['rows']), 2);
+expect_same('an empty inner list becomes null', $fake_app->tpl->loops['rows'][0]['chips'], null);
+expect_same('a full inner list stays', $fake_app->tpl->loops['rows'][1]['chips'], array(array('chip' => 'Tor')));
+malwatch_set_loop($fake_app, 'none', null);
+expect_same('no array at all is not handed over', array_key_exists('none', $fake_app->tpl->loops), false);
+
 if ($failures > 0) {
 	exit(1);
 }

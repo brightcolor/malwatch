@@ -20,3 +20,7 @@ $wb['vulns_one_txt'] = 'One installation has known vulnerabilities.';
 $wb['vulns_many_one_site_txt'] = '%s installations on one website have known vulnerabilities.';
 $wb['vulns_many_txt'] = '%s installations on %s websites have known vulnerabilities.';
 $wb['vulns_view_txt'] = 'Go to vulnerabilities';
+$wb['findings_none_urgent_txt'] = '%s affected files, none of them urgent.';
+$wb['state_infected_hint_txt'] = 'Infected: at least one finding is critical. Look at this website first.';
+$wb['state_attention_hint_txt'] = 'Needs review: there are affected files, none of them critical.';
+$wb['page_head_txt'] = 'Status';

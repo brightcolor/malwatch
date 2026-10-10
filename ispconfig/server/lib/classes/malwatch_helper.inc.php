@@ -92,6 +92,7 @@ class malwatch_helper
 		'keep_job_days' => array(1, 3650, 30),
 		'keep_fixed_days' => array(1, 3650, 90),
 		'vanished_check_rows' => array(0, 10000, 500),
+		'keep_dump_days' => array(1, 90, 7),
 	);
 
 	/**
@@ -175,6 +176,7 @@ class malwatch_helper
 			'keep_job_days' => 30,
 			'keep_fixed_days' => 90,
 			'vanished_check_rows' => 500,
+			'keep_dump_days' => 7,
 			'test_dirs' => 'test,tests,test-suite,testsuite,fixtures,__tests__',
 			'library_dirs' => 'vendor,vendors,node_modules,bower_components',
 			'test_rules' => 'php.exec.background,php.eval.variable,binary.elf',

@@ -1,6 +1,6 @@
 <?php
 $wb['lede_txt'] = 'Dumps';
-$wb['sub_txt'] = 'Ein Dump packt das Webverzeichnis einer Website mit den angehakten Datenbanken in ein tar.gz und legt es zum Herunterladen bereit. Sieben Tage später räumt der stündliche Lauf ihn wieder weg.';
+$wb['sub_txt'] = 'Ein Dump packt das Webverzeichnis einer Website mit den angehakten Datenbanken in ein tar.gz und legt es zum Herunterladen bereit. Nach %s Tagen räumt der stündliche Lauf ihn wieder weg; die Frist stellst du unter Scanner-Einstellungen ein.';
 
 $wb['create_head_txt'] = 'Neuen Dump anlegen';
 $wb['website_txt'] = 'Website';
@@ -46,17 +46,17 @@ $wb['dump_with_logs_txt'] = 'mit Protokollen';
 $wb['dump_valid_txt'] = 'gültig bis %s';
 
 // Die öffentliche Freigabe eines einzelnen Dumps.
-$wb['share_head_txt'] = 'Öffentlich freigeben';
+$wb['share_head_txt'] = 'Öffentlich teilen';
 $wb['share_mode_txt'] = 'Gültig';
 $wb['share_mode_expiry_txt'] = 'solange der Dump liegt';
 $wb['share_mode_day_txt'] = '24 Stunden';
 $wb['share_mode_once_txt'] = 'ein einziger Abruf';
 $wb['share_password_txt'] = 'Passwort (freiwillig)';
 $wb['btn_suggest_txt'] = 'Vorschlagen';
-$wb['btn_share_txt'] = 'Freigeben';
-$wb['btn_unshare_txt'] = 'Freigabe aufheben';
-$wb['confirm_share_txt'] = 'Diesen Dump öffentlich freigeben? Wer den Verweis hat, bekommt das Archiv mit allem darin, ohne Anmeldung im Panel.';
-$wb['confirm_unshare_txt'] = 'Die Freigabe jetzt aufheben? Der öffentliche Verweis gilt danach nicht mehr, der Dump bleibt liegen.';
+$wb['btn_share_txt'] = 'Teilen';
+$wb['btn_unshare_txt'] = 'Teilen beenden';
+$wb['confirm_share_txt'] = 'Diesen Dump öffentlich teilen? Wer den Verweis hat, bekommt das Archiv mit allem darin, ohne Anmeldung im Panel.';
+$wb['confirm_unshare_txt'] = 'Das Teilen jetzt beenden? Der öffentliche Verweis gilt danach nicht mehr, der Dump bleibt liegen.';
 $wb['public_link_txt'] = 'Öffentlicher Verweis';
 $wb['share_warning_txt'] = 'Ein öffentlicher Verweis gibt das Archiv an jeden heraus, der ihn hat. Jeder Abruf steht mit Zeit und Adresse in der Zeile.';
 // Steht in der Zeile, solange die Freigabe gilt: %s ist das Datum, die Zahl
@@ -64,9 +64,9 @@ $wb['share_warning_txt'] = 'Ein öffentlicher Verweis gibt das Archiv an jeden h
 $wb['dump_public_until_txt'] = 'öffentlich bis %s';
 $wb['dump_public_once_txt'] = 'öffentlich, ein Abruf';
 $wb['dump_public_hits_txt'] = '%s Abrufe, zuletzt %s';
-$wb['msg_shared_txt'] = 'Der Dump ist freigegeben. Der Verweis steht in seiner Zeile.';
-$wb['msg_unshared_txt'] = 'Die Freigabe ist aufgehoben.';
-$wb['err_share_txt'] = 'Die Freigabe war nicht möglich. Vielleicht ist der Dump inzwischen abgelaufen.';
+$wb['msg_shared_txt'] = 'Der Dump ist geteilt. Der Verweis steht in seiner Zeile.';
+$wb['msg_unshared_txt'] = 'Das Teilen ist beendet. Der Verweis gilt nicht mehr.';
+$wb['err_share_txt'] = 'Teilen war nicht möglich, vermutlich ist der Dump inzwischen abgelaufen. Lade die Seite neu und leg bei Bedarf einen neuen Dump an.';
 
 // Die öffentliche Seite selbst, wenn ein Passwort gesetzt ist.
 $wb['public_head_txt'] = 'Dump herunterladen';
@@ -80,16 +80,16 @@ $wb['btn_delete_txt'] = 'Löschen';
 $wb['confirm_delete_txt'] = 'Diesen Dump jetzt löschen? Das Archiv verschwindet von der Platte, und der Verweis darauf gilt nicht mehr.';
 
 $wb['footnote_txt'] = 'Was in einem Dump steckt.';
-$wb['footnote_body_txt'] = 'Die Dateien der Website und die angehakten Datenbanken, also Kundendaten; in den Protokollen stehen die Adressen der Besucher, und bei einer befallenen Website liegt der Schadcode mit im Archiv. Das Archiv liegt nur für root und das Panel lesbar auf der Platte, und herunterladen kann es nur, wer hier angemeldet ist.';
+$wb['footnote_body_txt'] = 'Die Dateien der Website und die angehakten Datenbanken, also Kundendaten; in den Protokollen stehen die Adressen der Besucher, und bei einer befallenen Website liegt der Schadcode mit im Archiv. Das Archiv liegt nur für root und das Panel lesbar auf der Platte. Herunterladen kann es, wer hier angemeldet ist, und jeder, der den Verweis eines geteilten Dumps hat.';
 
 $wb['msg_queued_txt'] = 'Der Dump von %s ist eingereiht. Sobald er fertig ist, steht der Verweis in der Liste.';
 $wb['msg_deleted_txt'] = 'Der Dump ist aus der Liste. Das Archiv nimmt der stündliche Lauf von der Platte.';
 $wb['err_invalid_site_txt'] = 'Ungültige Website.';
 $wb['err_site_not_found_txt'] = 'Die Website wurde nicht gefunden.';
 $wb['err_busy_txt'] = 'Für diese Website läuft bereits ein Dump.';
-$wb['err_unknown_action_txt'] = 'Diese Aktion gibt es nicht. Bitte laden Sie die Seite neu.';
+$wb['err_unknown_action_txt'] = 'Diese Aktion gibt es nicht. Lade die Seite neu und versuche es noch einmal.';
 $wb['err_not_found_txt'] = 'Dieser Dump wurde nicht gefunden. Wahrscheinlich hat der stündliche Lauf ihn schon weggeräumt.';
 
-$wb['err_dl_bad_link_txt'] = 'Dieser Verweis ist unvollständig. Holen Sie den Dump bitte über die Liste erneut.';
-$wb['err_dl_expired_txt'] = 'Dieser Verweis gilt nicht mehr. Ein Dump liegt sieben Tage; danach legen Sie in der Liste einen neuen an.';
-$wb['err_dl_gone_txt'] = 'Das Archiv liegt nicht mehr auf der Platte. Legen Sie in der Liste einen neuen Dump an.';
+$wb['err_dl_bad_link_txt'] = 'Dieser Verweis ist unvollständig. Hol den Dump über die Liste noch einmal.';
+$wb['err_dl_expired_txt'] = 'Dieser Verweis gilt nicht mehr, der Dump ist abgelaufen. Leg in der Liste einen neuen an.';
+$wb['err_dl_gone_txt'] = 'Das Archiv liegt nicht mehr auf der Platte. Leg in der Liste einen neuen Dump an.';

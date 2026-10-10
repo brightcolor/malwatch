@@ -16,15 +16,15 @@
 			<th class="small-col text-right">{tmpl_var name='search_limit'}</th>
 		</tr>
 		<tr>
-			<td><input class="form-control" type="text" name="search_domain" value="{tmpl_var name='search_domain'}" /></td>
-			<td><select class="form-control" name="search_scan_state">{tmpl_var name='search_scan_state'}</select></td>
+			<td><input class="form-control" type="text" name="search_domain" aria-label="{tmpl_var name='domain_txt'}" value="{tmpl_var name='search_domain'}" /></td>
+			<td><select class="form-control" name="search_scan_state" aria-label="{tmpl_var name='scan_state_txt'}">{tmpl_var name='search_scan_state'}</select></td>
 			<td>&nbsp;</td>
 			<td>&nbsp;</td>
 			<td>&nbsp;</td>
 			<td>&nbsp;</td>
 			<td class="text-right">
 				<button type="button" class="btn btn-default formbutton-default formbutton-narrow" name="Filter" id="Filter"
-					value="{tmpl_var name='filter_txt'}" data-submit-form="pageForm"
+					aria-label="{tmpl_var name='filter_txt'}" title="{tmpl_var name='filter_txt'}" value="{tmpl_var name='filter_txt'}" data-submit-form="pageForm"
 					data-form-action="security/malwatch_scan_list.php"><span class="icon icon-filter"></span></button>
 			</td>
 		</tr>
@@ -36,7 +36,7 @@
 			<td>{tmpl_var name="scan_state"}</td>
 			<td>{tmpl_var name="finished_at"}</td>
 			<td>{tmpl_var name="files_scanned"}</td>
-			<td><small>{tmpl_var name="count_critical"} / {tmpl_var name="count_high"} / {tmpl_var name="count_medium"} / {tmpl_var name="count_low"}</small></td>
+			<td>{tmpl_var name="counts_label"}</td>
 			<td>{tmpl_var name="new_findings"}</td>
 			<td class="text-right">
 				<div class="buttons icons16">

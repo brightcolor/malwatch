@@ -1,5 +1,5 @@
 <?php
-$wb['list_head_txt'] = 'malwatch – Übersicht';
+$wb['list_head_txt'] = 'Übersicht';
 $wb['list_desc_txt'] = 'Zustand aller Websites auf diesem Server. Eine Website prüfen, den Zeitplan setzen und Funde nachlesen.';
 $wb['toolsarea_head_txt'] = 'Aktionen';
 $wb['no_records_txt'] = 'Keine Websites vorhanden.';
@@ -31,7 +31,7 @@ $wb['state_findings_txt'] = 'Funde';
 $wb['state_vulnerable_txt'] = 'bekannte Lücken';
 $wb['state_outdated_txt'] = 'veraltet';
 $wb['state_error_txt'] = 'Fehler';
-$wb['state_ignored_txt'] = 'freigegeben';
+$wb['state_ignored_txt'] = 'harmlos';
 
 $wb['severity_low_txt'] = 'gering';
 $wb['severity_medium_txt'] = 'mittel';
@@ -65,8 +65,8 @@ $wb['severity_txt'] = 'Stufe';
 $wb['rule_txt'] = 'Regel';
 $wb['file_txt'] = 'Datei';
 $wb['first_seen_txt'] = 'Zuerst gesehen';
-$wb['ignore_txt'] = 'Kein Befund';
-$wb['reopen_txt'] = 'Wieder öffnen';
+$wb['ignore_txt'] = 'Als harmlos markieren';
+$wb['reopen_txt'] = 'Wieder melden';
 
 $wb['software_txt'] = 'Erkannte Web-Software';
 $wb['no_software_txt'] = 'Keine Web-Software erkannt.';
@@ -105,8 +105,8 @@ $wb['recipient_txt'] = 'Empfänger';
 $wb['trigger_txt'] = 'Auslöser';
 $wb['detail_txt'] = 'Hinweis';
 
-$wb['btn_back_txt'] = 'Zurück';
-$wb['affected_files_txt'] = 'betroffene Datei(en)';
+$wb['btn_back_txt'] = 'Zum Status';
+$wb['affected_files_txt'] = 'betroffene Dateien';
 $wb['hits_total_txt'] = 'Treffer insgesamt';
 $wb['relative_to_txt'] = 'Pfade relativ zu';
 $wb['line_txt'] = 'Zeile';
@@ -161,3 +161,5 @@ $wb['upgrade_outcome_failed_txt'] = 'gescheitert';
 $wb['upgrade_outcome_rollback_failed_txt'] = 'Website fehlerhaft';
 $wb['upgrade_outcome_skipped_txt'] = 'übersprungen';
 $wb['show_finding_txt'] = 'Ansehen';
+$wb['status_link_txt'] = 'Status';
+$wb['affected_file_txt'] = 'betroffene Datei';

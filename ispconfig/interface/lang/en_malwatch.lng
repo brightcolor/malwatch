@@ -1,5 +1,5 @@
 <?php
-$wb['list_head_txt'] = 'malwatch overview';
+$wb['list_head_txt'] = 'Overview';
 $wb['list_desc_txt'] = 'The state of every website on this server. Scan a site, set its schedule and read the findings.';
 $wb['toolsarea_head_txt'] = 'Actions';
 $wb['no_records_txt'] = 'There are no websites.';
@@ -31,7 +31,7 @@ $wb['state_findings_txt'] = 'findings';
 $wb['state_vulnerable_txt'] = 'known vulnerabilities';
 $wb['state_outdated_txt'] = 'outdated';
 $wb['state_error_txt'] = 'error';
-$wb['state_ignored_txt'] = 'released';
+$wb['state_ignored_txt'] = 'harmless';
 
 $wb['severity_low_txt'] = 'low';
 $wb['severity_medium_txt'] = 'medium';
@@ -65,8 +65,8 @@ $wb['severity_txt'] = 'Severity';
 $wb['rule_txt'] = 'Rule';
 $wb['file_txt'] = 'File';
 $wb['first_seen_txt'] = 'First seen';
-$wb['ignore_txt'] = 'Not a finding';
-$wb['reopen_txt'] = 'Reopen';
+$wb['ignore_txt'] = 'Mark as harmless';
+$wb['reopen_txt'] = 'Report again';
 
 $wb['software_txt'] = 'Detected web software';
 $wb['no_software_txt'] = 'No web software detected.';
@@ -105,8 +105,8 @@ $wb['recipient_txt'] = 'Recipient';
 $wb['trigger_txt'] = 'Trigger';
 $wb['detail_txt'] = 'Note';
 
-$wb['btn_back_txt'] = 'Back';
-$wb['affected_files_txt'] = 'affected file(s)';
+$wb['btn_back_txt'] = 'To the status';
+$wb['affected_files_txt'] = 'affected files';
 $wb['hits_total_txt'] = 'hits in total';
 $wb['relative_to_txt'] = 'paths relative to';
 $wb['line_txt'] = 'line';
@@ -160,3 +160,5 @@ $wb['upgrade_outcome_failed_txt'] = 'failed';
 $wb['upgrade_outcome_rollback_failed_txt'] = 'website broken';
 $wb['upgrade_outcome_skipped_txt'] = 'skipped';
 $wb['show_finding_txt'] = 'View';
+$wb['status_link_txt'] = 'Status';
+$wb['affected_file_txt'] = 'affected file';

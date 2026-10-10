@@ -1,5 +1,5 @@
 <?php
-$wb['config_head_txt'] = 'malwatch – Einstellungen';
+$wb['config_head_txt'] = 'Scanner-Einstellungen';
 $wb['config_desc_txt'] = 'Gilt für alle Websites auf diesem Server.';
 $wb['binary_missing_txt'] = 'Der Scanner wurde unter dem angegebenen Pfad nicht gefunden. Ohne ihn läuft keine Prüfung.';
 
@@ -41,7 +41,7 @@ $wb['vuln_intro_txt'] = 'Zu jeder erkannten Software fragt der Scanner öffentli
 $wb['vuln_scan_txt'] = 'Nach bekannten Schwachstellen suchen';
 $wb['vuln_scan_hint_txt'] = 'An WPVulnerability und WPScan gehen dabei Name und Version jedes Plugins, Themes und WordPress-Kerns. OSV wird als Gesamtliste geladen und auf dem Server durchsucht.';
 $wb['wpscan_token_txt'] = 'WPScan-API-Schlüssel';
-$wb['wpscan_token_hint_txt'] = 'Optional. Mit Schlüssel fragt der Scanner zusätzlich WPScan. Der kostenlose Tarif erlaubt 25 Abfragen am Tag; deshalb bleiben diese Antworten eine Woche gespeichert. Wer die Daten in einen Dienst für Kunden einbindet, braucht laut WPScan einen Enterprise-Tarif. Ein gespeicherter Schlüssel erscheint im Feld nur als Hinweis; lassen Sie das Feld leer, bleibt er erhalten.';
+$wb['wpscan_token_hint_txt'] = 'Optional. Mit Schlüssel fragt der Scanner zusätzlich WPScan. Der kostenlose Tarif erlaubt 25 Abfragen am Tag; deshalb bleiben diese Antworten eine Woche gespeichert. Wer die Daten in einen Dienst für Kunden einbindet, braucht laut WPScan einen Enterprise-Tarif. Ein gespeicherter Schlüssel erscheint im Feld nur als Hinweis; lässt du das Feld leer, bleibt er erhalten.';
 $wb['wpscan_token_stored_txt'] = 'Schlüssel gespeichert';
 $wb['wpscan_token_remove_txt'] = 'Gespeicherten Schlüssel entfernen';
 
@@ -56,11 +56,11 @@ $wb['auto_head_txt'] = 'Was soll bei den geplanten Prüfungen automatisch passie
 // der schlimmste neue Fund deren Stufe erreicht (Vorgabe: hoch) - siehe
 // malwatch_actions::run(). Der Satz stand auf genau dem Bildschirm, auf dem
 // entschieden wird, ob nachts von allein Dateien verschwinden.
-$wb['auto_intro_txt'] = 'Alles, was automatisch verschoben wird, wird vorher gesichert und lässt sich jederzeit zurückholen. Eine E-Mail mit der Liste bekommen Sie, wenn die betroffene Website auf Benachrichtigung eingestellt ist und der Fund deren Stufe erreicht. In der Quarantäne steht die Liste in jedem Fall.';
-$wb['auto_scope_txt'] = 'Gilt für Funde, die neu hinzukommen. Was schon in der Liste steht, bleibt liegen — das haben Sie gesehen und stehen gelassen.';
+$wb['auto_intro_txt'] = 'Alles, was automatisch verschoben wird, wird vorher gesichert und lässt sich jederzeit zurückholen. Eine E-Mail mit der Liste bekommst du, wenn die betroffene Website auf Benachrichtigung eingestellt ist und der Fund deren Stufe erreicht. In der Quarantäne steht die Liste in jedem Fall.';
+$wb['auto_scope_txt'] = 'Gilt für Funde, die neu hinzukommen. Was schon in der Liste steht, bleibt liegen — das hast du gesehen und stehen gelassen.';
 
 $wb['auto_none_name_txt'] = 'Nichts anfassen';
-$wb['auto_none_desc_txt'] = 'Nur melden. Jede Datei wartet darauf, dass Sie entscheiden. Die sicherste Einstellung — und die, bei der eine Hintertür so lange erreichbar bleibt, bis Sie hinsehen.';
+$wb['auto_none_desc_txt'] = 'Nur melden. Jede Datei wartet darauf, dass du entscheidest. Die sicherste Einstellung — und die, bei der eine Hintertür so lange erreichbar bleibt, bis du hinsiehst.';
 $wb['auto_safe_name_txt'] = 'Eindeutige Schädlinge entfernen';
 $wb['auto_safe_tag_txt'] = 'empfohlen';
 // Frueher: "Diese Pruefungen haben in ueber 200.000 unbescholtenen Dateien
@@ -80,11 +80,11 @@ $wb['auto_critical_name_txt'] = 'Alles Kritische entfernen';
 // die beiden Mengen zu vergleichen.
 $wb['auto_critical_desc_txt'] = 'Jeder Fund der höchsten Stufe — unabhängig davon, welche Prüfung ihn gemeldet hat. Das kann auch eine Datei treffen, die ein Plugin zum Laufen braucht.';
 $wb['auto_preset_name_txt'] = 'Eigene Auswahl';
-$wb['auto_preset_desc_txt'] = 'Sie legen fest, welche Prüfungen automatisch handeln dürfen — und speichern die Zusammenstellung unter einem Namen, damit Sie sie nicht jedes Mal neu treffen müssen.';
+$wb['auto_preset_desc_txt'] = 'Du legst fest, welche Prüfungen automatisch handeln dürfen, und speicherst die Zusammenstellung unter einem Namen. So triffst du sie nur einmal.';
 
 $wb['rule_count_txt'] = '%s von %s Prüfungen · träfe zurzeit %s offene Funddateien';
 $wb['ownlist_head_txt'] = 'Welche Prüfungen dürfen automatisch handeln?';
-$wb['preset_new_hint_txt'] = 'Speichern Sie die Auswahl unter einem Namen — erst dann kann eine geplante Prüfung sie verwenden.';
+$wb['preset_new_hint_txt'] = 'Speichere die Auswahl unter einem Namen — erst dann kann eine geplante Prüfung sie verwenden.';
 $wb['rule_finding_count_txt'] = '%s Funde';
 $wb['show_all_rules_txt'] = 'Alle %s anzeigen';
 $wb['preset_name_label_txt'] = 'Name der Zusammenstellung';
@@ -94,15 +94,15 @@ $wb['preset_name_label_txt'] = 'Name der Zusammenstellung';
 $wb['btn_save_preset_txt'] = 'Zusammenstellung speichern';
 $wb['btn_apply_txt'] = 'Übernehmen';
 $wb['apply_hint_txt'] = 'Gilt ab der nächsten geplanten Prüfung.';
-$wb['err_preset_name_empty_txt'] = 'Bitte geben Sie einen Namen für die Zusammenstellung an.';
-$wb['err_preset_no_rules_txt'] = 'Bitte wählen Sie mindestens eine Prüfung aus.';
+$wb['err_preset_name_empty_txt'] = 'Gib der Zusammenstellung einen Namen, damit eine geplante Prüfung sie findet.';
+$wb['err_preset_no_rules_txt'] = 'Hake mindestens eine Prüfung an. Eine leere Zusammenstellung würde nichts verschieben.';
 $wb['msg_preset_saved_txt'] = 'Die Zusammenstellung „%s" wurde gespeichert und erscheint jetzt als eigene Möglichkeit.';
 
 $wb['btn_apply_existing_txt'] = 'Auf die bestehenden Funde anwenden';
 $wb['apply_existing_intro_txt'] = '%s offene Funde entsprechen der Regel, die gerade gilt.';
 $wb['confirm_apply_existing_txt'] = '%s offene Funde in Quarantäne verschieben? Jede lässt sich von dort zurückholen.';
 $wb['err_apply_existing_none_txt'] = 'Es gibt derzeit keine offenen Funde, auf die die aktuelle Regel zuträfe.';
-$wb['msg_apply_existing_txt'] = '%s Datei(en) auf %s Website(n) wurden zur Quarantäne eingereiht.';
+$wb['msg_apply_existing_txt'] = 'Zur Quarantäne eingereiht. Dateien: %s, Websites: %s.';
 $wb['msg_apply_existing_skipped_txt'] = 'Bei %s Website(n) lief bereits ein Auftrag; dort wurde nichts eingereiht.';
 
 $wb['binary_path_error_empty'] = 'Der Pfad zum Scanner darf nicht leer sein.';
@@ -249,3 +249,8 @@ $wb['test_rules_txt'] = 'Regeln, die in Testordnern nicht zählen';
 $wb['test_rules_hint_txt'] = 'Kennungen von Regeln, durch Komma getrennt. Eintragen lassen sich Regeln bis zur Stufe „mittel“, die keine Datei selbst verschieben. Leer lässt jede Regel auch in Testordnern zählen. Erlaubt: bis zu 16 Regeln mit je höchstens 64 Zeichen.';
 $wb['test_rules_error_regex'] = 'Regeln, die in Testordnern nicht zählen: Erlaubt sind bis zu 16 Kennungen wie php.exec.background mit je höchstens 64 Zeichen, durch Komma getrennt. Bitte die Liste anpassen und erneut speichern.';
 $wb['test_rules_error_rule'] = 'Regeln, die in Testordnern nicht zählen: %s lässt sich nicht eintragen. Erlaubt sind Regeln des Scanners bis zur Stufe „mittel“, die keine Datei selbst verschieben. Bitte die Liste anpassen und erneut speichern.';
+$wb['keep_dump_days_txt'] = 'Dumps behalten (Tage)';
+$wb['keep_dump_days_hint_txt'] = 'So lange liegt ein Dump zum Herunterladen bereit, danach räumt der stündliche Lauf ihn weg. Gilt für Dumps, die ab jetzt fertig werden. Erlaubt: 1 bis 90.';
+$wb['keep_dump_days_error_range'] = 'Dumps behalten: Erlaubt sind ganze Zahlen von 1 bis 90 Tagen. Bitte den Wert anpassen und erneut speichern.';
+$wb['sections_open_txt'] = 'Alle Abschnitte aufklappen';
+$wb['sections_close_txt'] = 'Alle Abschnitte zuklappen';

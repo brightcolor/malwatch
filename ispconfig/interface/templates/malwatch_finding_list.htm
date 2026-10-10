@@ -16,15 +16,15 @@
 			<th class="small-col text-right">{tmpl_var name='search_limit'}</th>
 		</tr>
 		<tr>
-			<td><select class="form-control" name="search_finding_state">{tmpl_var name='search_finding_state'}</select></td>
-			<td><select class="form-control" name="search_severity">{tmpl_var name='search_severity'}</select></td>
-			<td><input class="form-control" type="text" name="search_domain" value="{tmpl_var name='search_domain'}" /></td>
-			<td><input class="form-control" type="text" name="search_rule_id" value="{tmpl_var name='search_rule_id'}" /></td>
-			<td><input class="form-control" type="text" name="search_file_path" value="{tmpl_var name='search_file_path'}" /></td>
+			<td><select class="form-control" name="search_finding_state" aria-label="{tmpl_var name='finding_state_txt'}">{tmpl_var name='search_finding_state'}</select></td>
+			<td><select class="form-control" name="search_severity" aria-label="{tmpl_var name='severity_txt'}">{tmpl_var name='search_severity'}</select></td>
+			<td><input class="form-control" type="text" name="search_domain" aria-label="{tmpl_var name='domain_txt'}" value="{tmpl_var name='search_domain'}" /></td>
+			<td><input class="form-control" type="text" name="search_rule_id" aria-label="{tmpl_var name='rule_id_txt'}" value="{tmpl_var name='search_rule_id'}" /></td>
+			<td><input class="form-control" type="text" name="search_file_path" aria-label="{tmpl_var name='file_path_txt'}" value="{tmpl_var name='search_file_path'}" /></td>
 			<td>&nbsp;</td>
 			<td class="text-right">
 				<button type="button" class="btn btn-default formbutton-default formbutton-narrow" name="Filter" id="Filter"
-					value="{tmpl_var name='filter_txt'}" data-submit-form="pageForm"
+					aria-label="{tmpl_var name='filter_txt'}" title="{tmpl_var name='filter_txt'}" value="{tmpl_var name='filter_txt'}" data-submit-form="pageForm"
 					data-form-action="security/malwatch_finding_list.php"><span class="icon icon-filter"></span></button>
 			</td>
 		</tr>
