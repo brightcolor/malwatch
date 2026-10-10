@@ -1,3 +1,13 @@
+<style>
+/* The file name leads, the folder stands quietly below it, and both wrap: the
+   theme cuts a link in a table cell to one line, and "wp-config-sam..." was
+   all that was left of the name the reader looks for. Rule ids wrap too. */
+#pageContent td.mw-filecell,#pageContent td.mw-rulecell{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
+#pageContent td.mw-filecell a{white-space:normal;overflow:visible;text-overflow:clip}
+#pageContent td.mw-filecell .mw-dir{display:block;font-size:12px}
+#pageContent td.mw-rulecell code{white-space:normal;overflow-wrap:anywhere}
+</style>
+
 <div class='page-header'>
 	<h1><tmpl_var name="list_head_txt"></h1>
 </div>
@@ -35,9 +45,9 @@
 			<td>{tmpl_var name="finding_state"}</td>
 			<td><span class="label {tmpl_var name='severity_class'}">{tmpl_var name="severity"}</span></td>
 			<td><a href="#" data-load-content="security/malwatch_site_show.php?id={tmpl_var name='parent_domain_id'}">{tmpl_var name="domain"}</a><tmpl_if name="site_inactive"> <span class="label label-default" title="{tmpl_var name='site_inactive_hint_txt'}">{tmpl_var name='site_inactive_txt'}</span></tmpl_if><tmpl_if name="site_gone"> <span class="label label-default" title="{tmpl_var name='site_gone_hint_txt'}">{tmpl_var name='site_gone_txt'}</span></tmpl_if></td>
-			<td><code>{tmpl_var name="rule_id"}</code></td>
-			<td style="word-break:break-all" title="{tmpl_var name='full_path'}">
-				<a href="#" data-load-content="security/malwatch_finding_show.php?id={tmpl_var name='finding_id'}"><tmpl_if name="has_dir"><small class="text-muted">{tmpl_var name="dir"}</small></tmpl_if><strong>{tmpl_var name="file"}</strong></a><tmpl_if name="has_line"><small class="text-muted"> : {tmpl_var name="line_number"}</small></tmpl_if>
+			<td class="mw-rulecell"><code>{tmpl_var name="rule_id"}</code></td>
+			<td class="mw-filecell" title="{tmpl_var name='full_path'}">
+				<a href="#" data-load-content="security/malwatch_finding_show.php?id={tmpl_var name='finding_id'}"><strong>{tmpl_var name="file"}</strong><tmpl_if name="has_line"><small class="text-muted"> : {tmpl_var name="line_number"}</small></tmpl_if></a><tmpl_if name="has_dir"><small class="text-muted mw-dir">{tmpl_var name="dir"}</small></tmpl_if>
 			</td>
 			<td>{tmpl_var name="last_seen"}</td>
 			<td class="text-right">
