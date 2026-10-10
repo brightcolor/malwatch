@@ -2,6 +2,19 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.42.1] – 2026-10-10
+
+### Sicherheit
+
+**Der Fortschritt einer Reparatur oder eines Updates kommt als Text auf die Website-Seite.**
+Die Zeilen des Protokolls nennen Plugin-Ordner und Versionsangaben von der Platte des Kunden.
+Die Seite setzte sie bisher als HTML ein: Ein Plugin-Ordner mit einem Namen wie
+`<img src=x onerror=…>` führte sein Skript in der Sitzung des Administrators aus, sobald
+dieser eine Reparatur oder ein Update der Website startete. Protokollzeilen und Phasen
+entstehen jetzt als Elemente mit `textContent`, wie es die Schritte schon taten.
+`check_wiring.sh` prüft, dass die Seiten mit Fortschritt (`status.htm`,
+`malwatch_site_show.htm`) `innerHTML` höchstens leeren.
+
 ## [0.42.0] – 2026-10-09
 
 Fehlalarme verschwinden durch Erkennung: Der Scanner gleicht mehr mit den Herstellern ab, ordnet ein,

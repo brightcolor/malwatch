@@ -321,16 +321,18 @@
 
 		var ph = document.getElementById('mw-phases');
 		var phases = isRepair ? repairPhases : (isUpgrade ? upgradePhases : null);
+		ph.textContent = '';
 		if (phases) {
-			ph.innerHTML = phases.map(function (n, i) {
-				var c = (i + 1) < (p.phase_index || 0) ? 'done'
-					: (i + 1) === (p.phase_index || 0) ? 'now' : '';
-				return '<span class="mw-ph ' + c + '">' + n + '</span>';
-			}).join('');
+			phases.forEach(function (n, i) {
+				var span = document.createElement('span');
+				span.className = 'mw-ph' + ((i + 1) < (p.phase_index || 0) ? ' done'
+					: (i + 1) === (p.phase_index || 0) ? ' now' : '');
+				span.textContent = n;
+				ph.appendChild(span);
+			});
 			document.getElementById('mw-what').textContent =
 				phases[(p.phase_index || 1) - 1] || phases[0];
 		} else {
-			ph.innerHTML = '';
 			document.getElementById('mw-what').textContent = scanningTxt;
 		}
 
@@ -359,12 +361,18 @@
 		if (p.file) { parts.push(p.file); }
 		document.getElementById('mw-line').textContent = parts.join(' · ') || '…';
 
-		var rows = (p.log || []).slice(-12).reverse().map(function (l) {
-			var c = l.level === 'error' ? 'err' : l.level === 'warn' ? 'warn' : '';
-			return '<tr><td class="' + c + '">' + l.text + '</td></tr>';
-		}).join('');
-		document.getElementById('mw-log').getElementsByTagName('tbody')[0].innerHTML = rows;
-		document.getElementById('mw-logwrap').style.display = rows ? '' : 'none';
+		// Log lines name folders and versions off the customer's disk, so they
+		// go in as text, the same as the steps above.
+		var log = (p.log || []).slice(-12).reverse();
+		var tbody = document.getElementById('mw-log').getElementsByTagName('tbody')[0];
+		tbody.textContent = '';
+		log.forEach(function (l) {
+			var td = document.createElement('td');
+			td.className = l.level === 'error' ? 'err' : l.level === 'warn' ? 'warn' : '';
+			td.textContent = l.text;
+			tbody.appendChild(document.createElement('tr')).appendChild(td);
+		});
+		document.getElementById('mw-logwrap').style.display = log.length ? '' : 'none';
 	}
 
 	function poll() {

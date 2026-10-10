@@ -2502,6 +2502,19 @@ fi
 grep -qF '$this->clean_vanished($config);' "$cron_job" \
 	|| fail "560-malwatch.inc.php schließt keine Funde, deren Datei fehlt"
 
+# 106. Der Fortschritt eines Laufs (0.42.1) kommt als Text auf die Seite. Seine
+#      Zeilen tragen Ordnernamen und Versionsangaben von der Platte des Kunden,
+#      und ein Plugin-Ordner namens <img src=x onerror=...> lief über
+#      innerHTML in der Sitzung des Administrators. Die Seiten, die
+#      malwatch_progress.php abfragen, leeren innerHTML höchstens; alles
+#      andere bauen sie aus Elementen mit textContent.
+for page106 in status.htm malwatch_site_show.htm; do
+	if grep -nE "innerHTML[[:space:]]*=" "$root/interface/templates/$page106" \
+		| grep -vE "innerHTML[[:space:]]*=[[:space:]]*''[[:space:]]*;" > "$tmpdir/html106"; then
+		fail "$page106 setzt Fortschritt als HTML: Zeile $(cut -d: -f1 "$tmpdir/html106" | tr '\n' ' ')"
+	fi
+done
+
 for test in verify_settings_test.php housekeeping_test.php; do
 	grep -qF "php ispconfig/tests/$test" "$root/../.github/workflows/ci.yml" \
 		|| fail "die CI führt $test nicht aus"
