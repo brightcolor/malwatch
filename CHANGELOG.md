@@ -50,9 +50,13 @@ nächsten Schritt; ohne Protokoll den Rückgabewert. „Datei(en)“, „Element
 dringend“ sind ganze Sätze geworden, „aktuell 5.9.18“ heißt „neueste Version 5.9.18“. Die
 Fußnote der Dumps nennt den geteilten Verweis als zweiten Weg zum Archiv.
 
-**Scanner-Einstellungen** in aufklappbaren Abschnitten wie die Abwehr-Einstellungen, mit „Alle
-Abschnitte aufklappen“; kommt die Seite mit einem Fehler zurück, sind alle offen. Ein
-Speicherknopf statt zweien.
+**Einstellungen in Gruppen.** Scanner- und Abwehr-Einstellungen ordnen ihre Abschnitte in vier
+Reiter (Scanner: Prüfung, Bei einem Fund, Benachrichtigung, System; Abwehr: Schutz, Sperren,
+Anzeige und Aufbewahrung, System); darin klappen die Abschnitte auf. Gespeichert werden immer
+alle Gruppen. Kommt die Seite mit einem Fehler zurück, öffnet sie den Reiter des genannten Feldes
+und markiert ihn, sonst alle Gruppen; die Suche der Abwehr-Einstellungen findet in allen Gruppen.
+Der gewählte Reiter bleibt in der Sitzung. Die Scanner-Einstellungen haben einen Speicherknopf
+statt zweien.
 
 **Fund-Seite:** Stufe und Zustand stehen getrennt; „Nächster offener Fund →“ führt zur nächsten
 offenen Datei derselben Website, die schwerste zuerst.

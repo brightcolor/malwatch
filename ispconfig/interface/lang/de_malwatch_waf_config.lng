@@ -520,3 +520,7 @@ $wb['waf_watch_overdue_hours_error_range'] = 'Spielraum für Scans: Erlaubt sind
 $wb['waf_watch_remind_hours_txt'] = 'Erinnerung nach';
 $wb['waf_watch_remind_hours_hint_txt'] = 'Solange ein Problem besteht, schreibt die Wache nach dieser Zeit erneut. Ein neues Problem und die Entwarnung meldet sie sofort.';
 $wb['waf_watch_remind_hours_error_range'] = 'Erinnerung nach: Erlaubt sind ganze Zahlen von 1 bis 720. Bitte den Wert anpassen und erneut speichern.';
+$wb['group_protect_txt'] = 'Schutz';
+$wb['group_block_txt'] = 'Sperren';
+$wb['group_display_txt'] = 'Anzeige und Aufbewahrung';
+$wb['group_system_txt'] = 'System';

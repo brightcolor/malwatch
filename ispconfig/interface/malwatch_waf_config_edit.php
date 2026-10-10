@@ -254,7 +254,8 @@ class page_action extends tform_actions
 		}
 		// The words the script of the page writes into attributes.
 		$app->tpl->setVar(malwatch_attr_texts($wb, array('cfg_default_txt', 'cfg_reset_txt', 'cfg_adjusted_txt',
-			'cfg_dirty_one_txt', 'cfg_dirty_many_txt', 'cfg_clean_txt', 'cfg_find_txt')));
+			'cfg_dirty_one_txt', 'cfg_dirty_many_txt', 'cfg_clean_txt', 'cfg_find_txt',
+			'group_protect_txt', 'group_block_txt', 'group_display_txt', 'group_system_txt')));
 
 		parent::onShowEnd();
 	}

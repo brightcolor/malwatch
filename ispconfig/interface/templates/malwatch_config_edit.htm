@@ -25,9 +25,10 @@
 	<span class="label label-default">{tmpl_var name='last_signature_update_txt'}: {tmpl_var name='last_signature_update'}</span>
 </div>
 
+<div data-mw-groups="config" data-mw-group-names="check={tmpl_var name='group_check_txt'}|finding={tmpl_var name='group_finding_txt'}|notify={tmpl_var name='group_notify_txt'}|system={tmpl_var name='group_system_txt'}">
 <p class="mw-cfgall"><button type="button" class="btn btn-link" id="mw-cfg-all" data-mw-open="{tmpl_var name='sections_open_txt'}" data-mw-close="{tmpl_var name='sections_close_txt'}">{tmpl_var name='sections_open_txt'}</button></p>
 
-<details class="mw-cfgsec" open>
+<details class="mw-cfgsec" open data-mw-group="system">
 <summary><h2 class="mw-sec">{tmpl_var name='paths_head_txt'}</h2></summary>
 
 <div class="form-group">
@@ -43,7 +44,7 @@
 </div>
 </details>
 
-<details class="mw-cfgsec">
+<details class="mw-cfgsec" data-mw-group="notify">
 <summary><h2 class="mw-sec">{tmpl_var name='mail_head_txt'}</h2></summary>
 
 <div class="form-group">
@@ -87,7 +88,7 @@
 </div>
 </details>
 
-<details class="mw-cfgsec">
+<details class="mw-cfgsec" data-mw-group="check">
 <summary><h2 class="mw-sec">{tmpl_var name='defaults_head_txt'}</h2></summary>
 
 <div class="form-group">
@@ -120,7 +121,7 @@
 </div>
 </details>
 
-<details class="mw-cfgsec">
+<details class="mw-cfgsec" data-mw-group="check">
 <summary><h2 class="mw-sec">{tmpl_var name='library_tests_head_txt'}</h2></summary>
 <p>{tmpl_var name='library_tests_intro_txt'}</p>
 
@@ -147,7 +148,7 @@
 </div>
 </details>
 
-<details class="mw-cfgsec">
+<details class="mw-cfgsec" data-mw-group="check">
 <summary><h2 class="mw-sec">{tmpl_var name='verify_head_txt'}</h2></summary>
 <p>{tmpl_var name='verify_intro_txt'}</p>
 
@@ -237,7 +238,7 @@
 </div>
 </details>
 
-<details class="mw-cfgsec">
+<details class="mw-cfgsec" data-mw-group="check">
 <summary><h2 class="mw-sec">{tmpl_var name='limits_head_txt'}</h2></summary>
 
 <div class="form-group">
@@ -316,7 +317,7 @@
 </div>
 </details>
 
-<details class="mw-cfgsec">
+<details class="mw-cfgsec" data-mw-group="finding">
 <summary><h2 class="mw-sec">{tmpl_var name='view_head_txt'}</h2></summary>
 <p>{tmpl_var name='view_intro_txt'}</p>
 <div class="form-group">
@@ -363,7 +364,7 @@
 </div>
 </details>
 
-<details class="mw-cfgsec">
+<details class="mw-cfgsec" data-mw-group="check">
 <summary><h2 class="mw-sec">{tmpl_var name='vuln_head_txt'}</h2></summary>
 <p>{tmpl_var name='vuln_intro_txt'}</p>
 
@@ -396,7 +397,7 @@
 </div>
 </details>
 
-<details class="mw-cfgsec">
+<details class="mw-cfgsec" data-mw-group="finding">
 <summary><h2 class="mw-sec">{tmpl_var name='quarantine_head_txt'}</h2></summary>
 <p>{tmpl_var name='quarantine_intro_txt'}</p>
 <div class="form-group">
@@ -408,7 +409,7 @@
 </div>
 </details>
 
-<details class="mw-cfgsec">
+<details class="mw-cfgsec" data-mw-group="finding">
 <summary><h2 class="mw-sec">{tmpl_var name='auto_head_txt'}</h2></summary>
 <p>{tmpl_var name='auto_intro_txt'}</p>
 <p>{tmpl_var name='auto_scope_txt'}</p>
@@ -504,8 +505,9 @@
 </div>
 </details>
 
+</div>
 <hr class="mw-rule">
-<p class="help-block">{tmpl_var name='apply_hint_txt'}</p>
+<p class="help-block">{tmpl_var name='save_all_groups_txt'} {tmpl_var name='apply_hint_txt'}</p>
 
 <input type="hidden" name="id" value="{tmpl_var name='id'}">
 
