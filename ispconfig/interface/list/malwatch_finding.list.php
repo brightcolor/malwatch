@@ -15,7 +15,7 @@ $liste['delete_file'] = '';
 $liste['paging_tpl'] = 'templates/paging.tpl.htm';
 $liste['auth'] = 'no';
 
-// The default view shows what still needs attention. Released and fixed
+// The default view shows what still needs attention. Harmless and fixed
 // findings are reachable through the filter, they just do not lead the list.
 $liste['item'][] = array(
 	'field' => 'finding_state',
@@ -25,7 +25,7 @@ $liste['item'][] = array(
 	'prefix' => '',
 	'suffix' => '',
 	'width' => '',
-	'value' => array('' => 'alle', 'open' => 'offen', 'ignored' => 'freigegeben', 'fixed' => 'behoben')
+	'value' => array('' => 'alle', 'open' => 'offen', 'ignored' => 'harmlos', 'fixed' => 'behoben')
 );
 
 $liste['item'][] = array(

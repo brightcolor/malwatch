@@ -20,14 +20,14 @@
    lines and areas as translucent grey, fixed colours only for accent and
    alarm. */
 .page-header .mw-headchip{vertical-align:middle;font-size:11px}
-.page-header .mw-chip,#mw-wafsite .mw-chip{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+.page-header .mw-chip,#mw-wafsite .mw-chip{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
 	padding:2px 7px;border-radius:3px;white-space:nowrap;border:1px solid var(--cic-line-soft,rgba(128,128,128,.35))}
 .page-header .mw-chip.off,#mw-wafsite .mw-chip.off{opacity:.7}
-.page-header .mw-chip.detect,#mw-wafsite .mw-chip.detect{border-color:var(--cic-accent-deep,#a84c0b);color:var(--cic-accent-text,#dd630d)}
+.page-header .mw-chip.detect,#mw-wafsite .mw-chip.detect{border-color:var(--cic-accent-deep,#a84c0b);color:var(--cic-accent-text,#a84c0b)}
 .page-header .mw-chip.enforce,#mw-wafsite .mw-chip.enforce,#mw-wafsite .mw-chip.block{background:var(--cic-bad-deep,#b13116);border-color:var(--cic-bad-deep,#b13116);color:#fff}
 #mw-wafsite .mw-chip.pending{border-style:dashed}
 #mw-wafsite .mw-back{margin:0 0 12px;font-size:13px}
-#mw-wafsite .mw-sec{font-size:15px;font-weight:600;margin:22px 0 8px}
+#mw-wafsite h2.mw-sec{font-size:15px;font-weight:600;margin:22px 0 8px}
 #mw-wafsite .mw-sub{opacity:.72;font-size:13px;max-width:80ch;margin:0 0 8px}
 #mw-wafsite .mw-card{padding:12px 15px;border:1px solid var(--cic-line-soft,rgba(128,128,128,.35));border-radius:3px;
 	background:var(--cic-raised,rgba(128,128,128,.06))}
@@ -39,7 +39,7 @@
 #mw-wafsite .mw-caption{font-size:12px;opacity:.72;margin-right:4px}
 #mw-wafsite .mw-seg{display:inline-block;padding:3px 9px;border:1px solid var(--cic-line-soft,rgba(128,128,128,.35));
 	border-radius:3px;font-size:12.5px;color:inherit;text-decoration:none}
-#mw-wafsite .mw-seg[aria-current="true"]{border-color:var(--cic-accent,#dd630d);color:var(--cic-accent-text,#dd630d);font-weight:600}
+#mw-wafsite .mw-seg[aria-current="true"]{border-color:var(--cic-accent,#dd630d);color:var(--cic-accent-text,#a84c0b);font-weight:600}
 #mw-wafsite .mw-chart{display:flex;align-items:flex-end;gap:2px;height:96px;padding:4px 0;
 	border-bottom:1px solid var(--cic-line-soft,rgba(128,128,128,.35))}
 #mw-wafsite .mw-col{flex:1 1 0;min-width:2px;height:100%;display:flex;align-items:flex-end}
@@ -59,7 +59,7 @@
 #mw-wafsite .mw-rule ul{margin:2px 0 0;padding-left:18px}
 #mw-wafsite .mw-rulecols{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,32ch),1fr));gap:6px 24px;margin:6px 0 4px}
 #mw-wafsite .mw-addresses a{color:inherit;text-decoration:underline dotted;text-underline-offset:2px}
-#mw-wafsite .mw-addresses a:hover,#mw-wafsite .mw-addresses a:focus-visible{color:var(--cic-accent-text,#dd630d)}
+#mw-wafsite .mw-addresses a:hover,#mw-wafsite .mw-addresses a:focus-visible{color:var(--cic-accent-text,#a84c0b)}
 #mw-wafsite details.mw-why > summary{cursor:pointer;display:inline-block;font-size:12.5px;opacity:.85}
 #mw-wafsite details.mw-why > summary:focus-visible{outline:2px solid var(--cic-accent,#dd630d);outline-offset:2px}
 #mw-wafsite .mw-whybody{display:flex;flex-direction:column;gap:6px;margin:6px 0 2px;padding:6px 12px;max-width:95ch;font-size:13px;
@@ -157,7 +157,7 @@
 		</tmpl_if>
 		<tmpl_if name="is_enforce"><tmpl_else>
 		<tmpl_if name="enforce_allowed">
-		<button class="btn btn-danger" type="button"
+		<button class="btn btn-default formbutton-success" type="button"
 			data-mw-confirm="{tmpl_var name='confirm_set_enforce_txt'}" data-mw-title="{tmpl_var name='btn_set_enforce_txt'}"
 			data-mw-ok="{tmpl_var name='btn_set_enforce_txt'}" data-mw-danger="1" data-mw-detail="{tmpl_var name='preview_line'}"
 			data-mw-set-mw-waf-action="state" data-mw-set-mw-waf-target="enforce"
@@ -194,7 +194,7 @@
 	</tmpl_if>
 </div>
 
-<p class="mw-sec">{tmpl_var name='history_head_txt'}</p>
+<h2 class="mw-sec">{tmpl_var name='history_head_txt'}</h2>
 <div class="mw-bar">
 	<span class="mw-caption">{tmpl_var name='period_txt'}</span>
 	<tmpl_loop name="periods"><a class="mw-seg" href="#" data-load-content="{tmpl_var name='href'}"<tmpl_if name="current"> aria-current="true"</tmpl_if>>{tmpl_var name='label'}</a></tmpl_loop>
@@ -208,7 +208,7 @@
 </div>
 <p class="mw-sub">{tmpl_var name='history_legend_txt'}</p>
 
-<p class="mw-sec">{tmpl_var name='rules_head_txt'}</p>
+<h2 class="mw-sec">{tmpl_var name='rules_head_txt'}</h2>
 <tmpl_if name="has_rules">
 <div class="mw-rules">
 	<tmpl_loop name="rules">
@@ -247,7 +247,7 @@
 				<div class="mw-dim">{tmpl_var name='rule_addresses_head'}</div>
 				<tmpl_if name="has_addresses">
 				<ul class="mw-addresses">
-					<tmpl_loop name="rule_addresses"><li><a class="mw-mono" href="#" data-load-content="{tmpl_var name='address_href'}">{tmpl_var name='address'}</a> <span class="mw-dim">{tmpl_var name='address_hits'}</span><tmpl_if name="address_country"> <span class="mw-origin" title="{tmpl_var name='address_country'}">{tmpl_var name='address_country_name'}</span></tmpl_if><tmpl_if name="address_has_chips"><tmpl_loop name="address_chips"> <span class="mw-chip mw-origin-chip">{tmpl_var name='chip'}</span></tmpl_loop></tmpl_if><tmpl_if name="address_provider"> <span class="mw-dim mw-origin" title="{tmpl_var name='address_provider_full'}">{tmpl_var name='address_provider'}</span></tmpl_if> <button class="btn btn-default btn-xs" type="button" data-mw-set-mw-waf-action="ban_add" data-mw-set-mw-waf-ip="{tmpl_var name='address'}" data-submit-form="pageForm" data-form-action="security/malwatch_waf_show.php">{tmpl_var name='ban_add_txt'}</button></li></tmpl_loop>
+					<tmpl_loop name="rule_addresses"><li><a class="mw-mono" href="#" data-load-content="{tmpl_var name='address_href'}">{tmpl_var name='address'}</a> <span class="mw-dim">{tmpl_var name='address_hits'}</span><tmpl_if name="address_country"> <span class="mw-origin" title="{tmpl_var name='address_country'}">{tmpl_var name='address_country_name'}</span></tmpl_if><tmpl_if name="address_has_chips"><tmpl_loop name="address_chips"> <span class="mw-chip mw-origin-chip">{tmpl_var name='chip'}</span></tmpl_loop></tmpl_if><tmpl_if name="address_provider"> <span class="mw-dim mw-origin" title="{tmpl_var name='address_provider_full'}">{tmpl_var name='address_provider'}</span></tmpl_if> <button class="btn btn-default btn-xs" type="button" title="{tmpl_var name='ban_add_hint_txt'}" data-mw-set-mw-waf-action="ban_add" data-mw-set-mw-waf-ip="{tmpl_var name='address'}" data-submit-form="pageForm" data-form-action="security/malwatch_waf_show.php">{tmpl_var name='ban_add_txt'}</button></li></tmpl_loop>
 				</ul>
 				<tmpl_if name="more_addresses"><div class="mw-dim">{tmpl_var name='more_addresses'}</div></tmpl_if>
 				<tmpl_else>
@@ -281,7 +281,7 @@
 <tmpl_if name="origin_credit"><p class="mw-sub"><a href="{tmpl_var name='origin_credit_href'}" target="_blank" rel="noopener">{tmpl_var name='origin_credit'}</a></p></tmpl_if>
 
 <tmpl_if name="has_paths">
-<p class="mw-sec">{tmpl_var name='paths_head_txt'}</p>
+<h2 class="mw-sec">{tmpl_var name='paths_head_txt'}</h2>
 <div class="table-wrapper">
 <table class="table">
 	<thead class="dark">
@@ -296,7 +296,7 @@
 </div>
 </tmpl_if>
 
-<p class="mw-sec" id="mw-hits">{tmpl_var name='hits_head_txt'}</p>
+<h2 class="mw-sec" id="mw-hits">{tmpl_var name='hits_head_txt'}</h2>
 <tmpl_if name="ip_rejected">
 <p class="mw-ipnotice">{tmpl_var name='ip_rejected'}</p>
 </tmpl_if>
@@ -310,7 +310,7 @@
 	<summary>
 		<span class="mw-dim">{tmpl_var name='hit_time'}</span>
 		<span class="mw-mono mw-hitip">{tmpl_var name='hit_ip'}</span>
-		<tmpl_if name="hit_has_ip"><button class="btn btn-default btn-xs" type="button" data-mw-set-mw-waf-action="ban_add" data-mw-set-mw-waf-ip="{tmpl_var name='hit_ip'}" data-submit-form="pageForm" data-form-action="security/malwatch_waf_show.php">{tmpl_var name='ban_add_txt'}</button></tmpl_if>
+		<tmpl_if name="hit_has_ip"><button class="btn btn-default btn-xs" type="button" title="{tmpl_var name='ban_add_hint_txt'}" data-mw-set-mw-waf-action="ban_add" data-mw-set-mw-waf-ip="{tmpl_var name='hit_ip'}" data-submit-form="pageForm" data-form-action="security/malwatch_waf_show.php">{tmpl_var name='ban_add_txt'}</button></tmpl_if>
 		<tmpl_if name="hit_country"><span class="mw-origin" title="{tmpl_var name='hit_country'}">{tmpl_var name='hit_country_name'}</span></tmpl_if>
 		<tmpl_if name="hit_has_chips"><tmpl_loop name="hit_chips"><span class="mw-chip mw-origin-chip">{tmpl_var name='chip'}</span></tmpl_loop></tmpl_if>
 		<tmpl_if name="hit_provider"><span class="mw-dim mw-origin" title="{tmpl_var name='hit_provider_full'}">{tmpl_var name='hit_provider'}</span></tmpl_if>
@@ -380,7 +380,7 @@
 </script>
 </tmpl_if>
 
-<p class="mw-sec">{tmpl_var name='exceptions_head_txt'}</p>
+<h2 class="mw-sec">{tmpl_var name='exceptions_head_txt'}</h2>
 <tmpl_if name="has_exceptions">
 <div class="table-wrapper">
 <table class="table">
@@ -405,7 +405,7 @@
 			<td<tmpl_if name="exc_failed"> class="mw-failed"</tmpl_if>>{tmpl_var name='exc_state'}<tmpl_if name="exc_error"><div class="mw-dim">{tmpl_var name='exc_error'}</div></tmpl_if></td>
 			<td class="mw-dim">{tmpl_var name='exc_created'}</td>
 			<td><tmpl_if name="can_remove">
-				<button class="btn btn-danger btn-xs" type="button"
+				<button class="btn btn-default mw-risk btn-xs" type="button"
 					data-mw-confirm="{tmpl_var name='confirm_exception_remove_txt'}" data-mw-title="{tmpl_var name='btn_exception_remove_txt'}"
 					data-mw-ok="{tmpl_var name='btn_exception_remove_txt'}" data-mw-danger="1"
 					data-mw-set-mw-waf-action="exception_remove" data-mw-set-mw-waf-exception="{tmpl_var name='exception_id'}"
@@ -420,7 +420,7 @@
 <p class="mw-sub">{tmpl_var name='exceptions_none_txt'}</p>
 </tmpl_if>
 
-<p class="mw-sec">{tmpl_var name='form_head_txt'}</p>
+<h2 class="mw-sec">{tmpl_var name='form_head_txt'}</h2>
 <div class="mw-card" id="mw-exc">
 	<p class="mw-sub">{tmpl_var name='form_intro_txt'}</p>
 	<input type="hidden" name="exc_site" value="{tmpl_var name='domain_id'}" />

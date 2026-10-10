@@ -1,3 +1,14 @@
+<style>
+/* The file name leads, the folder stands quietly below it, and both wrap: the
+   theme cuts a link in a table cell to one line, and "wp-config-sam..." was
+   all that was left of the name the reader looks for. Rule ids wrap too. */
+#pageContent td.mw-filecell,#pageContent td.mw-rulecell{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
+#pageContent td.mw-filecell a{white-space:normal;overflow:visible;text-overflow:clip}
+#pageContent td.mw-filecell .mw-dir{display:block;font-size:12px}
+#pageContent td.mw-filecell{min-width:30ch}
+#pageContent td.mw-rulecell code{white-space:normal;overflow-wrap:anywhere}
+</style>
+
 <div class='page-header'>
 	<h1><tmpl_var name="list_head_txt"></h1>
 </div>
@@ -16,15 +27,15 @@
 			<th class="small-col text-right">{tmpl_var name='search_limit'}</th>
 		</tr>
 		<tr>
-			<td><select class="form-control" name="search_finding_state">{tmpl_var name='search_finding_state'}</select></td>
-			<td><select class="form-control" name="search_severity">{tmpl_var name='search_severity'}</select></td>
-			<td><input class="form-control" type="text" name="search_domain" value="{tmpl_var name='search_domain'}" /></td>
-			<td><input class="form-control" type="text" name="search_rule_id" value="{tmpl_var name='search_rule_id'}" /></td>
-			<td><input class="form-control" type="text" name="search_file_path" value="{tmpl_var name='search_file_path'}" /></td>
+			<td><select class="form-control" name="search_finding_state" aria-label="{tmpl_var name='finding_state_txt'}">{tmpl_var name='search_finding_state'}</select></td>
+			<td><select class="form-control" name="search_severity" aria-label="{tmpl_var name='severity_txt'}">{tmpl_var name='search_severity'}</select></td>
+			<td><input class="form-control" type="text" name="search_domain" aria-label="{tmpl_var name='domain_txt'}" value="{tmpl_var name='search_domain'}" /></td>
+			<td><input class="form-control" type="text" name="search_rule_id" aria-label="{tmpl_var name='rule_id_txt'}" value="{tmpl_var name='search_rule_id'}" /></td>
+			<td><input class="form-control" type="text" name="search_file_path" aria-label="{tmpl_var name='file_path_txt'}" value="{tmpl_var name='search_file_path'}" /></td>
 			<td>&nbsp;</td>
 			<td class="text-right">
 				<button type="button" class="btn btn-default formbutton-default formbutton-narrow" name="Filter" id="Filter"
-					value="{tmpl_var name='filter_txt'}" data-submit-form="pageForm"
+					aria-label="{tmpl_var name='filter_txt'}" title="{tmpl_var name='filter_txt'}" value="{tmpl_var name='filter_txt'}" data-submit-form="pageForm"
 					data-form-action="security/malwatch_finding_list.php"><span class="icon icon-filter"></span></button>
 			</td>
 		</tr>
@@ -35,9 +46,9 @@
 			<td>{tmpl_var name="finding_state"}</td>
 			<td><span class="label {tmpl_var name='severity_class'}">{tmpl_var name="severity"}</span></td>
 			<td><a href="#" data-load-content="security/malwatch_site_show.php?id={tmpl_var name='parent_domain_id'}">{tmpl_var name="domain"}</a><tmpl_if name="site_inactive"> <span class="label label-default" title="{tmpl_var name='site_inactive_hint_txt'}">{tmpl_var name='site_inactive_txt'}</span></tmpl_if><tmpl_if name="site_gone"> <span class="label label-default" title="{tmpl_var name='site_gone_hint_txt'}">{tmpl_var name='site_gone_txt'}</span></tmpl_if></td>
-			<td><code>{tmpl_var name="rule_id"}</code></td>
-			<td style="word-break:break-all" title="{tmpl_var name='full_path'}">
-				<a href="#" data-load-content="security/malwatch_finding_show.php?id={tmpl_var name='finding_id'}"><tmpl_if name="has_dir"><small class="text-muted">{tmpl_var name="dir"}</small></tmpl_if><strong>{tmpl_var name="file"}</strong></a><tmpl_if name="has_line"><small class="text-muted"> : {tmpl_var name="line_number"}</small></tmpl_if>
+			<td class="mw-rulecell"><code>{tmpl_var name="rule_id"}</code></td>
+			<td class="mw-filecell" title="{tmpl_var name='full_path'}">
+				<a href="#" data-load-content="security/malwatch_finding_show.php?id={tmpl_var name='finding_id'}"><strong>{tmpl_var name="file"}</strong><tmpl_if name="has_line"><small class="text-muted"> : {tmpl_var name="line_number"}</small></tmpl_if></a><tmpl_if name="has_dir"><small class="text-muted mw-dir">{tmpl_var name="dir"}</small></tmpl_if>
 			</td>
 			<td>{tmpl_var name="last_seen"}</td>
 			<td class="text-right">

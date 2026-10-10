@@ -151,7 +151,7 @@ foreach ($overview as $group) {
 		'current' => $group['site'] === $site ? 1 : 0,
 	);
 }
-$app->tpl->setLoop('overview', $overview_rows);
+malwatch_set_loop($app, 'overview', $overview_rows);
 $app->tpl->setVar('all_current', $site < 0 ? 1 : 0);
 $app->tpl->setVar('total_entries', number_format($total_count, 0, ',', '.'));
 $app->tpl->setVar('total_disk', $app->functions->htmlentities($disk_label($total_bytes)));
@@ -216,14 +216,19 @@ if (is_array($pending_jobs)) {
 // silently did not happen used to leave nothing on any screen at all.
 $job_errors = array();
 $failed_jobs = $app->db->queryAllRecords(
-	"SELECT job_log FROM malwatch_job WHERE job_kind = 'quarantine' AND job_status = 'error' "
+	"SELECT job_id, options, job_log, exit_code, finished_at FROM malwatch_job WHERE job_kind = 'quarantine' AND job_status = 'error' "
 	. 'AND finished_at > DATE_SUB(NOW(), INTERVAL 24 HOUR) ORDER BY job_id DESC LIMIT 3');
 if (is_array($failed_jobs)) {
 	foreach ($failed_jobs as $failed_job) {
-		$job_errors[] = array('job_log' => $app->functions->htmlentities((string) $failed_job['job_log']));
+		$text = malwatch_job_error_text($failed_job, $wb);
+		$job_errors[] = array(
+			'job_head' => $app->functions->htmlentities($text['head']),
+			'job_reason' => $app->functions->htmlentities($text['reason']),
+			'job_next' => $app->functions->htmlentities($text['next']),
+		);
 	}
 }
-$app->tpl->setLoop('job_errors', $job_errors);
+malwatch_set_loop($app, 'job_errors', $job_errors);
 
 // One export job packs one ZIP for the whole selection, so several rows can
 // carry the same token. Counted once here instead of per row, so the link in
@@ -321,7 +326,7 @@ if (is_array($rows)) {
 		);
 	}
 }
-$app->tpl->setLoop('entries', $entry_rows);
+malwatch_set_loop($app, 'entries', $entry_rows);
 
 // {n} is left in place for the client-side counter (see the template's
 // script); the two %s never change while the page sits on screen, so they are

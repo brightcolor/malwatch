@@ -10,7 +10,7 @@
 </tmpl_if>
 <tmpl_loop name="job_errors">
 	<div class="alert alert-danger">
-		<strong>{tmpl_var name='job_error_head_txt'}</strong> {tmpl_var name='job_log'}
+		<strong>{tmpl_var name='job_head'}</strong><br>{tmpl_var name='job_reason'}<br>{tmpl_var name='job_next'}
 	</div>
 </tmpl_loop>
 
@@ -44,7 +44,7 @@
    erreichbar waere - auf einem Telefon gibt es kein Darueberfahren. */
 #mw-quarantine .mw-what{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;min-width:0}
 #mw-quarantine .mw-kind{
-	flex:0 0 auto;font-size:9.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+	flex:0 0 auto;font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
 	padding:1px 5px;border-radius:3px;border:1px solid var(--cic-line-soft,rgba(128,128,128,.4));
 	opacity:.75;line-height:1.6;
 }
@@ -54,7 +54,7 @@
    Seite in drei Zeilen. Die Spaltendarstellung haengt deshalb an .mw-path. */
 #mw-quarantine .mw-mono{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:12px}
 #mw-quarantine .mw-path{display:block;min-width:0;word-break:break-all}
-#mw-quarantine .mw-origin{display:block;font-size:11.5px;opacity:.66;margin-top:1px}
+#mw-quarantine .mw-origin{display:block;font-size:12.5px;opacity:.66;margin-top:1px}
 #mw-quarantine td.num{font-variant-numeric:tabular-nums}
 #mw-quarantine td.mw-size{text-align:right;font-variant-numeric:tabular-nums}
 #mw-quarantine th.mw-size{text-align:right}
@@ -71,15 +71,23 @@
 	   kuerzt, der ganze Pfad haengt als Titel daran. */
 	#mw-quarantine .mw-what{flex-wrap:nowrap}
 	#mw-quarantine .mw-path{
-		max-width:46ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;word-break:normal;
+		max-width:38ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;word-break:normal;
+		/* Cut at the start, so the file name at the end stays in sight. */
+		direction:rtl;text-align:left;
 	}
-	#mw-quarantine td.num,#mw-quarantine td.mw-size,
-	#mw-quarantine .mw-dl-preparing{white-space:nowrap}
+	/* Long words (rule ids, domains) may break and the time may wrap, so the
+	   table fits the panel; the size keeps its line. */
+	#mw-quarantine td.mw-size,#mw-quarantine .mw-dl-preparing{white-space:nowrap}
+	#mw-quarantine .mw-entries td{overflow-wrap:anywhere}
+	#mw-quarantine .mw-unknown{white-space:normal}
 	/* Die Schaltflaechen einer Zeile in einer Reihe, ohne Schrumpfen. Ohne
 	   flex:0 0 auto druecken sie sich in der schmalen Spalte auf wenige Pixel
 	   zusammen und stehen als farbige Striche am Rand. */
-	#mw-quarantine td.mw-acts,#mw-quarantine th.mw-acts{white-space:nowrap;width:1%}
-	#mw-quarantine .mw-qacts{flex-direction:row;align-items:baseline;flex-wrap:wrap;justify-content:flex-end}
+	/* The buttons of a row wrap inside a fixed width. In one line they made the
+	   table 120 px wider than the panel, and "Zurückholen" and "Herunterladen"
+	   sat behind the scroll bar. */
+	#mw-quarantine td.mw-acts,#mw-quarantine th.mw-acts{width:1%}
+	#mw-quarantine .mw-qacts{flex-direction:row;align-items:baseline;flex-wrap:wrap;justify-content:flex-end;width:15rem}
 	#mw-quarantine .mw-qacts .btn{white-space:nowrap}
 	#mw-quarantine .mw-qacts > *{flex:0 0 auto}
 }
@@ -166,7 +174,7 @@
 		data-mw-hint="{tmpl_var name='hint_select_txt'}"
 		data-mw-set-mw-entry-id="" data-mw-set-mw-action="download"
 		data-submit-form="pageForm" data-form-action="security/malwatch_quarantine_list.php{tmpl_var name='site_query'}">{tmpl_var name='btn_download_selected_txt'}</button>
-	<button class="btn btn-danger mw-needs-selection" type="button" data-mw-empty="1"
+	<button class="btn btn-default mw-risk mw-needs-selection" type="button" data-mw-empty="1"
 		data-mw-hint="{tmpl_var name='hint_select_txt'}"
 		data-mw-confirm="{tmpl_var name='confirm_delete_selected_txt'}" data-mw-title="{tmpl_var name='btn_delete_selected_txt'}"
 		data-mw-ok="{tmpl_var name='btn_delete_txt'}" data-mw-danger="1"
@@ -177,7 +185,7 @@
 </div>
 
 <div class="table-wrapper marginTop15">
-<table class="table">
+<table class="table mw-entries">
 	<thead class="dark">
 		<tr>
 			<th style="width:28px"><input type="checkbox" id="mw-check-all" title="{tmpl_var name='select_all_txt'}" aria-label="{tmpl_var name='select_all_txt'}" /></th>
@@ -196,7 +204,7 @@
 			<td>
 				<div class="mw-what">
 					<span class="mw-kind">{tmpl_var name='kind_label'}</span>
-					<span class="mw-mono mw-path" title="{tmpl_var name='path'}">{tmpl_var name='path'}</span>
+					<span class="mw-mono mw-path" title="{tmpl_var name='path'}"><bdi>{tmpl_var name='path'}</bdi></span>
 				</div>
 			</td>
 			<td>
@@ -230,7 +238,7 @@
 							data-mw-set-mw-entry-id="{tmpl_var name='row_key'}" data-mw-set-mw-action="download"
 							data-submit-form="pageForm" data-form-action="security/malwatch_quarantine_list.php{tmpl_var name='site_query'}">{tmpl_var name='btn_download_txt'}</button>
 					</tmpl_if>
-					<button class="btn btn-danger btn-xs" type="button"
+					<button class="btn btn-default mw-risk btn-xs" type="button"
 						data-mw-confirm="{tmpl_var name='confirm_delete_one_txt'}" data-mw-title="{tmpl_var name='btn_delete_txt'}"
 						data-mw-detail="{tmpl_var name='detail'}" data-mw-ok="{tmpl_var name='btn_delete_txt'}" data-mw-danger="1"
 						data-mw-set-mw-entry-id="{tmpl_var name='row_key'}" data-mw-set-mw-action="delete"

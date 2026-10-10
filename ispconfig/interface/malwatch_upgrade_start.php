@@ -124,8 +124,10 @@ foreach ($installs as $install) {
 			'name' => $app->functions->htmlentities($row['name']),
 			'installed' => $app->functions->htmlentities($row['installed']),
 			'has_vulns' => $row['vuln_count'] > 0 ? 1 : 0,
-			'vuln_label' => $app->functions->htmlentities($row['vuln_count'] === 1
-				? $wb['vuln_one_txt'] : sprintf($wb['vuln_many_txt'], number_format($row['vuln_count'], 0, ',', '.'))),
+			'vuln_label' => $app->functions->htmlentities(malwatch_with_severity($row['vuln_count'] === 1
+				? $wb['vuln_one_txt'] : sprintf($wb['vuln_many_txt'], number_format($row['vuln_count'], 0, ',', '.')),
+				$wb, $row['vuln_severity'])),
+			'vuln_class' => $row['vuln_severity'] !== '' ? malwatch_severity_class($row['vuln_severity']) : 'label-default',
 			'can_update' => $can_update ? 1 : 0,
 			'is_checked' => $checked ? 1 : 0,
 			'options_html' => $options_html,
@@ -164,7 +166,7 @@ $app->tpl->setVar(malwatch_attr_texts($wb, array('btn_start_txt', 'confirm_start
 $app->tpl->setVar('domain_id', $domain_id);
 $app->tpl->setVar('back_label', sprintf($wb['back_txt'], $app->functions->htmlentities($web['domain'])));
 $app->tpl->setVar('has_blocks', count($blocks) > 0 ? 1 : 0);
-$app->tpl->setLoop('blocks', $blocks);
+malwatch_set_loop($app, 'blocks', $blocks);
 $app->tpl->setVar('has_hidden', $hidden > 0 ? 1 : 0);
 $app->tpl->setVar('hidden_line', $app->functions->htmlentities(
 	sprintf($wb['hidden_txt'], number_format($hidden, 0, ',', '.'))));

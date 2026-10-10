@@ -1491,10 +1491,12 @@ class malwatch_ingest
 
 		$databases = (isset($report['databases']) && is_array($report['databases'])) ? $report['databases'] : array();
 
+		// How long the archive stays is a setting (keep_dump_days, 0.43.0).
+		$keep_days = $helper->housekeeping_value($config, 'keep_dump_days');
 		$app->dbmaster->query(
 			"UPDATE malwatch_dump SET dump_state = 'done', job_id = ?, archive_path = ?, archive_bytes = ?, "
 			. "file_count = ?, database_count = ?, error_reason = '', job_log = '', ready_at = NOW(), "
-			. 'expires_at = DATE_ADD(NOW(), INTERVAL 7 DAY) WHERE dump_id = ?',
+			. 'expires_at = DATE_ADD(NOW(), INTERVAL ' . (int) $keep_days . ' DAY) WHERE dump_id = ?',
 			intval($job['job_id']), $archive,
 			intval(isset($report['archive_bytes']) ? $report['archive_bytes'] : 0),
 			intval(isset($report['files']) ? $report['files'] : 0),

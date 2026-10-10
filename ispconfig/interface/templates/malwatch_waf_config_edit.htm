@@ -5,7 +5,7 @@
 	differ from their defaults, counts unsaved changes and searches the fields.
 	Every value, limit and default comes from the page; nothing is fixed here.
 -->
-<div id="mw-wafcfg" data-mw-word-default="{tmpl_var name='cfg_default_txt'}" data-mw-word-reset="{tmpl_var name='cfg_reset_txt'}"
+<div id="mw-wafcfg" data-mw-groups="waf" data-mw-group-names="protect={tmpl_var name='group_protect_txt'}|block={tmpl_var name='group_block_txt'}|display={tmpl_var name='group_display_txt'}|system={tmpl_var name='group_system_txt'}" data-mw-word-default="{tmpl_var name='cfg_default_txt'}" data-mw-word-reset="{tmpl_var name='cfg_reset_txt'}"
 	data-mw-word-adjusted="{tmpl_var name='cfg_adjusted_txt'}" data-mw-word-dirty-one="{tmpl_var name='cfg_dirty_one_txt'}"
 	data-mw-word-dirty-many="{tmpl_var name='cfg_dirty_many_txt'}" data-mw-word-clean="{tmpl_var name='cfg_clean_txt'}">
 
@@ -26,7 +26,7 @@
 </div>
 <p class="mw-cfg-empty" id="mw-cfg-empty" hidden>{tmpl_var name='cfg_empty_txt'}</p>
 
-<details class="mw-cfg-sec" id="mw-cfg-ban" data-mw-sec="ban">
+<details class="mw-cfg-sec" id="mw-cfg-ban" data-mw-sec="ban" data-mw-group="block">
 	<summary><h2 class="mw-cfg-title">{tmpl_var name='ban_head_txt'}</h2><span class="mw-cfg-state">{tmpl_var name='state_ban'}</span><span class="mw-cfg-badge" hidden></span></summary>
 	<div class="mw-cfg-body">
 		<p class="mw-cfg-intro">{tmpl_var name='ban_intro_txt'}</p>
@@ -74,7 +74,7 @@
 	</div>
 </details>
 
-<details class="mw-cfg-sec" id="mw-cfg-logged_in" data-mw-sec="logged_in">
+<details class="mw-cfg-sec" id="mw-cfg-logged_in" data-mw-sec="logged_in" data-mw-group="protect">
 	<summary><h2 class="mw-cfg-title">{tmpl_var name='logged_in_head_txt'}</h2><span class="mw-cfg-state">{tmpl_var name='state_logged_in'}</span><span class="mw-cfg-badge" hidden></span></summary>
 	<div class="mw-cfg-body">
 		<p class="mw-cfg-intro">{tmpl_var name='logged_in_intro_txt'}</p>
@@ -109,7 +109,7 @@
 	</div>
 </details>
 
-<details class="mw-cfg-sec" id="mw-cfg-never" data-mw-sec="never">
+<details class="mw-cfg-sec" id="mw-cfg-never" data-mw-sec="never" data-mw-group="protect">
 	<summary><h2 class="mw-cfg-title">{tmpl_var name='never_head_txt'}</h2><span class="mw-cfg-state">{tmpl_var name='state_never'}</span><span class="mw-cfg-badge" hidden></span></summary>
 	<div class="mw-cfg-body">
 		<p class="mw-cfg-intro">{tmpl_var name='never_intro_txt'}</p>
@@ -132,7 +132,7 @@
 	</div>
 </details>
 
-<details class="mw-cfg-sec" id="mw-cfg-origin_ban" data-mw-sec="origin_ban">
+<details class="mw-cfg-sec" id="mw-cfg-origin_ban" data-mw-sec="origin_ban" data-mw-group="block">
 	<summary><h2 class="mw-cfg-title">{tmpl_var name='ban_origin_head_txt'}</h2><span class="mw-cfg-state">{tmpl_var name='state_origin_ban'}</span><span class="mw-cfg-badge" hidden></span></summary>
 	<div class="mw-cfg-body">
 		<p class="mw-cfg-intro">{tmpl_var name='ban_origin_intro_txt'}</p>
@@ -198,7 +198,7 @@
 	</div>
 </details>
 
-<details class="mw-cfg-sec" id="mw-cfg-origin_src" data-mw-sec="origin_src">
+<details class="mw-cfg-sec" id="mw-cfg-origin_src" data-mw-sec="origin_src" data-mw-group="block">
 	<summary><h2 class="mw-cfg-title">{tmpl_var name='origin_head_txt'}</h2><span class="mw-cfg-state">{tmpl_var name='state_origin_src'}</span><span class="mw-cfg-badge" hidden></span></summary>
 	<div class="mw-cfg-body">
 		<p class="mw-cfg-intro">{tmpl_var name='origin_intro_txt'}</p>
@@ -296,7 +296,7 @@
 	</div>
 </details>
 
-<details class="mw-cfg-sec" id="mw-cfg-f2b" data-mw-sec="f2b">
+<details class="mw-cfg-sec" id="mw-cfg-f2b" data-mw-sec="f2b" data-mw-group="block">
 	<summary><h2 class="mw-cfg-title">{tmpl_var name='f2b_head_txt'}</h2><span class="mw-cfg-state">{tmpl_var name='state_f2b'}</span><span class="mw-cfg-badge" hidden></span></summary>
 	<div class="mw-cfg-body">
 		<p class="mw-cfg-intro">{tmpl_var name='f2b_intro_txt'}</p>
@@ -328,7 +328,7 @@
 	</div>
 </details>
 
-<details class="mw-cfg-sec" id="mw-cfg-enforce" data-mw-sec="enforce">
+<details class="mw-cfg-sec" id="mw-cfg-enforce" data-mw-sec="enforce" data-mw-group="protect">
 	<summary><h2 class="mw-cfg-title">{tmpl_var name='enforce_head_txt'}</h2><span class="mw-cfg-state">{tmpl_var name='state_enforce'}</span><span class="mw-cfg-badge" hidden></span></summary>
 	<div class="mw-cfg-body">
 		<p class="mw-cfg-intro">{tmpl_var name='enforce_intro_txt'}</p>
@@ -349,7 +349,7 @@
 	</div>
 </details>
 
-<details class="mw-cfg-sec" id="mw-cfg-display" data-mw-sec="display">
+<details class="mw-cfg-sec" id="mw-cfg-display" data-mw-sec="display" data-mw-group="display">
 	<summary><h2 class="mw-cfg-title">{tmpl_var name='display_head_txt'}</h2><span class="mw-cfg-state">{tmpl_var name='state_display'}</span><span class="mw-cfg-badge" hidden></span></summary>
 	<div class="mw-cfg-body">
 		<p class="mw-cfg-intro">{tmpl_var name='display_intro_txt'}</p>
@@ -412,7 +412,7 @@
 	</div>
 </details>
 
-<details class="mw-cfg-sec" id="mw-cfg-keep" data-mw-sec="keep">
+<details class="mw-cfg-sec" id="mw-cfg-keep" data-mw-sec="keep" data-mw-group="display">
 	<summary><h2 class="mw-cfg-title">{tmpl_var name='keep_head_txt'}</h2><span class="mw-cfg-state">{tmpl_var name='state_keep'}</span><span class="mw-cfg-badge" hidden></span></summary>
 	<div class="mw-cfg-body">
 		<p class="mw-cfg-intro">{tmpl_var name='keep_intro_txt'}</p>
@@ -454,7 +454,7 @@
 	</div>
 </details>
 
-<details class="mw-cfg-sec" id="mw-cfg-cron" data-mw-sec="cron">
+<details class="mw-cfg-sec" id="mw-cfg-cron" data-mw-sec="cron" data-mw-group="system">
 	<summary><h2 class="mw-cfg-title">{tmpl_var name='cron_head_txt'}</h2><span class="mw-cfg-state">{tmpl_var name='state_cron'}</span><span class="mw-cfg-badge" hidden></span></summary>
 	<div class="mw-cfg-body">
 		<p class="mw-cfg-intro">{tmpl_var name='cron_intro_txt'}</p>
@@ -561,7 +561,7 @@
 	</div>
 </details>
 
-<details class="mw-cfg-sec" id="mw-cfg-tech" data-mw-sec="tech">
+<details class="mw-cfg-sec" id="mw-cfg-tech" data-mw-sec="tech" data-mw-group="system">
 	<summary><h2 class="mw-cfg-title">{tmpl_var name='tech_head_txt'}</h2><span class="mw-cfg-state">{tmpl_var name='state_tech'}</span><span class="mw-cfg-badge" hidden></span></summary>
 	<div class="mw-cfg-body">
 		<p class="mw-cfg-intro">{tmpl_var name='tech_intro_txt'}</p>
@@ -833,7 +833,7 @@
 	</div>
 </details>
 
-<details class="mw-cfg-sec" id="mw-cfg-facts" data-mw-sec="facts">
+<details class="mw-cfg-sec" id="mw-cfg-facts" data-mw-sec="facts" data-mw-group="system">
 	<summary><h2 class="mw-cfg-title">{tmpl_var name='facts_head_txt'}</h2><span class="mw-cfg-state">{tmpl_var name='state_facts'}</span><span class="mw-cfg-badge" hidden></span></summary>
 	<div class="mw-cfg-body">
 		<p class="mw-cfg-intro"></p>
@@ -950,7 +950,7 @@
 #mw-wafcfg #mw-cfg-facts .mw-cfg-facts{grid-template-columns:18.5em minmax(0,1fr)}
 #mw-wafcfg .mw-cfg-places{margin-top:6px}
 #mw-wafcfg .mw-cfg-places dd{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 12px}
-#mw-wafcfg .mw-cfg-env{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:11.5px;opacity:.8}
+#mw-wafcfg .mw-cfg-env{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:12.5px;opacity:.8}
 #mw-wafcfg .mw-cfg-place-empty{font-style:italic}
 #mw-wafcfg .mw-cfg-save{position:sticky;bottom:0;z-index:5;display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;
 	justify-content:flex-end;margin:16px 0 0;padding:12px 16px;background:var(--cic-page,Canvas);border-top:1px solid var(--mw-line)}

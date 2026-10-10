@@ -61,6 +61,20 @@
 	word-break:break-all;opacity:.8;
 }
 .mw-modal .modal-footer .btn{white-space:normal}
+/* An action that removes, blocks or ends something: outlined in the colour of
+   danger, filled only on hover. The filled pink belongs to the dialog's own
+   confirm button, so it stays the loudest thing on screen exactly when it
+   counts. Every page with such a button includes this file; the id outranks
+   the theme's .bc .btn rules. */
+#pageContent .btn.mw-risk{background:transparent;border:1.5px solid var(--cic-bad,#c9302c);
+	color:var(--cic-bad-text,#a4282a)}
+#pageContent .btn.mw-risk:hover,#pageContent .btn.mw-risk:focus{background:var(--cic-bad,#c9302c);
+	border-color:var(--cic-bad,#c9302c);color:#fff}
+#pageContent .btn.mw-risk:focus-visible{outline:2px solid var(--cic-focus,var(--bc-focus,currentColor));outline-offset:2px}
+/* The way back sits under the title of a detail page, the same on every one. */
+#pageContent .mw-back{margin:0 0 12px;font-size:13px}
+/* Row buttons stay at least 24 px high, the smallest target WCAG 2.2 allows. */
+#pageContent .btn.btn-xs{min-height:24px}
 /* "Änderungen prüfen": one row per changed setting, grouped by the sections
    of the page; a long list scrolls inside the dialog. */
 .mw-modal .mw-modal-review{margin-top:12px;max-height:60vh;overflow:auto;overflow-wrap:anywhere}
@@ -491,4 +505,117 @@
 		}
 	});
 })(window.jQuery);
+</script>
+
+<!--
+	Group tabs (0.43.0). A container with data-mw-groups names its groups in
+	data-mw-group-names ("key=Label|key=Label"); every section in it carries
+	data-mw-group="key". The script puts a tab bar in front of the first
+	section and shows one group at a time. Hidden sections stay in the form,
+	so a save sends every group. A page that comes back with an error opens the
+	group whose field the message names, or every group when it cannot tell;
+	a search (data-mw-searching="1" on the container) shows all groups. Without
+	the script every section stays in sight.
+-->
+<style>
+#pageContent .mw-gtabs{display:flex;gap:2px;overflow-x:auto;margin:4px 0 6px;border-bottom:1px solid var(--cic-line-soft,rgba(128,128,128,.35));scrollbar-width:thin}
+#pageContent .mw-gtabs button{flex:none;display:inline-flex;align-items:center;gap:6px;padding:11px 12px 8px;background:none;border:0;
+	border-bottom:3px solid transparent;font-weight:700;font-size:14.5px;color:inherit;opacity:.72;white-space:nowrap;cursor:pointer}
+#pageContent .mw-gtabs button[aria-selected="true"]{opacity:1;border-bottom-color:var(--cic-accent,#dd630d)}
+#pageContent .mw-gtabs button:focus-visible{outline:2px solid var(--cic-focus,var(--bc-focus,currentColor));outline-offset:-2px}
+#pageContent .mw-gtabs .mw-gcount{font-size:12px;font-weight:700;opacity:.7;font-variant-numeric:tabular-nums}
+#pageContent .mw-gtabs .mw-gdot{width:8px;height:8px;border-radius:50%;background:var(--cic-bad,#c9302c);flex:none}
+#pageContent .mw-gall-note{margin:0 0 6px;font-size:13px;opacity:.8}
+#pageContent [data-mw-groups] .mw-gout{display:none}
+#pageContent [data-mw-groups][data-mw-searching="1"] .mw-gout,
+#pageContent [data-mw-groups].mw-gall .mw-gout{display:block}
+</style>
+<script>
+(function () {
+	var root = document.querySelector('#pageContent [data-mw-groups]');
+	if (!root) { return; }
+	var names = (root.getAttribute('data-mw-group-names') || '').split('|').map(function (pair) {
+		var i = pair.indexOf('='); return { key: pair.slice(0, i), label: pair.slice(i + 1) };
+	}).filter(function (g) { return g.key !== ''; });
+	var sections = Array.prototype.slice.call(root.querySelectorAll('[data-mw-group]'));
+	if (!names.length || !sections.length) { return; }
+	var storeKey = 'malwatch.group.' + root.getAttribute('data-mw-groups');
+	var bar = document.createElement('div');
+	bar.className = 'mw-gtabs';
+	bar.setAttribute('role', 'tablist');
+	var tabs = names.map(function (g) {
+		var b = document.createElement('button');
+		b.type = 'button';
+		b.setAttribute('role', 'tab');
+		b.setAttribute('data-mw-gkey', g.key);
+		b.appendChild(document.createTextNode(g.label));
+		var n = document.createElement('span');
+		n.className = 'mw-gcount';
+		n.textContent = String(sections.filter(function (s) { return s.getAttribute('data-mw-group') === g.key; }).length);
+		b.appendChild(n);
+		bar.appendChild(b);
+		return b;
+	});
+	sections[0].parentNode.insertBefore(bar, sections[0]);
+	// ISPConfig draws its own tab bar over a form; with one tab it only made a
+	// second row of tabs above these.
+	var formTabs = document.querySelector('#pageContent .nav-tabs');
+	// Bootstrap's .nav sets display and outranks the hidden attribute.
+	if (formTabs && formTabs.querySelectorAll('li').length === 1 && !root.contains(formTabs)) { formTabs.style.display = 'none'; }
+
+	function show(key) {
+		root.classList.remove('mw-gall');
+		tabs.forEach(function (b) {
+			var on = b.getAttribute('data-mw-gkey') === key;
+			b.setAttribute('aria-selected', on ? 'true' : 'false');
+			b.tabIndex = on ? 0 : -1;
+		});
+		sections.forEach(function (s) { s.classList.toggle('mw-gout', s.getAttribute('data-mw-group') !== key); });
+		// A group never opens as a stack of closed bars: its first section opens
+		// when none of them is.
+		var mine = sections.filter(function (s) { return s.getAttribute('data-mw-group') === key; });
+		if (mine.length && !mine.some(function (s) { return s.open; })) { mine[0].open = true; }
+		try { window.sessionStorage.setItem(storeKey, key); } catch (e) { }
+	}
+	bar.addEventListener('click', function (e) {
+		var b = e.target.closest('button[data-mw-gkey]');
+		if (b) { show(b.getAttribute('data-mw-gkey')); }
+	});
+	bar.addEventListener('keydown', function (e) {
+		var i = tabs.indexOf(document.activeElement);
+		if (i < 0) { return; }
+		var next = e.key === 'ArrowRight' ? i + 1 : e.key === 'ArrowLeft' ? i - 1 : e.key === 'Home' ? 0 : e.key === 'End' ? tabs.length - 1 : null;
+		if (next === null) { return; }
+		e.preventDefault();
+		next = (next + tabs.length) % tabs.length;
+		tabs[next].focus();
+		show(tabs[next].getAttribute('data-mw-gkey'));
+	});
+
+	// A refused save: the group whose field the message names, else all.
+	var alert = document.querySelector('#pageContent .alert-danger, #pageContent #errorMsg');
+	if (alert && alert.textContent.trim() !== '') {
+		var text = alert.textContent.toLowerCase();
+		var hit = [];
+		sections.forEach(function (s) {
+			var key = s.getAttribute('data-mw-group');
+			Array.prototype.forEach.call(s.querySelectorAll('.control-label, .mw-cfg-label, label'), function (l) {
+				var t = l.textContent.trim().toLowerCase().replace(/[:*]+$/, '');
+				if (t.length > 3 && text.indexOf(t) !== -1 && hit.indexOf(key) === -1) { hit.push(key); }
+			});
+		});
+		tabs.forEach(function (b) {
+			if (hit.indexOf(b.getAttribute('data-mw-gkey')) !== -1) {
+				var d = document.createElement('span'); d.className = 'mw-gdot'; d.setAttribute('aria-hidden', 'true'); b.appendChild(d);
+			}
+		});
+		if (hit.length === 1) { show(hit[0]); return; }
+		show(names[0].key);
+		root.classList.add('mw-gall');
+		return;
+	}
+	var kept = null;
+	try { kept = window.sessionStorage.getItem(storeKey); } catch (e) { kept = null; }
+	show(names.some(function (g) { return g.key === kept; }) ? kept : names[0].key);
+})();
 </script>

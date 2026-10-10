@@ -67,6 +67,7 @@ function malwatch_config_defaults()
 		'keep_job_days' => 30,
 		'keep_fixed_days' => 90,
 		'vanished_check_rows' => 500,
+		'keep_dump_days' => 7,
 		'test_dirs' => 'test,tests,test-suite,testsuite,fixtures,__tests__',
 		'library_dirs' => 'vendor,vendors,node_modules,bower_components',
 		'test_rules' => 'php.exec.background,php.eval.variable,binary.elf',
@@ -175,7 +176,21 @@ function malwatch_housekeeping_settings()
 		'keep_job_days' => array(1, 3650, 30),
 		'keep_fixed_days' => array(1, 3650, 90),
 		'vanished_check_rows' => array(0, 10000, 500),
+		'keep_dump_days' => array(1, 90, 7),
 	);
+}
+
+/**
+ * A stored housekeeping number, or its default when it is missing or out of
+ * bounds; the same reading as malwatch_helper::housekeeping_value().
+ */
+function malwatch_housekeeping_value($config, $key)
+{
+	$settings = malwatch_housekeeping_settings();
+	list($min, $max, $default) = $settings[$key];
+	$raw = isset($config[$key]) ? trim((string) $config[$key]) : '';
+	$value = is_numeric($raw) && (string) (int) $raw === $raw ? (int) $raw : $default;
+	return ($value < $min || $value > $max) ? $default : $value;
 }
 
 /** The range of such a number as a tform RANGE validator takes it, e.g. '0:59'. */
@@ -217,6 +232,86 @@ function malwatch_site_state($web)
 		return 'gone';
 	}
 	return isset($web['active']) && $web['active'] === 'n' ? 'inactive' : '';
+}
+
+/**
+ * Hands a loop to the template, the way it is meant to arrive.
+ *
+ * ISPConfig's template engine counts an empty loop as one row: _arrayBuild()
+ * answers an empty array with true, and _tpl_count(true) is 1. Every list of
+ * the addon that could be empty showed one empty row, such as "()" in the
+ * action log of a website. A loop without rows is left unset, which counts as
+ * none, and an empty list inside a row becomes null for the same reason.
+ */
+function malwatch_set_loop($app, $name, $rows)
+{
+	if (!is_array($rows) || count($rows) === 0) {
+		return;
+	}
+	$app->tpl->setLoop($name, malwatch_loop_rows($rows));
+}
+
+/** The rows of a loop with every empty inner list turned into null. */
+function malwatch_loop_rows($rows)
+{
+	foreach ($rows as $i => $row) {
+		if (!is_array($row)) {
+			continue;
+		}
+		foreach ($row as $key => $value) {
+			if (is_array($value)) {
+				$rows[$i][$key] = count($value) === 0 ? null : malwatch_loop_rows($value);
+			}
+		}
+	}
+	return $rows;
+}
+
+/**
+ * Gives a list its default filter until the operator picks one.
+ *
+ * $search is $_SESSION['search'], where ISPConfig's listform keeps the filter
+ * of each list under the list's name. A field that is set, also to '' for
+ * "alle", is the operator's choice and stays.
+ */
+function malwatch_list_default_filter(&$search, $list, $field, $value)
+{
+	if (!is_array($search)) {
+		$search = array();
+	}
+	if (!isset($search[$list]) || !is_array($search[$list])) {
+		$search[$list] = array();
+	}
+	if (!array_key_exists($field, $search[$list])) {
+		$search[$list][$field] = $value;
+	}
+}
+
+/**
+ * The order of the finding list: what still needs attention leads. A column
+ * the operator sorts by goes in front of it (listform_actions::onLoad()).
+ */
+function malwatch_finding_list_order()
+{
+	return "ORDER BY FIELD(finding_state, 'open', 'ignored', 'fixed'), "
+		. "FIELD(severity, 'critical', 'high', 'medium', 'low'), last_seen DESC";
+}
+
+/**
+ * The finding counts of a scan as words, the worst level first and only the
+ * levels that occur: "3 kritisch · 8 hoch". The list showed four bare numbers
+ * separated by slashes, and the reader had to remember which was which.
+ */
+function malwatch_scan_counts($rec, $wb)
+{
+	$parts = array();
+	foreach (array('critical', 'high', 'medium', 'low') as $level) {
+		$count = isset($rec['count_' . $level]) ? (int) $rec['count_' . $level] : 0;
+		if ($count > 0) {
+			$parts[] = number_format($count, 0, ',', '.') . ' ' . $wb['sev_' . $level . '_txt'];
+		}
+	}
+	return count($parts) > 0 ? implode(' · ', $parts) : $wb['counts_none_txt'];
 }
 
 /**
@@ -1013,6 +1108,7 @@ function malwatch_upgrade_candidates($app, $domain_id, array $wb, $limit = 50)
 			'name' => $kind === 'core' ? 'WordPress' : (string) $row['slug'],
 			'installed' => (string) $row['installed_version'],
 			'vuln_count' => intval($row['vuln_count']),
+			'vuln_severity' => isset($row['vuln_severity']) ? (string) $row['vuln_severity'] : '',
 			'manual_only' => $manual_only,
 			'offers' => $offers,
 		);
@@ -1271,6 +1367,28 @@ function malwatch_queue_quarantine_action($app, array $ids, $action)
 }
 
 /**
+ * The banner of a failed quarantine job: which job, what it should have done,
+ * why it failed and the next step. The banner showed the job log alone, and an
+ * empty log left a headline that named neither job nor reason.
+ *
+ * @return array head, reason and next, plain text for htmlentities()
+ */
+function malwatch_job_error_text(array $job, array $wb)
+{
+	$options = json_decode(isset($job['options']) ? (string) $job['options'] : '', true);
+	$action = is_array($options) && isset($options['action']) ? (string) $options['action'] : '';
+	$label = isset($wb['job_action_' . $action . '_txt']) ? $wb['job_action_' . $action . '_txt'] : $wb['job_action_unknown_txt'];
+	$log = trim(isset($job['job_log']) ? (string) $job['job_log'] : '');
+	$exit = isset($job['exit_code']) && $job['exit_code'] !== null && $job['exit_code'] !== ''
+		? (string) (int) $job['exit_code'] : '–';
+	return array(
+		'head' => sprintf($wb['job_error_head_txt'], (int) $job['job_id'], malwatch_datetime($job['finished_at']), $label),
+		'reason' => $log !== '' ? $log : sprintf($wb['job_error_no_log_txt'], $exit),
+		'next' => $wb['job_error_next_txt'],
+	);
+}
+
+/**
  * Inserts one malwatch_job row of kind 'quarantine'.
  *
  * parent_domain_id and domain stay empty on purpose: nothing reads them for
@@ -1427,6 +1545,15 @@ function malwatch_severity_label($wb, $severity)
 {
 	$key = 'severity_' . (string) $severity . '_txt';
 	return isset($wb[$key]) ? $wb[$key] : (string) $severity;
+}
+
+/**
+ * A label with the word of its level after it: "3 Lücken · mittel". A chip
+ * coloured by level says the level in words as well.
+ */
+function malwatch_with_severity($text, $wb, $severity)
+{
+	return (string) $severity === '' ? (string) $text : $text . ' · ' . malwatch_severity_label($wb, $severity);
 }
 
 function malwatch_state_label($wb, $state)
@@ -2306,7 +2433,7 @@ function malwatch_set_file_state($app, $domain_id, $path, $state)
 		. "AND finding_state IN ('open','ignored')",
 		$state === 'ignored' ? 'ignored' : 'open', $domain_id, (string) $path);
 	return $state === 'ignored'
-		? 'Die Datei wurde freigegeben.'
+		? 'Die Datei gilt jetzt als harmlos.'
 		: 'Die Datei wird wieder gemeldet.';
 }
 

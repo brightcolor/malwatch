@@ -201,7 +201,7 @@ $app->tpl->setVar('domain_id', $domain_id);
 $app->tpl->setVar('domain', $app->functions->htmlentities($web['domain']));
 $app->tpl->setVar('back_label', sprintf($wb['back_txt'], $app->functions->htmlentities($web['domain'])));
 $app->tpl->setVar('has_elements', $element_count > 0 ? 1 : 0);
-$app->tpl->setLoop('blocks', $element_blocks);
+malwatch_set_loop($app, 'blocks', $element_blocks);
 
 // {n} stays in place for the live counters of malwatch_selection.htm; the
 // totals are fixed for as long as the page is open. Nothing starts ticked, so

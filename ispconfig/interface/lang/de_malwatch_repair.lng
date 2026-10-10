@@ -6,18 +6,18 @@ $wb['intro_txt'] = 'WordPress, Plugins und Themes werden versionsgenau durch die
 $wb['mode_head_txt'] = 'Wie soll ersetzt werden?';
 $wb['mode_replace_name_txt'] = 'Vollständig ersetzen';
 $wb['mode_replace_tag_txt'] = 'empfohlen';
-$wb['mode_replace_desc_txt'] = 'Der bisherige Inhalt wandert <b>vollständig in die Quarantäne</b>, dann wird das Original hineingelegt. Untergeschobene Dateien sind damit weg — auch die, die keine Prüfung gefunden hat.<br>Gelöscht wird nichts: was Sie vermissen, holen Sie aus der Quarantäne zurück oder laden es herunter.';
+$wb['mode_replace_desc_txt'] = 'Der bisherige Inhalt wandert <b>vollständig in die Quarantäne</b>, dann wird das Original hineingelegt. Untergeschobene Dateien sind damit weg — auch die, die keine Prüfung gefunden hat.<br>Gelöscht wird nichts: was du vermisst, holst du aus der Quarantäne zurück oder lädst es herunter.';
 $wb['mode_overlay_name_txt'] = 'Darüberschreiben, nichts verschieben';
 $wb['mode_overlay_tag_txt'] = 'schonend';
-$wb['mode_overlay_desc_txt'] = 'Die Originaldateien werden über die vorhandenen gelegt. Alles andere im Verzeichnis bleibt an Ort und Stelle — angepasste Vorlagen, hochgeladene Dateien, eigene Ergänzungen.<br><b>Preis:</b> eine untergeschobene Datei bleibt aktiv, bis die Prüfung danach sie meldet und Sie sie einzeln verschieben. Zwei Schritte statt einem — und dazwischen läuft sie weiter.';
+$wb['mode_overlay_desc_txt'] = 'Die Originaldateien werden über die vorhandenen gelegt. Alles andere im Verzeichnis bleibt an Ort und Stelle — angepasste Vorlagen, hochgeladene Dateien, eigene Ergänzungen.<br><b>Preis:</b> eine untergeschobene Datei bleibt aktiv, bis die Prüfung danach sie meldet und du sie einzeln verschiebst. Zwei Schritte statt einem — und dazwischen läuft sie weiter.';
 
 $wb['no_original_head_txt'] = 'Was, wenn es kein Original gibt?';
 $wb['no_original_intro_txt'] = 'Bezahlte Plugins und selbst gebaute Themes veröffentlicht niemand. Für sie kann nichts heruntergeladen werden.';
 $wb['no_original_keep_name_txt'] = 'Liegen lassen und melden';
-$wb['no_original_keep_desc_txt'] = 'Das Element wird nicht angefasst. Sie bekommen Name und Version genannt und entscheiden selbst — meist heißt das: beim Hersteller neu herunterladen.';
+$wb['no_original_keep_desc_txt'] = 'Das Element wird nicht angefasst. Du bekommst Name und Version genannt und entscheidest selbst — meist heißt das: beim Hersteller neu herunterladen.';
 $wb['no_original_quarantine_name_txt'] = 'In Quarantäne verschieben';
 $wb['no_original_quarantine_tag_txt'] = 'Vorsicht';
-$wb['no_original_quarantine_desc_txt'] = 'Das Element wandert in die Quarantäne. Die Website verliert diese Funktion, bis Sie das Plugin von Hand wieder einspielen — oder es aus der Quarantäne zurückholen.';
+$wb['no_original_quarantine_desc_txt'] = 'Das Element wandert in die Quarantäne. Die Website verliert diese Funktion, bis du das Plugin von Hand wieder einspielst — oder es aus der Quarantäne zurückholen.';
 
 $wb['elements_head_txt'] = 'Was wird angefasst?';
 $wb['col_element_txt'] = 'Element';
@@ -26,7 +26,7 @@ $wb['col_original_txt'] = 'Original';
 $wb['col_what_happens_txt'] = 'Was geschieht';
 $wb['original_available_txt'] = 'verfügbar';
 $wb['original_none_txt'] = 'keins';
-$wb['no_elements_txt'] = 'Der letzte Lauf hat keine Web-Software auf dieser Website erkannt. Reparieren lässt sich nur, was er kennt — prüfen Sie zuerst erneut.';
+$wb['no_elements_txt'] = 'Der letzte Lauf hat keine Web-Software auf dieser Website erkannt. Reparieren lässt sich nur, was er kennt — prüfe die Website zuerst noch einmal.';
 
 $wb['kind_core_txt'] = 'Kern';
 $wb['kind_plugin_txt'] = 'Plugin';
@@ -58,7 +58,7 @@ $wb['hint_select_folder_txt'] = 'Bitte zuerst Elemente in diesem Ordner anhaken.
 
 $wb['btn_dry_run_txt'] = 'Probelauf — nur zeigen, was geschähe';
 $wb['btn_start_txt'] = 'Reparatur starten';
-$wb['confirm_start_txt'] = 'Die angehakten Elemente durch die Originale ersetzen? Die Website ist während der Reparatur abgeschaltet, alles Ersetzte wird vorher gesichert, und Elemente ohne Original werden nach Ihrer Auswahl oben behandelt.';
+$wb['confirm_start_txt'] = 'Die angehakten Elemente durch die Originale ersetzen? Die Website ist während der Reparatur abgeschaltet, alles Ersetzte wird vorher gesichert, und Elemente ohne Original werden nach deiner Auswahl oben behandelt.';
 // Die Rückfrage setzt das Skript der Seite aus den angehakten Elementen im
 // Bereich des Knopfs zusammen. {list} ist die Aufzählung mit Anzahl, {n} die
 // Anzahl einer Art, {a}, {b} und {c} sind die Teile der Aufzählung.
@@ -74,7 +74,7 @@ $wb['confirm_theme_many_txt'] = '{n} Themes';
 $wb['confirm_list_two_txt'] = '{a} und {b}';
 $wb['confirm_list_three_txt'] = '{a}, {b} und {c}';
 $wb['confirm_safety_txt'] = 'Die Website ist während der Reparatur abgeschaltet, alles Ersetzte wird vorher gesichert.';
-$wb['confirm_no_original_txt'] = 'Elemente ohne Original werden nach Ihrer Auswahl oben behandelt.';
+$wb['confirm_no_original_txt'] = 'Elemente ohne Original werden nach deiner Auswahl oben behandelt.';
 
 $wb['msg_repair_txt'] = 'Die Wiederherstellung wurde eingeplant. Die Website ist währenddessen abgeschaltet.';
 $wb['msg_repair_dry_txt'] = 'Der Probelauf wurde eingeplant. Es wird nichts geändert.';

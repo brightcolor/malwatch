@@ -4,7 +4,9 @@
  * Form definition for the global malwatch settings. Exactly one record.
  */
 
-$form['title'] = 'malwatch';
+// No title of its own: the template carries the page title (config_head_txt),
+// and tabbed_form.tpl.htm skips its page-header when form_hint is empty.
+$form['title'] = '';
 $form['description'] = '';
 $form['name'] = 'malwatch_config';
 $form['action'] = 'malwatch_config_edit.php';
@@ -558,6 +560,21 @@ $form['tabs']['settings'] = array(
 					'type' => 'RANGE',
 					'range' => malwatch_housekeeping_range('housekeeping_minute'),
 					'errmsg' => 'housekeeping_minute_error_range'
+				)
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '2'
+		),
+		'keep_dump_days' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => (string) malwatch_config_defaults()['keep_dump_days'],
+			'validators' => array(
+				array(
+					'type' => 'RANGE',
+					'range' => malwatch_housekeeping_range('keep_dump_days'),
+					'errmsg' => 'keep_dump_days_error_range'
 				)
 			),
 			'value' => '',

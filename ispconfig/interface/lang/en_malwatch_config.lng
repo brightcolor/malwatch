@@ -1,5 +1,5 @@
 <?php
-$wb['config_head_txt'] = 'malwatch settings';
+$wb['config_head_txt'] = 'Scanner settings';
 $wb['config_desc_txt'] = 'These apply to every website on this server.';
 $wb['binary_missing_txt'] = 'The scanner was not found at the given path. Without it no scan can run.';
 
@@ -101,7 +101,7 @@ $wb['btn_apply_existing_txt'] = 'Apply to the existing findings';
 $wb['apply_existing_intro_txt'] = '%s open findings match the rule that currently applies.';
 $wb['confirm_apply_existing_txt'] = 'Move %s open findings to quarantine? Each one can be restored from there.';
 $wb['err_apply_existing_none_txt'] = 'There are currently no open findings the active rule would apply to.';
-$wb['msg_apply_existing_txt'] = '%s file(s) across %s website(s) were queued for quarantine.';
+$wb['msg_apply_existing_txt'] = 'Queued for quarantine. Files: %s, websites: %s.';
 $wb['msg_apply_existing_skipped_txt'] = '%s website(s) already had a job running; nothing was queued there.';
 
 $wb['binary_path_error_empty'] = 'The path to the scanner may not be empty.';
@@ -248,3 +248,13 @@ $wb['test_rules_txt'] = 'Rules that do not count in test folders';
 $wb['test_rules_hint_txt'] = 'Rule IDs separated by commas. Rules up to the level “medium” that move no file on their own can be listed. Empty lets every rule count in test folders too. Allowed: up to 16 rules of at most 64 characters each.';
 $wb['test_rules_error_regex'] = 'Rules that do not count in test folders: up to 16 IDs like php.exec.background of at most 64 characters each are allowed, separated by commas. Please adjust the list and save again.';
 $wb['test_rules_error_rule'] = 'Rules that do not count in test folders: %s cannot be listed. Rules of the scanner up to the level “medium” that move no file on their own are allowed. Please adjust the list and save again.';
+$wb['keep_dump_days_txt'] = 'Keep dumps (days)';
+$wb['keep_dump_days_hint_txt'] = 'A dump stays ready for download this long, then the hourly run removes it. Applies to dumps finished from now on. Allowed: 1 to 90.';
+$wb['keep_dump_days_error_range'] = 'Keep dumps: whole numbers from 1 to 90 days are allowed. Please adjust the value and save again.';
+$wb['sections_open_txt'] = 'Open all sections';
+$wb['sections_close_txt'] = 'Close all sections';
+$wb['group_check_txt'] = 'Checks';
+$wb['group_finding_txt'] = 'On a finding';
+$wb['group_notify_txt'] = 'Notifications';
+$wb['group_system_txt'] = 'System';
+$wb['save_all_groups_txt'] = 'Saving stores every group, the hidden ones too.';

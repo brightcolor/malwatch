@@ -1,6 +1,6 @@
 <?php
-$wb['list_head_txt'] = 'malwatch – Funde';
-$wb['list_desc_txt'] = 'Alle Funde über sämtliche Websites. Offene Funde stehen oben, freigegebene und behobene lassen sich über den Filter holen.';
+$wb['list_head_txt'] = 'Funde';
+$wb['list_desc_txt'] = 'Alle Funde über sämtliche Websites. Die Liste zeigt zuerst die offenen, die schwersten und neuesten oben. Harmlose und behobene holst du über den Filter „Zustand“.';
 $wb['no_records_txt'] = 'Keine Funde.';
 
 $wb['finding_state_txt'] = 'Zustand';

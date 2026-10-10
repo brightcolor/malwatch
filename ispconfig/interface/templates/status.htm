@@ -9,7 +9,8 @@
    Untergruenden. --cic-warn ist bewusst nicht dabei: es ist fast identisch
    mit --cic-accent, und dann waere Zustand von Bedienbarkeit nicht zu
    unterscheiden. Fuer Warnungen steht --cic-warn-lift. */
-#mw-status .mw-lede{font-size:21px;line-height:1.3;font-weight:600}
+/* The sentence is the page title and takes the panel's title type; a theme
+   without one keeps the page-header of its own. */
 #mw-status .mw-sub{margin:6px 0 0;opacity:.72;font-size:13px}
 #mw-status .mw-sites{display:flex;flex-direction:column;gap:9px;margin-top:16px}
 #mw-status .mw-site{display:grid;grid-template-columns:1fr auto;gap:14px;align-items:start;
@@ -18,10 +19,10 @@
 #mw-status .mw-site.bad{border-left:3px solid var(--cic-bad,#d13f22)}
 #mw-status .mw-site.warn{border-left:3px solid var(--cic-warn-lift,#ef8a2b)}
 #mw-status .mw-site.busy{border-left:3px solid var(--cic-accent,#dd630d)}
-#mw-status .mw-site h3{margin:0;font-size:15px;font-weight:600;display:flex;align-items:center;
+#mw-status .mw-site h2{margin:0;font-size:15px;font-weight:600;display:flex;align-items:center;
   gap:8px;flex-wrap:wrap}
 #mw-status .mw-site p{margin:5px 0 0;font-size:13.5px;max-width:62ch}
-#mw-status .mw-chip{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+#mw-status .mw-chip{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
   padding:2px 7px;border-radius:3px;white-space:nowrap}
 /* Zwei gefuellte Etiketten: die Schrift steht auf der Chip-Farbe, nicht auf
    dem Untergrund der Seite, deshalb ist sie hier fest und auf beiden Themes
@@ -29,7 +30,7 @@
    dunkle Flaechen und stuende auf dem dunkelroten Chip fast unlesbar. */
 #mw-status .mw-chip.bad{background:var(--cic-bad-deep,#b13116);color:#fff}
 #mw-status .mw-chip.warn{background:var(--cic-warn-lift,#ef8a2b);color:var(--cic-on-accent,#1c1c1c)}
-#mw-status .mw-chip.busy{background:var(--cic-sunken,rgba(128,128,128,.10));color:var(--cic-accent-text,#dd630d);
+#mw-status .mw-chip.busy{background:var(--cic-sunken,rgba(128,128,128,.10));color:var(--cic-accent-text,#a84c0b);
   border:1px solid var(--cic-accent-deep,#a84c0b)}
 /* Die Schaltflaeche behaelt die Farbe des Themes - eine eigene Angabe waere
    auf dem jeweils anderen Theme falsch. Nur nicht umbrechen soll sie. */
@@ -48,33 +49,29 @@
 
 <div id="mw-status" data-mw-poll="{tmpl_var name='poll_ms'}">
 
-  <tmpl_if name="attention_count" op="==" value="0">
-    <h1 class="mw-lede">{tmpl_var name='all_clear_txt'}</h1>
-  </tmpl_if>
-  <tmpl_if name="attention_count" op="==" value="1">
-    <h1 class="mw-lede">{tmpl_var name='attention_one_txt'}</h1>
-  </tmpl_if>
-  <tmpl_if name="attention_count" op=">" value="1">
-    <h1 class="mw-lede">{tmpl_var name='attention_many_txt'}</h1>
-  </tmpl_if>
+    <div class="page-header"><h1>
+  <tmpl_if name="attention_count" op="==" value="0">{tmpl_var name='all_clear_txt'}</tmpl_if>
+  <tmpl_if name="attention_count" op="==" value="1">{tmpl_var name='attention_one_txt'}</tmpl_if>
+  <tmpl_if name="attention_count" op=">" value="1">{tmpl_var name='attention_many_txt'}</tmpl_if>
+  </h1></div>
   <p class="mw-sub">{tmpl_var name='as_of_txt'}</p>
 
   <div class="mw-sites">
     <tmpl_loop name="sites">
       <article class="mw-site {tmpl_var name='state_class'}" data-domain="{tmpl_var name='domain_id'}">
         <div>
-          <h3>
+          <h2>
             {tmpl_var name='domain'}
             <tmpl_if name="is_running" op="==" value="y">
               <span class="mw-chip busy">{tmpl_var name='state_running_txt'}</span>
             <tmpl_else>
               <tmpl_if name="urgent" op=">" value="0">
-                <span class="mw-chip bad">{tmpl_var name='state_infected_txt'}</span>
+                <span class="mw-chip bad" title="{tmpl_var name='state_infected_hint_txt'}">{tmpl_var name='state_infected_txt'}</span>
               <tmpl_else>
-                <span class="mw-chip warn">{tmpl_var name='state_attention_txt'}</span>
+                <span class="mw-chip warn" title="{tmpl_var name='state_attention_hint_txt'}">{tmpl_var name='state_attention_txt'}</span>
               </tmpl_if>
             </tmpl_if>
-          </h3>
+          </h2>
           <p class="mw-line">{tmpl_var name='findings_line'}</p>
           <tmpl_if name="is_running" op="==" value="y">
             <div class="mw-prog">
@@ -88,7 +85,7 @@
         </div>
         <div class="mw-acts">
           <a class="btn btn-default formbutton-default"
-             href="javascript:ISPConfig.loadContent('security/malwatch_site_show.php?id={tmpl_var name='domain_id'}');">{tmpl_var name='view_txt'}</a>
+             href="javascript:ISPConfig.loadContent('security/malwatch_site_show.php?id={tmpl_var name='domain_id'}');">{tmpl_var name='view_txt'}<span class="sr-only"> {tmpl_var name='domain'}</span></a>
         </div>
       </article>
     </tmpl_loop>

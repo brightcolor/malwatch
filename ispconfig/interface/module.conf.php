@@ -74,7 +74,7 @@ $items[] = array(
 );
 
 $items[] = array(
-	'title'   => 'Einstellungen',
+	'title'   => 'Scanner-Einstellungen',
 	'target'  => 'content',
 	'link'    => 'security/malwatch_config_edit.php',
 	'html_id' => 'security_settings'
@@ -113,7 +113,7 @@ $items[] = array(
 );
 
 $items[] = array(
-	'title'   => 'Einstellungen',
+	'title'   => 'Abwehr-Einstellungen',
 	'target'  => 'content',
 	'link'    => 'security/malwatch_waf_config_edit.php',
 	'html_id' => 'security_waf_settings'

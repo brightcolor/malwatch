@@ -1,5 +1,5 @@
 <?php
-$wb['waf_config_head_txt'] = 'Abwehr – Einstellungen';
+$wb['waf_config_head_txt'] = 'Abwehr-Einstellungen';
 $wb['waf_tab_txt'] = 'Einstellungen';
 $wb['waf_config_desc_txt'] = 'Gilt für alle Websites auf diesem Server. Jeder Abschnitt zeigt im Titel, wie er gespeichert ist; ein Klick öffnet ihn. Der Cron liest die Werte bei jedem Durchgang.';
 
@@ -133,7 +133,7 @@ $wb['waf_hc_watch_name_txt'] = 'Check der Wache über den Scanner';
 $wb['waf_bin_dirs_txt'] = 'Programmverzeichnisse';
 
 $wb['btn_save_txt'] = 'Einstellungen speichern';
-$wb['btn_back_txt'] = 'Zur Übersicht';
+$wb['btn_back_txt'] = 'Zur Abwehr-Übersicht';
 $wb['msg_saved_txt'] = 'Gespeichert. Der Cron übernimmt die Werte beim nächsten Durchgang.';
 $wb['msg_saved_no_server_txt'] = 'Gespeichert. Es ist kein aktiver Webserver eingetragen, deshalb wartet kein Auftrag.';
 
@@ -520,3 +520,7 @@ $wb['waf_watch_overdue_hours_error_range'] = 'Spielraum für Scans: Erlaubt sind
 $wb['waf_watch_remind_hours_txt'] = 'Erinnerung nach';
 $wb['waf_watch_remind_hours_hint_txt'] = 'Solange ein Problem besteht, schreibt die Wache nach dieser Zeit erneut. Ein neues Problem und die Entwarnung meldet sie sofort.';
 $wb['waf_watch_remind_hours_error_range'] = 'Erinnerung nach: Erlaubt sind ganze Zahlen von 1 bis 720. Bitte den Wert anpassen und erneut speichern.';
+$wb['group_protect_txt'] = 'Schutz';
+$wb['group_block_txt'] = 'Sperren';
+$wb['group_display_txt'] = 'Anzeige und Aufbewahrung';
+$wb['group_system_txt'] = 'System';

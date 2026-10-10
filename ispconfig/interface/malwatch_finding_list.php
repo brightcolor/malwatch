@@ -32,6 +32,12 @@ class list_action extends listform_actions
 	{
 		global $app;
 
+		// The class comes from the stored value. parent::prepareDataRow()
+		// turns "critical" into the word of the list definition ("kritisch"),
+		// which malwatch_severity_class() does not know, and every row came
+		// out grey.
+		$severity_class = malwatch_severity_class(isset($rec['severity']) ? (string) $rec['severity'] : '');
+
 		$rec = parent::prepareDataRow($rec);
 
 		$domain_id = $app->functions->intval($rec['parent_domain_id']);
@@ -42,7 +48,7 @@ class list_action extends listform_actions
 		$rec['file'] = $app->functions->htmlentities($parts['file']);
 		$rec['full_path'] = $app->functions->htmlentities($parts['full']);
 		$rec['has_dir'] = $parts['dir'] !== '' ? 1 : 0;
-		$rec['severity_class'] = malwatch_severity_class($rec['severity']);
+		$rec['severity_class'] = $severity_class;
 		$rec['has_line'] = $app->functions->intval($rec['line_number']) > 0 ? 1 : 0;
 		// A website nobody scans any more keeps its findings as they were.
 		$rec['site_inactive'] = $this->states[$domain_id] === 'inactive' ? 1 : 0;
@@ -69,4 +75,12 @@ class list_action extends listform_actions
 }
 
 $app->listform_actions = new list_action();
+
+// What still needs attention leads: open findings by default, and within any
+// filter the open ones first, the worst first, the newest first. A column the
+// operator clicks sorts ahead of this order; "alle" in the state filter is a
+// choice the session keeps.
+malwatch_list_default_filter($_SESSION['search'], 'malwatch_finding', 'search_finding_state', 'open');
+$app->listform_actions->SQLOrderBy = malwatch_finding_list_order();
+
 $app->listform_actions->onLoad();

@@ -800,17 +800,17 @@ expect_same('a step above the limit shrinks to it', waf_panel_ban_rows_wanted(ar
 
 expect_same('when everything is shown there is no button', waf_panel_ban_more($wb, 7, 7, 25, 1000), null);
 expect_same('the button loads one step and names the rest', waf_panel_ban_more($wb, 25, 156, 25, 1000),
-	array('next' => 50, 'label' => 'Weitere 25 laden (131 übrig)', 'note' => ''));
+	array('next' => 50, 'label' => '25 weitere zeigen (noch 131 nicht geladen)', 'note' => ''));
 expect_same('the last rows are loaded by name', waf_panel_ban_more($wb, 150, 156, 25, 1000),
 	array('next' => 156, 'label' => 'Die übrigen 6 laden', 'note' => ''));
 expect_same('the limit shortens the last step', waf_panel_ban_more($wb, 190, 1530, 25, 200),
-	array('next' => 200, 'label' => 'Weitere 10 laden (1.340 übrig)', 'note' => ''));
+	array('next' => 200, 'label' => '10 weitere zeigen (noch 1.340 nicht geladen)', 'note' => ''));
 $more = waf_panel_ban_more($wb, 200, 1530, 25, 200);
 expect_same('at the limit a note names both numbers and the setting', array($more['next'], $more['label'],
 	strpos($more['note'], '200 von 1.530') !== false, strpos($more['note'], 'Abwehr > Einstellungen') !== false),
 	array(0, '', true, true));
 expect_same('the English button reads the same way', waf_panel_ban_more($en_words, 25, 156, 25, 1000)['label'],
-	'Load 25 more (131 left)');
+	'Show 25 more (131 not loaded yet)');
 
 expect_same('the origin count names what is chosen', array(
 	waf_panel_ban_origin_count($wb, true, 3),

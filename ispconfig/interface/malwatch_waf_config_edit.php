@@ -158,7 +158,7 @@ class page_action extends tform_actions
 			}
 			$places[] = array('place_head' => $app->functions->htmlentities($group['place_head']), 'place_rows' => $rows);
 		}
-		$app->tpl->setLoop('places', $places);
+		malwatch_set_loop($app, 'places', $places);
 		$app->tpl->setVar('response_body_line', $app->functions->htmlentities(
 			$settings['waf_response_body'] === 'lean' ? $wb['response_lean_txt'] : $wb['response_full_txt']));
 		$app->tpl->setVar('emergency_line', $app->functions->htmlentities($settings['waf_emergency'] === 'y'
@@ -218,7 +218,7 @@ class page_action extends tform_actions
 				'origin_failed' => $row['failed'],
 			);
 		}
-		$app->tpl->setLoop('origin_states', $origin_rows);
+		malwatch_set_loop($app, 'origin_states', $origin_rows);
 		$app->tpl->setVar('has_origin_states', count($origin_rows) > 0 ? 1 : 0);
 
 		// The title of each section says how it is stored.
@@ -237,7 +237,7 @@ class page_action extends tform_actions
 					'choice_id' => $app->functions->htmlentities($row['choice_id']),
 				);
 			}
-			$app->tpl->setLoop('choice_' . $key, $loop);
+			malwatch_set_loop($app, 'choice_' . $key, $loop);
 		}
 		// The limits of every number, as the form checks them.
 		foreach (waf_settings_limits() as $key => $limit) {
@@ -254,7 +254,8 @@ class page_action extends tform_actions
 		}
 		// The words the script of the page writes into attributes.
 		$app->tpl->setVar(malwatch_attr_texts($wb, array('cfg_default_txt', 'cfg_reset_txt', 'cfg_adjusted_txt',
-			'cfg_dirty_one_txt', 'cfg_dirty_many_txt', 'cfg_clean_txt', 'cfg_find_txt')));
+			'cfg_dirty_one_txt', 'cfg_dirty_many_txt', 'cfg_clean_txt', 'cfg_find_txt',
+			'group_protect_txt', 'group_block_txt', 'group_display_txt', 'group_system_txt')));
 
 		parent::onShowEnd();
 	}

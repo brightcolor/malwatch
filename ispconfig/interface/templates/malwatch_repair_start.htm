@@ -26,7 +26,7 @@
    mit Preis und Beschreibung kein Standardelement des Panels ist. */
 #mw-repair .mw-back{margin:0 0 10px}
 #mw-repair .mw-sub{margin:6px 0 16px;opacity:.72;font-size:13px;max-width:76ch}
-#mw-repair .mw-sec{font-size:15px;font-weight:600;margin:20px 0 4px}
+#mw-repair h2.mw-sec{font-size:15px;font-weight:600;margin:20px 0 4px}
 #mw-repair .mw-choices{display:flex;flex-direction:column;gap:9px;margin-top:10px;max-width:82ch}
 #mw-repair .mw-choice{
 	display:grid;grid-template-columns:auto 1fr;gap:11px;padding:12px 14px;
@@ -42,15 +42,15 @@
    zuruecknehmen. Deshalb sitzt sie nur auf dem Beschreibungsabsatz. */
 #mw-repair .mw-choice .mw-desc{margin:4px 0 0;font-size:13px;opacity:.82}
 #mw-repair .mw-tag{
-	font-size:10.5px;font-weight:600;padding:1px 6px;border-radius:3px;
-	background:var(--cic-sunken,rgba(128,128,128,.10));color:var(--cic-accent-text,#dd630d);
+	font-size:11px;font-weight:600;padding:1px 6px;border-radius:3px;
+	background:var(--cic-sunken,rgba(128,128,128,.10));color:var(--cic-accent-text,#a84c0b);
 	border:1px solid var(--cic-accent-deep,#a84c0b);
 }
 /* Anderer Rueckfall als beim gefuellten Etikett auf der Statusseite: der
    Rueckfall greift nur dort, wo es die Variablen nicht gibt - auf default und
    ispc-clean -, und dort steht dieses Etikett auf Weiss. #ef8a2b kommt da auf
    2,5:1, bei 10,5 px Versalien deutlich zu wenig. */
-#mw-repair .mw-tag.mw-caution{color:var(--cic-warn-lift,#b25f00);border-color:var(--cic-warn-lift,#b25f00)}
+#mw-repair .mw-tag.mw-caution{color:var(--cic-warn-lift,#8a4a00);border-color:var(--cic-warn-lift,#8a4a00)}
 
 /* Dichter als die Vorlage des Themes: die Elementtabelle einer WordPress-
    Installation hat leicht dreissig Zeilen, und bei der Polsterung des Themes
@@ -65,7 +65,7 @@
    Zeile darueber - sonst ist jede Zeile eine Zeile hoeher als noetig. */
 #mw-repair .mw-el{display:flex;align-items:baseline;gap:8px;min-width:0}
 #mw-repair .mw-kind{
-	flex:0 0 auto;font-size:9.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+	flex:0 0 auto;font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
 	padding:1px 5px;border-radius:3px;border:1px solid var(--cic-line-soft,rgba(128,128,128,.4));
 	opacity:.75;line-height:1.6;
 }
@@ -133,7 +133,7 @@
 <input type="hidden" name="malwatch_action" id="mw-action" value="" />
 <input type="hidden" name="folder" id="mw-folder" value="" />
 
-<p class="mw-sec">{tmpl_var name='mode_head_txt'}</p>
+<h2 class="mw-sec">{tmpl_var name='mode_head_txt'}</h2>
 <div class="mw-choices">
 	<label class="mw-choice">
 		<input type="radio" name="mode" value="replace" checked>
@@ -151,7 +151,7 @@
 	</label>
 </div>
 
-<p class="mw-sec">{tmpl_var name='no_original_head_txt'}</p>
+<h2 class="mw-sec">{tmpl_var name='no_original_head_txt'}</h2>
 <p class="mw-sub" style="margin-top:0">{tmpl_var name='no_original_intro_txt'}</p>
 <div class="mw-choices">
 	<label class="mw-choice">
@@ -170,7 +170,7 @@
 	</label>
 </div>
 
-<p class="mw-sec">{tmpl_var name='elements_head_txt'}</p>
+<h2 class="mw-sec">{tmpl_var name='elements_head_txt'}</h2>
 <tmpl_if name="has_elements">
 <div class="mw-selectbar mw-pagebar">
 	<label><input type="checkbox" data-mw-toggle /> {tmpl_var name='select_all_txt'}</label>
@@ -190,7 +190,7 @@
 			data-mw-hint="{tmpl_var name='hint_select_folder_txt'}" data-mw-detail="{tmpl_var name='install_label'}"
 			data-mw-set-mw-action="repair_dry" data-mw-set-mw-folder="{tmpl_var name='folder'}"
 			data-submit-form="pageForm" data-form-action="security/malwatch_repair_start.php?id={tmpl_var name='domain_id'}">{tmpl_var name='btn_dry_run_short_txt'}</button>
-		<button class="btn btn-danger mw-needs-selection" type="button" data-mw-empty="1"
+		<button class="btn btn-default formbutton-success mw-needs-selection" type="button" data-mw-empty="1"
 			data-mw-hint="{tmpl_var name='hint_select_folder_txt'}"
 			data-mw-confirm="{tmpl_var name='confirm_start_txt'}" data-mw-title="{tmpl_var name='btn_start_txt'}"
 			data-mw-detail="{tmpl_var name='install_label'}" data-mw-ok="{tmpl_var name='btn_start_txt'}" data-mw-danger="1"
@@ -251,7 +251,7 @@
 		data-mw-hint="{tmpl_var name='hint_select_txt'}"
 		data-mw-set-mw-action="repair_dry" data-mw-set-mw-folder=""
 		data-submit-form="pageForm" data-form-action="security/malwatch_repair_start.php?id={tmpl_var name='domain_id'}">{tmpl_var name='btn_dry_run_txt'}</button>
-	<button class="btn btn-danger mw-needs-selection" type="button" data-mw-empty="1"
+	<button class="btn btn-default formbutton-success mw-needs-selection" type="button" data-mw-empty="1"
 		data-mw-hint="{tmpl_var name='hint_select_txt'}"
 		data-mw-confirm="{tmpl_var name='confirm_start_txt'}" data-mw-title="{tmpl_var name='btn_start_txt'}"
 		data-mw-ok="{tmpl_var name='btn_start_txt'}" data-mw-danger="1"

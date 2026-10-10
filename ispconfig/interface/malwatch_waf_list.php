@@ -79,7 +79,7 @@ foreach (waf_panel_rows($app->db->queryAllRecords(
 	}
 	$job_rows[] = array('job_line' => $app->functions->htmlentities($job['label'] . ': ' . $job['status_label']));
 }
-$app->tpl->setLoop('jobs', $job_rows);
+malwatch_set_loop($app, 'jobs', $job_rows);
 $app->tpl->setVar('has_jobs', count($job_rows) > 0 ? 1 : 0);
 $app->tpl->setVar('first_job', $first_job);
 $app->tpl->setVar('poll_ms', waf_panel_poll_ms(waf_panel_settings($app)));
@@ -95,7 +95,7 @@ foreach (waf_panel_rows($app->db->queryAllRecords(
 		'job_failed' => $job['status'] === 'error' ? 1 : 0,
 	);
 }
-$app->tpl->setLoop('recent', $recent_rows);
+malwatch_set_loop($app, 'recent', $recent_rows);
 $app->tpl->setVar('has_recent', count($recent_rows) > 0 ? 1 : 0);
 
 $overview = waf_panel_overview($sites, $pending, $day_rows, $rule_rows, $wordpress, $clock['today'], $filters['days'], $filters);
@@ -121,7 +121,7 @@ foreach ($overview['rows'] as $row) {
 		'is_wordpress' => $row['wordpress'] ? 1 : 0,
 	);
 }
-$app->tpl->setLoop('rows', $rows);
+malwatch_set_loop($app, 'rows', $rows);
 $app->tpl->setVar('has_rows', count($rows) > 0 ? 1 : 0);
 $app->tpl->setVar('selected_template', $app->functions->htmlentities(
 	sprintf($wb['selected_template_txt'], number_format(count($rows), 0, ',', '.'))));
@@ -141,7 +141,7 @@ foreach (waf_periods($settings) as $days) {
 		'current' => $days === $filters['days'] ? 1 : 0,
 	);
 }
-$app->tpl->setLoop('periods', $periods);
+malwatch_set_loop($app, 'periods', $periods);
 $state_links = array();
 foreach (array('', 'off', 'detect', 'enforce') as $state) {
 	$state_links[] = array(
@@ -150,7 +150,7 @@ foreach (array('', 'off', 'detect', 'enforce') as $state) {
 		'current' => $state === $filters['state'] ? 1 : 0,
 	);
 }
-$app->tpl->setLoop('state_links', $state_links);
+malwatch_set_loop($app, 'state_links', $state_links);
 $app->tpl->setVar('wp_href', $app->functions->htmlentities($link . waf_panel_query($filters, array('wordpress' => !$filters['wordpress']))));
 $app->tpl->setVar('hits_href', $app->functions->htmlentities($link . waf_panel_query($filters, array('hits' => !$filters['hits']))));
 $app->tpl->setVar('self_href', $app->functions->htmlentities($link . waf_panel_query($filters, array())));

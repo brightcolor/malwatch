@@ -57,7 +57,7 @@ foreach (waf_panel_rows($app->db->queryAllRecords(
 	$first_job = $first_job === 0 ? $job['job_id'] : $first_job;
 	$job_rows[] = array('job_line' => $app->functions->htmlentities($job['label'] . ': ' . $job['status_label']));
 }
-$app->tpl->setLoop('jobs', $job_rows);
+malwatch_set_loop($app, 'jobs', $job_rows);
 $app->tpl->setVar('has_jobs', count($job_rows) > 0 ? 1 : 0);
 $app->tpl->setVar('first_job', $first_job);
 $app->tpl->setVar('poll_ms', waf_panel_poll_ms(waf_panel_settings($app)));
@@ -122,9 +122,9 @@ foreach ($view as $row) {
 		$past[] = $line;
 	}
 }
-$app->tpl->setLoop('ban_active', $active);
-$app->tpl->setLoop('ban_proposed', $proposed);
-$app->tpl->setLoop('ban_past', $past);
+malwatch_set_loop($app, 'ban_active', $active);
+malwatch_set_loop($app, 'ban_proposed', $proposed);
+malwatch_set_loop($app, 'ban_past', $past);
 $app->tpl->setVar('has_active', count($active) > 0 ? 1 : 0);
 $app->tpl->setVar('has_proposed', count($proposed) > 0 ? 1 : 0);
 $app->tpl->setVar('has_past', count($past) > 0 ? 1 : 0);
@@ -156,7 +156,7 @@ foreach ($f2b_view as $one) {
 		'f2b_until' => $app->functions->htmlentities($one['until_label']),
 	);
 }
-$app->tpl->setLoop('f2b_rows', $f2b_loop);
+malwatch_set_loop($app, 'f2b_rows', $f2b_loop);
 $app->tpl->setVar('has_f2b', count($f2b_loop) > 0 ? 1 : 0);
 $more['f2b'] = waf_panel_ban_more($wb, count($f2b_loop), $f2b_total, $step, $limit);
 $app->tpl->setVar('count_f2b', number_format($f2b_total, 0, ',', '.'));
@@ -189,7 +189,7 @@ foreach (waf_panel_f2b_jails($wb, $f2b_states, $f2b_modes) as $one) {
 		'jail_options' => $options,
 	);
 }
-$app->tpl->setLoop('f2b_jails', $jail_loop);
+malwatch_set_loop($app, 'f2b_jails', $jail_loop);
 $app->tpl->setVar('has_f2b_jails', count($jail_loop) > 0 ? 1 : 0);
 $app->tpl->setVar('f2b_mode_now', $app->functions->htmlentities(sprintf(waf_panel_text($wb, 'f2b_mode_now_txt', '%s'),
 	waf_panel_text($wb, 'everywhere_' . $settings['waf_everywhere_mode'] . '_txt', $settings['waf_everywhere_mode']),
@@ -205,7 +205,7 @@ foreach (waf_panel_rows($app->db->queryAllRecords('SELECT * FROM malwatch_waf_al
 			. malwatch_datetime($row['created_at'])),
 	);
 }
-$app->tpl->setLoop('ban_allow', $allow_rows);
+malwatch_set_loop($app, 'ban_allow', $allow_rows);
 $app->tpl->setVar('has_allow', count($allow_rows) > 0 ? 1 : 0);
 $app->tpl->setVar('count_allow', number_format(count($allow_rows), 0, ',', '.'));
 
@@ -218,7 +218,7 @@ foreach (waf_ban_modes() as $one) {
 		'mode_current' => $one === $mode ? 1 : 0,
 	);
 }
-$app->tpl->setLoop('ban_modes', $modes);
+malwatch_set_loop($app, 'ban_modes', $modes);
 $app->tpl->setVar('ban_mode_now', $app->functions->htmlentities(waf_panel_text($wb, 'ban_mode_' . $mode . '_txt', $mode)));
 $app->tpl->setVar('ban_score_now', $app->functions->htmlentities(number_format((int) $settings['waf_ban_score'], 0, ',', '.')));
 $app->tpl->setVar('ban_window_now', $app->functions->htmlentities(number_format((int) $settings['waf_ban_window_minutes'], 0, ',', '.')));
@@ -254,7 +254,7 @@ foreach (array('country' => $countries, 'asn' => $providers) as $kind => $list) 
 			'origin_chosen' => $one['chosen'],
 		);
 	}
-	$app->tpl->setLoop('origin_' . $kind, $loop);
+	malwatch_set_loop($app, 'origin_' . $kind, $loop);
 	$app->tpl->setVar('has_origin_' . $kind, count($loop) > 0 ? 1 : 0);
 }
 $app->tpl->setVar('has_origin_any', count($countries) + count($providers) > 0 ? 1 : 0);

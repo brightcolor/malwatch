@@ -113,7 +113,7 @@ if (is_array($summary)) {
 		);
 	}
 }
-$app->tpl->setLoop('chips', $chips);
+malwatch_set_loop($app, 'chips', $chips);
 $app->tpl->setVar('has_chips', count($chips) > 0 ? 1 : 0);
 
 $seen = $app->db->queryOneRecord('SELECT MAX(last_seen) AS seen FROM malwatch_software');
@@ -234,7 +234,7 @@ foreach ((array) $site_rows as $site) {
 			sprintf($wb['more_installs_txt'], number_format(max(0, $installs_n - count($shown)), 0, ',', '.'))),
 	);
 }
-$app->tpl->setLoop('sites', $list);
+malwatch_set_loop($app, 'sites', $list);
 $app->tpl->setVar('has_sites', count($list) > 0 ? 1 : 0);
 
 $app->tpl->setVar('message', $app->functions->htmlentities($message));

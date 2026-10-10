@@ -220,8 +220,9 @@ seinem ersten Durchgang bereit.
 Im Archiv liegen `web/`, mit Häkchen `protokolle/`, je Datenbank
 `datenbanken/<name>.sql` und der Bericht `dump.json` mit Zahlen und Prüfsumme.
 
-Ein Dump liegt sieben Tage unter `/var/lib/malwatch/dumps`, lesbar für root und
-das Panel. Der Verweis zum Herunterladen gilt so lange und lässt sich mehrfach
+Ein Dump liegt unter `/var/lib/malwatch/dumps`, lesbar für root und das Panel,
+so lange, wie **Security > Scanner-Einstellungen > Dumps behalten** sagt
+(`keep_dump_days`, Vorgabe 7 Tage, erlaubt 1 bis 90). Der Verweis zum Herunterladen gilt so lange und lässt sich mehrfach
 benutzen; danach räumt der stündliche Lauf Archiv und Zeile weg. „Löschen“ in
 der Liste nimmt die Zeile sofort heraus, das Archiv holt derselbe Lauf.
 
@@ -229,15 +230,15 @@ Vor dem Packen vergleicht der Lauf die geschätzte Größe mit dem freien Platz
 und hält an, wenn es eng wird. Ein Dump trägt Kundendaten, in den Protokollen
 die Adressen der Besucher und bei einer befallenen Website den Schadcode.
 
-### Öffentlich freigeben
+### Öffentlich teilen
 
-„Öffentlich freigeben“ in der Zeile eines fertigen Dumps legt einen zweiten
+„Teilen“ in der Zeile eines fertigen Dumps legt einen zweiten
 Verweis mit 40 Zeichen Zufall an, der ohne Anmeldung funktioniert — gedacht für
 die Übergabe an den Kunden. Dabei wählst du, wie lange er gilt: solange der
 Dump liegt, 24 Stunden oder ein einziger Abruf. Ein Passwort ist möglich; das
 Panel schlägt eines vor, gespeichert wird nur sein Hash.
 
-Jeder Abruf steht mit Zeit und Adresse in der Zeile. „Freigabe aufheben“ macht
+Jeder Abruf steht mit Zeit und Adresse in der Zeile. „Teilen beenden“ macht
 den Verweis sofort ungültig und lässt Dump und Panel-Download unberührt.
 
 ## Abwehr

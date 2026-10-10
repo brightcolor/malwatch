@@ -1,5 +1,5 @@
 <?php
-$wb['list_head_txt'] = 'malwatch findings';
+$wb['list_head_txt'] = 'Findings';
 $wb['list_desc_txt'] = 'Every finding across all websites. Open ones come first; released and fixed ones are available through the filter.';
 $wb['no_records_txt'] = 'No findings.';
 

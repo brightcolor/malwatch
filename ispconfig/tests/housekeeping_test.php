@@ -102,6 +102,21 @@ expect_same('the same keys on both sides', array_keys(malwatch_housekeeping_sett
 	array_keys(malwatch_helper::HOUSEKEEPING_SETTINGS));
 expect_same('range', malwatch_housekeeping_range('housekeeping_minute'), '0:59');
 
+// How long a dump stays (0.43.0): it was seven days, fixed in the ingest.
+expect_same('dumps kept 7 days by default', $helper->housekeeping_value($defaults, 'keep_dump_days'), 7);
+expect_same('dumps kept 2 days', $helper->housekeeping_value(array('keep_dump_days' => '2'), 'keep_dump_days'), 2);
+expect_same('dumps kept 30 days', $helper->housekeeping_value(array('keep_dump_days' => '30'), 'keep_dump_days'), 30);
+expect_same('0 days of dumps gets the default', $helper->housekeeping_value(array('keep_dump_days' => '0'), 'keep_dump_days'), 7);
+expect_same('a dump range of 1 to 90 days', malwatch_housekeeping_range('keep_dump_days'), '1:90');
+foreach (array('2', '0', 'x', '91', '') as $raw) {
+	expect_same('panel reads keep_dump_days ' . var_export($raw, true) . ' like the server',
+		malwatch_housekeeping_value(array('keep_dump_days' => $raw), 'keep_dump_days'),
+		$helper->housekeeping_value(array('keep_dump_days' => $raw), 'keep_dump_days'));
+}
+expect_same('the ingest reads the setting',
+	strpos(file_get_contents(__DIR__ . '/../server/lib/classes/malwatch_ingest.inc.php'),
+		"housekeeping_value(\$config, 'keep_dump_days')") !== false, true);
+
 if ($failures > 0) {
 	exit(1);
 }
