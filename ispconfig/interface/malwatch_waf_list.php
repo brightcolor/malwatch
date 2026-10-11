@@ -14,7 +14,8 @@ require_once '../../lib/app.inc.php';
 
 $app->auth->check_module_permissions('security');
 if (!$app->auth->is_admin()) {
-	die('Nur für Administratoren.');
+	require_once 'lib/malwatch_lib.inc.php';
+	malwatch_stop($app, 'stop_admin_only_txt');
 }
 
 $app->uses('tpl,functions');
@@ -99,13 +100,15 @@ malwatch_set_loop($app, 'recent', $recent_rows);
 $app->tpl->setVar('has_recent', count($recent_rows) > 0 ? 1 : 0);
 
 $overview = waf_panel_overview($sites, $pending, $day_rows, $rule_rows, $wordpress, $clock['today'], $filters['days'], $filters);
-$app->tpl->setVar('lede', $app->functions->htmlentities(waf_panel_lede($wb, $overview['counts'], $filters['days'])));
+$lede = waf_panel_lede_parts($wb, $overview['counts'], $filters['days']);
+$app->tpl->setVar('lede', $app->functions->htmlentities($lede['title']));
+$app->tpl->setVar('lede_numbers', $app->functions->htmlentities($lede['numbers']));
 
 $rows = array();
 foreach ($overview['rows'] as $row) {
 	$rows[] = array(
 		'domain_id' => $row['domain_id'],
-		'domain' => $app->functions->htmlentities($row['domain']),
+		'domain' => $app->functions->htmlentities(malwatch_display_domain($row['domain'])),
 		'state_class' => $row['state'],
 		'state_label' => $app->functions->htmlentities(waf_panel_state_label($wb, $row['state'])),
 		'is_pending' => $row['pending'] ? 1 : 0,
@@ -114,7 +117,8 @@ foreach ($overview['rows'] as $row) {
 		'hits' => number_format($row['hits'], 0, ',', '.'),
 		'would_block' => number_format($row['would_block'], 0, ',', '.'),
 		'has_block' => $row['would_block'] > 0 ? 1 : 0,
-		'spark' => $filters['days'] > 1 ? waf_panel_sparkline($row['values'], 64, 18) : '',
+		// A flat line for a website without hits only added noise (0.44.0).
+		'spark' => ($filters['days'] > 1 && $row['hits'] > 0) ? waf_panel_sparkline($row['values'], 64, 18) : '',
 		'top_rule' => $row['top_rule'] === '' ? ''
 			: $app->functions->htmlentities(waf_panel_rule_title($wb, $row['top_rule'], $row['top_rule_msg'], $catalog)),
 		'top_rule_id' => $app->functions->htmlentities($row['top_rule']),

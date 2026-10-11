@@ -11,7 +11,8 @@ require_once '../../lib/app.inc.php';
 
 $app->auth->check_module_permissions('security');
 if (!$app->auth->is_admin()) {
-	die('Nur für Administratoren.');
+	require_once 'lib/malwatch_lib.inc.php';
+	malwatch_stop($app, 'stop_admin_only_txt');
 }
 
 $app->uses('tpl,functions');
@@ -64,6 +65,10 @@ $link = 'security/malwatch_waf_exception_list.php';
 
 $state_links = array();
 foreach (array('', 'active', 'pending', 'error', 'removing') as $state) {
+	// A filter without entries only adds a "(0)" to read (0.44.0).
+	if ($state !== '' && $state !== $filters['state'] && (int) $list['counts'][$state] === 0) {
+		continue;
+	}
 	$query = waf_panel_exception_query($filters, array('state' => $state));
 	$state_links[] = array(
 		'label' => $app->functions->htmlentities(sprintf($wb['exc_count_txt'],
@@ -101,7 +106,8 @@ foreach ($list['rows'] as $row) {
 		'exception_id' => $exception['exception_id'],
 		'exc_rule' => $app->functions->htmlentities($exception['rule_id']),
 		'exc_rule_title' => $app->functions->htmlentities(waf_panel_rule_title($wb, $exception['rule_id'], '', $catalog)),
-		'exc_site' => $app->functions->htmlentities($exception['site']),
+		// A rule for every website says so in its scope; the column stays empty.
+		'exc_site' => strpos((string) $row['scope'], 'site') === 0 ? $app->functions->htmlentities($exception['site']) : '',
 		'exc_site_href' => strpos((string) $row['scope'], 'site') === 0
 			? $app->functions->htmlentities('security/malwatch_waf_show.php?id=' . $exception['site_id']) : '',
 		'exc_scope' => $app->functions->htmlentities($exception['scope_label']),

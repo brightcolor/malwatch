@@ -5,7 +5,8 @@ require_once '../../lib/app.inc.php';
 
 $app->auth->check_module_permissions('security');
 if (!$app->auth->is_admin()) {
-	die('Nur für Administratoren.');
+	require_once 'lib/malwatch_lib.inc.php';
+	malwatch_stop($app, 'stop_admin_only_txt');
 }
 
 // tform_actions::onLoad() reads this from the global scope.
@@ -366,6 +367,10 @@ class page_action extends tform_actions
 	{
 		global $app;
 
+		// The fields a refused save names, for the tab script (0.44.0).
+		$app->tpl->setVar('mw_error_fields', $app->functions->htmlentities(implode(',',
+			malwatch_error_fields($app->tform->formDef, $app->tform->wordbook, $app->tform->errorMessage))));
+
 		$config = malwatch_get_config($app);
 		$app->tpl->setVar('binary_missing', $config['binary_ready'] ? 0 : 1);
 
@@ -386,7 +391,7 @@ class page_action extends tform_actions
 		$app->tpl->setVar('count_findings', is_array($counts) ? $app->functions->intval($counts['findings']) : 0);
 
 		// The labels of "open/close all sections" travel in data-mw attributes.
-		$app->tpl->setVar(malwatch_attr_texts($this->malwatch_wb, array('sections_open_txt', 'sections_close_txt',
+		$app->tpl->setVar(malwatch_attr_texts($this->malwatch_wb, array('sections_open_txt', 'tab_error_txt', 'sections_close_txt',
 			'group_check_txt', 'group_finding_txt', 'group_notify_txt', 'group_system_txt')));
 
 		$this->show_auto_action($config);

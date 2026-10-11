@@ -1,19 +1,34 @@
+<style>
+/* Columns take their content's width, the date stays on one line (0.44.0);
+   on a phone a row is the website as its title with result, date and numbers
+   in small type below. */
+#mw-scans .table{table-layout:auto}
+#mw-scans th.mw-tight,#mw-scans td.mw-tight{white-space:nowrap;width:1%}
+#mw-scans th.mw-tight[data-column]{padding-right:26px}
+#mw-scans td.num{font-variant-numeric:tabular-nums}
+#mw-scans .mw-only-narrow{display:none}
+@media (max-width:640px){
+	#mw-scans .mw-hide-narrow{display:none !important}
+	#mw-scans .mw-only-narrow{display:block;margin-top:3px;font-size:12px;opacity:.85}
+}
+</style>
+
 <div class='page-header'>
 	<h1><tmpl_var name="list_head_txt"></h1>
 </div>
 <p><tmpl_var name="list_desc_txt"></p>
 
-<div class="table-wrapper marginTop15">
+<div class="table-wrapper marginTop15" id="mw-scans">
 <table class="table">
 	<thead class="dark form-group-sm">
 		<tr>
 			<th data-column="domain"><tmpl_var name="domain_txt"></th>
-			<th data-column="scan_state"><tmpl_var name="scan_state_txt"></th>
-			<th data-column="finished_at"><tmpl_var name="finished_at_txt"></th>
-			<th data-column="files_scanned"><tmpl_var name="files_scanned_txt"></th>
+			<th data-column="scan_state" class="mw-tight"><tmpl_var name="scan_state_txt"></th>
+			<th data-column="finished_at" class="mw-tight"><tmpl_var name="finished_at_txt"></th>
+			<th data-column="files_scanned" class="mw-tight"><tmpl_var name="files_scanned_txt"></th>
 			<th data-column="count_critical"><tmpl_var name="counts_txt"></th>
-			<th data-column="new_findings"><tmpl_var name="new_findings_txt"></th>
-			<th class="small-col text-right">{tmpl_var name='search_limit'}</th>
+			<th data-column="new_findings" class="mw-tight"><tmpl_var name="new_findings_txt"></th>
+			<th class="small-col text-right mw-tight">{tmpl_var name='search_limit'}</th>
 		</tr>
 		<tr>
 			<td><input class="form-control" type="text" name="search_domain" aria-label="{tmpl_var name='domain_txt'}" value="{tmpl_var name='search_domain'}" /></td>
@@ -32,16 +47,17 @@
 	<tbody>
 		<tmpl_loop name="records">
 		<tr>
-			<td><a href="#" data-load-content="security/malwatch_site_show.php?id={tmpl_var name='parent_domain_id'}">{tmpl_var name="domain"}</a></td>
-			<td>{tmpl_var name="scan_state"}</td>
-			<td>{tmpl_var name="finished_at"}</td>
-			<td>{tmpl_var name="files_scanned"}</td>
-			<td>{tmpl_var name="counts_label"}</td>
-			<td>{tmpl_var name="new_findings"}</td>
-			<td class="text-right">
+			<td><a href="#" data-load-content="security/malwatch_site_show.php?id={tmpl_var name='parent_domain_id'}">{tmpl_var name="domain"}</a>
+				<small class="mw-only-narrow">{tmpl_var name="scan_state"} · {tmpl_var name="finished_at"} · {tmpl_var name="files_label"} · {tmpl_var name="counts_label"}<tmpl_if name="new_label"> · {tmpl_var name="new_label"}</tmpl_if></small></td>
+			<td class="mw-tight mw-hide-narrow">{tmpl_var name="scan_state"}</td>
+			<td class="mw-tight mw-hide-narrow">{tmpl_var name="finished_at"}</td>
+			<td class="mw-tight num mw-hide-narrow">{tmpl_var name="files_scanned"}</td>
+			<td class="mw-hide-narrow">{tmpl_var name="counts_label"}</td>
+			<td class="mw-tight num mw-hide-narrow">{tmpl_var name="new_findings"}</td>
+			<td class="text-right mw-tight mw-hide-narrow">
 				<div class="buttons icons16">
 					<a class="btn btn-default formbutton-default formbutton-narrow" href="#"
-						data-load-content="security/malwatch_site_show.php?id={tmpl_var name='parent_domain_id'}">{tmpl_var name="open_txt"}</a>
+						data-load-content="security/malwatch_site_show.php?id={tmpl_var name='parent_domain_id'}">{tmpl_var name="open_txt"}<span class="sr-only"> {tmpl_var name="domain"}, {tmpl_var name="finished_at"}</span></a>
 				</div>
 			</td>
 		</tr>

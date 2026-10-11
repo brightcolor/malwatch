@@ -2,6 +2,75 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.44.0] – 2026-10-11
+
+Die zweite Designkritik über alle Ansichten, umgesetzt: Listen, die auch auf dem Handy lesbar
+sind, eine Farbe je Aufgabe, eine Quarantäne, die sich bei vielen Einträgen bedienen lässt, und
+Meldungen, die sagen, wie es weitergeht.
+
+### Geändert
+
+**Website-Verlauf.** Die Spalten standen in umgekehrter Reihenfolge unter falschen Köpfen: Die
+Zellen trugen ISPConfigs Klasse `right`, die sie fließen lässt. Die Funde eines Laufs stehen in
+Worten („1 mittel · 10 veraltet“), wie in den Prüfläufen.
+
+**Eine Farbe je Zustand.** Eine Website ist pink, wenn sie einen kritischen Fund hat, sonst gelb,
+auf der Statusseite, auf ihrer eigenen Seite und im Verlauf (`malwatch_state_class()` mit der Zahl
+der kritischen Funde). Die Codeansicht eines Funds färbt mit den Tönen der Stufen-Chips. Auswahl
+und gewählte Filter sind gelb mit Tinte-Schrift, Häkchen in Tinte, „angepasst“ in Cyan; Magenta
+bleibt Reitern, Rändern und Diagrammlinien.
+
+**Knöpfe.** Gefahrknöpfe haben die Größe ihrer Nachbarn. In Listen, wo dieselbe Aktion in jeder
+Zeile steht, sind sie leise und werden erst beim Überfahren und im Fokus pink. Knöpfe, die eine
+Auswahl brauchen, treten zurück, solange nichts angehakt ist.
+
+**Quarantäne.** Die Seite zeigte 500 Einträge je Seite, fest im Code, und blätterte nur ganz
+unten. Die Seitengröße ist eine Einstellung (`quarantine_page_size`, Vorgabe 50, erlaubt 10 bis
+1000, unter Scanner-Einstellungen › Bei einem Fund › Quarantäne), geblättert wird oben und unten.
+Eine Suche findet Einträge nach Pfad, Grund oder Website. Die Leiste für angehakte Einträge klebt
+am unteren Rand und nennt die Zahl; die Zeilenknöpfe sind kompakt, jedes Häkchen hat einen Namen
+für Vorleseprogramme.
+
+**Fundliste und Prüfläufe.** Die Spalten nehmen die Breite ihres Inhalts, der Dateiname hat den
+meisten Platz und bricht an Wortgrenzen; der Ordner kürzt vorn. Steht der Filter auf einem
+Zustand, wiederholt die Spalte „Zustand“ ihn nicht in jeder Zeile. Datum überall „10.10.2026 11:57“.
+
+**Handy.** Fundliste, Prüfläufe und Abwehr zeigen je Zeile oben den Titel und darunter klein die
+übrigen Angaben mit ihren Wörtern. In den übrigen Tabellen trägt jeder gestapelte Wert seinen
+Spaltennamen. Die Reiter der Einstellungen brechen um.
+
+**Einstellungen.** Nach einem abgelehnten Speichern öffnet die Seite den Reiter des Felds, das der
+Server nennt, markiert das Feld (`aria-invalid`) und den Reiter, auch für Vorleseprogramme
+(`malwatch_error_fields()`); der Abgleich über den Text der Meldung fand ein Viertel der Felder
+nicht. Die Scanner-Einstellungen haben eine Suche über alle Reiter. „Grenzen“ mit den Fristen
+steht unter „System“. Verweise von den Dumps und vom Fund öffnen Reiter und Feld.
+
+**Abwehr.** Der Titel nennt, welche Websites prüfen; die Zahlen stehen darunter. Die Herkunft der
+Adressen steht aufklappbar am Ende. Die Linie im Verlauf erscheint nur bei Treffern, Punycode-
+Domains stehen in ihren Buchstaben. Die Sammelleiste nennt die Zahl der angehakten Websites. Auf
+der Seite einer Website fragt „sperren“ vor dem Sperren nach und nennt den Weg zurück; die
+Adressen jeder Regel klappen unter ihrer Überschrift auf. Ausnahmen nennen die Regel mit Namen
+vorn, auch Regel 200002 („Anfrage nicht lesbar“); Filter ohne Einträge fallen weg.
+
+**Updates.** Elemente, die es bei wordpress.org nicht gibt, lassen sich nicht anhaken; die Zeile
+sagt, welche Version beim Hersteller zu holen ist.
+
+**Dumps.** Keine Website ist vorausgewählt; „Dump erstellen“ wartet auf die Wahl und nennt die
+Website in der Rückfrage.
+
+**Statusseite.** Die Domain ist der Link ihrer Karte, die ganze Karte nimmt den Klick an; auf dem
+Handy fällt „Ansehen“ weg. Domains werden escaped ausgegeben.
+
+**Texte.** Menüpfade einheitlich („Scanner-Einstellungen › Bei einem Fund › Fundansicht“,
+„Abwehr-Einstellungen“, „Abwehr › Sperren“), deutsche Anführungszeichen, Knöpfe mit Verb und
+großem Anfang. Die Ratschläge der Regeln sagen „als harmlos markieren“ wie der Knopf. Seiten, die
+abbrechen, sagen warum und wie es weitergeht („Diese Website gibt es im Panel nicht mehr.“ mit
+Link zur Statusseite), aus den Sprachdateien.
+
+### Hinzugefügt
+
+- Einstellung `quarantine_page_size` (Spalte in `malwatch_config`, Vorgabe 50).
+
 ## [0.43.0] – 2026-10-10
 
 Eine Sicherheitslücke im Panel geschlossen und die Oberfläche nach einer Designkritik über alle

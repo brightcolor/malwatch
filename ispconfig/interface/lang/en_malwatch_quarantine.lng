@@ -55,7 +55,7 @@ $wb['dl_ready_txt'] = 'Download (%s)';
 $wb['dl_ready_shared_txt'] = 'ZIP with %s entries (%s)';
 
 $wb['pager_range_txt'] = 'Entries %s to %s of %s';
-$wb['pager_hint_txt'] = 'The bulk actions above apply to the entries on this page.';
+$wb['pager_hint_txt'] = 'The bulk actions in the bar below apply to the ticked entries on this page.';
 $wb['btn_prev_page_txt'] = 'Previous page';
 $wb['btn_next_page_txt'] = 'Next page';
 
@@ -92,3 +92,10 @@ $wb['job_action_export_txt'] = 'pack a ZIP for download';
 $wb['job_action_unknown_txt'] = 'quarantine job';
 $wb['job_error_no_log_txt'] = 'The scanner gave no reason (exit code %s).';
 $wb['job_error_next_txt'] = 'Repeat the action on the affected entries. If it fails again, the reason is in the server log.';
+$wb['search_label_txt'] = 'Search';
+$wb['search_placeholder_txt'] = 'Path, reason or website';
+$wb['btn_search_txt'] = 'Search';
+$wb['btn_search_clear_txt'] = 'Clear search';
+$wb['search_none_txt'] = 'No entry matches this search. Change the text or clear the search.';
+$wb['check_row_txt'] = 'Select %s';
+$wb['bulk_txt'] = 'Ticked entries:';

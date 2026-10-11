@@ -1510,3 +1510,15 @@ SET @mw := IF((SELECT COUNT(*) = 0 FROM information_schema.COLUMNS
   'ALTER TABLE `malwatch_config` ADD COLUMN `keep_dump_days` int(11) unsigned NOT NULL DEFAULT ''7''',
   'DO 0');
 PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- --------------------------------------------------------
+-- Quarantäne: Einträge je Seite (0.44.0)
+--
+-- quarantine_page_size: how many entries one page of the quarantine shows;
+-- it was 500, fixed in malwatch_quarantine_list.php.
+-- --------------------------------------------------------
+SET @mw := IF((SELECT COUNT(*) = 0 FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_config' AND COLUMN_NAME = 'quarantine_page_size'),
+  'ALTER TABLE `malwatch_config` ADD COLUMN `quarantine_page_size` int(11) unsigned NOT NULL DEFAULT ''50''',
+  'DO 0');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;

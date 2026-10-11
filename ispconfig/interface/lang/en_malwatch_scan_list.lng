@@ -17,3 +17,5 @@ $wb['sev_high_txt'] = 'high';
 $wb['sev_medium_txt'] = 'medium';
 $wb['sev_low_txt'] = 'low';
 $wb['counts_none_txt'] = 'no findings';
+$wb['files_count_txt'] = '%s files';
+$wb['new_count_txt'] = '%s new';

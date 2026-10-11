@@ -17,7 +17,8 @@ require_once '../../lib/app.inc.php';
 
 $app->auth->check_module_permissions('security');
 if (!$app->auth->is_admin()) {
-	die('Nur für Administratoren.');
+	require_once 'lib/malwatch_lib.inc.php';
+	malwatch_stop($app, 'stop_admin_only_txt');
 }
 
 $app->uses('tpl,functions');
@@ -126,10 +127,10 @@ $sites = $app->db->queryAllRecords(
 	"SELECT domain_id, domain FROM web_domain WHERE type = 'vhost' AND active = 'y' ORDER BY domain");
 $site_rows = array();
 foreach ((array) $sites as $site) {
+	// No website is chosen until somebody chooses one: the first of the list
+	// stood ready, and one click packed customer data nobody had picked
+	// (0.44.0).
 	$id = $app->functions->intval($site['domain_id']);
-	if ($domain_id < 1) {
-		$domain_id = $id;
-	}
 	$site_rows[] = array(
 		'site_id' => $id,
 		'site_domain' => $app->functions->htmlentities((string) $site['domain']),
@@ -138,6 +139,11 @@ foreach ((array) $sites as $site) {
 }
 malwatch_set_loop($app, 'sites', $site_rows);
 $app->tpl->setVar('domain_id', $domain_id);
+$app->tpl->setVar('no_site', $domain_id < 1 ? 1 : 0);
+$app->tpl->setVar(malwatch_attr_texts($wb, array('choose_site_hint_txt')));
+if ($domain_id < 1) {
+	$app->tpl->setVar('db_none_txt', $wb['db_choose_site_txt']);
+}
 
 $web = $domain_id > 0
 	? $app->db->queryOneRecord("SELECT * FROM web_domain WHERE domain_id = ? AND type = 'vhost'", $domain_id)

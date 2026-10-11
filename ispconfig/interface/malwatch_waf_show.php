@@ -12,7 +12,8 @@ require_once '../../lib/app.inc.php';
 
 $app->auth->check_module_permissions('security');
 if (!$app->auth->is_admin()) {
-	die('Nur für Administratoren.');
+	require_once 'lib/malwatch_lib.inc.php';
+	malwatch_stop($app, 'stop_admin_only_txt');
 }
 
 $app->uses('tpl,functions');
@@ -47,7 +48,7 @@ $app->tpl->setVar($wb);
 $app->tpl->setVar(malwatch_attr_texts($wb, array('state_head_txt', 'btn_set_off_txt', 'btn_set_detect_txt',
 	'btn_set_enforce_txt', 'confirm_set_off_txt', 'confirm_set_detect_txt', 'confirm_set_enforce_txt',
 	'btn_exception_remove_txt', 'confirm_exception_remove_txt', 'btn_exception_add_txt',
-	'confirm_exception_add_txt', 'preview_wait_txt')));
+	'confirm_exception_add_txt', 'preview_wait_txt', 'ban_add_hint_txt', 'ban_add_title_txt', 'ban_add_ok_txt')));
 $app->tpl->setVar('message', $app->functions->htmlentities($message));
 $app->tpl->setVar('error', $app->functions->htmlentities($error));
 $csrf = $app->auth->csrf_token_get('malwatch_waf_show');
@@ -72,7 +73,7 @@ $days = $filters['days'];
 $state = waf_state_valid((string) $site['waf_state']) ? (string) $site['waf_state'] : 'off';
 
 $app->tpl->setVar('domain_id', $domain_id);
-$app->tpl->setVar('domain', $app->functions->htmlentities($site['domain']));
+$app->tpl->setVar('domain', $app->functions->htmlentities(malwatch_display_domain($site['domain'])));
 $app->tpl->setVar('days', $days);
 $app->tpl->setVar('ip_value', $app->functions->htmlentities($ip_filter));
 $app->tpl->setVar('state_class', $state);
@@ -271,6 +272,10 @@ foreach (waf_panel_rules($wb, $day_rows, $catalog) as $rule) {
 		'first_path' => $app->functions->htmlentities(count($rule['paths']) === 1 ? $rule['paths'][0]['path'] : ''),
 		'rule_addresses' => $addresses,
 		'has_addresses' => count($addresses) > 0 ? 1 : 0,
+		// The list folds away under its head: the same addresses stood in
+		// every card, twelve times on one page (0.44.0).
+		'rule_address_count' => $app->functions->htmlentities(sprintf(count($seen['addresses']) === 1 ? $wb['address_count_one_txt'] : $wb['address_count_txt'],
+			number_format(count($seen['addresses']), 0, ',', '.'))),
 		'more_addresses' => count($seen['addresses']) > 5
 			? $app->functions->htmlentities(sprintf($wb['addresses_more_txt'], count($seen['addresses']) - 5)) : '',
 		'rule_what' => $app->functions->htmlentities($info['what']),

@@ -18,7 +18,7 @@
 #mw-wafban .mw-caption{font-size:12px;opacity:.72;margin-right:4px}
 #mw-wafban .mw-seg{display:inline-block;padding:3px 9px;border:1px solid var(--cic-line-soft,rgba(128,128,128,.35));
 	border-radius:3px;font-size:12.5px;color:inherit;text-decoration:none;background:none;cursor:pointer}
-#mw-wafban .mw-seg[aria-current="true"]{border-color:var(--cic-accent,#dd630d);color:var(--cic-accent-text,#a84c0b);font-weight:600}
+#mw-wafban .mw-seg[aria-current="true"]{background:var(--cic-warn,#fed329);border-color:var(--cic-warn,#fed329);color:var(--cic-on-accent,#1c1c1c);font-weight:600}
 #mw-wafban .mw-seg:focus-visible{outline:2px solid var(--cic-accent,#dd630d);outline-offset:2px}
 #mw-wafban .mw-dim{opacity:.72;font-size:12.5px}
 #mw-wafban .mw-mono{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:12px;word-break:break-all}
@@ -129,10 +129,10 @@
 			<td>
 				<button class="btn btn-default btn-xs" type="button"
 					data-mw-set-mw-waf-action="ban_lift" data-mw-set-mw-waf-ip="{tmpl_var name='ban_ip'}"
-					data-submit-form="pageForm" data-form-action="security/malwatch_waf_ban_list.php">{tmpl_var name='ban_lift_txt'}</button>
+					data-submit-form="pageForm" data-form-action="security/malwatch_waf_ban_list.php">{tmpl_var name='ban_lift_txt'}<span class="sr-only"> {tmpl_var name='ban_ip'}</span></button>
 				<button class="btn btn-default btn-xs" type="button"
 					data-mw-set-mw-waf-action="ban_extend" data-mw-set-mw-waf-ip="{tmpl_var name='ban_ip'}"
-					data-submit-form="pageForm" data-form-action="security/malwatch_waf_ban_list.php">{tmpl_var name='ban_extend_txt'}</button>
+					data-submit-form="pageForm" data-form-action="security/malwatch_waf_ban_list.php">{tmpl_var name='ban_extend_txt'}<span class="sr-only"> {tmpl_var name='ban_ip'}</span></button>
 			</td>
 		</tr>
 		</tmpl_loop>
@@ -174,10 +174,10 @@
 			<td>
 				<button class="btn btn-default mw-risk btn-xs" type="button" title="{tmpl_var name='ban_add_hint_txt'}"
 					data-mw-set-mw-waf-action="ban_add" data-mw-set-mw-waf-ip="{tmpl_var name='ban_ip'}"
-					data-submit-form="pageForm" data-form-action="security/malwatch_waf_ban_list.php">{tmpl_var name='ban_add_txt'}</button>
+					data-submit-form="pageForm" data-form-action="security/malwatch_waf_ban_list.php">{tmpl_var name='ban_add_txt'}<span class="sr-only"> {tmpl_var name='ban_ip'}</span></button>
 				<button class="btn btn-default btn-xs" type="button"
 					data-mw-set-mw-waf-action="ban_dismiss" data-mw-set-mw-waf-ip="{tmpl_var name='ban_ip'}"
-					data-submit-form="pageForm" data-form-action="security/malwatch_waf_ban_list.php">{tmpl_var name='ban_dismiss_txt'}</button>
+					data-submit-form="pageForm" data-form-action="security/malwatch_waf_ban_list.php">{tmpl_var name='ban_dismiss_txt'}<span class="sr-only"> {tmpl_var name='ban_ip'}</span></button>
 				<button class="btn btn-default btn-xs" type="button"
 					data-mw-set-mw-waf-action="ban_allow_add" data-mw-set-mw-waf-cidr="{tmpl_var name='ban_ip'}"
 					data-submit-form="pageForm" data-form-action="security/malwatch_waf_ban_list.php">{tmpl_var name='ban_allow_txt'}</button>

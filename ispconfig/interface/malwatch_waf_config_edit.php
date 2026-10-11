@@ -15,7 +15,8 @@ require_once '../../lib/app.inc.php';
 
 $app->auth->check_module_permissions('security');
 if (!$app->auth->is_admin()) {
-	die('Nur für Administratoren.');
+	require_once 'lib/malwatch_lib.inc.php';
+	malwatch_stop($app, 'stop_admin_only_txt');
 }
 
 // tform_actions::onLoad() reads this from the global scope.
@@ -143,6 +144,10 @@ class page_action extends tform_actions
 		global $app;
 		$wb = $this->waf_wb;
 
+		// The fields a refused save names, for the tab script (0.44.0).
+		$app->tpl->setVar('mw_error_fields', $app->functions->htmlentities(implode(',',
+			malwatch_error_fields($app->tform->formDef, $app->tform->wordbook, $app->tform->errorMessage))));
+
 		$settings = waf_panel_settings($app);
 		// The places on the server with the variable that changes each through waf/install.sh.
 		$places = array();
@@ -253,7 +258,7 @@ class page_action extends tform_actions
 				waf_list_lines(isset($this->dataRecord[$key]) ? $this->dataRecord[$key] : '')));
 		}
 		// The words the script of the page writes into attributes.
-		$app->tpl->setVar(malwatch_attr_texts($wb, array('cfg_default_txt', 'cfg_reset_txt', 'cfg_adjusted_txt',
+		$app->tpl->setVar(malwatch_attr_texts($wb, array('cfg_default_txt', 'tab_error_txt', 'cfg_reset_txt', 'cfg_adjusted_txt',
 			'cfg_dirty_one_txt', 'cfg_dirty_many_txt', 'cfg_clean_txt', 'cfg_find_txt',
 			'group_protect_txt', 'group_block_txt', 'group_display_txt', 'group_system_txt')));
 

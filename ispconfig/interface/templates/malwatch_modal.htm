@@ -71,6 +71,15 @@
 #pageContent .btn.mw-risk:hover,#pageContent .btn.mw-risk:focus{background:var(--cic-bad,#c9302c);
 	border-color:var(--cic-bad,#c9302c);color:#fff}
 #pageContent .btn.mw-risk:focus-visible{outline:2px solid var(--cic-focus,var(--bc-focus,currentColor));outline-offset:2px}
+/* In a list the same action repeats on every row; there it stays quiet and
+   turns pink on hover and focus, so 500 pink outlines do not drown the one
+   that matters (0.44.0). It carries formbutton-default's size elsewhere. */
+#pageContent .btn.btn-xs.mw-risk{border:1px solid var(--cic-line-loud,rgba(128,128,128,.6));color:inherit}
+#pageContent .btn.btn-xs.mw-risk:hover,#pageContent .btn.btn-xs.mw-risk:focus{background:var(--cic-bad,#c9302c);
+	border-color:var(--cic-bad,#c9302c);color:#fff}
+/* A button that needs ticked rows steps back while none is ticked; a click
+   still explains why (data-mw-hint, 0.44.0). */
+#pageContent .btn.mw-needs-selection[data-mw-empty]{opacity:.55}
 /* The way back sits under the title of a detail page, the same on every one. */
 #pageContent .mw-back{margin:0 0 12px;font-size:13px}
 /* Row buttons stay at least 24 px high, the smallest target WCAG 2.2 allows. */
@@ -523,9 +532,12 @@
 	border-bottom:3px solid transparent;font-weight:700;font-size:14.5px;color:inherit;opacity:.72;white-space:nowrap;cursor:pointer}
 #pageContent .mw-gtabs button[aria-selected="true"]{opacity:1;border-bottom-color:var(--cic-accent,#dd630d)}
 #pageContent .mw-gtabs button:focus-visible{outline:2px solid var(--cic-focus,var(--bc-focus,currentColor));outline-offset:-2px}
-#pageContent .mw-gtabs .mw-gcount{font-size:12px;font-weight:700;opacity:.7;font-variant-numeric:tabular-nums}
 #pageContent .mw-gtabs .mw-gdot{width:8px;height:8px;border-radius:50%;background:var(--cic-bad,#c9302c);flex:none}
 #pageContent .mw-gall-note{margin:0 0 6px;font-size:13px;opacity:.8}
+/* On a phone the tabs wrap; scrolling sideways hid "System" without a hint (0.44.0). */
+@media (max-width:640px){#pageContent .mw-gtabs{flex-wrap:wrap;overflow:visible}
+	#pageContent .mw-gtabs button{padding:9px 10px 6px;font-size:14px}}
+#pageContent [aria-invalid="true"]{border-color:var(--cic-bad,#c9302c);box-shadow:0 0 0 1px var(--cic-bad,#c9302c)}
 #pageContent [data-mw-groups] .mw-gout{display:none}
 #pageContent [data-mw-groups][data-mw-searching="1"] .mw-gout,
 #pageContent [data-mw-groups].mw-gall .mw-gout{display:block}
@@ -549,10 +561,14 @@
 		b.setAttribute('role', 'tab');
 		b.setAttribute('data-mw-gkey', g.key);
 		b.appendChild(document.createTextNode(g.label));
-		var n = document.createElement('span');
-		n.className = 'mw-gcount';
-		n.textContent = String(sections.filter(function (s) { return s.getAttribute('data-mw-group') === g.key; }).length);
-		b.appendChild(n);
+		// Each tab names the sections it shows.
+		var ids = [];
+		sections.forEach(function (sec, i) {
+			if (sec.getAttribute('data-mw-group') !== g.key) { return; }
+			if (!sec.id) { sec.id = 'mw-gsec-' + i; }
+			ids.push(sec.id);
+		});
+		b.setAttribute('aria-controls', ids.join(' '));
 		bar.appendChild(b);
 		return b;
 	});
@@ -592,23 +608,40 @@
 		show(tabs[next].getAttribute('data-mw-gkey'));
 	});
 
-	// A refused save: the group whose field the message names, else all.
+	// A refused save: the group of each field the server names (0.44.0), else
+	// the group whose label the message names, else all.
 	var alert = document.querySelector('#pageContent .alert-danger, #pageContent #errorMsg');
 	if (alert && alert.textContent.trim() !== '') {
 		var text = alert.textContent.toLowerCase();
 		var hit = [];
-		sections.forEach(function (s) {
+		var failed = (root.getAttribute('data-mw-error-fields') || '').split(',').filter(function (f) { return f !== ''; });
+		failed.forEach(function (name) {
+			var field = root.querySelector('[name="' + name.replace(/[^a-z0-9_]/gi, '') + '"]');
+			if (!field) { return; }
+			field.setAttribute('aria-invalid', 'true');
+			if (alert.id) { field.setAttribute('aria-describedby', alert.id); }
+			var sec = field.closest('[data-mw-group]');
+			if (!sec) { return; }
+			var details = field.closest('details');
+			if (details) { details.open = true; }
+			var key = sec.getAttribute('data-mw-group');
+			if (hit.indexOf(key) === -1) { hit.push(key); }
+		});
+		if (!hit.length) sections.forEach(function (s) {
 			var key = s.getAttribute('data-mw-group');
 			Array.prototype.forEach.call(s.querySelectorAll('.control-label, .mw-cfg-label, label'), function (l) {
 				var t = l.textContent.trim().toLowerCase().replace(/[:*]+$/, '');
 				if (t.length > 3 && text.indexOf(t) !== -1 && hit.indexOf(key) === -1) { hit.push(key); }
 			});
 		});
+		var errorWord = root.getAttribute('data-mw-word-error') || 'Fehler';
 		tabs.forEach(function (b) {
 			if (hit.indexOf(b.getAttribute('data-mw-gkey')) !== -1) {
 				var d = document.createElement('span'); d.className = 'mw-gdot'; d.setAttribute('aria-hidden', 'true'); b.appendChild(d);
+				var t = document.createElement('span'); t.className = 'sr-only'; t.textContent = ' (' + errorWord + ')'; b.appendChild(t);
 			}
 		});
+		if (hit.length > 1) { show(hit[0]); root.classList.add('mw-gall'); return; }
 		if (hit.length === 1) { show(hit[0]); return; }
 		show(names[0].key);
 		root.classList.add('mw-gall');
@@ -617,5 +650,69 @@
 	var kept = null;
 	try { kept = window.sessionStorage.getItem(storeKey); } catch (e) { kept = null; }
 	show(names.some(function (g) { return g.key === kept; }) ? kept : names[0].key);
+	// A link elsewhere named a field (data-mw-goto): its section opens and the
+	// field takes the focus.
+	var goto = null;
+	try { goto = window.sessionStorage.getItem('malwatch.goto'); window.sessionStorage.removeItem('malwatch.goto'); } catch (e) { goto = null; }
+	if (goto) {
+		var target = root.querySelector('[name="' + goto.replace(/[^a-z0-9_]/gi, '') + '"]');
+		if (target) {
+			var sec = target.closest('details');
+			if (sec) { sec.open = true; }
+			target.focus();
+		}
+	}
 })();
 </script>
+<script>
+(function () {
+	// Links to a setting: "config:system:keep_dump_days" opens that tab of the
+	// page with data-mw-groups="config" and the section of the field (0.44.0).
+	if (window.mwGotoReady) { return; }
+	window.mwGotoReady = true;
+	document.addEventListener('click', function (event) {
+		var link = event.target.closest ? event.target.closest('[data-mw-goto]') : null;
+		if (!link) { return; }
+		var parts = (link.getAttribute('data-mw-goto') || '').split(':');
+		if (parts.length !== 3) { return; }
+		try {
+			window.sessionStorage.setItem('malwatch.group.' + parts[0], parts[1]);
+			window.sessionStorage.setItem('malwatch.goto', parts[2]);
+		} catch (e) { }
+	}, true);
+})();
+</script>
+
+<!--
+	Column names on a phone (0.44.0). Below 600 px the panel stacks every cell
+	of a row, and a value such as "37.204" stood there without its column.
+	The script gives each cell the name of its column; the first cell is the
+	title of the row and stays as it is. A table that builds its own second
+	line (an element with mw-only-narrow) is left alone.
+-->
+<style>
+@media (max-width:600px){
+	#pageContent [id^="mw-"] .table > tbody > tr > td[data-label]:not(:first-child)::before{content:attr(data-label);
+		display:block;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;opacity:.65}
+}
+</style>
+<script>
+(function () {
+	var tables = document.querySelectorAll('#pageContent [id^="mw-"] table.table');
+	Array.prototype.forEach.call(tables, function (table) {
+		if (table.getAttribute('data-mw-labels-ready') === '1' || table.querySelector('.mw-only-narrow')) { return; }
+		table.setAttribute('data-mw-labels-ready', '1');
+		var heads = table.querySelectorAll('thead tr:first-child > th');
+		var names = Array.prototype.map.call(heads, function (th) { return th.textContent.replace(/\s+/g, ' ').trim(); });
+		Array.prototype.forEach.call(table.querySelectorAll('tbody > tr'), function (tr) {
+			var col = 0;
+			Array.prototype.forEach.call(tr.children, function (cell) {
+				var span = parseInt(cell.getAttribute('colspan') || '1', 10) || 1;
+				if (span === 1 && names[col] && !cell.hasAttribute('data-label')) { cell.setAttribute('data-label', names[col]); }
+				col += span;
+			});
+		});
+	});
+})();
+</script>
+

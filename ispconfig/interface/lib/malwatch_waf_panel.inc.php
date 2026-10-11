@@ -67,6 +67,10 @@ function waf_panel_rule_title($wb, $rule_id, $message, $catalog = array())
 	if (trim((string) $message) !== '') {
 		return (string) $message;
 	}
+	// Rules of ModSecurity itself, outside the catalog of the rule set (0.44.0).
+	if (isset($wb['engine_rule_' . $rule_id . '_txt'])) {
+		return (string) $wb['engine_rule_' . $rule_id . '_txt'];
+	}
 	return sprintf(waf_panel_text($wb, 'rule_fallback_txt', '%s'), $rule_id);
 }
 
@@ -356,6 +360,16 @@ function waf_panel_overview($sites, $pending, $day_rows, $rule_rows, $wordpress,
 /** The sentence above the overview. */
 function waf_panel_lede($wb, $counts, $days)
 {
+	$parts = waf_panel_lede_parts($wb, $counts, $days);
+	return $parts['title'] . ' ' . $parts['numbers'];
+}
+
+/**
+ * The headline of the overview in two parts (0.44.0): the title says which
+ * websites check, the line below it the numbers of the period.
+ */
+function waf_panel_lede_parts($wb, $counts, $days)
+{
 	$detect = (int) $counts['detect'];
 	$enforce = (int) $counts['enforce'];
 	if ($detect === 0) {
@@ -379,7 +393,7 @@ function waf_panel_lede($wb, $counts, $days)
 	if ((int) $counts['would_block'] > 0) {
 		$third .= sprintf(waf_panel_text($wb, 'lede_would_block_txt', '%s'), number_format((int) $counts['would_block'], 0, ',', '.'));
 	}
-	return $first . ', ' . $second . '. ' . $third . '.';
+	return array('title' => $first . ', ' . $second . '.', 'numbers' => $third . '.');
 }
 
 /** Period and filters of the overview from its query string; without a period it opens with waf_period_default. */

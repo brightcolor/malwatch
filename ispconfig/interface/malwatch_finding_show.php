@@ -5,7 +5,8 @@ require_once '../../lib/app.inc.php';
 
 $app->auth->check_module_permissions('security');
 if (!$app->auth->is_admin()) {
-	die('Nur für Administratoren.');
+	require_once 'lib/malwatch_lib.inc.php';
+	malwatch_stop($app, 'stop_admin_only_txt');
 }
 
 $app->uses('tpl,functions');
@@ -23,7 +24,7 @@ $finding = $finding_id > 0
 	? $app->db->queryOneRecord('SELECT * FROM malwatch_finding WHERE finding_id = ?', $finding_id)
 	: null;
 if (!is_array($finding)) {
-	die('Diesen Fund gibt es nicht mehr. Die Liste der Funde zeigt den aktuellen Stand.');
+	malwatch_stop($app, 'stop_finding_gone_txt', 'security/malwatch_finding_list.php', 'stop_to_findings_txt');
 }
 $domain_id = $app->functions->intval($finding['parent_domain_id']);
 $path = (string) $finding['file_path'];
@@ -185,7 +186,7 @@ $parts = malwatch_split_path($path, $base);
 
 $app->tpl->setVar('finding_id', $finding_id);
 $app->tpl->setVar('domain_id', $domain_id);
-$app->tpl->setVar('domain', $app->functions->htmlentities($finding['domain']));
+$app->tpl->setVar('domain', $app->functions->htmlentities(malwatch_display_domain($finding['domain'])));
 $app->tpl->setVar('dir', $app->functions->htmlentities($parts['dir']));
 $app->tpl->setVar('file', $app->functions->htmlentities($parts['file']));
 $app->tpl->setVar('full_path', $app->functions->htmlentities($parts['full']));

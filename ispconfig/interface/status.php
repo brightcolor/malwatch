@@ -44,6 +44,9 @@ $rows = malwatch_status_rows($app);
 // Die Sprachdatei traegt "%s" als Platzhalter fuer die Zahlen; erst hier
 // werden sie eingesetzt - die Vorlage darf keinen rohen "%s" anzeigen.
 foreach ($rows['attention'] as &$row) {
+	// Escaped here like every value of the other pages, and in the letters
+	// its owner writes (0.44.0).
+	$row['domain'] = $app->functions->htmlentities(malwatch_display_domain($row['domain']));
 	if ($row['findings'] === 1) {
 		$row['findings_line'] = $wb['findings_one_txt'];
 	} elseif ($row['urgent'] === 0) {

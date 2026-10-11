@@ -24,3 +24,4 @@ $wb['scan_days_error_range'] = 'Days between scans: whole numbers from 0 to 365 
 $wb['max_age_error_range'] = 'The number of days must be between 0 and 3650.';
 $wb['btn_save_txt'] = 'Save';
 $wb['btn_cancel_txt'] = 'Cancel';
+$wb['back_to_site_txt'] = 'Back to the website';
