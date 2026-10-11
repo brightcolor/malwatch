@@ -2,6 +2,14 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.45.1] – 2026-10-11
+
+### Behoben
+
+**Dumps: Umlaute im Leertext.** Wechselte man die Website, stand unter „Datenbanken“ etwa
+„W&auml;hle eine Website …“: `malwatch_dump_databases.php` schickte die Texte escaped, die Seite
+setzt sie als Text. Sie kommen jetzt als reiner Text.
+
 ## [0.45.0] – 2026-10-11
 
 ### Hinzugefügt
