@@ -24,3 +24,4 @@ $wb['scan_days_error_range'] = 'Abstand der Prüfungen: Erlaubt sind ganze Zahle
 $wb['max_age_error_range'] = 'Die Zahl der Tage muss zwischen 0 und 3650 liegen.';
 $wb['btn_save_txt'] = 'Speichern';
 $wb['btn_cancel_txt'] = 'Abbrechen';
+$wb['back_to_site_txt'] = 'Zur Website';

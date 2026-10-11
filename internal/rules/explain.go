@@ -48,7 +48,7 @@ var explanations = map[string]Explanation{
 	"php.dynamic.request_call": {Why: "Der Name der aufgerufenen Funktion steht in der Anfrage ($_GET['f']()). Der Angreifer schickt den Namen und die Daten mit: eine Hintertür."},
 	"php.eval.variable": {
 		Why:    "eval führt den Inhalt einer Variablen als Code aus. Das steckt in Schadcode und in ehrlichen Werkzeugen, etwa Vorlagen-Systemen oder Testdateien von Bibliotheken. Was in die Variable kommt, entscheidet.",
-		Advice: "In der Ansicht nachsehen, woher die Variable ihren Inhalt hat: aus der Anfrage oder aus entschlüsseltem Text heißt Schadcode, dann in die Quarantäne verschieben. In Test- und Vorlagendateien bekannter Bibliotheken ist es harmlos, dann freigeben.",
+		Advice: "In der Ansicht nachsehen, woher die Variable ihren Inhalt hat: aus der Anfrage oder aus entschlüsseltem Text heißt Schadcode, dann in die Quarantäne verschieben. In Test- und Vorlagendateien bekannter Bibliotheken ist es harmlos, dann als harmlos markieren.",
 	},
 	"php.eval.create_function": {Why: "create_function baut eine Funktion aus verschlüsseltem Text oder aus Anfragedaten. Das war der Ersatz für eval in älteren Befällen."},
 	"php.eval.variable_call":   {Why: "eval führt das Ergebnis eines Aufrufs aus, dessen Funktionsname in einer Variablen steht (eval($a($b('…')))). So war jeder Schadcode des ersten untersuchten Befalls gebaut; ehrlicher Code ruft so nichts auf."},
@@ -78,7 +78,7 @@ var explanations = map[string]Explanation{
 	"php.exec.crontab":       {Why: "PHP ändert die Crontab über einen Shell-Aufruf. Damit kommen Angreifer nach einer Bereinigung wieder."},
 	"php.exec.background": {
 		Why:    "PHP startet einen Prozess im Hintergrund (nohup, setsid oder mit &). Das steht in Werkzeugen und Tests von Bibliotheken und in Schadcode, der unbemerkt weiterlaufen soll.",
-		Advice: "Liegt die Datei in einem Testordner einer Bibliothek (vendor/…/test), ist sie harmlos: freigeben. Sonst in der Ansicht nachsehen, welches Programm gestartet wird.",
+		Advice: "Liegt die Datei in einem Testordner einer Bibliothek (vendor/…/test), ist sie harmlos und lässt sich als harmlos markieren. Sonst in der Ansicht nachsehen, welches Programm gestartet wird.",
 	},
 	"shell.fetch_exec": {Why: "Ein Shell-Skript lädt ein Programm aus dem Netz, macht es ausführbar und startet es im Hintergrund. Das ist ein Nachlader."},
 	"shell.in_uploads": {Why: "Ein Shell-Skript liegt in einem Ordner für hochgeladene Dateien. Dorthin gehören Bilder und Dokumente."},
@@ -99,7 +99,7 @@ var explanations = map[string]Explanation{
 	"php.remote.fetch_eval": {Why: "Die Datei lädt etwas von einer Internetadresse und führt es sofort als Code aus."},
 	"php.remote.fetch_eval_indirect": {
 		Why:    "Die Datei lädt etwas aus dem Netz und führt eine Variable als Code aus. Meist ist das ein Nachlader; manche alten Bibliotheken, etwa XML-RPC-Klassen, tun Ähnliches aus ehrlichen Gründen.",
-		Advice: "Gehört die Datei zu einer bekannten Bibliothek (Ordnername, dieselbe Datei auf anderen Websites), freigeben. Sonst in die Quarantäne verschieben.",
+		Advice: "Gehört die Datei zu einer bekannten Bibliothek (Ordnername, dieselbe Datei auf anderen Websites), als harmlos markieren. Sonst in die Quarantäne verschieben.",
 	},
 
 	// ------------------------------------------------------- webshells
@@ -135,7 +135,7 @@ var explanations = map[string]Explanation{
 	// ------------------------------------------------------- locations
 	"php.in_uploads": {
 		Why:    "Eine PHP-Datei liegt in einem Ordner für hochgeladene Dateien. Ruft jemand sie auf, führt der Server sie aus. Manche Plugins legen dort harmlose Dateien ab, etwa eine index.php mit „Silence is golden“ oder die Einstellungen eines Sicherheits-Plugins.",
-		Advice: "Ist es eine leere index.php oder eine Datenablage eines bekannten Plugins, freigeben. Sonst in die Quarantäne verschieben.",
+		Advice: "Ist es eine leere index.php oder eine Datenablage eines bekannten Plugins, als harmlos markieren. Sonst in die Quarantäne verschieben.",
 	},
 	"php.disguised_as_image": {Why: "Eine PHP-Datei trägt einen Bildnamen (bild.jpg.php, …-300x200.php). So tarnen Angreifer Hintertüren zwischen Bildern."},
 	"php.in_image":           {Why: "Eine Bilddatei enthält PHP-Code. Mit einer passenden Einstellung führt der Server sie als Programm aus."},
@@ -143,7 +143,7 @@ var explanations = map[string]Explanation{
 	"htaccess.auto_prepend":  {Why: "Die .htaccess bindet bei jedem Aufruf eine eigene Datei vorab ein. So läuft Schadcode auf jeder Seite, obwohl keine Datei der Website verändert aussieht."},
 	"htaccess.redirect_foreign": {
 		Why:    "Die .htaccess leitet Besucher auf eine fremde Adresse um. Das kann gewollt sein, etwa nach einem Umzug, oder eingeschleust, etwa als Spam-Umleitung.",
-		Advice: "Ist die Umleitung gewollt, freigeben. Sonst die Zeile entfernen und nach der Ursache suchen.",
+		Advice: "Ist die Umleitung gewollt, als harmlos markieren. Sonst die Zeile entfernen und nach der Ursache suchen.",
 	},
 	"htaccess.cgi_handler":      {Why: "Die .htaccess macht eine fremde Endung über CGI ausführbar. So bringen Angreifer eigene Programme zum Laufen."},
 	"htaccess.disable_security": {Why: "Die .htaccess schaltet die Web Application Firewall (ModSecurity) für diesen Ordner ab."},
@@ -154,7 +154,7 @@ var explanations = map[string]Explanation{
 	"binary.elf_in_uploads": {Why: "Ein Linux-Programm liegt in einem Ordner für hochgeladene Dateien. Dort gehört keines hin; meist ist es ein Bot oder ein Krypto-Miner."},
 	"binary.elf": {
 		Why:    "Ein Linux-Programm liegt im Webverzeichnis. Manche Bibliotheken bringen Hilfsprogramme mit, etwa für ihre Tests; eingeschleuste Programme sehen genauso aus.",
-		Advice: "Gehört das Programm zu einer Bibliothek (Ordner vendor/, tests), wird es auf der Website nicht gebraucht: in die Quarantäne verschieben oder freigeben. Unbekannte Programme in die Quarantäne verschieben.",
+		Advice: "Gehört das Programm zu einer Bibliothek (Ordner vendor/, tests), wird es auf der Website nicht gebraucht: in die Quarantäne verschieben oder als harmlos markieren. Unbekannte Programme in die Quarantäne verschieben.",
 	},
 
 	// ---------------------------------------------------------- extras
@@ -164,7 +164,7 @@ var explanations = map[string]Explanation{
 	},
 	ExtraForeignFile: {
 		Why:    "Die Datei liegt in einem Ordner, dessen Inhalt der Hersteller vollständig kennt (der WordPress-Kern oder ein Plugin), gehört aber nicht zur Auslieferung. Sie kam auf anderem Weg hinein: durch einen Angreifer, ein altes Update oder eine Vorlage.",
-		Advice: "In der Ansicht und bei den Fähigkeiten nachsehen, was die Datei tut. Wird sie nicht gebraucht, in die Quarantäne verschieben; ist sie ein bekannter harmloser Rest, freigeben.",
+		Advice: "In der Ansicht und bei den Fähigkeiten nachsehen, was die Datei tut. Wird sie nicht gebraucht, in die Quarantäne verschieben; ist sie ein bekannter harmloser Rest, als harmlos markieren.",
 	},
 	ExtraSignature: {
 		Why:    "Die Datei gleicht einer bekannten Schadcode-Probe aus der Signaturliste von Linux Malware Detect (Prüfsumme oder Byte-Muster).",
@@ -180,7 +180,7 @@ var explanations = map[string]Explanation{
 // quarantine (AutoSafe) gets the first; the others ask the reader to look.
 const (
 	adviceAutoSafe = "Diese Art Code hat keinen ehrlichen Zweck. In die Quarantäne verschieben und klären, wie die Datei hineinkam: Zugangsdaten ändern, Plugins und Themes aktualisieren, das Zugriffsprotokoll um den Zeitpunkt der Datei ansehen."
-	adviceSevere   = "Prüfen, ob die Datei zu einem Plugin, Theme oder Update gehört (Ordner, Datum, dieselbe Datei auf anderen Websites). Gehört sie zu nichts, in die Quarantäne verschieben; ist sie Herstellercode, freigeben."
+	adviceSevere   = "Prüfen, ob die Datei zu einem Plugin, Theme oder Update gehört (Ordner, Datum, dieselbe Datei auf anderen Websites). Gehört sie zu nichts, in die Quarantäne verschieben; ist sie Herstellercode, als harmlos markieren."
 	adviceMild     = "Häufig harmlos. Die Ansicht und die Fähigkeiten zeigen, was die Datei tut: Befehle aus der Anfrage oder verschleierter Code sprechen gegen sie, eine Anmeldung und Rechteprüfung für sie."
 )
 

@@ -77,7 +77,7 @@
    Zeile auf Weiss. #ef8a2b kommt da auf 2,5:1 und ist damit auch fuer grossen
    Text zu wenig. */
 #mw-run .mw-log td.warn{opacity:1;color:var(--cic-warn-lift,#b25f00)}
-@media (prefers-reduced-motion:reduce){#mw-run .mw-fill{transition:none}}
+@media (prefers-reduced-motion:reduce){#mw-run .mw-fill,.mw-flaws > summary::before{transition:none}}
 
 /* Dichter als die Vorlage des Themes. Bei deren Polsterung nahm eine Fund-
    zeile ueber hundert Pixel: der Pfad brach um, die Art und jede Regel
@@ -97,7 +97,9 @@
 #mw-site .table > thead > tr > th,
 #mw-site .table > tbody > tr > td{padding:6px 10px;vertical-align:middle}
 #mw-site td.num{font-variant-numeric:tabular-nums}
-#mw-site td.right,#mw-site th.right{text-align:right}
+/* mw-right: ISPConfig's own .right floats, and floating cells ran in reverse
+   order under the wrong heads (0.44.0). */
+#mw-site td.mw-right,#mw-site th.mw-right{text-align:right}
 #mw-site .mw-mono{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:12px}
 
 /* Unten steht die schmale Fassung, weil sie die ist, die nichts voraussetzt:
@@ -154,6 +156,9 @@
 	/* Ein Pfad in einer Zeile, nicht in dreien: der Anfang steht, das Ende
 	   kuerzt, der ganze Pfad haengt als Titel daran. */
 	#mw-site .mw-path{max-width:56ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;word-break:normal}
+	/* An installation is told apart by its last folder: the cut is at the
+	   start, as in the quarantine (0.44.0). */
+	#mw-site .mw-path-end{direction:rtl;text-align:left}
 	/* Beim Fund steht der Dateiname rechts, und genau der ist die Auskunft.
 	   Gekuerzt wird deshalb das Verzeichnis davor, nicht der Name dahinter. */
 	#mw-site .mw-file{flex-wrap:nowrap;max-width:60ch}
@@ -215,7 +220,7 @@
 		data-load-content="security/malwatch_upgrade_start.php?id={tmpl_var name='domain_id'}">{tmpl_var name='upgrades_txt'}</a>
 	</tmpl_if>
 	<tmpl_if name="has_findings">
-	<button class="btn btn-default mw-risk" type="button"
+	<button class="btn btn-default formbutton-default mw-risk" type="button"
 		data-mw-confirm="{tmpl_var name='confirm_delete_all_txt'}" data-mw-title="{tmpl_var name='delete_all_txt'}"
 		data-mw-ok="{tmpl_var name='delete_one_txt'}" data-mw-danger="1"
 		data-mw-set-malwatch_action="delete_all"
@@ -543,7 +548,10 @@
    Deckkraft, damit beide Themes stimmen. */
 #mw-site .table > tbody > tr.mw-flawrow > td{border-top:0;padding-top:0}
 #mw-site .mw-flawcount{margin-left:4px}
-.mw-flaws > summary{cursor:pointer;font-size:12.5px}
+.mw-flaws > summary{cursor:pointer;font-size:12.5px;list-style:none}
+.mw-flaws > summary::-webkit-details-marker{display:none}
+.mw-flaws > summary::before{content:"A";display:inline-block;width:1em;font-weight:700;transition:transform .15s}
+.mw-flaws[open] > summary::before{transform:rotate(90deg)}
 .mw-flaws .mw-update{opacity:.8;font-size:12px}
 /* Die aufgeklappte Liste rueckt unter ihre Zeile ein; die Linie links bindet
    sie an die Installation darueber. */
@@ -555,7 +563,10 @@
 .mw-flaws .mw-flaw-more{margin:6px 0 0 30px}
 .mw-flaw-unchecked{display:block;margin-top:3px}
 .mw-flaw-note{margin:8px 0 0;font-size:12.5px;max-width:80ch}
-#mw-site .mw-uplink{margin-left:6px;font-size:12px;white-space:nowrap}
+/* A link that looks like one: the theme gives every link in a cell the text
+   colour, and "Aktualisieren" read like a state (0.44.0). */
+#pageContent #mw-site a.mw-uplink{margin-left:6px;font-size:12px;white-space:nowrap;
+	color:var(--cic-accent-text,#a84c0b);text-decoration:underline;text-underline-offset:2px}
 .mw-upline{margin:2px 0;font-size:12.5px;line-height:1.5}
 #mw-run .mw-steps{margin:0 0 8px;font-size:12.5px;display:flex;flex-direction:column;gap:2px}
 #mw-run .mw-step-rolled_back,#mw-run .mw-step-failed{color:var(--cic-warn-lift,#b25f00)}
@@ -589,7 +600,7 @@
 			<td class="num">
 				<tmpl_if name="is_unknown">{tmpl_var name='version_unknown_txt'}<tmpl_else>{tmpl_var name='latest_version'}</tmpl_if>
 			</td>
-			<td><code class="mw-mono mw-path" title="{tmpl_var name='install_path'}">{tmpl_var name='install_path'}</code></td>
+			<td><code class="mw-mono mw-path mw-path-end" title="{tmpl_var name='install_path'}"><bdi>{tmpl_var name='install_rel'}</bdi></code></td>
 		</tr>
 		<tmpl_if name="has_flaw_list">
 		<tr class="mw-flawrow">
@@ -656,10 +667,10 @@
 		<tr>
 			<th class="mw-tight">{tmpl_var name='finished_txt'}</th>
 			<th class="mw-tight">{tmpl_var name='state_txt'}</th>
-			<th class="right">{tmpl_var name='files_scanned_txt'}</th>
-			<th class="right">{tmpl_var name='duration_txt'}</th>
-			<th class="right">{tmpl_var name='counts_txt'}</th>
-			<th class="right">{tmpl_var name='new_findings_txt'}</th>
+			<th class="mw-right">{tmpl_var name='files_scanned_txt'}</th>
+			<th class="mw-right">{tmpl_var name='duration_txt'}</th>
+			<th class="mw-right">{tmpl_var name='counts_txt'}</th>
+			<th class="mw-right">{tmpl_var name='new_findings_txt'}</th>
 		</tr>
 	</thead>
 	<tbody>
@@ -667,10 +678,10 @@
 		<tr>
 			<td class="num mw-tight">{tmpl_var name='finished_at'}</td>
 			<td class="mw-tight"><span class="label {tmpl_var name='state_class'}">{tmpl_var name='state_label'}</span></td>
-			<td class="num right">{tmpl_var name='files_total'} <small class="text-muted">(+{tmpl_var name='files_scanned'})</small></td>
-			<td class="num right">{tmpl_var name='duration'}</td>
-			<td class="num right"><small>{tmpl_var name='count_critical'} / {tmpl_var name='count_high'} / {tmpl_var name='count_medium'} / {tmpl_var name='count_low'} &middot; {tmpl_var name='count_outdated'}</small></td>
-			<td class="num right">{tmpl_var name='new_findings'}</td>
+			<td class="num mw-right">{tmpl_var name='files_total'} <small class="text-muted">(+{tmpl_var name='files_scanned'})</small></td>
+			<td class="num mw-right">{tmpl_var name='duration'}</td>
+			<td class="mw-right"><small>{tmpl_var name='counts_label'}</small></td>
+			<td class="num mw-right">{tmpl_var name='new_findings'}</td>
 		</tr>
 		</tmpl_loop>
 		<tmpl_unless name="has_scans">

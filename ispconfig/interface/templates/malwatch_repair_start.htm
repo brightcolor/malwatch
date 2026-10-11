@@ -34,13 +34,13 @@
 	background:var(--cic-raised,rgba(128,128,128,.06));cursor:pointer;
 }
 #mw-repair .mw-choice:hover{border-color:var(--cic-line-loud,rgba(128,128,128,.55))}
-#mw-repair .mw-choice:has(input:checked){border-color:var(--cic-accent,#dd630d);background:var(--cic-hover,rgba(128,128,128,.12))}
-#mw-repair .mw-choice input{margin-top:4px;accent-color:var(--cic-accent,#dd630d)}
+#mw-repair .mw-choice:has(input:checked){border-color:var(--cic-warn,#fed329);box-shadow:inset 4px 0 0 var(--cic-warn,#fed329);background:var(--cic-hover,rgba(128,128,128,.12))}
+#mw-repair .mw-choice input{margin-top:4px;accent-color:var(--cic-text,currentColor)}
 #mw-repair .mw-choice .mw-name{font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 /* Keine Deckkraft auf die Karte selbst: der Name darin soll lauter bleiben
    als die Beschreibung, und Deckkraft laesst sich von innen nicht wieder
    zuruecknehmen. Deshalb sitzt sie nur auf dem Beschreibungsabsatz. */
-#mw-repair .mw-choice .mw-desc{margin:4px 0 0;font-size:13px;opacity:.82}
+#mw-repair .mw-choice .mw-desc{margin:4px 0 0;font-size:13px;font-weight:400;opacity:.82}
 #mw-repair .mw-tag{
 	font-size:11px;font-weight:600;padding:1px 6px;border-radius:3px;
 	background:var(--cic-sunken,rgba(128,128,128,.10));color:var(--cic-accent-text,#a84c0b);
@@ -93,7 +93,7 @@
 #mw-repair .mw-quiet{margin-top:16px;padding:12px 15px;border:1px solid var(--cic-line-soft,rgba(128,128,128,.35));border-radius:3px;opacity:.85;font-size:13px;background:var(--cic-head,rgba(128,128,128,.07))}
 #mw-repair .mw-savebar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:14px}
 #mw-repair .mw-selcount{font-size:13px;opacity:.72;font-variant-numeric:tabular-nums}
-#mw-repair input[type=checkbox]{accent-color:var(--cic-accent,#dd630d)}
+#mw-repair input[type=checkbox]{accent-color:var(--cic-text,currentColor)}
 /* Ein Ordner je WordPress-Installation: Kopfzeile mit Name, Zaehler und
    seinen Knoepfen, darunter die Tabelle. Dieselben Masse wie auf der Seite
    "Updates". */

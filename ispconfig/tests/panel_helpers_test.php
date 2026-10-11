@@ -288,6 +288,77 @@ expect_same('a full inner list stays', $fake_app->tpl->loops['rows'][1]['chips']
 malwatch_set_loop($fake_app, 'none', null);
 expect_same('no array at all is not handed over', array_key_exists('none', $fake_app->tpl->loops), false);
 
+// --- 0.44.0 -------------------------------------------------------------------
+
+// The state of a website follows its worst finding, the same rule as on the
+// status page: a critical one is pink, anything less yellow (0.44.0). Before,
+// "findings" was always pink, and a website with one medium finding was
+// yellow on the status page and pink on its own page.
+expect_same('findings with a critical one', malwatch_state_class('findings', 1), 'label-danger');
+expect_same('findings without a critical one', malwatch_state_class('findings', 0), 'label-warning');
+expect_same('findings, count as text', malwatch_state_class('findings', '0'), 'label-warning');
+expect_same('findings, count unknown', malwatch_state_class('findings'), 'label-danger');
+expect_same('clean stays lime', malwatch_state_class('clean', 0), 'label-success');
+expect_same('error stays pink', malwatch_state_class('error', 0), 'label-danger');
+
+// The history of a website names its numbers, like the scan list.
+$count_words = array('sev_critical_txt' => 'kritisch', 'sev_high_txt' => 'hoch', 'sev_medium_txt' => 'mittel',
+	'sev_low_txt' => 'gering', 'counts_none_txt' => 'keine Funde', 'count_outdated_txt' => '%s veraltet');
+expect_same('history counts', malwatch_history_counts(array('count_critical' => '0', 'count_high' => '0',
+	'count_medium' => '1', 'count_low' => '0', 'count_outdated' => '10'), $count_words), '1 mittel · 10 veraltet');
+expect_same('history without outdated', malwatch_history_counts(array('count_critical' => '2', 'count_high' => '1',
+	'count_outdated' => '0'), $count_words), '2 kritisch · 1 hoch');
+expect_same('history with nothing', malwatch_history_counts(array(), $count_words), 'keine Funde');
+expect_same('history only outdated', malwatch_history_counts(array('count_outdated' => '1200'), $count_words), '1.200 veraltet');
+
+// How many entries one page of the quarantine shows is a setting (0.44.0).
+expect_same('quarantine page size default', malwatch_quarantine_page_size(array()), 50);
+expect_same('quarantine page size set', malwatch_quarantine_page_size(array('quarantine_page_size' => '200')), 200);
+expect_same('quarantine page size too small', malwatch_quarantine_page_size(array('quarantine_page_size' => '5')), 50);
+expect_same('quarantine page size too large', malwatch_quarantine_page_size(array('quarantine_page_size' => '5000')), 50);
+expect_same('quarantine page size no number', malwatch_quarantine_page_size(array('quarantine_page_size' => 'x')), 50);
+expect_same('quarantine page size bounds', malwatch_quarantine_page_size_range(), array(10, 1000, 50));
+
+// A refused save names the fields whose validator spoke, so the settings page
+// opens the right tab and marks the field (0.44.0). The page guessed from the
+// labels and missed a quarter of the messages.
+$form_def = array('tabs' => array(
+	'one' => array('fields' => array(
+		'keep_dump_days' => array('validators' => array(array('type' => 'RANGE', 'errmsg' => 'keep_dump_days_error_range'))),
+		'poll_seconds' => array('validators' => array(array('type' => 'RANGE', 'errmsg' => 'poll_seconds_error_range'))),
+		'notes' => array(),
+	)),
+	'two' => array('fields' => array(
+		'mail_to' => array('validators' => array(
+			array('type' => 'NOTEMPTY', 'errmsg' => 'mail_to_error_empty'),
+			array('type' => 'ISEMAIL', 'errmsg' => 'mail_to_error_email'))),
+	)),
+));
+$form_words = array(
+	'keep_dump_days_error_range' => 'Dumps behalten: Erlaubt sind 1 bis 90 Tage.',
+	'poll_seconds_error_range' => 'Aktualisierung: Erlaubt sind 2 bis 60 Sekunden.',
+	'mail_to_error_empty' => 'Trag eine Adresse ein.',
+	'mail_to_error_email' => 'Die Adresse ist ungültig.',
+);
+expect_same('one field', malwatch_error_fields($form_def, $form_words,
+	"Dumps behalten: Erlaubt sind 1 bis 90 Tage.<br />\r\n"), array('keep_dump_days'));
+expect_same('two fields in form order', malwatch_error_fields($form_def, $form_words,
+	"Die Adresse ist ungültig.<br />Dumps behalten: Erlaubt sind 1 bis 90 Tage.<br />"), array('keep_dump_days', 'mail_to'));
+expect_same('escaped message', malwatch_error_fields($form_def, $form_words,
+	'Die Adresse ist ung&uuml;ltig.<br />'), array('mail_to'));
+expect_same('no error', malwatch_error_fields($form_def, $form_words, ''), array());
+expect_same('a message of its own', malwatch_error_fields($form_def, $form_words, 'Etwas anderes.'), array());
+expect_same('missing words', malwatch_error_fields($form_def, array(), 'Dumps behalten'), array());
+
+// A domain in punycode is shown the way its owner writes it (0.44.0).
+if (function_exists('idn_to_utf8')) {
+	expect_same('punycode', malwatch_display_domain('xn--sm-lbeck-95a.de'), 'sm-lübeck.de');
+	expect_same('punycode subdomain', malwatch_display_domain('www.xn--mller-kva.de'), 'www.müller.de');
+}
+expect_same('plain domain', malwatch_display_domain('beispiel.de'), 'beispiel.de');
+expect_same('broken punycode stays', malwatch_display_domain('xn--.de'), 'xn--.de');
+expect_same('empty domain', malwatch_display_domain(''), '');
+
 if ($failures > 0) {
 	exit(1);
 }

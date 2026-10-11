@@ -524,3 +524,4 @@ $wb['group_protect_txt'] = 'Protection';
 $wb['group_block_txt'] = 'Blocking';
 $wb['group_display_txt'] = 'Display and retention';
 $wb['group_system_txt'] = 'System';
+$wb['tab_error_txt'] = 'contains an error';

@@ -1,6 +1,7 @@
 <div class='page-header'>
 	<h1>{tmpl_var name='domain'}</h1>
 </div>
+<p class="mw-back"><a href="#" data-load-content="security/malwatch_site_show.php?id={tmpl_var name='domain_id'}">← {tmpl_var name='back_to_site_txt'}</a></p>
 <p>{tmpl_var name='edit_desc_txt'}</p>
 
 <div class="alert alert-info">
@@ -89,9 +90,17 @@
 /* A level whose action is off stays editable, so its value survives the save,
    and steps back visually until the action is on. */
 #pageContent .form-group.mw-off{opacity:.5}
+#pageContent .mw-back{margin:0 0 12px;font-size:13px}
 </style>
 <script>
 (function () {
+	// ISPConfig draws a tab bar for a form with one tab; "Einstellungen" there
+	// switched nothing (0.44.0).
+	var formTabs = document.querySelector('#pageContent .nav-tabs');
+	if (formTabs && formTabs.querySelectorAll('li').length < 2) {
+		formTabs.style.display = 'none';
+	}
+
 	var pairs = [['notify_admin', 'notify_admin_severity'], ['notify_client', 'notify_client_severity'], ['disable_site', 'disable_severity']];
 	pairs.forEach(function (pair) {
 		var box = document.querySelector('#pageContent input[type=checkbox][name="' + pair[0] + '"]');

@@ -714,6 +714,23 @@ $form['tabs']['settings'] = array(
 			'width' => '10',
 			'maxlength' => '7'
 		),
+		// How many entries one page of the quarantine shows (0.44.0). Bounds:
+		// malwatch_quarantine_page_size_range().
+		'quarantine_page_size' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => (string) malwatch_config_defaults()['quarantine_page_size'],
+			'validators' => array(
+				array(
+					'type' => 'RANGE',
+					'range' => implode(':', array_slice(malwatch_quarantine_page_size_range(), 0, 2)),
+					'errmsg' => 'quarantine_page_size_error_range'
+				)
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '4'
+		),
 		// The template does not use the auto-generated widget for either
 		// field below - the "choice card" markup in malwatch_config_edit.htm
 		// is hand-written, because none of tform's stock formtypes render a

@@ -5,7 +5,8 @@ require_once '../../lib/app.inc.php';
 
 $app->auth->check_module_permissions('security');
 if (!$app->auth->is_admin()) {
-	die('Nur für Administratoren.');
+	require_once 'lib/malwatch_lib.inc.php';
+	malwatch_stop($app, 'stop_admin_only_txt');
 }
 
 $app->uses('listform_actions');
@@ -37,6 +38,8 @@ class list_action extends listform_actions
 		// which malwatch_severity_class() does not know, and every row came
 		// out grey.
 		$severity_class = malwatch_severity_class(isset($rec['severity']) ? (string) $rec['severity'] : '');
+		// The date as on every other page, "10.10.2026 11:57" (0.44.0).
+		$last_seen = malwatch_datetime(isset($rec['last_seen']) ? $rec['last_seen'] : '');
 
 		$rec = parent::prepareDataRow($rec);
 
@@ -53,8 +56,21 @@ class list_action extends listform_actions
 		// A website nobody scans any more keeps its findings as they were.
 		$rec['site_inactive'] = $this->states[$domain_id] === 'inactive' ? 1 : 0;
 		$rec['site_gone'] = $this->states[$domain_id] === 'gone' ? 1 : 0;
+		$rec['last_seen'] = $app->functions->htmlentities($last_seen);
+		// The rule id may break after its dots and underscores, nowhere else
+		// (0.44.0); it is escaped by the list already.
+		$rec['rule_id'] = str_replace(array('.', '_'), array('.<wbr>', '_<wbr>'), (string) $rec['rule_id']);
+		// While the filter fixes one state, every row would repeat it.
+		$rec['show_state'] = $this->stateFiltered() ? 0 : 1;
 
 		return $rec;
+	}
+
+	/** Whether the filter above the list fixes one finding state. */
+	private function stateFiltered()
+	{
+		return isset($_SESSION['search']['malwatch_finding']['search_finding_state'])
+			&& (string) $_SESSION['search']['malwatch_finding']['search_finding_state'] !== '';
 	}
 
 	/**

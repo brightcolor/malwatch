@@ -36,6 +36,14 @@
    auf dem jeweils anderen Theme falsch. Nur nicht umbrechen soll sie. */
 #mw-status .mw-acts{display:flex;flex-direction:column;gap:6px}
 #mw-status .mw-acts .btn{white-space:nowrap}
+/* The domain is the link of its card, and the whole card answers a click
+   (0.44.0); "Ansehen" stays for the eye and the keyboard on a wide screen. */
+#mw-status .mw-site{position:relative}
+#pageContent #mw-status a.mw-sitelink{color:inherit;text-decoration:none}
+#mw-status a.mw-sitelink::after{content:"";position:absolute;inset:0}
+#pageContent #mw-status a.mw-sitelink:hover,#pageContent #mw-status a.mw-sitelink:focus-visible{text-decoration:underline}
+#mw-status .mw-acts{position:relative;z-index:1}
+@media (max-width:640px){#mw-status .mw-hide-narrow{display:none}#mw-status .mw-site{grid-template-columns:1fr}}
 #mw-status .mw-track{height:6px;border-radius:3px;background:var(--cic-line-soft,rgba(128,128,128,.35));
   overflow:hidden;margin-top:10px}
 #mw-status .mw-fill{height:100%;background:var(--cic-accent,#dd630d);border-radius:3px;
@@ -61,7 +69,7 @@
       <article class="mw-site {tmpl_var name='state_class'}" data-domain="{tmpl_var name='domain_id'}">
         <div>
           <h2>
-            {tmpl_var name='domain'}
+            <a class="mw-sitelink" href="#" data-load-content="security/malwatch_site_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='domain'}</a>
             <tmpl_if name="is_running" op="==" value="y">
               <span class="mw-chip busy">{tmpl_var name='state_running_txt'}</span>
             <tmpl_else>
@@ -83,7 +91,7 @@
             </div>
           </tmpl_if>
         </div>
-        <div class="mw-acts">
+        <div class="mw-acts mw-hide-narrow">
           <a class="btn btn-default formbutton-default"
              href="javascript:ISPConfig.loadContent('security/malwatch_site_show.php?id={tmpl_var name='domain_id'}');">{tmpl_var name='view_txt'}<span class="sr-only"> {tmpl_var name='domain'}</span></a>
         </div>

@@ -1,12 +1,30 @@
 <style>
-/* The file name leads, the folder stands quietly below it, and both wrap: the
-   theme cuts a link in a table cell to one line, and "wp-config-sam..." was
-   all that was left of the name the reader looks for. Rule ids wrap too. */
-#pageContent td.mw-filecell,#pageContent td.mw-rulecell{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
-#pageContent td.mw-filecell a{white-space:normal;overflow:visible;text-overflow:clip}
-#pageContent td.mw-filecell .mw-dir{display:block;font-size:12px}
-#pageContent td.mw-filecell{min-width:30ch}
-#pageContent td.mw-rulecell code{white-space:normal;overflow-wrap:anywhere}
+/* The file name leads, the folder stands quietly below it. The panel sets
+   table-layout:fixed, which made every column the same 160 px and broke the
+   name inside its words ("contao-/manager.phar.php"); here the columns take
+   their content's width and the file takes the rest (0.44.0). The folder is
+   one line cut at its start, the full path is the cell's title. */
+#mw-findings .table{table-layout:auto}
+#mw-findings th.mw-tight,#mw-findings td.mw-tight{white-space:nowrap;width:1%}
+#pageContent #mw-findings td.mw-filecell,#pageContent #mw-findings td.mw-rulecell{white-space:normal;overflow:visible;text-overflow:clip}
+#pageContent #mw-findings td.mw-filecell a{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:break-word}
+#mw-findings td.mw-filecell{min-width:24ch}
+#mw-findings .mw-dir{display:block;max-width:34ch;font-size:12px;direction:rtl;text-align:left;
+	overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* A rule id breaks at its dots, never inside a word. */
+#mw-findings td.mw-rulecell{min-width:17ch;max-width:24ch}
+#mw-findings td.mw-rulecell code{white-space:normal;overflow-wrap:normal;word-break:normal}
+#mw-findings .mw-domain{display:inline-block;max-width:22ch;overflow-wrap:anywhere}
+/* Room for the sort mark next to a narrow head. */
+#mw-findings th.mw-tight[data-column]{padding-right:26px}
+#mw-findings .mw-only-narrow{display:none}
+/* On a phone a row is two lines: the file as its title, below it level,
+   website and date in small type (house rule, 0.44.0). */
+@media (max-width:640px){
+	#mw-findings .mw-hide-narrow{display:none !important}
+	#mw-findings .mw-only-narrow{display:block;margin-top:3px;font-size:12px;opacity:.85}
+	#mw-findings .mw-dir{max-width:none;white-space:normal;direction:ltr;overflow-wrap:anywhere}
+}
 </style>
 
 <div class='page-header'>
@@ -14,17 +32,17 @@
 </div>
 <p><tmpl_var name="list_desc_txt"></p>
 
-<div class="table-wrapper marginTop15">
+<div class="table-wrapper marginTop15" id="mw-findings">
 <table class="table">
 	<thead class="dark form-group-sm">
 		<tr>
-			<th data-column="finding_state"><tmpl_var name="finding_state_txt"></th>
-			<th data-column="severity"><tmpl_var name="severity_txt"></th>
+			<th data-column="finding_state" class="mw-tight"><tmpl_var name="finding_state_txt"></th>
+			<th data-column="severity" class="mw-tight"><tmpl_var name="severity_txt"></th>
 			<th data-column="domain"><tmpl_var name="domain_txt"></th>
 			<th data-column="rule_id"><tmpl_var name="rule_id_txt"></th>
 			<th data-column="file_path"><tmpl_var name="file_path_txt"></th>
-			<th data-column="last_seen"><tmpl_var name="last_seen_txt"></th>
-			<th class="small-col text-right">{tmpl_var name='search_limit'}</th>
+			<th data-column="last_seen" class="mw-tight"><tmpl_var name="last_seen_txt"></th>
+			<th class="small-col text-right mw-tight">{tmpl_var name='search_limit'}</th>
 		</tr>
 		<tr>
 			<td><select class="form-control" name="search_finding_state" aria-label="{tmpl_var name='finding_state_txt'}">{tmpl_var name='search_finding_state'}</select></td>
@@ -43,18 +61,19 @@
 	<tbody>
 		<tmpl_loop name="records">
 		<tr>
-			<td>{tmpl_var name="finding_state"}</td>
-			<td><span class="label {tmpl_var name='severity_class'}">{tmpl_var name="severity"}</span></td>
-			<td><a href="#" data-load-content="security/malwatch_site_show.php?id={tmpl_var name='parent_domain_id'}">{tmpl_var name="domain"}</a><tmpl_if name="site_inactive"> <span class="label label-default" title="{tmpl_var name='site_inactive_hint_txt'}">{tmpl_var name='site_inactive_txt'}</span></tmpl_if><tmpl_if name="site_gone"> <span class="label label-default" title="{tmpl_var name='site_gone_hint_txt'}">{tmpl_var name='site_gone_txt'}</span></tmpl_if></td>
-			<td class="mw-rulecell"><code>{tmpl_var name="rule_id"}</code></td>
+			<td class="mw-tight mw-hide-narrow"><tmpl_if name="show_state">{tmpl_var name="finding_state"}</tmpl_if></td>
+			<td class="mw-tight mw-hide-narrow"><span class="label {tmpl_var name='severity_class'}">{tmpl_var name="severity"}</span></td>
+			<td class="mw-hide-narrow"><a class="mw-domain" href="#" data-load-content="security/malwatch_site_show.php?id={tmpl_var name='parent_domain_id'}">{tmpl_var name="domain"}</a><tmpl_if name="site_inactive"> <span class="label label-default" title="{tmpl_var name='site_inactive_hint_txt'}">{tmpl_var name='site_inactive_txt'}</span></tmpl_if><tmpl_if name="site_gone"> <span class="label label-default" title="{tmpl_var name='site_gone_hint_txt'}">{tmpl_var name='site_gone_txt'}</span></tmpl_if></td>
+			<td class="mw-rulecell mw-hide-narrow"><code>{tmpl_var name="rule_id"}</code></td>
 			<td class="mw-filecell" title="{tmpl_var name='full_path'}">
-				<a href="#" data-load-content="security/malwatch_finding_show.php?id={tmpl_var name='finding_id'}"><strong>{tmpl_var name="file"}</strong><tmpl_if name="has_line"><small class="text-muted"> : {tmpl_var name="line_number"}</small></tmpl_if></a><tmpl_if name="has_dir"><small class="text-muted mw-dir">{tmpl_var name="dir"}</small></tmpl_if>
+				<a href="#" data-load-content="security/malwatch_finding_show.php?id={tmpl_var name='finding_id'}"><strong>{tmpl_var name="file"}</strong><tmpl_if name="has_line"><small class="text-muted"> : {tmpl_var name="line_number"}</small></tmpl_if></a><tmpl_if name="has_dir"><small class="text-muted mw-dir"><bdi>{tmpl_var name="dir"}</bdi></small></tmpl_if>
+				<small class="mw-only-narrow"><span class="label {tmpl_var name='severity_class'}">{tmpl_var name="severity"}</span> {tmpl_var name="domain"} · {tmpl_var name="last_seen"}</small>
 			</td>
-			<td>{tmpl_var name="last_seen"}</td>
-			<td class="text-right">
+			<td class="mw-tight mw-hide-narrow">{tmpl_var name="last_seen"}</td>
+			<td class="text-right mw-tight mw-hide-narrow">
 				<div class="buttons icons16">
 					<a class="btn btn-default formbutton-default formbutton-narrow" href="#"
-						data-load-content="security/malwatch_finding_show.php?id={tmpl_var name='finding_id'}">{tmpl_var name="open_txt"}</a>
+						data-load-content="security/malwatch_finding_show.php?id={tmpl_var name='finding_id'}">{tmpl_var name="open_txt"}<span class="sr-only"> {tmpl_var name="file"}, {tmpl_var name="domain"}</span></a>
 				</div>
 			</td>
 		</tr>

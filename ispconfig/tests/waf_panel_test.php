@@ -108,6 +108,15 @@ expect_same('lede of a week', waf_panel_lede($wb, array('detect' => 1, 'enforce'
 	'Eine Website schreibt mit, eine blockiert. In 7 Tagen 1.200 Treffer.');
 expect_same('lede without detecting websites', waf_panel_lede($wb, array('detect' => 0, 'enforce' => 3, 'hits' => 0, 'would_block' => 0), 30),
 	'Keine Website schreibt mit, 3 blockieren. In 30 Tagen 0 Treffer.');
+expect_same('a rule of ModSecurity itself has its name', waf_panel_rule_title(array('engine_rule_200002_txt' => 'Anfrage nicht lesbar',
+	'rule_fallback_txt' => 'Regel %s'), '200002', ''), 'Anfrage nicht lesbar');
+expect_same('an unknown rule keeps its number', waf_panel_rule_title(array('rule_fallback_txt' => 'Regel %s'), '200003', ''), 'Regel 200003');
+// The title is the state of the websites; the numbers stand below it
+// (0.44.0). Two sentences of twenty words in the display type were too much.
+expect_same('lede parts', waf_panel_lede_parts($wb, array('detect' => 13, 'enforce' => 0, 'hits' => 37322, 'would_block' => 37204), 7),
+	array('title' => '13 Websites schreiben mit, keine blockiert.', 'numbers' => 'In 7 Tagen 37.322 Treffer, 37.204 davon wären abgewiesen worden.'));
+expect_same('lede parts of one day', waf_panel_lede_parts($wb, array('detect' => 1, 'enforce' => 2, 'hits' => 0, 'would_block' => 0), 1),
+	array('title' => 'Eine Website schreibt mit, 2 blockieren.', 'numbers' => 'Heute 0 Treffer.'));
 
 $filters = waf_panel_filters(array('days' => '30', 'state' => 'enforce', 'wp' => '1'), waf_settings(array()));
 expect_same('filters', $filters, array('days' => 30, 'state' => 'enforce', 'wordpress' => true, 'hits' => false));
@@ -802,12 +811,12 @@ expect_same('when everything is shown there is no button', waf_panel_ban_more($w
 expect_same('the button loads one step and names the rest', waf_panel_ban_more($wb, 25, 156, 25, 1000),
 	array('next' => 50, 'label' => '25 weitere zeigen (noch 131 nicht geladen)', 'note' => ''));
 expect_same('the last rows are loaded by name', waf_panel_ban_more($wb, 150, 156, 25, 1000),
-	array('next' => 156, 'label' => 'Die übrigen 6 laden', 'note' => ''));
+	array('next' => 156, 'label' => 'Alle übrigen 6 zeigen', 'note' => ''));
 expect_same('the limit shortens the last step', waf_panel_ban_more($wb, 190, 1530, 25, 200),
 	array('next' => 200, 'label' => '10 weitere zeigen (noch 1.340 nicht geladen)', 'note' => ''));
 $more = waf_panel_ban_more($wb, 200, 1530, 25, 200);
 expect_same('at the limit a note names both numbers and the setting', array($more['next'], $more['label'],
-	strpos($more['note'], '200 von 1.530') !== false, strpos($more['note'], 'Abwehr > Einstellungen') !== false),
+	strpos($more['note'], '200 von 1.530') !== false, strpos($more['note'], 'Abwehr-Einstellungen') !== false),
 	array(0, '', true, true));
 expect_same('the English button reads the same way', waf_panel_ban_more($en_words, 25, 156, 25, 1000)['label'],
 	'Show 25 more (131 not loaded yet)');

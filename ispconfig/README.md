@@ -147,7 +147,7 @@ und von der Seite der Website („Ansehen“). Sie zeigt:
   Fähigkeiten in der Farbe ihrer Art. Ein Klick auf eine Zeilennummer springt
   dorthin. Der Code ist Text einer Kundenseite und wird immer maskiert
   angezeigt.
-- Die Knöpfe „Kein Befund“, „Wieder melden“ und „In Quarantäne verschieben“.
+- Die Knöpfe „Als harmlos markieren“, „Wieder melden“ und „In Quarantäne verschieben“.
 
 Die Grenzen stehen unter **Security > Scanner > Einstellungen > Fundansicht**:
 ganze Datei bis 400 Zeilen, 5 Zeilen um jede Stelle, 300 Zeichen je Zeile, 20
@@ -351,8 +351,8 @@ Bevor die Quarantäne schreibt, misst der Scanner den freien Platz am Ziel: beim
 Ablegen das Archiv und die Kopie, die er zur Kontrolle entpackt, im
 Arbeitsverzeichnis; beim Zurückholen die Dateien im Webordner, bei der
 Rücknahme eines Updates dazu eine Zwischenkopie im Arbeitsverzeichnis; beim
-Herunterladen das ZIP. Dazu kommt die Reserve aus **Security > Scanner >
-Einstellungen > Quarantäne** (Vorgabe 256 MiB, erlaubt 0 bis 1048576), die
+Herunterladen das ZIP. Dazu kommt die Reserve aus **Security > Scanner-Einstellungen > Bei einem Fund >
+Quarantäne** (Vorgabe 256 MiB, erlaubt 0 bis 1048576), die
 immer frei bleibt, damit Webserver, Datenbank und Mail weiterschreiben können.
 
 Reicht der Platz nicht, bricht der Schritt ab: Dateien und Einträge bleiben, wie
@@ -363,6 +363,12 @@ der Liste; Wiederherstellungen und Updates nennen sie in ihrem Ergebnis. Das
 Addon gibt die Reserve bei jedem dieser Aufträge als `--quarantine-reserve` an
 den Scanner; ein gespeicherter Wert außerhalb der Grenzen geht als Vorgabe
 hinaus.
+
+Die Seite **Quarantäne** zeigt so viele Einträge je Seite, wie unter
+**Scanner-Einstellungen › Bei einem Fund › Quarantäne** eingestellt sind
+(`quarantine_page_size`, Vorgabe 50, erlaubt 10 bis 1000), und blättert oben und
+unten. Die Suche findet Einträge nach Pfad, Grund oder Website; die Leiste für
+angehakte Einträge bleibt am unteren Rand sichtbar.
 
 ## Aktionen
 

@@ -16,7 +16,8 @@ require_once '../../lib/app.inc.php';
 
 $app->auth->check_module_permissions('security');
 if (!$app->auth->is_admin()) {
-	die('Nur für Administratoren.');
+	require_once 'lib/malwatch_lib.inc.php';
+	malwatch_stop($app, 'stop_admin_only_txt');
 }
 
 $app->uses('tpl,functions');
@@ -106,7 +107,10 @@ foreach ($installs as $install) {
 				. $app->functions->htmlentities($wb['more_versions_txt']) . '</option>';
 		}
 
-		$can_update = count($row['offers']['choices']) > 0;
+		// wordpress.org does not list a manual_only row; a tick there could
+		// only fail, so the row says where the update comes from instead
+		// (0.44.0).
+		$can_update = count($row['offers']['choices']) > 0 && !$row['manual_only'];
 		$checked = malwatch_upgrade_checked($row, $can_update, $preselect);
 		if ($can_update) {
 			$row_count++;
@@ -115,7 +119,13 @@ foreach ($installs as $install) {
 		if ($checked) {
 			$selected_count++;
 		}
-		$note = $row['manual_only'] ? $wb['manual_only_txt'] : $row['offers']['reason'];
+		$manual_version = (is_array($row['offers']['minimal']) && isset($row['offers']['minimal']['version']))
+			? (string) $row['offers']['minimal']['version'] : '';
+		if ($row['manual_only']) {
+			$note = $manual_version !== '' ? sprintf($wb['manual_only_version_txt'], $manual_version) : $wb['manual_only_txt'];
+		} else {
+			$note = $row['offers']['reason'];
+		}
 
 		$rows[] = array(
 			'software_id' => $row['software_id'],

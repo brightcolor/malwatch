@@ -68,6 +68,7 @@ function malwatch_config_defaults()
 		'keep_fixed_days' => 90,
 		'vanished_check_rows' => 500,
 		'keep_dump_days' => 7,
+		'quarantine_page_size' => 50,
 		'test_dirs' => 'test,tests,test-suite,testsuite,fixtures,__tests__',
 		'library_dirs' => 'vendor,vendors,node_modules,bower_components',
 		'test_rules' => 'php.exec.background,php.eval.variable,binary.elf',
@@ -200,6 +201,61 @@ function malwatch_housekeeping_range($key)
 	return $settings[$key][0] . ':' . $settings[$key][1];
 }
 
+/**
+ * How many entries one page of the quarantine shows: array(min, max, default).
+ * The page was fixed at 500 rows, with the paging only below the last one
+ * (0.44.0).
+ */
+function malwatch_quarantine_page_size_range()
+{
+	return array(10, 1000, 50);
+}
+
+/** The stored page size of the quarantine, or its default when it is missing or out of bounds. */
+function malwatch_quarantine_page_size($config)
+{
+	list($min, $max, $default) = malwatch_quarantine_page_size_range();
+	$raw = isset($config['quarantine_page_size']) ? trim((string) $config['quarantine_page_size']) : '';
+	$value = is_numeric($raw) && (string) (int) $raw === $raw ? (int) $raw : $default;
+	return ($value < $min || $value > $max) ? $default : $value;
+}
+
+/**
+ * The fields of a tform whose validator message stands in the error text of a
+ * refused save, in the order of the form. The settings pages open the tab of
+ * those fields and mark them; matching the labels against the message missed
+ * a quarter of the messages (0.44.0). The text may carry the message raw or
+ * escaped.
+ */
+function malwatch_error_fields($form_def, $words, $error_text)
+{
+	$error_text = (string) $error_text;
+	if (trim($error_text) === '' || !isset($form_def['tabs']) || !is_array($form_def['tabs'])) {
+		return array();
+	}
+	$plain = html_entity_decode(strip_tags(str_replace(array('<br />', '<br/>', '<br>'), "\n", $error_text)), ENT_QUOTES, 'UTF-8');
+	$fields = array();
+	foreach ($form_def['tabs'] as $tab) {
+		if (!isset($tab['fields']) || !is_array($tab['fields'])) {
+			continue;
+		}
+		foreach ($tab['fields'] as $name => $field) {
+			if (!isset($field['validators']) || !is_array($field['validators'])) {
+				continue;
+			}
+			foreach ($field['validators'] as $validator) {
+				$key = isset($validator['errmsg']) ? (string) $validator['errmsg'] : '';
+				$text = ($key !== '' && isset($words[$key])) ? trim((string) $words[$key]) : '';
+				if ($text !== '' && strpos($plain, $text) !== false) {
+					$fields[] = (string) $name;
+					break;
+				}
+			}
+		}
+	}
+	return $fields;
+}
+
 /** The range of such a number as a tform RANGE validator takes it, e.g. '1:600'. */
 function malwatch_verify_range($key)
 {
@@ -310,6 +366,27 @@ function malwatch_scan_counts($rec, $wb)
 		if ($count > 0) {
 			$parts[] = number_format($count, 0, ',', '.') . ' ' . $wb['sev_' . $level . '_txt'];
 		}
+	}
+	return count($parts) > 0 ? implode(' · ', $parts) : $wb['counts_none_txt'];
+}
+
+/**
+ * The findings of one scan in the history of a website: the levels in words,
+ * then the outdated installations, e.g. "1 mittel · 10 veraltet". The history
+ * showed "0 / 0 / 1 / 0 · 10", whose order one had to know (0.44.0).
+ */
+function malwatch_history_counts($rec, $wb)
+{
+	$parts = array();
+	foreach (array('critical', 'high', 'medium', 'low') as $level) {
+		$count = isset($rec['count_' . $level]) ? (int) $rec['count_' . $level] : 0;
+		if ($count > 0) {
+			$parts[] = number_format($count, 0, ',', '.') . ' ' . $wb['sev_' . $level . '_txt'];
+		}
+	}
+	$outdated = isset($rec['count_outdated']) ? (int) $rec['count_outdated'] : 0;
+	if ($outdated > 0) {
+		$parts[] = sprintf($wb['count_outdated_txt'], number_format($outdated, 0, ',', '.'));
 	}
 	return count($parts) > 0 ? implode(' · ', $parts) : $wb['counts_none_txt'];
 }
@@ -1569,11 +1646,16 @@ function malwatch_origin_label($wb, $origin)
 	return isset($wb[$key]) ? $wb[$key] : (string) $origin;
 }
 
-/** Bootstrap label class for a website state. */
-function malwatch_state_class($state)
+/**
+ * Bootstrap label class for a website state. With the number of critical
+ * findings, "findings" follows the status page: pink with a critical one,
+ * yellow without (0.44.0).
+ */
+function malwatch_state_class($state, $count_critical = null)
 {
 	switch ($state) {
 		case 'findings':
+			return ($count_critical !== null && (int) $count_critical === 0) ? 'label-warning' : 'label-danger';
 		case 'vulnerable':
 			return 'label-danger';
 		case 'outdated':
@@ -1784,6 +1866,53 @@ function malwatch_datetime($value)
 		return '–';
 	}
 	return date('d.m.Y H:i', $time);
+}
+
+/**
+ * Ends a page with a message in the language of the user and the way on
+ * (0.44.0). The pages used to stop with a bare sentence such as "Ungültige
+ * Website." on an otherwise empty page. $link is a page of the panel the
+ * message points to, with the text $link_key.
+ */
+function malwatch_stop($app, $key, $link = '', $link_key = '')
+{
+	$language = isset($_SESSION['s']['language']) ? (string) $_SESSION['s']['language'] : 'en';
+	if (isset($app->functions) && is_object($app->functions)) {
+		$language = $app->functions->check_language($language);
+	} elseif (!preg_match('/^[a-z]{2}$/', $language)) {
+		$language = 'en';
+	}
+	$file = __DIR__ . '/lang/' . $language . '_malwatch.lng';
+	if (!file_exists($file)) {
+		$file = __DIR__ . '/lang/en_malwatch.lng';
+	}
+	$wb = array();
+	include $file;
+	$text = isset($wb[$key]) ? $wb[$key] : $key;
+	$html = '<div class="alert alert-danger">' . htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
+	if ($link !== '' && isset($wb[$link_key])) {
+		$html .= ' <a href="#" data-load-content="' . htmlspecialchars($link, ENT_QUOTES, 'UTF-8') . '">'
+			. htmlspecialchars($wb[$link_key], ENT_QUOTES, 'UTF-8') . '</a>';
+	}
+	echo $html . '</div>';
+	exit;
+}
+
+/**
+ * A domain as its owner writes it: punycode labels ("xn--...") in their
+ * letters, when PHP has intl (0.44.0). Anything that does not decode stays as
+ * it is.
+ */
+function malwatch_display_domain($domain)
+{
+	$domain = (string) $domain;
+	if ($domain === '' || stripos($domain, 'xn--') === false || !function_exists('idn_to_utf8')) {
+		return $domain;
+	}
+	$decoded = defined('INTL_IDNA_VARIANT_UTS46')
+		? @idn_to_utf8($domain, 0, INTL_IDNA_VARIANT_UTS46)
+		: @idn_to_utf8($domain);
+	return (is_string($decoded) && $decoded !== '') ? $decoded : $domain;
 }
 
 /** Formats a duration in seconds as a short human string. */

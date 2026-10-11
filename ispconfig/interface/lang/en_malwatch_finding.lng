@@ -44,3 +44,4 @@ $wb['btn_cancel_txt'] = 'Cancel';
 $wb['btn_close_txt'] = 'Close';
 $wb['level_txt'] = 'Level';
 $wb['next_finding_txt'] = 'Next open finding →';
+$wb['goto_view_txt'] = 'Set up the finding view';

@@ -19,7 +19,7 @@
 #mw-wafexc .mw-caption{font-size:12px;opacity:.72;margin-right:4px}
 #mw-wafexc .mw-seg{display:inline-block;padding:3px 9px;border:1px solid var(--cic-line-soft,rgba(128,128,128,.35));
 	border-radius:3px;font-size:12.5px;color:inherit;text-decoration:none}
-#mw-wafexc .mw-seg[aria-current="true"]{border-color:var(--cic-accent,#dd630d);color:var(--cic-accent-text,#a84c0b);font-weight:600}
+#mw-wafexc .mw-seg[aria-current="true"]{background:var(--cic-warn,#fed329);border-color:var(--cic-warn,#fed329);color:var(--cic-on-accent,#1c1c1c);font-weight:600}
 #mw-wafexc .mw-seg:focus-visible{outline:2px solid var(--cic-accent,#dd630d);outline-offset:2px}
 #mw-wafexc .mw-dim{opacity:.72;font-size:12.5px}
 #mw-wafexc .mw-mono{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:12px;word-break:break-all}
@@ -88,8 +88,8 @@
 	<tbody>
 		<tmpl_loop name="rows">
 		<tr>
-			<td class="mw-rulecell"><span class="mw-mono">{tmpl_var name='exc_rule'}</span><div class="mw-dim">{tmpl_var name='exc_rule_title'}</div></td>
-			<td class="mw-sitecell"><tmpl_if name="exc_site_href"><a href="#" data-load-content="{tmpl_var name='exc_site_href'}">{tmpl_var name='exc_site'}</a><tmpl_else>{tmpl_var name='exc_site'}</tmpl_if></td>
+			<td class="mw-rulecell"><strong>{tmpl_var name='exc_rule_title'}</strong> <span class="mw-mono mw-dim">{tmpl_var name='exc_rule'}</span></td>
+			<td class="mw-sitecell"><tmpl_if name="exc_site_href"><a href="#" data-load-content="{tmpl_var name='exc_site_href'}">{tmpl_var name='exc_site'}</a><tmpl_else><span class="mw-dim">–</span></tmpl_if></td>
 			<td>{tmpl_var name='exc_scope'}</td>
 			<td class="mw-mono mw-target">{tmpl_var name='exc_target'}</td>
 			<td>{tmpl_var name='exc_note'}</td>
@@ -100,7 +100,7 @@
 					data-mw-confirm="{tmpl_var name='confirm_exception_remove_txt'}" data-mw-title="{tmpl_var name='btn_exception_remove_txt'}"
 					data-mw-ok="{tmpl_var name='btn_exception_remove_txt'}" data-mw-danger="1"
 					data-mw-set-mw-waf-action="exception_remove" data-mw-set-mw-waf-exception="{tmpl_var name='exception_id'}"
-					data-submit-form="pageForm" data-form-action="security/malwatch_waf_exception_list.php">{tmpl_var name='btn_exception_remove_txt'}</button>
+					data-submit-form="pageForm" data-form-action="security/malwatch_waf_exception_list.php">{tmpl_var name='btn_exception_remove_txt'}<span class="sr-only"> {tmpl_var name='exc_rule_title'}</span></button>
 			</tmpl_if></td>
 		</tr>
 		</tmpl_loop>

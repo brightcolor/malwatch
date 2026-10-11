@@ -20,7 +20,8 @@ require_once '../../lib/app.inc.php';
 
 $app->auth->check_module_permissions('security');
 if (!$app->auth->is_admin()) {
-	die('Nur für Administratoren.');
+	require_once 'lib/malwatch_lib.inc.php';
+	malwatch_stop($app, 'stop_admin_only_txt');
 }
 
 $app->uses('tpl,functions');
@@ -135,9 +136,9 @@ if ($site < 0) {
 $disk_label = function ($bytes) use ($wb) {
 	return $bytes > 0 ? malwatch_bytes($bytes) : $wb['size_unknown_txt'];
 };
+// The date as on every other page, "10.10.2026 11:57" (0.44.0).
 $when_label = function ($datetime) {
-	$stamp = $datetime !== '' ? strtotime($datetime) : false;
-	return ($stamp !== false && $stamp > 0) ? malwatch_when($stamp) : '–';
+	return malwatch_datetime($datetime);
 };
 
 $overview_rows = array();
@@ -157,9 +158,49 @@ $app->tpl->setVar('total_entries', number_format($total_count, 0, ',', '.'));
 $app->tpl->setVar('total_disk', $app->functions->htmlentities($disk_label($total_bytes)));
 $app->tpl->setVar('total_latest', $app->functions->htmlentities($when_label($total_latest)));
 
-// Every action and every page of the list keeps the website it is narrowed to.
-$app->tpl->setVar('site_query', $site >= 0 ? '?site=' . $site : '');
-$app->tpl->setVar('site_param', $site >= 0 ? '&amp;site=' . $site : '');
+// A search narrows the list to entries whose path, reason or website
+// contains the text (0.44.0); 1.505 entries had neither search nor filter.
+$search = isset($_REQUEST['q']) ? trim((string) $_REQUEST['q']) : '';
+if (function_exists('mb_substr')) {
+	$search = mb_substr($search, 0, 200, 'UTF-8');
+} else {
+	$search = substr($search, 0, 200);
+}
+
+// Every action and every page of the list keeps the website it is narrowed to
+// and the search.
+$keep = array();
+if ($site >= 0) {
+	$keep['site'] = $site;
+}
+if ($search !== '') {
+	$keep['q'] = $search;
+}
+$app->tpl->setVar('site_query', count($keep) > 0 ? '?' . $app->functions->htmlentities(http_build_query($keep)) : '');
+$app->tpl->setVar('site_param', count($keep) > 0 ? '&amp;' . $app->functions->htmlentities(http_build_query($keep)) : '');
+$app->tpl->setVar('search', $app->functions->htmlentities($search));
+$app->tpl->setVar('has_search', $search !== '' ? 1 : 0);
+$app->tpl->setVar('site_only_query', $site >= 0 ? '?site=' . $site : '');
+
+$where = array();
+$params = array();
+if ($site >= 0) {
+	$where[] = 'parent_domain_id = ?';
+	$params[] = $site;
+}
+if ($search !== '') {
+	$like = '%' . addcslashes($search, '%_\\') . '%';
+	$where[] = '(rel_path LIKE ? OR reason LIKE ? OR domain LIKE ?)';
+	$params[] = $like;
+	$params[] = $like;
+	$params[] = $like;
+}
+$where_sql = count($where) > 0 ? ' WHERE ' . implode(' AND ', $where) : '';
+if ($search !== '') {
+	$counted = call_user_func_array(array($app->db, 'queryOneRecord'),
+		array_merge(array('SELECT COUNT(*) AS n FROM malwatch_quarantine' . $where_sql), $params));
+	$list_count = is_array($counted) ? (int) $counted['n'] : 0;
+}
 
 $app->tpl->setVar('has_entries', $total_count > 0 ? 1 : 0);
 if ($total_count === 0) {
@@ -173,9 +214,9 @@ if ($total_count === 0) {
 // The table used to show at most 500 rows while the heading and the toolbar
 // counted the whole table: with 800 entries, 300 of them were neither
 // viewable nor restorable, downloadable or deletable from the panel, and
-// nothing said they existed. 500 a page keeps the ordinary case - one page -
-// looking exactly as it did.
-$per_page = 500;
+// nothing said they existed. Since 0.44.0 the page size is a setting
+// (quarantine_page_size, default 50), and the pager stands above and below.
+$per_page = malwatch_quarantine_page_size(malwatch_get_config($app));
 $pages = $list_count > 0 ? (int) ceil($list_count / $per_page) : 1;
 $page = $app->functions->intval(isset($_REQUEST['page']) ? $_REQUEST['page'] : 1);
 if ($page < 1) {
@@ -244,15 +285,12 @@ if (is_array($token_rows)) {
 	}
 }
 
-// $per_page is a constant above and $offset comes from an intval'd request
+// $per_page is a bounded setting and $offset comes from an intval'd request
 // value, so both are safe to write into the statement directly - the panel's
 // db class does not bind LIMIT parameters.
 $order = ' ORDER BY quarantine_id DESC LIMIT ' . (int) $per_page . ' OFFSET ' . (int) $offset;
-if ($site >= 0) {
-	$rows = $app->db->queryAllRecords('SELECT * FROM malwatch_quarantine WHERE parent_domain_id = ?' . $order, $site);
-} else {
-	$rows = $app->db->queryAllRecords('SELECT * FROM malwatch_quarantine' . $order);
-}
+$rows = call_user_func_array(array($app->db, 'queryAllRecords'),
+	array_merge(array('SELECT * FROM malwatch_quarantine' . $where_sql . $order), $params));
 
 $entry_rows = array();
 if (is_array($rows)) {
@@ -267,8 +305,7 @@ if (is_array($rows)) {
 			$path .= '/';
 		}
 
-		$stamp = strtotime((string) $row['created_at']);
-		$moved_when = ($stamp !== false && $stamp > 0) ? malwatch_when($stamp) : '–';
+		$moved_when = malwatch_datetime($row['created_at']);
 
 		$domain_id = $app->functions->intval($row['parent_domain_id']);
 
@@ -298,6 +335,8 @@ if (is_array($rows)) {
 		$entry_rows[] = array(
 			// Both halves of the key the table is unique on, in the one value
 			// the form posts back - see malwatch_queue_quarantine_action().
+			// The name of the row's checkbox for screen readers (0.44.0).
+			'check_label' => $app->functions->htmlentities(sprintf($wb['check_row_txt'], $path)),
 			'row_key' => $app->functions->htmlentities(
 				$app->functions->intval($row['server_id']) . ':' . $entry_id),
 			'kind_label' => $app->functions->htmlentities(
@@ -327,6 +366,7 @@ if (is_array($rows)) {
 	}
 }
 malwatch_set_loop($app, 'entries', $entry_rows);
+$app->tpl->setVar('has_rows_none', count($entry_rows) === 0 ? 1 : 0);
 
 // {n} is left in place for the client-side counter (see the template's
 // script); the two %s never change while the page sits on screen, so they are

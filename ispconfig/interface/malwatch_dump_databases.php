@@ -54,6 +54,6 @@ if (is_array($web)) {
 
 echo json_encode(array(
 	'rows' => $rows,
-	'none' => $app->functions->htmlentities($wb['db_none_txt']),
+	'none' => $app->functions->htmlentities($domain_id > 0 ? $wb['db_none_txt'] : $wb['db_choose_site_txt']),
 	'hint' => $app->functions->htmlentities($wb['db_hint_pending_txt']),
 ));

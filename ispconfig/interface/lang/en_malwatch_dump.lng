@@ -93,3 +93,7 @@ $wb['err_not_found_txt'] = 'This dump was not found. The hourly run has most lik
 $wb['err_dl_bad_link_txt'] = 'This link is incomplete. Please fetch the dump again from the list.';
 $wb['err_dl_expired_txt'] = 'This link is no longer valid, the dump has expired. Start a new one from the list.';
 $wb['err_dl_gone_txt'] = 'The archive is no longer on disk. Start a new dump from the list.';
+$wb['choose_site_txt'] = 'Choose a website';
+$wb['choose_site_hint_txt'] = 'First choose the website to pack above.';
+$wb['db_choose_site_txt'] = 'Choose a website to see its databases here.';
+$wb['goto_keep_txt'] = 'Change the period';

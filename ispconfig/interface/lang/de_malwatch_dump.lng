@@ -1,6 +1,6 @@
 <?php
 $wb['lede_txt'] = 'Dumps';
-$wb['sub_txt'] = 'Ein Dump packt das Webverzeichnis einer Website mit den angehakten Datenbanken in ein tar.gz und legt es zum Herunterladen bereit. Nach %s Tagen räumt der stündliche Lauf ihn wieder weg; die Frist stellst du unter Scanner-Einstellungen ein.';
+$wb['sub_txt'] = 'Ein Dump packt das Webverzeichnis einer Website mit den angehakten Datenbanken in ein tar.gz und legt es zum Herunterladen bereit. Nach %s Tagen räumt der stündliche Lauf ihn wieder weg; die Frist stellst du unter Scanner-Einstellungen › System › Grenzen ein.';
 
 $wb['create_head_txt'] = 'Neuen Dump anlegen';
 $wb['website_txt'] = 'Website';
@@ -93,3 +93,7 @@ $wb['err_not_found_txt'] = 'Dieser Dump wurde nicht gefunden. Wahrscheinlich hat
 $wb['err_dl_bad_link_txt'] = 'Dieser Verweis ist unvollständig. Hol den Dump über die Liste noch einmal.';
 $wb['err_dl_expired_txt'] = 'Dieser Verweis gilt nicht mehr, der Dump ist abgelaufen. Leg in der Liste einen neuen an.';
 $wb['err_dl_gone_txt'] = 'Das Archiv liegt nicht mehr auf der Platte. Leg in der Liste einen neuen Dump an.';
+$wb['choose_site_txt'] = 'Website wählen';
+$wb['choose_site_hint_txt'] = 'Wähle zuerst oben die Website, die gepackt werden soll.';
+$wb['db_choose_site_txt'] = 'Wähle eine Website, dann stehen hier ihre Datenbanken.';
+$wb['goto_keep_txt'] = 'Frist ändern';

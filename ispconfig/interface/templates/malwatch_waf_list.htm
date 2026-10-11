@@ -1,6 +1,7 @@
 <div class='page-header'>
 	<h1>{tmpl_var name='lede'}</h1>
 </div>
+<p class="mw-lede-numbers">{tmpl_var name='lede_numbers'}</p>
 
 <tmpl_if name="message">
 	<div class="alert alert-success">{tmpl_var name='message'}</div>
@@ -21,7 +22,7 @@
 #mw-waf .mw-caption{font-size:12px;opacity:.72;margin-right:4px}
 #mw-waf .mw-seg{display:inline-block;padding:3px 9px;border:1px solid var(--cic-line-soft,rgba(128,128,128,.35));
 	border-radius:3px;font-size:12.5px;color:inherit;text-decoration:none}
-#mw-waf .mw-seg[aria-current="true"]{border-color:var(--cic-accent,#dd630d);color:var(--cic-accent-text,#a84c0b);font-weight:600}
+#mw-waf .mw-seg[aria-current="true"]{background:var(--cic-warn,#fed329);border-color:var(--cic-warn,#fed329);color:var(--cic-on-accent,#1c1c1c);font-weight:600}
 #mw-waf .mw-seg:focus-visible{outline:2px solid var(--cic-accent,#dd630d);outline-offset:2px}
 #mw-waf .mw-actions{display:flex;flex-wrap:wrap;gap:8px}
 #mw-waf .mw-actions .btn{white-space:nowrap}
@@ -33,6 +34,20 @@
 #mw-waf th.num{text-align:right}
 #mw-waf .mw-hitcell{display:flex;align-items:center;justify-content:flex-end;gap:8px}
 #mw-waf .mw-domain{font-weight:600;word-break:break-word}
+#pageContent #mw-waf a.mw-domain{color:inherit}
+#pageContent .mw-lede-numbers{margin:-4px 0 8px;font-size:15px}
+#mw-waf .mw-only-narrow{display:none}
+/* On a phone a row is two lines: the website as its title, below it state and
+   numbers with their words (house rule, 0.44.0). */
+@media (max-width:640px){
+	#mw-waf .mw-hide-narrow{display:none !important}
+	#mw-waf .mw-only-narrow{display:block;margin-top:3px;font-size:12px;opacity:.85}
+	/* The tick sits beside the website it ticks. */
+	#mw-waf .table > tbody > tr > td:first-child{float:left;width:auto;padding-right:2px}
+	#mw-waf .table > tbody > tr::after{content:"";display:table;clear:both}
+}
+#mw-waf .mw-origin{margin-top:14px;font-size:13px}
+#mw-waf .mw-origin summary{cursor:pointer;font-weight:600}
 #mw-waf .mw-dim{opacity:.72;font-size:12px}
 #mw-waf .mw-chip{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
 	padding:2px 7px;border-radius:3px;white-space:nowrap;border:1px solid var(--cic-line-soft,rgba(128,128,128,.35))}
@@ -50,19 +65,23 @@
 #mw-waf .mw-quiet{margin-top:14px;padding:12px 15px;border:1px solid var(--cic-line-soft,rgba(128,128,128,.35));
 	border-radius:3px;opacity:.85;font-size:13px;background:var(--cic-head,rgba(128,128,128,.07))}
 #mw-waf .mw-quiet ul{margin:4px 0 0;padding-left:18px}
-#mw-waf input[type=checkbox]{accent-color:var(--cic-accent,#dd630d)}
+#mw-waf input[type=checkbox]{accent-color:var(--cic-text,currentColor)}
 #mw-waf .mw-selcount{font-size:13px;opacity:.72;font-variant-numeric:tabular-nums}
 #mw-waf .mw-selectbar + .table-wrapper{margin-top:8px}
 /* The actions for ticked websites stay in sight while the list scrolls; they
    sat under some sixty rows, out of reach of the ticks above them. */
-#mw-waf .mw-stickybar{position:sticky;bottom:0;z-index:2;margin:0;padding:10px 0;
-	background:var(--cic-page,#fff);border-top:1px solid var(--cic-line-soft,rgba(128,128,128,.35))}
+#mw-waf .mw-stickybar{position:sticky;bottom:0;z-index:2;margin:0;padding:10px 12px;
+	background:var(--cic-raised,#fff);border:1px solid var(--cic-line-soft,rgba(128,128,128,.35));border-radius:8px 8px 0 0;
+	box-shadow:0 -6px 14px rgba(0,0,0,.08)}
+/* The bar says how many websites it acts on (0.44.0); the count at the top of
+   the list was out of sight. A focused row stays above the bar. */
+#mw-waf .mw-stickybar .mw-selcount{margin-left:auto;font-size:13px;opacity:.8}
+#mw-waf input:focus,#mw-waf a:focus{scroll-margin-bottom:96px}
 </style>
 
 <div id="mw-waf" data-mw-selection data-mw-jobs="security/malwatch_waf_jobs.php?since={tmpl_var name='first_job'}" data-mw-poll="{tmpl_var name='poll_ms'}" data-mw-self="{tmpl_var name='self_href'}">
 
 <p class="mw-sub">{tmpl_var name='sub_txt'}</p>
-<p class="mw-sub">{tmpl_var name='origin_line'} <a href="#" data-load-content="security/malwatch_waf_config_edit.php">{tmpl_var name='origin_settings_link_txt'}</a></p>
 
 <!--
 	No form of our own: the panel wraps the content area in pageForm and posts
@@ -108,7 +127,7 @@
 			data-mw-set-mw-waf-mode="{tmpl_var name='response_target'}"
 			data-submit-form="pageForm" data-form-action="security/malwatch_waf_list.php">{tmpl_var name='response_button'}</button>
 		<tmpl_if name="emergency"><tmpl_else>
-		<button class="btn btn-default mw-risk" type="button"
+		<button class="btn btn-default formbutton-default mw-risk" type="button"
 			data-mw-confirm="{tmpl_var name='confirm_emergency_on_txt'}" data-mw-title="{tmpl_var name='btn_emergency_on_txt'}"
 			data-mw-ok="{tmpl_var name='btn_emergency_on_txt'}" data-mw-danger="1" data-mw-set-mw-waf-action="emergency_on"
 			data-submit-form="pageForm" data-form-action="security/malwatch_waf_list.php">{tmpl_var name='btn_emergency_on_txt'}</button>
@@ -152,18 +171,19 @@
 		<tmpl_loop name="rows">
 		<tr>
 			<td><input type="checkbox" class="mw-pick" name="waf_pick[]" value="{tmpl_var name='domain_id'}" aria-label="{tmpl_var name='domain'}" /></td>
-			<td><span class="mw-domain">{tmpl_var name='domain'}</span><tmpl_if name="is_wordpress"> <span class="mw-dim">WordPress</span></tmpl_if></td>
-			<td>
+			<td><a class="mw-domain" href="#" data-load-content="security/malwatch_waf_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='domain'}</a><tmpl_if name="is_wordpress"> <span class="mw-dim">WordPress</span></tmpl_if>
+				<small class="mw-only-narrow">{tmpl_var name='state_label'} · {tmpl_var name='narrow_hits_txt'} {tmpl_var name='hits'}<tmpl_if name="has_block"> · {tmpl_var name='narrow_block_txt'} {tmpl_var name='would_block'}</tmpl_if></small></td>
+			<td class="mw-hide-narrow">
 				<div class="mw-chips">
 					<span class="mw-chip {tmpl_var name='state_class'}">{tmpl_var name='state_label'}</span>
 					<tmpl_if name="is_pending"><span class="mw-chip pending">{tmpl_var name='state_pending_txt'}</span></tmpl_if>
 				</div>
 				<tmpl_if name="since_label"><div class="mw-dim">{tmpl_var name='since_label'}</div></tmpl_if>
 			</td>
-			<td class="num"><span class="mw-hitcell"><tmpl_if name="spark"><svg class="mw-spark" width="64" height="18" viewBox="0 0 64 18" aria-hidden="true" focusable="false"><polyline points="{tmpl_var name='spark'}" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"></polyline></svg></tmpl_if><span>{tmpl_var name='hits'}</span></span></td>
-			<td class="num"><tmpl_if name="has_block"><span class="mw-block">{tmpl_var name='would_block'}</span><tmpl_else>0</tmpl_if></td>
-			<td><tmpl_if name="top_rule">{tmpl_var name='top_rule'} <span class="mw-dim">{tmpl_var name='top_rule_id'}</span><tmpl_else><span class="mw-dim">–</span></tmpl_if></td>
-			<td><a class="btn btn-default formbutton-default btn-xs" href="#" data-load-content="security/malwatch_waf_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='btn_view_txt'}</a></td>
+			<td class="num mw-hide-narrow"><span class="mw-hitcell"><tmpl_if name="spark"><svg class="mw-spark" width="64" height="18" viewBox="0 0 64 18" aria-hidden="true" focusable="false"><polyline points="{tmpl_var name='spark'}" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"></polyline></svg></tmpl_if><span>{tmpl_var name='hits'}</span></span></td>
+			<td class="num mw-hide-narrow"><tmpl_if name="has_block"><span class="mw-block">{tmpl_var name='would_block'}</span><tmpl_else>0</tmpl_if></td>
+			<td class="mw-hide-narrow"><tmpl_if name="top_rule">{tmpl_var name='top_rule'} <span class="mw-dim">{tmpl_var name='top_rule_id'}</span><tmpl_else><span class="mw-dim">–</span></tmpl_if></td>
+			<td class="mw-hide-narrow"><a class="btn btn-default formbutton-default btn-xs" href="#" data-load-content="security/malwatch_waf_show.php?id={tmpl_var name='domain_id'}">{tmpl_var name='btn_view_txt'}<span class="sr-only"> {tmpl_var name='domain'}</span></a></td>
 		</tr>
 		</tmpl_loop>
 	</tbody>
@@ -189,6 +209,7 @@
 		data-mw-ok="{tmpl_var name='btn_bulk_off_txt'}"
 		data-mw-set-mw-waf-action="state" data-mw-set-mw-waf-target="off"
 		data-submit-form="pageForm" data-form-action="security/malwatch_waf_list.php">{tmpl_var name='btn_bulk_off_txt'}</button>
+	<span class="mw-selcount" data-mw-count data-template="{tmpl_var name='selected_template'}" data-none="{tmpl_var name='selected_none'}">{tmpl_var name='selected_none'}</span>
 </div>
 <tmpl_else>
 <div class="mw-quiet">{tmpl_var name='empty_txt'}</div>
@@ -204,6 +225,10 @@
 </tmpl_if>
 
 <div class="mw-quiet"><strong>{tmpl_var name='footnote_head_txt'}</strong> {tmpl_var name='footnote_txt'}</div>
+<details class="mw-origin">
+	<summary>{tmpl_var name='origin_head_txt'}</summary>
+	<p>{tmpl_var name='origin_line'} <a href="#" data-load-content="security/malwatch_waf_config_edit.php">{tmpl_var name='origin_settings_link_txt'}</a></p>
+</details>
 
 </div>
 

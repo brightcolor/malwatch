@@ -25,7 +25,12 @@
 	<span class="label label-default">{tmpl_var name='last_signature_update_txt'}: {tmpl_var name='last_signature_update'}</span>
 </div>
 
-<div data-mw-groups="config" data-mw-group-names="check={tmpl_var name='group_check_txt'}|finding={tmpl_var name='group_finding_txt'}|notify={tmpl_var name='group_notify_txt'}|system={tmpl_var name='group_system_txt'}">
+<div data-mw-groups="config" data-mw-error-fields="{tmpl_var name='mw_error_fields'}" data-mw-word-error="{tmpl_var name='tab_error_txt'}" data-mw-group-names="check={tmpl_var name='group_check_txt'}|finding={tmpl_var name='group_finding_txt'}|notify={tmpl_var name='group_notify_txt'}|system={tmpl_var name='group_system_txt'}">
+<div class="mw-cfgsearch">
+	<label for="mw-cfg-q">{tmpl_var name='cfg_search_txt'}</label>
+	<input type="search" id="mw-cfg-q" class="form-control" placeholder="{tmpl_var name='cfg_search_placeholder_txt'}" autocomplete="off" />
+	<span class="mw-cfg-none" id="mw-cfg-none" hidden>{tmpl_var name='cfg_search_none_txt'}</span>
+</div>
 <p class="mw-cfgall"><button type="button" class="btn btn-link" id="mw-cfg-all" data-mw-open="{tmpl_var name='sections_open_txt'}" data-mw-close="{tmpl_var name='sections_close_txt'}">{tmpl_var name='sections_open_txt'}</button></p>
 
 <details class="mw-cfgsec" open data-mw-group="system">
@@ -238,7 +243,7 @@
 </div>
 </details>
 
-<details class="mw-cfgsec" data-mw-group="check">
+<details class="mw-cfgsec" data-mw-group="system">
 <summary><h2 class="mw-sec">{tmpl_var name='limits_head_txt'}</h2></summary>
 
 <div class="form-group">
@@ -407,6 +412,13 @@
 		<span class="help-block">{tmpl_var name='quarantine_reserve_hint_txt'}</span>
 	</div>
 </div>
+<div class="form-group">
+	<label for="quarantine_page_size" class="col-sm-3 control-label">{tmpl_var name='quarantine_page_size_txt'}</label>
+	<div class="col-sm-9">
+		<input type="text" name="quarantine_page_size" id="quarantine_page_size" value="{tmpl_var name='quarantine_page_size'}" maxlength="4" class="form-control" />
+		<span class="help-block">{tmpl_var name='quarantine_page_size_hint_txt'}</span>
+	</div>
+</div>
 </details>
 
 <details class="mw-cfgsec" data-mw-group="finding">
@@ -553,8 +565,8 @@
 	background:var(--cic-raised,rgba(128,128,128,.06));cursor:pointer;
 }
 #mw-config-auto .mw-choice:hover{border-color:var(--cic-line-loud,rgba(128,128,128,.55))}
-#mw-config-auto .mw-choice:has(> input:checked){border-color:var(--cic-accent,#dd630d);background:var(--cic-hover,rgba(128,128,128,.12))}
-#mw-config-auto .mw-choice > input{margin-top:4px;accent-color:var(--cic-accent,#dd630d)}
+#mw-config-auto .mw-choice:has(> input:checked){border-color:var(--cic-warn,#fed329);box-shadow:inset 4px 0 0 var(--cic-warn,#fed329);background:var(--cic-hover,rgba(128,128,128,.12))}
+#mw-config-auto .mw-choice > input{margin-top:4px;accent-color:var(--cic-text,currentColor)}
 #mw-config-auto .mw-name{font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 /* Keine Deckkraft auf die Karte: der Name darin soll lauter bleiben als die
    Beschreibung, und Deckkraft laesst sich von innen nicht zuruecknehmen. */
@@ -570,7 +582,7 @@
 #mw-config-auto .mw-ownlist p{font-size:12.5px;opacity:.72;margin:0 0 10px}
 #mw-config-auto .mw-rules{display:flex;flex-direction:column;gap:7px}
 #mw-config-auto .mw-rules label{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;font-size:13px;cursor:pointer}
-#mw-config-auto .mw-rules input{accent-color:var(--cic-accent,#dd630d)}
+#mw-config-auto .mw-rules input{accent-color:var(--cic-text,currentColor)}
 #mw-config-auto .mw-rid{font-size:11.5px;opacity:.72;justify-self:end;font-variant-numeric:tabular-nums;white-space:nowrap}
 #mw-config-auto .mw-savebar{display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap}
 /* Das Feld erbt Schrift- und Flaechenfarbe vom Theme statt sie zu setzen:
@@ -591,6 +603,11 @@
 #pageContent h2.mw-sec{font-size:15px;font-weight:600;margin:22px 0 10px;padding-bottom:5px;border-bottom:1px solid var(--cic-line-soft,rgba(128,128,128,.35))}
 .mw-rule{height:1px;background:var(--cic-line-soft,rgba(128,128,128,.35));border:0;margin:18px 0}
 .mw-savebar-final{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
+/* Search across every tab, as on the Abwehr-Einstellungen (0.44.0). */
+#pageContent .mw-cfgsearch{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:4px 0 6px}
+#pageContent .mw-cfgsearch label{margin:0;font-weight:600}
+#pageContent .mw-cfgsearch input{flex:1 1 16rem;max-width:28rem;width:auto}
+#pageContent .mw-cfg-none{font-size:13px;opacity:.8}
 </style>
 
 <script>
@@ -608,6 +625,27 @@
 		label();
 	});
 	for (var i = 0; i < secs.length; i++) { secs[i].addEventListener('toggle', label); }
+
+	// The search shows every section, of every tab, that names the text, and
+	// opens it; an empty field brings the tabs back.
+	var q = document.getElementById('mw-cfg-q');
+	var none = document.getElementById('mw-cfg-none');
+	var groups = document.querySelector('#pageContent [data-mw-groups="config"]');
+	if (q && groups) {
+		q.addEventListener('keydown', function (event) { if (event.key === 'Enter') { event.preventDefault(); } });
+		q.addEventListener('input', function () {
+			var text = q.value.trim().toLowerCase();
+			var hits = 0;
+			for (var k = 0; k < secs.length; k++) {
+				var match = text === '' || secs[k].textContent.toLowerCase().indexOf(text) !== -1;
+				secs[k].style.display = match ? '' : 'none';
+				if (match && text !== '') { secs[k].open = true; hits++; }
+			}
+			if (text === '') { groups.removeAttribute('data-mw-searching'); } else { groups.setAttribute('data-mw-searching', '1'); }
+			if (none) { none.hidden = !(text !== '' && hits === 0); }
+			label();
+		});
+	}
 	if (document.querySelector('#pageContent .alert-danger, #pageContent .error')) {
 		for (var j = 0; j < secs.length; j++) { secs[j].open = true; }
 	}

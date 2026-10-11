@@ -5,7 +5,8 @@ require_once '../../lib/app.inc.php';
 
 $app->auth->check_module_permissions('security');
 if (!$app->auth->is_admin()) {
-	die('Nur für Administratoren.');
+	require_once 'lib/malwatch_lib.inc.php';
+	malwatch_stop($app, 'stop_admin_only_txt');
 }
 
 $app->uses('tpl,functions');
@@ -13,12 +14,12 @@ require_once 'lib/malwatch_lib.inc.php';
 
 $domain_id = $app->functions->intval(isset($_REQUEST['id']) ? $_REQUEST['id'] : 0);
 if ($domain_id < 1) {
-	die('Ungültige Website.');
+	malwatch_stop($app, 'stop_bad_site_txt', 'security/status.php', 'stop_to_status_txt');
 }
 
 $web = $app->db->queryOneRecord('SELECT * FROM web_domain WHERE domain_id = ?', $domain_id);
 if (!is_array($web)) {
-	die('Die Website wurde nicht gefunden.');
+	malwatch_stop($app, 'stop_site_gone_txt', 'security/status.php', 'stop_to_status_txt');
 }
 
 $message = '';
@@ -123,7 +124,7 @@ $quarantine_count = $app->db->queryOneRecord(
 $quarantine_count = is_array($quarantine_count) ? $app->functions->intval($quarantine_count['n']) : 0;
 
 $app->tpl->setVar('domain_id', $domain_id);
-$app->tpl->setVar('domain', $app->functions->htmlentities($web['domain']));
+$app->tpl->setVar('domain', $app->functions->htmlentities(malwatch_display_domain($web['domain'])));
 $app->tpl->setVar('scan_path', $app->functions->htmlentities(malwatch_scan_path($web)));
 $app->tpl->setVar('site_active', $web['active'] === 'y' ? 1 : 0);
 $app->tpl->setVar('configured', is_array($site) ? 1 : 0);
@@ -151,7 +152,7 @@ if (is_array($last_scan)) {
 	$app->tpl->setVar('scan_notes', nl2br($app->functions->htmlentities((string) $last_scan['notes'])));
 	$app->tpl->setVar('state_label',
 		$app->functions->htmlentities(malwatch_state_label($wb, $last_scan['scan_state'])));
-	$app->tpl->setVar('state_class', malwatch_state_class($last_scan['scan_state']));
+	$app->tpl->setVar('state_class', malwatch_state_class($last_scan['scan_state'], $last_scan['count_critical']));
 } else {
 	$app->tpl->setVar('has_scan', 0);
 }
@@ -238,6 +239,9 @@ if (is_array($software)) {
 			'name' => $app->functions->htmlentities($name),
 			'kind' => $app->functions->htmlentities($row['software_kind']),
 			'install_path' => $app->functions->htmlentities($row['install_path']),
+			// Relative to the scanned directory, like the findings above it;
+			// the absolute path showed only /var/www/clients/... (0.44.0).
+			'install_rel' => $app->functions->htmlentities(implode('', array_slice(malwatch_split_path($row['install_path'], $base), 0, 2))),
 			'installed_version' => $app->functions->htmlentities($row['installed_version']),
 			'latest_version' => $app->functions->htmlentities($row['latest_version']),
 			'is_outdated' => $row['outdated'] === 'y' ? 1 : 0,
@@ -333,14 +337,10 @@ if (is_array($scans)) {
 			'files_scanned' => $app->functions->intval($row['files_scanned']),
 			'files_skipped' => $app->functions->intval($row['files_skipped']),
 			'files_total' => $app->functions->intval($row['files_scanned']) + $app->functions->intval($row['files_skipped']),
-			'count_critical' => $app->functions->intval($row['count_critical']),
-			'count_high' => $app->functions->intval($row['count_high']),
-			'count_medium' => $app->functions->intval($row['count_medium']),
-			'count_low' => $app->functions->intval($row['count_low']),
-			'count_outdated' => $app->functions->intval($row['count_outdated']),
+			'counts_label' => $app->functions->htmlentities(malwatch_history_counts($row, $wb)),
 			'new_findings' => $app->functions->intval($row['new_findings']),
 			'state_label' => $app->functions->htmlentities(malwatch_state_label($wb, $row['scan_state'])),
-			'state_class' => malwatch_state_class($row['scan_state']),
+			'state_class' => malwatch_state_class($row['scan_state'], $row['count_critical']),
 		);
 	}
 }
