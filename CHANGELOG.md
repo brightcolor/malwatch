@@ -2,6 +2,14 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.44.1] – 2026-10-11
+
+### Behoben
+
+**Schließen-Knopf auf der Website-Seite.** Der Dialog der Website-Seite hatte keinen Text für
+seinen Schließen-Knopf (`btn_close_txt` fehlte in `malwatch.lng`). Die Prüfung beim Einspielen
+schlug deshalb an, sobald die gemeinsame Datei der Dialoge die Knöpfe für eine Auswahl kannte.
+
 ## [0.44.0] – 2026-10-11
 
 Die zweite Designkritik über alle Ansichten, umgesetzt: Listen, die auch auf dem Handy lesbar

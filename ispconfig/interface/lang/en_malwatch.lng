@@ -174,3 +174,5 @@ $wb['stop_site_gone_txt'] = 'This website no longer exists in the panel. The sta
 $wb['stop_finding_gone_txt'] = 'This finding no longer exists. The list of findings shows the current state.';
 $wb['stop_to_status_txt'] = 'To the status page';
 $wb['stop_to_findings_txt'] = 'To the list of findings';
+// The dialog of the website page closes with a labelled button (0.44.1).
+$wb['btn_close_txt'] = 'Close';
