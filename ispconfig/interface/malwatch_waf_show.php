@@ -62,6 +62,7 @@ $site = $domain_id > 0 ? $app->db->queryOneRecord(
 $app->tpl->setVar('has_site', is_array($site) ? 1 : 0);
 if (!is_array($site)) {
 	$app->tpl_defaults();
+	malwatch_version_var($app);
 	$app->tpl->pparse();
 	exit;
 }
@@ -423,4 +424,5 @@ foreach (waf_exception_scopes() as $scope) {
 malwatch_set_loop($app, 'scopes', $scopes);
 
 $app->tpl_defaults();
+malwatch_version_var($app);
 $app->tpl->pparse();

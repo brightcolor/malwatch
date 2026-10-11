@@ -1,0 +1,10 @@
+<!--
+	The version of the addon, quietly at the foot of every page of the module
+	(0.45.0). The page sets mw_version with malwatch_version_var().
+-->
+<tmpl_if name="mw_version">
+<p class="mw-version">malwatch {tmpl_var name='mw_version'}</p>
+<style>
+#pageContent .mw-version{clear:both;margin:28px 0 0;font-size:12px;opacity:.55;text-align:right;font-variant-numeric:tabular-nums}
+</style>
+</tmpl_if>

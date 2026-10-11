@@ -198,4 +198,5 @@ $app->tpl->setVar('_csrf_id', $csrf['csrf_id']);
 $app->tpl->setVar('_csrf_key', $csrf['csrf_key']);
 
 $app->tpl_defaults();
+malwatch_version_var($app);
 $app->tpl->pparse();

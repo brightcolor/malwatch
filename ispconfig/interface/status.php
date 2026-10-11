@@ -114,4 +114,5 @@ if ($rows['next_run_state'] === 'scheduled') {
 $app->tpl->setVar('as_of_txt', $as_of_txt);
 
 $app->tpl_defaults();
+malwatch_version_var($app);
 $app->tpl->pparse();

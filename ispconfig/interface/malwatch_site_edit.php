@@ -93,6 +93,8 @@ class page_action extends tform_actions
 	{
 		global $app;
 
+		malwatch_version_var($app);
+
 		$app->tpl->setVar('domain_id', $this->domain_id);
 		$app->tpl->setVar('domain', $app->functions->htmlentities($this->web['domain']));
 		$app->tpl->setVar('scan_path', $app->functions->htmlentities(malwatch_scan_path($this->web)));
