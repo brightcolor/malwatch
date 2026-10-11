@@ -367,6 +367,8 @@ class page_action extends tform_actions
 	{
 		global $app;
 
+		malwatch_version_var($app);
+
 		// The fields a refused save names, for the tab script (0.44.0).
 		$app->tpl->setVar('mw_error_fields', $app->functions->htmlentities(implode(',',
 			malwatch_error_fields($app->tform->formDef, $app->tform->wordbook, $app->tform->errorMessage))));

@@ -142,6 +142,8 @@ class page_action extends tform_actions
 	public function onShowEnd()
 	{
 		global $app;
+
+		malwatch_version_var($app);
 		$wb = $this->waf_wb;
 
 		// The fields a refused save names, for the tab script (0.44.0).

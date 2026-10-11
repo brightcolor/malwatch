@@ -2,6 +2,14 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.45.0] – 2026-10-11
+
+### Hinzugefügt
+
+**Version am Fuß jeder Seite.** Die Seiten des Moduls nennen unten rechts leise die Version des
+Addons („malwatch 0.45.0“). Sie kommt aus der Datei `version` des Pakets im Erweiterungsordner
+(`malwatch_addon_version()`), die Vorlage `malwatch_version.htm` zeigt sie.
+
 ## [0.44.1] – 2026-10-11
 
 ### Behoben

@@ -1869,6 +1869,37 @@ function malwatch_datetime($value)
 }
 
 /**
+ * The version of the addon, from the file "version" of its package: on the
+ * server in the extension directory (/usr/local/ispconfig/extensions/malwatch,
+ * four levels above this file, where ISPConfig unpacks every extension), in
+ * the repository next to interface/. '' when no file holds a version.
+ * $files replaces those places, for the tests.
+ */
+function malwatch_addon_version($files = null)
+{
+	if ($files === null) {
+		$files = array(dirname(__DIR__, 4) . '/extensions/malwatch/version', dirname(__DIR__, 2) . '/version');
+	}
+	foreach ($files as $file) {
+		if (!is_file($file)) {
+			continue;
+		}
+		$version = trim((string) @file_get_contents($file));
+		return preg_match('/^\d+\.\d+\.\d+$/', $version) ? $version : '';
+	}
+	return '';
+}
+
+/**
+ * Hands the version of the addon to the template of a page; the include
+ * templates/malwatch_version.htm shows it quietly at its foot (0.45.0).
+ */
+function malwatch_version_var($app)
+{
+	$app->tpl->setVar('mw_version', $app->functions->htmlentities(malwatch_addon_version()));
+}
+
+/**
  * Ends a page with a message in the language of the user and the way on
  * (0.44.0). The pages used to stop with a bare sentence such as "Ungültige
  * Website." on an otherwise empty page. $link is a page of the panel the

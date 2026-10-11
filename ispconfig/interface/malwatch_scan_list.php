@@ -21,6 +21,14 @@ $list_def_file = 'list/malwatch_scan.list.php';
  */
 class list_action extends listform_actions
 {
+	/** The version of the addon at the foot of the page (0.45.0). */
+	public function onShow()
+	{
+		global $app;
+		malwatch_version_var($app);
+		parent::onShow();
+	}
+
 	public function prepareDataRow($rec)
 	{
 		global $app;

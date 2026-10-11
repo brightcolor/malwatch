@@ -24,6 +24,14 @@ $list_def_file = 'list/malwatch_finding.list.php';
  */
 class list_action extends listform_actions
 {
+	/** The version of the addon at the foot of the page (0.45.0). */
+	public function onShow()
+	{
+		global $app;
+		malwatch_version_var($app);
+		parent::onShow();
+	}
+
 	private $roots = array();
 
 	/** The state of each website, see malwatch_site_state(). */

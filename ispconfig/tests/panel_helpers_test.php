@@ -350,6 +350,19 @@ expect_same('no error', malwatch_error_fields($form_def, $form_words, ''), array
 expect_same('a message of its own', malwatch_error_fields($form_def, $form_words, 'Etwas anderes.'), array());
 expect_same('missing words', malwatch_error_fields($form_def, array(), 'Dumps behalten'), array());
 
+// The version of the addon stands quietly at the foot of its pages (0.45.0).
+// It is read from the file version the package carries: in the repository
+// next to interface/, on the server in the extension directory.
+$repo_version = trim((string) file_get_contents(__DIR__ . '/../version'));
+expect_same('version from the file of the package', malwatch_addon_version(), $repo_version);
+$tmp_version = sys_get_temp_dir() . '/mw_version_' . getmypid();
+file_put_contents($tmp_version, "1.2.3\n");
+expect_same('version from a given file', malwatch_addon_version(array($tmp_version)), '1.2.3');
+file_put_contents($tmp_version, "<b>1.2</b>\n");
+expect_same('something else is no version', malwatch_addon_version(array($tmp_version)), '');
+unlink($tmp_version);
+expect_same('no file, no version', malwatch_addon_version(array($tmp_version)), '');
+
 // A domain in punycode is shown the way its owner writes it (0.44.0).
 if (function_exists('idn_to_utf8')) {
 	expect_same('punycode', malwatch_display_domain('xn--sm-lbeck-95a.de'), 'sm-lübeck.de');
