@@ -1115,6 +1115,14 @@ expect_same('active bans of the edge jails, without the allowed', waf_f2b_edge_i
 	array('ispconfig-wordpress', 'recidive'), $f2b_allowed, $f2b_now), array('198.51.100.7', '203.0.113.9'));
 expect_same('another jail list', waf_f2b_edge_ips($f2b_rows, array('dovecot'), $f2b_allowed, $f2b_now), array('203.0.113.10'));
 expect_same('no jails, no addresses', waf_f2b_edge_ips($f2b_rows, array(), $f2b_allowed, $f2b_now), array());
+$edge_defaults = waf_settings(array());
+$edge_limits = waf_settings_limits();
+expect_same('smallest distance between two reloads: default and range',
+	array($edge_defaults['waf_f2b_edge_minutes'], $edge_limits['waf_f2b_edge_minutes']), array(5, array(0, 60)));
+$edge_set = waf_settings(array('waf_f2b_edge_minutes' => '0'));
+$edge_high = waf_settings(array('waf_f2b_edge_minutes' => '600'));
+expect_same('0 holds, too much is held to the range',
+	array($edge_set['waf_f2b_edge_minutes'], $edge_high['waf_f2b_edge_minutes']), array(0, 60));
 
 // --- summary -----------------------------------------------------------------
 if ($failures > 0) {

@@ -528,3 +528,6 @@ $wb['tab_error_txt'] = 'enthält einen Fehler';
 $wb['waf_f2b_edge_jails_txt'] = 'Jails für nginx und die Kante';
 $wb['waf_f2b_edge_jails_hint_txt'] = 'Die aktiven Sperren dieser fail2ban-Jails kommen in die Sperrdatei von nginx und in die Liste für die Firewall. Hinter einem Proxy greift eine Sperre von fail2ban auf Port 80/443 nicht, weil die Pakete vom Proxy kommen; nginx kennt die echte Adresse. Jails durch Komma getrennt, leer schaltet es ab. Ausnahmen und „Höchstens gesperrt“ gelten wie für die eigenen Sperren.';
 $wb['waf_f2b_edge_jails_error'] = 'Jails für nginx und die Kante: Erlaubt sind bis zu 16 Namen aus Buchstaben, Ziffern, Punkt, Bindestrich und Unterstrich, durch Komma getrennt, oder ein leeres Feld. Bitte den Wert anpassen und erneut speichern.';
+$wb['waf_f2b_edge_minutes_txt'] = 'Mindestabstand für fail2ban in nginx';
+$wb['waf_f2b_edge_minutes_hint_txt'] = 'Ändern sich nur die Sperren aus fail2ban, lädt nginx frühestens so viele Minuten nach dem letzten Neuladen neu. Eigene Sperren von malwatch wirken sofort, die Liste für die Firewall folgt jede Minute. 0 lädt bei jeder Änderung neu.';
+$wb['waf_f2b_edge_minutes_error_range'] = 'Mindestabstand für fail2ban in nginx (Minuten): Erlaubt sind ganze Zahlen von 0 bis 60. Bitte den Wert anpassen und erneut speichern.';

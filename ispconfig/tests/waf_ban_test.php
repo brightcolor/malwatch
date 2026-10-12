@@ -198,6 +198,30 @@ expect_same('the limit holds',
 expect_same('an empty list gives a file without a single deny',
 	substr_count(waf_ban_file(array(), '2026-09-18 10:00:00', 5000), 'deny '), 0);
 
+// The bans of fail2ban carry a mark (0.46.0), so a change of them alone can
+// wait for the smallest distance between two reloads.
+$marked = waf_ban_file(array('192.0.2.10', '198.51.100.7'), '2026-10-12 03:00:00', 5000, array('198.51.100.7'));
+expect_same('a ban of fail2ban carries its mark', strpos($marked, 'deny 198.51.100.7; # fail2ban') !== false, true);
+expect_same('an own block carries none', strpos($marked, "deny 192.0.2.10;\n") !== false, true);
+expect_same('the own lines of a file', waf_ban_file_own($marked), array('deny 192.0.2.10;'));
+$own_only = waf_ban_file(array('192.0.2.10'), '2026-10-12 03:00:00', 5000);
+$more_f2b = waf_ban_file(array('192.0.2.10', '198.51.100.7', '198.51.100.8'), '2026-10-12 03:01:00', 5000,
+	array('198.51.100.7', '198.51.100.8'));
+$new_own = waf_ban_file(array('192.0.2.10', '192.0.2.11', '198.51.100.7'), '2026-10-12 03:01:00', 5000, array('198.51.100.7'));
+$t = 1760230800;
+expect_same('only fail2ban changed, the last reload is recent: wait',
+	waf_ban_reload_due($marked, $more_f2b, $t - 120, $t, 5), false);
+expect_same('only fail2ban changed, the distance is over: reload',
+	waf_ban_reload_due($marked, $more_f2b, $t - 300, $t, 5), true);
+expect_same('an own block goes at once', waf_ban_reload_due($marked, $new_own, $t - 10, $t, 5), true);
+expect_same('an own block lifted goes at once', waf_ban_reload_due($marked, waf_ban_file(array('198.51.100.7'),
+	'2026-10-12 03:01:00', 5000, array('198.51.100.7')), $t - 10, $t, 5), true);
+expect_same('0 minutes is at once', waf_ban_reload_due($marked, $more_f2b, $t - 10, $t, 0), true);
+expect_same('another distance', array(waf_ban_reload_due($own_only, $marked, $t - 600, $t, 15),
+	waf_ban_reload_due($own_only, $marked, $t - 900, $t, 15)), array(false, true));
+expect_same('a missing file always goes', waf_ban_reload_due('', $marked, $t, $t, 5), true);
+expect_same('a reload never seen goes', waf_ban_reload_due($own_only, $marked, 0, $t, 5), true);
+
 // --- The log of the turned away requests --------------------------------------
 
 expect_same('a line of a turned away request',

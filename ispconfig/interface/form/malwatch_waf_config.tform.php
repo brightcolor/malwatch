@@ -546,6 +546,17 @@ $form['tabs']['waf'] = array(
 			'width' => '40',
 			'maxlength' => '1100'
 		),
+		'waf_f2b_edge_minutes' => array(
+			'datatype' => 'INTEGER',
+			'formtype' => 'TEXT',
+			'default' => '5',
+			'validators' => array(
+				array('type' => 'RANGE', 'range' => '0:60', 'errmsg' => 'waf_f2b_edge_minutes_error_range')
+			),
+			'value' => '',
+			'width' => '10',
+			'maxlength' => '2'
+		),
 		'waf_origin_tor_hours' => array(
 			'datatype' => 'INTEGER',
 			'formtype' => 'TEXT',

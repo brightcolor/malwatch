@@ -1535,3 +1535,11 @@ SET @mw := IF((SELECT COUNT(*) = 0 FROM information_schema.COLUMNS
   'ALTER TABLE `malwatch_config` ADD COLUMN `waf_f2b_edge_jails` varchar(1100) NOT NULL DEFAULT ''ispconfig-wordpress''',
   'DO 0');
 PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- waf_f2b_edge_minutes: the smallest distance in minutes between two reloads
+-- of nginx when only the bans of fail2ban changed; 0 is at once (0.46.0).
+SET @mw := IF((SELECT COUNT(*) = 0 FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_config' AND COLUMN_NAME = 'waf_f2b_edge_minutes'),
+  'ALTER TABLE `malwatch_config` ADD COLUMN `waf_f2b_edge_minutes` int(11) NOT NULL DEFAULT 5',
+  'DO 0');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;

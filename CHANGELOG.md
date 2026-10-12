@@ -15,6 +15,13 @@ Sperren dieser Jails jede Minute in die Sperrdatei von nginx und in die Liste f�
 Eigene Netze, die Ausnahmen der Abwehr und „Höchstens gesperrt“ gelten wie für die eigenen Sperren.
 Getestet in `waf_lib_test.php` (`waf_f2b_edge_jails()`, `waf_f2b_edge_ips()`).
 
+**Mindestabstand für fail2ban in nginx.** Die Zeilen aus fail2ban tragen in `blocked.conf` den
+Vermerk `# fail2ban`. Ändern sich nur diese Zeilen, lädt nginx frühestens nach
+`waf_f2b_edge_minutes` Minuten (Vorgabe 5, 0 bis 60, 0 lädt sofort) seit dem letzten Neuladen neu.
+Eigene Sperren von malwatch wirken weiter sofort, die Liste für die Firewall folgt jede Minute.
+Getestet in `waf_ban_test.php` (`waf_ban_file_own()`, `waf_ban_reload_due()`) und
+`waf_lib_test.php` (Vorgabe, Grenzen, Wert 0).
+
 ## [0.45.1] – 2026-10-11
 
 ### Behoben

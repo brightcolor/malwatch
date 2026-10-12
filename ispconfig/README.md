@@ -350,7 +350,11 @@ Port 80/443 nicht, weil die Pakete vom Proxy kommen. Die aktiven Sperren der Jai
 unter **Abwehr-Einstellungen › fail2ban › Jails für nginx und die Kante**
 (`waf_f2b_edge_jails`, Vorgabe `ispconfig-wordpress`, leer schaltet ab) kommen deshalb
 jede Minute mit in `blocked.conf` und in die Liste für die Firewall. Für sie gelten
-dieselben Ausnahmen und dieselbe Obergrenze wie für die eigenen Sperren.
+dieselben Ausnahmen und dieselbe Obergrenze wie für die eigenen Sperren. In
+`blocked.conf` tragen ihre Zeilen den Vermerk `# fail2ban`. Ändern sich nur diese,
+lädt nginx frühestens nach dem **Mindestabstand für fail2ban in nginx**
+(`waf_f2b_edge_minutes`, Vorgabe 5 Minuten, 0 lädt sofort) neu; eigene Sperren wirken
+sofort, die Liste für die Firewall folgt jede Minute.
 
 ## Quarantäne
 
