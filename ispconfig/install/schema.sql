@@ -1522,3 +1522,16 @@ SET @mw := IF((SELECT COUNT(*) = 0 FROM information_schema.COLUMNS
   'ALTER TABLE `malwatch_config` ADD COLUMN `quarantine_page_size` int(11) unsigned NOT NULL DEFAULT ''50''',
   'DO 0');
 PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- --------------------------------------------------------
+-- fail2ban-Sperren an der Kante (0.46.0)
+--
+-- waf_f2b_edge_jails: the jails whose active bans go into the deny file of
+-- nginx and the list of the OPNsense. Behind a proxy a ban of fail2ban on
+-- port 80/443 never matches. Empty switches it off.
+-- --------------------------------------------------------
+SET @mw := IF((SELECT COUNT(*) = 0 FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'malwatch_config' AND COLUMN_NAME = 'waf_f2b_edge_jails'),
+  'ALTER TABLE `malwatch_config` ADD COLUMN `waf_f2b_edge_jails` varchar(1100) NOT NULL DEFAULT ''ispconfig-wordpress''',
+  'DO 0');
+PREPARE stmt FROM @mw; EXECUTE stmt; DEALLOCATE PREPARE stmt;

@@ -1091,6 +1091,31 @@ $clear = waf_watch_clear_text('web.test', $now - 3600);
 expect_same('the all-clear mail', array($clear['subject'], strpos($clear['body'], 'seit 22.09.2026 12:53') !== false),
 	array('malwatch auf web.test: Scanner wieder in Ordnung', true));
 
+// --- fail2ban bans at the edge (0.46.0) --------------------------------------
+// Behind a proxy the bans of fail2ban on port 80/443 never match: the packets
+// come from the proxy. The bans of the named jails go into the deny file of
+// nginx (real_ip knows the client) and the list of the OPNsense instead.
+expect_same('edge jails from the setting', waf_f2b_edge_jails(' ispconfig-wordpress, recidive ,,'), array('ispconfig-wordpress', 'recidive'));
+expect_same('no edge jails', waf_f2b_edge_jails(''), array());
+expect_same('a jail name that cannot be one is dropped', waf_f2b_edge_jails('wp;rm -rf,ok'), array('ok'));
+expect_same('edge jails setting valid', array(waf_f2b_edge_jails_ok(''), waf_f2b_edge_jails_ok('a,b-c.d_e'),
+	waf_f2b_edge_jails_ok('a b'), waf_f2b_edge_jails_ok(str_repeat('j,', 16) . 'j')), array(true, true, false, false));
+$f2b_now = '2026-10-12 03:00:00';
+$f2b_rows = array(
+	array('jail' => 'ispconfig-wordpress', 'ip' => '198.51.100.7', 'until' => '2026-10-12 04:00:00'),
+	array('jail' => 'ispconfig-wordpress', 'ip' => '198.51.100.8', 'until' => '2026-10-12 02:59:59'),
+	array('jail' => 'ispconfig-wordpress', 'ip' => '10.50.0.38', 'until' => '2026-10-12 04:00:00'),
+	array('jail' => 'recidive', 'ip' => '203.0.113.9', 'until' => null),
+	array('jail' => 'dovecot', 'ip' => '203.0.113.10', 'until' => '2026-10-12 04:00:00'),
+	array('jail' => 'ispconfig-wordpress', 'ip' => 'not-an-ip', 'until' => null),
+	array('jail' => 'recidive', 'ip' => '198.51.100.7', 'until' => null),
+);
+$f2b_allowed = function ($ip) { return strpos($ip, '10.') === 0; };
+expect_same('active bans of the edge jails, without the allowed', waf_f2b_edge_ips($f2b_rows,
+	array('ispconfig-wordpress', 'recidive'), $f2b_allowed, $f2b_now), array('198.51.100.7', '203.0.113.9'));
+expect_same('another jail list', waf_f2b_edge_ips($f2b_rows, array('dovecot'), $f2b_allowed, $f2b_now), array('203.0.113.10'));
+expect_same('no jails, no addresses', waf_f2b_edge_ips($f2b_rows, array(), $f2b_allowed, $f2b_now), array());
+
 // --- summary -----------------------------------------------------------------
 if ($failures > 0) {
 	fwrite(STDERR, $failures . " Fehler\n");

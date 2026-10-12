@@ -17,6 +17,55 @@ function waf_f2b_jail_ok($jail)
 	return (bool) preg_match('/^[A-Za-z0-9_.-]{1,64}$/', (string) $jail);
 }
 
+/**
+ * The jails whose bans go to the edge (waf_f2b_edge_jails, 0.46.0): a comma
+ * separated list, names that cannot be a jail left out.
+ */
+function waf_f2b_edge_jails($csv)
+{
+	$jails = array();
+	foreach (explode(',', (string) $csv) as $jail) {
+		$jail = trim($jail);
+		if ($jail !== '' && waf_f2b_jail_ok($jail) && !in_array($jail, $jails, true)) {
+			$jails[] = $jail;
+		}
+	}
+	return $jails;
+}
+
+/** Whether a value of waf_f2b_edge_jails holds: empty, or 1 to 16 jail names. */
+function waf_f2b_edge_jails_ok($csv)
+{
+	return (bool) preg_match('/^(?:[A-Za-z0-9_.-]{1,64}(?:\s*,\s*[A-Za-z0-9_.-]{1,64}){0,15})?$/', trim((string) $csv));
+}
+
+/**
+ * The addresses of the active fail2ban bans in $jails, for the deny file of
+ * nginx and the list of the OPNsense. Behind a proxy a ban of fail2ban on
+ * port 80/443 never matches: the packets come from the proxy, only nginx
+ * knows the client (real_ip). $rows come from malwatch_f2b_ban (jail, ip,
+ * until; until null is a ban without end), $allowed($ip) is true for an
+ * address that is never blocked. Each address once, in the order of $rows.
+ */
+function waf_f2b_edge_ips($rows, $jails, $allowed, $now)
+{
+	$ips = array();
+	foreach ($rows as $row) {
+		$ip = trim((string) $row['ip']);
+		if (!in_array((string) $row['jail'], $jails, true) || isset($ips[$ip])) {
+			continue;
+		}
+		if ($row['until'] !== null && (string) $row['until'] <= (string) $now) {
+			continue;
+		}
+		if (filter_var($ip, FILTER_VALIDATE_IP) === false || $allowed($ip)) {
+			continue;
+		}
+		$ips[$ip] = true;
+	}
+	return array_keys($ips);
+}
+
 /** The jails of the answer of `fail2ban-client status`. */
 function waf_f2b_jails($status_output)
 {

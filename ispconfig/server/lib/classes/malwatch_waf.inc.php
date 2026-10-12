@@ -1637,6 +1637,27 @@ class malwatch_waf
 			. "AND source IN ('auto','manual') ORDER BY ip LIMIT ?", $conf['server_id'], $max)) as $row) {
 			$ips[] = (string) $row['ip'];
 		}
+		// The active bans of the chosen fail2ban jails (0.46.0). Behind the
+		// proxy their own nftables rule on port 80/443 never matches; nginx
+		// knows the client and the OPNsense blocks before the proxy.
+		$edge_jails = waf_f2b_edge_jails($settings['waf_f2b_edge_jails']);
+		if (count($edge_jails) > 0 && (string) $settings['waf_f2b'] === 'on' && count($ips) < $max) {
+			$own = $this->own_networks();
+			$operator = $this->ban_allow_list();
+			$allowed = function ($ip) use ($own, $operator) {
+				return waf_ban_allowed($ip, $operator, null, $own);
+			};
+			$f2b_rows = $this->rows($app->dbmaster->queryAllRecords(
+				'SELECT jail, ip, until FROM malwatch_f2b_ban WHERE server_id = ? ORDER BY banned_at DESC', $conf['server_id']));
+			foreach (waf_f2b_edge_ips($f2b_rows, $edge_jails, $allowed, $this->now()) as $ip) {
+				if (count($ips) >= $max) {
+					break;
+				}
+				if (!in_array($ip, $ips, true)) {
+					$ips[] = $ip;
+				}
+			}
+		}
 		$want = waf_ban_file($ips, $this->now(), $max);
 		$have = is_file($file) ? (string) @file_get_contents($file) : '';
 		// The published list follows the database, not nginx: an address the

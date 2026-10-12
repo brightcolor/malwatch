@@ -530,6 +530,22 @@ $form['tabs']['waf'] = array(
 			'width' => '20',
 			'maxlength' => '64'
 		),
+		// The jails whose bans go to nginx and the edge (0.46.0); empty is off.
+		'waf_f2b_edge_jails' => array(
+			'datatype' => 'VARCHAR',
+			'formtype' => 'TEXT',
+			'default' => 'ispconfig-wordpress',
+			'validators' => array(
+				array(
+					'type' => 'REGEX',
+					'regex' => '/^(?:[A-Za-z0-9_.-]{1,64}(?:\s*,\s*[A-Za-z0-9_.-]{1,64}){0,15})?$/',
+					'errmsg' => 'waf_f2b_edge_jails_error'
+				)
+			),
+			'value' => '',
+			'width' => '40',
+			'maxlength' => '1100'
+		),
 		'waf_origin_tor_hours' => array(
 			'datatype' => 'INTEGER',
 			'formtype' => 'TEXT',

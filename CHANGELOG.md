@@ -2,6 +2,19 @@
 
 Alle nennenswerten Änderungen an diesem Projekt.
 
+## [0.46.0] – 2026-10-12
+
+### Hinzugefügt
+
+**fail2ban-Sperren wirken hinter dem Proxy.** Steht der Server hinter einem Proxy, treffen die
+nftables-Regeln von fail2ban auf Port 80/443 nie: Die Pakete kommen vom Proxy, nur nginx kennt über
+`real_ip` die Adresse des Besuchers. Auf web.herkules fielen bei den 50 stärksten Angreifern 99 %
+der WordPress-Anmeldeversuche in eine aktive Sperre. Die neue Einstellung „Jails für nginx und die
+Kante“ (`waf_f2b_edge_jails`, Vorgabe `ispconfig-wordpress`, leer schaltet ab) nimmt die aktiven
+Sperren dieser Jails jede Minute in die Sperrdatei von nginx und in die Liste für die Firewall auf.
+Eigene Netze, die Ausnahmen der Abwehr und „Höchstens gesperrt“ gelten wie für die eigenen Sperren.
+Getestet in `waf_lib_test.php` (`waf_f2b_edge_jails()`, `waf_f2b_edge_ips()`).
+
 ## [0.45.1] – 2026-10-11
 
 ### Behoben
