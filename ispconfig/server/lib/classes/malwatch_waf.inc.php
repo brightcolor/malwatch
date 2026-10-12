@@ -1632,12 +1632,35 @@ class malwatch_waf
 		$file = rtrim((string) $settings['waf_conf_dir'], '/') . '/blocked.conf';
 		$max = (int) $settings['waf_ban_max'];
 		$ips = array();
+		$marked = array();
 		foreach ($this->rows($app->dbmaster->queryAllRecords(
 			"SELECT ip FROM malwatch_waf_ban WHERE server_id = ? AND state = 'active' "
 			. "AND source IN ('auto','manual') ORDER BY ip LIMIT ?", $conf['server_id'], $max)) as $row) {
 			$ips[] = (string) $row['ip'];
 		}
-		$want = waf_ban_file($ips, $this->now(), $max);
+		// The active bans of the chosen fail2ban jails (0.46.0). Behind the
+		// proxy their own nftables rule on port 80/443 never matches; nginx
+		// knows the client and the OPNsense blocks before the proxy.
+		$edge_jails = waf_f2b_edge_jails($settings['waf_f2b_edge_jails']);
+		if (count($edge_jails) > 0 && (string) $settings['waf_f2b'] === 'on' && count($ips) < $max) {
+			$own = $this->own_networks();
+			$operator = $this->ban_allow_list();
+			$allowed = function ($ip) use ($own, $operator) {
+				return waf_ban_allowed($ip, $operator, null, $own);
+			};
+			$f2b_rows = $this->rows($app->dbmaster->queryAllRecords(
+				'SELECT jail, ip, until FROM malwatch_f2b_ban WHERE server_id = ? ORDER BY banned_at DESC', $conf['server_id']));
+			foreach (waf_f2b_edge_ips($f2b_rows, $edge_jails, $allowed, $this->now()) as $ip) {
+				if (count($ips) >= $max) {
+					break;
+				}
+				if (!in_array($ip, $ips, true)) {
+					$ips[] = $ip;
+					$marked[] = $ip;
+				}
+			}
+		}
+		$want = waf_ban_file($ips, $this->now(), $max, $marked);
 		$have = is_file($file) ? (string) @file_get_contents($file) : '';
 		// The published list follows the database, not nginx: an address the
 		// firewall at the edge turns away before nginx ever sees it is the point
@@ -1645,6 +1668,13 @@ class malwatch_waf
 		$this->ban_list_write($ips);
 		// Only other addresses are a change; the time in the first line is none.
 		if (waf_ban_file_same($have, $want)) {
+			return array(false, '');
+		}
+		// A change of fail2ban alone waits for waf_f2b_edge_minutes since the
+		// last reload; the list of the OPNsense above already carries it.
+		$good = $this->ensure_dirs() . '/last-good/blocked.conf';
+		$last = is_file($good) ? (int) @filemtime($good) : 0;
+		if (!waf_ban_reload_due($have, $want, $last, time(), $settings['waf_f2b_edge_minutes'])) {
 			return array(false, '');
 		}
 		if (@file_put_contents($file, $want) === false) {
@@ -1669,7 +1699,7 @@ class malwatch_waf
 				. waf_cut(preg_replace('/\s+/', ' ', (string) $reload[1]), 200)
 				. ' Die Sperren stehen in der Datei und wirken nach dem nächsten Reload.');
 		}
-		@copy($file, $this->ensure_dirs() . '/last-good/blocked.conf');
+		@copy($file, $good);
 		return array(true, '');
 	}
 

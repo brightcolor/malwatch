@@ -861,6 +861,8 @@ function waf_settings_defaults()
 		'waf_f2b' => 'on',
 		'waf_everywhere_mode' => 'web_jail',
 		'waf_everywhere_jail' => 'recidive',
+		'waf_f2b_edge_jails' => 'ispconfig-wordpress',
+		'waf_f2b_edge_minutes' => 5,
 		'waf_ban_bots' => 'on',
 		'waf_ban_token' => '',
 		'waf_ban_origin' => 'off',
@@ -1012,6 +1014,7 @@ function waf_settings_limits()
 		'waf_ban_page_timeout' => array(5, 300),
 		'waf_ban_origin_score' => array(0, 10000),
 		'waf_ban_origin_factor' => array(100, 1000),
+		'waf_f2b_edge_minutes' => array(0, 60),
 		'waf_origin_tor_hours' => array(1, 168),
 		'waf_origin_list_hours' => array(1, 720),
 		'waf_origin_db_hours' => array(1, 720),
@@ -1549,6 +1552,9 @@ function waf_settings($row)
 	}
 	if (!waf_f2b_jail_ok($settings['waf_everywhere_jail'])) {
 		$settings['waf_everywhere_jail'] = $defaults['waf_everywhere_jail'];
+	}
+	if (!isset($settings['waf_f2b_edge_jails']) || !waf_f2b_edge_jails_ok($settings['waf_f2b_edge_jails'])) {
+		$settings['waf_f2b_edge_jails'] = $defaults['waf_f2b_edge_jails'];
 	}
 	return $settings;
 }

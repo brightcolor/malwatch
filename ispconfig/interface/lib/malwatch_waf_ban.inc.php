@@ -369,7 +369,7 @@ function waf_ban_allowed($ip, $cidrs, $reader, $own)
  * reaches the file, so nothing can smuggle a directive into the configuration
  * of nginx. At most $max lines, in the order they are handed over.
  */
-function waf_ban_file($ips, $now, $max)
+function waf_ban_file($ips, $now, $max, $marked = array())
 {
 	$lines = array('# von malwatch erzeugt am ' . (string) $now . '. Änderungen hier werden überschrieben.');
 	$max = (int) $max;
@@ -382,10 +382,49 @@ function waf_ban_file($ips, $now, $max)
 		if (waf_origin_bytes($ip) === '') {
 			continue;
 		}
-		$lines[] = 'deny ' . $ip . ';';
+		$lines[] = 'deny ' . $ip . ';' . (in_array($ip, $marked, true) ? ' ' . waf_ban_file_mark() : '');
 		$count++;
 	}
 	return implode("\n", $lines) . "\n";
+}
+
+/**
+ * The mark behind a line of the deny file that comes from fail2ban (0.46.0).
+ * nginx reads it as a comment.
+ */
+function waf_ban_file_mark()
+{
+	return '# fail2ban';
+}
+
+/** The deny lines of a file that carry no mark: the own blocks of malwatch. */
+function waf_ban_file_own($text)
+{
+	$own = array();
+	foreach (explode("\n", (string) $text) as $line) {
+		$line = trim($line);
+		if (strpos($line, 'deny ') === 0 && substr($line, -strlen(waf_ban_file_mark())) !== waf_ban_file_mark()) {
+			$own[] = $line;
+		}
+	}
+	return $own;
+}
+
+/**
+ * Whether a changed deny file goes to nginx now. A change of the own blocks
+ * always does. When only the lines of fail2ban changed, the last reload ($last,
+ * a Unix time, 0 when unknown) has to lie $minutes back (waf_f2b_edge_minutes);
+ * 0 is at once. A missing file always goes, nginx includes it.
+ */
+function waf_ban_reload_due($have, $want, $last, $now, $minutes)
+{
+	if ((int) $minutes <= 0 || (string) $have === '' || (int) $last <= 0) {
+		return true;
+	}
+	if (waf_ban_file_own($have) !== waf_ban_file_own($want)) {
+		return true;
+	}
+	return (int) $now - (int) $last >= (int) $minutes * 60;
 }
 
 /**
